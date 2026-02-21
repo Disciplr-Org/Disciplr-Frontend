@@ -1,0 +1,24 @@
+Building on the recent designs for the Disciplr Help Center and Knowledge Base systems, here is how to frame these contributions using a "Help and Documentation" UI focus:
+
+Project: Disciplr | Help & Documentation UI
+Role: UI/UX Designer
+
+Documentation Information Architecture: I worked on the structural layout of the Knowledge Base, organizing complex technical content into high-level categories like Vault Management and API Documentation to improve findability.
+
+Search UX Optimization: I worked on the search experience, designing a dedicated results page that provides instant clarity through result counts, keyword highlighting, and contextual article snippets.
+
+Self-Service Support Systems: I worked on "Help Center Home" interfaces that prioritize user autonomy, utilizing a "Browse by Category" grid and "Featured Articles" to resolve common queries without human intervention.
+
+Dynamic Help Components: I worked on proactive UI elements, such as "Pro Tip" callouts for security best practices and contextual sidebars for "Other Categories" to reduce user friction during the learning curve.
+
+Escalation Path Design: I worked on the integration between documentation and active support, designing high-visibility "Still need help?" sections that offer tiered contact options including Live Chat, Email, and Community Forums.
+
+Broader UI/UX & Documentation Experience
+Technical Interface Design: I worked on complex dashboard UIs for platforms like Veritasor, focusing on how users interact with data visualization and system health metrics.
+
+Product Documentation: I worked on authoring README files and design specifications for various fintech and Web3 projects, ensuring that technical functionality is as well-documented as it is designed.
+
+Error Recovery UX: I worked on specialized 404 and 500 error pages, transforming technical failures into helpful touchpoints with clear redirection and reference IDs for troubleshooting.
+
+https://www.figma.com/design/GkjxDprLby77a5h13GH56F/disciplr-UI?node-id=8-1243&t=cD4A5k93cUikEqT7-0
+
