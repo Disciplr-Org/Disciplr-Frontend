@@ -1,0 +1,19 @@
+Project: disciplr | Design System & Error States
+Role: UI/UX Designer
+
+System Resiliency Design: Developed a comprehensive set of "Empty State" and "Error State" interfaces (404 and 500) to maintain a cohesive user experience during technical failures.
+
+UX Writing Integration: Crafted human-centric interface messaging that balances technical transparency with approachable tone, ensuring users feel supported even when a page is missing or a server is down.
+
+Visual Consistency: Designed a clean, modern aesthetic utilizing a minimalist layout, custom iconography (robot/magnifying glass motifs), and a high-contrast blue-on-white palette to align with the core disciplr brand identity.
+
+Support-Driven UX: Integrated functional elements like Reference IDs and direct support links to streamline the troubleshooting process for both users and the technical support team.
+
+Updated Core Experience
+End-to-End Product Design: I worked on high-fidelity UI/UX for a range of platforms, from business intelligence dashboards (Veritasor) to decentralized finance applications (Stella, Swift Remit).
+
+User Engagement Optimization: I designed specialized notification systems and onboarding flows to improve user retention and simplify complex blockchain/fintech interactions.
+
+Technical Documentation: Beyond visual design, I authored comprehensive project documentation and README files to bridge the gap between design specifications and developer implementation.
+
+figma link: https://www.figma.com/design/GkjxDprLby77a5h13GH56F/disciplr-UI?node-id=2-205&t=cD4A5k93cUikEqT7-0
