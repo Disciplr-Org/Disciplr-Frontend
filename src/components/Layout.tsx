@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { WalletConnectButton } from './Wallet/WalletConnectButton'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -19,34 +20,39 @@ export default function Layout({ children }: LayoutProps) {
           background: 'var(--surface)',
         }}
       >
-        <Link to="/" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)' }}>
-          Disciplr
-        </Link>
-        <nav style={{ display: 'flex', gap: '1.5rem' }}>
-          <Link
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+          <Link to="/" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>
+            Disciplr
+          </Link>
+        </div>
+
+        <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    <Link
             to="/"
             style={{
               color: location.pathname === '/' ? 'var(--accent)' : 'var(--muted)',
+              textDecoration: 'none',
             }}
           >
             Home
           </Link>
-          <Link
-            to="/vaults"
-            style={{
-              color: location.pathname.startsWith('/vaults') ? 'var(--accent)' : 'var(--muted)',
-            }}
-          >
-            Vaults
-          </Link>
-          <Link
-            to="/vaults/create"
-            style={{
-              color: location.pathname === '/vaults/create' ? 'var(--accent)' : 'var(--muted)',
-            }}
-          >
-            Create Vault
-          </Link>
+
+            <Link
+              to="/vaults/create"
+              style={{
+                color: 'var(--surface)',
+                background: 'var(--accent)',
+                padding: '0.5rem 1rem',
+                borderRadius: '9999px',
+                textDecoration: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem'
+              }}
+            >
+              Create Vault
+            </Link>
+            <WalletConnectButton />
+          </div>
         </nav>
       </header>
       <main style={{ flex: 1, padding: '2rem', maxWidth: 960, margin: '0 auto', width: '100%' }}>
