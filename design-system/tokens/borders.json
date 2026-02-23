@@ -1,0 +1,125 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "border": {
+    "radius": {
+      "none": {
+        "$type": "dimension",
+        "$value": "0px",
+        "$description": "No border radius - sharp corners"
+      },
+      "sm": {
+        "$type": "dimension",
+        "$value": "4px",
+        "$description": "Small border radius for inputs and tags"
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": "8px",
+        "$description": "Medium border radius for buttons and cards"
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": "12px",
+        "$description": "Large border radius for large cards and modals"
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": "16px",
+        "$description": "Extra large border radius for hero cards"
+      },
+      "full": {
+        "$type": "dimension",
+        "$value": "9999px",
+        "$description": "Full border radius for pills and avatars"
+      }
+    },
+    "width": {
+      "0": {
+        "$type": "dimension",
+        "$value": "0px",
+        "$description": "No border"
+      },
+      "1": {
+        "$type": "dimension",
+        "$value": "1px",
+        "$description": "Default border width"
+      },
+      "2": {
+        "$type": "dimension",
+        "$value": "2px",
+        "$description": "Emphasis border width"
+      },
+      "4": {
+        "$type": "dimension",
+        "$value": "4px",
+        "$description": "Strong emphasis border width"
+      }
+    },
+    "color": {
+      "light": {
+        "default": {
+          "$type": "color",
+          "$value": "#E5E7EB",
+          "$description": "Default border color in light mode"
+        },
+        "emphasis": {
+          "$type": "color",
+          "$value": "#D1D5DB",
+          "$description": "Emphasized border color in light mode"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "#F3F4F6",
+          "$description": "Subtle border color in light mode"
+        },
+        "interactive": {
+          "$type": "color",
+          "$value": "#1E40AF",
+          "$description": "Interactive element border color in light mode"
+        },
+        "error": {
+          "$type": "color",
+          "$value": "#DC2626",
+          "$description": "Error state border color in light mode"
+        },
+        "success": {
+          "$type": "color",
+          "$value": "#059669",
+          "$description": "Success state border color in light mode"
+        }
+      },
+      "dark": {
+        "default": {
+          "$type": "color",
+          "$value": "#4B5563",
+          "$description": "Default border color in dark mode"
+        },
+        "emphasis": {
+          "$type": "color",
+          "$value": "#374151",
+          "$description": "Emphasized border color in dark mode"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "#1F2937",
+          "$description": "Subtle border color in dark mode"
+        },
+        "interactive": {
+          "$type": "color",
+          "$value": "#3B82F6",
+          "$description": "Interactive element border color in dark mode"
+        },
+        "error": {
+          "$type": "color",
+          "$value": "#EF4444",
+          "$description": "Error state border color in dark mode"
+        },
+        "success": {
+          "$type": "color",
+          "$value": "#10B981",
+          "$description": "Success state border color in dark mode"
+        }
+      }
+    }
+  }
+}
