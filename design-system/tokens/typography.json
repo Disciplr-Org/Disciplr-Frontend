@@ -1,0 +1,190 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "typography": {
+    "fontFamily": {
+      "primary": {
+        "$type": "fontFamily",
+        "$value": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        "$description": "Primary font family for UI text, headings, and body copy"
+      },
+      "monospace": {
+        "$type": "fontFamily",
+        "$value": "'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace",
+        "$description": "Monospace font family for financial data, numbers, and code"
+      }
+    },
+    "fontWeight": {
+      "light": {
+        "$type": "fontWeight",
+        "$value": 300,
+        "$description": "Light font weight"
+      },
+      "regular": {
+        "$type": "fontWeight",
+        "$value": 400,
+        "$description": "Regular font weight"
+      },
+      "medium": {
+        "$type": "fontWeight",
+        "$value": 500,
+        "$description": "Medium font weight"
+      },
+      "semibold": {
+        "$type": "fontWeight",
+        "$value": 600,
+        "$description": "Semibold font weight"
+      },
+      "bold": {
+        "$type": "fontWeight",
+        "$value": 700,
+        "$description": "Bold font weight"
+      }
+    },
+    "display": {
+      "2xl": {
+        "$type": "typography",
+        "fontSize": { "$value": "72px" },
+        "lineHeight": { "$value": "90px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.02em" },
+        "$description": "Extra large display text for hero sections and major headings"
+      },
+      "xl": {
+        "$type": "typography",
+        "fontSize": { "$value": "60px" },
+        "lineHeight": { "$value": "72px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.02em" },
+        "$description": "Large display text for prominent headings"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "48px" },
+        "lineHeight": { "$value": "60px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Display text for section headings"
+      }
+    },
+    "heading": {
+      "h1": {
+        "$type": "typography",
+        "fontSize": { "$value": "36px" },
+        "lineHeight": { "$value": "44px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "H1 heading for page titles"
+      },
+      "h2": {
+        "$type": "typography",
+        "fontSize": { "$value": "30px" },
+        "lineHeight": { "$value": "38px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "H2 heading for major sections"
+      },
+      "h3": {
+        "$type": "typography",
+        "fontSize": { "$value": "24px" },
+        "lineHeight": { "$value": "32px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "H3 heading for subsections"
+      },
+      "h4": {
+        "$type": "typography",
+        "fontSize": { "$value": "20px" },
+        "lineHeight": { "$value": "28px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "H4 heading for card titles"
+      },
+      "h5": {
+        "$type": "typography",
+        "fontSize": { "$value": "18px" },
+        "lineHeight": { "$value": "26px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "H5 heading for small sections"
+      },
+      "h6": {
+        "$type": "typography",
+        "fontSize": { "$value": "16px" },
+        "lineHeight": { "$value": "24px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "H6 heading for minor sections"
+      }
+    },
+    "body": {
+      "xl": {
+        "$type": "typography",
+        "fontSize": { "$value": "20px" },
+        "lineHeight": { "$value": "30px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Extra large body text for emphasis"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "18px" },
+        "lineHeight": { "$value": "28px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Large body text"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "16px" },
+        "lineHeight": { "$value": "24px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Default body text size (base)"
+      },
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "14px" },
+        "lineHeight": { "$value": "20px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Small body text for secondary content"
+      },
+      "xs": {
+        "$type": "typography",
+        "fontSize": { "$value": "12px" },
+        "lineHeight": { "$value": "18px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Extra small body text for captions"
+      }
+    },
+    "specialized": {
+      "caption": {
+        "$type": "typography",
+        "fontSize": { "$value": "12px" },
+        "lineHeight": { "$value": "16px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Caption text for image descriptions and footnotes"
+      },
+      "overline": {
+        "$type": "typography",
+        "fontSize": { "$value": "12px" },
+        "lineHeight": { "$value": "16px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0.08em" },
+        "textTransform": { "$value": "uppercase" },
+        "$description": "Overline text for labels and categories"
+      },
+      "financial-data": {
+        "$type": "typography",
+        "fontFamily": { "$value": "'JetBrains Mono', 'SF Mono', Monaco, monospace" },
+        "fontSize": { "$value": "16px" },
+        "lineHeight": { "$value": "24px" },
+        "fontWeight": { "$value": 500 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Monospace typography for financial data and numerical tables"
+      }
+    }
+  }
+}

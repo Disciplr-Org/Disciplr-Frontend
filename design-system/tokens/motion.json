@@ -1,0 +1,69 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "motion": {
+    "duration": {
+      "micro": {
+        "$type": "duration",
+        "$value": "100ms",
+        "$description": "Micro-interaction duration (button states, toggles)"
+      },
+      "fast": {
+        "$type": "duration",
+        "$value": "150ms",
+        "$description": "Fast transition duration"
+      },
+      "normal": {
+        "$type": "duration",
+        "$value": "200ms",
+        "$description": "Normal transition duration"
+      },
+      "moderate": {
+        "$type": "duration",
+        "$value": "300ms",
+        "$description": "Moderate animation duration (modals, dropdowns)"
+      },
+      "slow": {
+        "$type": "duration",
+        "$value": "400ms",
+        "$description": "Slow animation duration"
+      },
+      "slower": {
+        "$type": "duration",
+        "$value": "500ms",
+        "$description": "Slower animation duration (page transitions)"
+      }
+    },
+    "easing": {
+      "ease-in-out": {
+        "$type": "cubicBezier",
+        "$value": [0.4, 0, 0.2, 1],
+        "$description": "Default easing for most transitions"
+      },
+      "ease-out": {
+        "$type": "cubicBezier",
+        "$value": [0, 0, 0.2, 1],
+        "$description": "Easing for entering elements"
+      },
+      "ease-in": {
+        "$type": "cubicBezier",
+        "$value": [0.4, 0, 1, 1],
+        "$description": "Easing for exiting elements"
+      },
+      "bounce": {
+        "$type": "cubicBezier",
+        "$value": [0.68, -0.55, 0.265, 1.55],
+        "$description": "Bounce easing for playful interactions"
+      },
+      "smooth": {
+        "$type": "cubicBezier",
+        "$value": [0.25, 0.1, 0.25, 1],
+        "$description": "Smooth easing for elegant transitions"
+      }
+    },
+    "reducedMotion": {
+      "$type": "boolean",
+      "$value": true,
+      "$description": "Respect user's reduced motion preference"
+    }
+  }
+}

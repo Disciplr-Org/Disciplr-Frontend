@@ -1,0 +1,428 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "color": {
+    "primary": {
+      "light": {
+        "$type": "color",
+        "$value": "#1E40AF",
+        "$description": "Primary brand color for actions and emphasis in light mode",
+        "hex": "#1E40AF",
+        "rgb": "rgb(30, 64, 175)",
+        "hsl": "hsl(226, 71%, 40%)",
+        "contrast": {
+          "onWhite": 4.52,
+          "onNeutral50": 4.52
+        },
+        "accessibility": {
+          "contrastRatios": {
+            "onWhite": 4.52,
+            "onNeutral50": 4.52,
+            "onNeutral900": 7.21
+          },
+          "wcagLevel": "AA",
+          "colorblindSafe": true,
+          "colorblindSimulation": {
+            "protanopia": "#1E3FAF",
+            "deuteranopia": "#1E40AF",
+            "tritanopia": "#1E40B0"
+          }
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#3B82F6",
+        "$description": "Primary brand color for actions and emphasis in dark mode",
+        "hex": "#3B82F6",
+        "rgb": "rgb(59, 130, 246)",
+        "hsl": "hsl(217, 91%, 60%)",
+        "contrast": {
+          "onNeutral900": 7.21
+        },
+        "accessibility": {
+          "contrastRatios": {
+            "onNeutral900": 7.21,
+            "onNeutral800": 6.12
+          },
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    },
+    "secondary": {
+      "light": {
+        "$type": "color",
+        "$value": "#0D9488",
+        "$description": "Secondary brand color for accents and highlights in light mode",
+        "hex": "#0D9488",
+        "rgb": "rgb(13, 148, 136)",
+        "hsl": "hsl(174, 84%, 32%)",
+        "contrast": {
+          "onWhite": 4.54
+        },
+        "accessibility": {
+          "contrastRatios": {
+            "onWhite": 4.54,
+            "onNeutral50": 4.54
+          },
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#14B8A6",
+        "$description": "Secondary brand color for accents and highlights in dark mode",
+        "hex": "#14B8A6",
+        "rgb": "rgb(20, 184, 166)",
+        "hsl": "hsl(173, 80%, 40%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    },
+    "success": {
+      "light": {
+        "$type": "color",
+        "$value": "#059669",
+        "$description": "Success state color for positive actions and confirmations in light mode",
+        "hex": "#059669",
+        "rgb": "rgb(5, 150, 105)",
+        "hsl": "hsl(160, 94%, 30%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#10B981",
+        "$description": "Success state color for positive actions and confirmations in dark mode",
+        "hex": "#10B981",
+        "rgb": "rgb(16, 185, 129)",
+        "hsl": "hsl(160, 84%, 39%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    },
+    "error": {
+      "light": {
+        "$type": "color",
+        "$value": "#DC2626",
+        "$description": "Error state color for errors and destructive actions in light mode",
+        "hex": "#DC2626",
+        "rgb": "rgb(220, 38, 38)",
+        "hsl": "hsl(0, 72%, 51%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#EF4444",
+        "$description": "Error state color for errors and destructive actions in dark mode",
+        "hex": "#EF4444",
+        "rgb": "rgb(239, 68, 68)",
+        "hsl": "hsl(0, 84%, 60%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    },
+    "warning": {
+      "light": {
+        "$type": "color",
+        "$value": "#D97706",
+        "$description": "Warning state color for alerts and important notices in light mode",
+        "hex": "#D97706",
+        "rgb": "rgb(217, 119, 6)",
+        "hsl": "hsl(32, 95%, 44%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#F59E0B",
+        "$description": "Warning state color for alerts and important notices in dark mode",
+        "hex": "#F59E0B",
+        "rgb": "rgb(245, 158, 11)",
+        "hsl": "hsl(38, 92%, 50%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    },
+    "info": {
+      "light": {
+        "$type": "color",
+        "$value": "#2563EB",
+        "$description": "Info state color for informational messages in light mode",
+        "hex": "#2563EB",
+        "rgb": "rgb(37, 99, 235)",
+        "hsl": "hsl(221, 83%, 53%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      },
+      "dark": {
+        "$type": "color",
+        "$value": "#60A5FA",
+        "$description": "Info state color for informational messages in dark mode",
+        "hex": "#60A5FA",
+        "rgb": "rgb(96, 165, 250)",
+        "hsl": "hsl(213, 94%, 68%)",
+        "accessibility": {
+          "wcagLevel": "AA",
+          "colorblindSafe": true
+        }
+      }
+    }
+,
+    "neutral": {
+      "50": {
+        "light": {
+          "$type": "color",
+          "$value": "#F9FAFB",
+          "$description": "Lightest neutral for backgrounds and subtle fills",
+          "hex": "#F9FAFB",
+          "rgb": "rgb(249, 250, 251)",
+          "hsl": "hsl(210, 20%, 98%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#F9FAFB",
+          "$description": "Maximum contrast text in dark mode",
+          "hex": "#F9FAFB",
+          "rgb": "rgb(249, 250, 251)",
+          "hsl": "hsl(210, 20%, 98%)"
+        }
+      },
+      "100": {
+        "light": {
+          "$type": "color",
+          "$value": "#F3F4F6",
+          "$description": "Light neutral for hover states and borders",
+          "hex": "#F3F4F6",
+          "rgb": "rgb(243, 244, 246)",
+          "hsl": "hsl(220, 14%, 96%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#F3F4F6",
+          "$description": "High contrast text in dark mode",
+          "hex": "#F3F4F6",
+          "rgb": "rgb(243, 244, 246)",
+          "hsl": "hsl(220, 14%, 96%)"
+        }
+      },
+      "200": {
+        "light": {
+          "$type": "color",
+          "$value": "#E5E7EB",
+          "$description": "Neutral for borders and dividers",
+          "hex": "#E5E7EB",
+          "rgb": "rgb(229, 231, 235)",
+          "hsl": "hsl(220, 13%, 91%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#E5E7EB",
+          "$description": "Headings in dark mode",
+          "hex": "#E5E7EB",
+          "rgb": "rgb(229, 231, 235)",
+          "hsl": "hsl(220, 13%, 91%)"
+        }
+      },
+      "300": {
+        "light": {
+          "$type": "color",
+          "$value": "#D1D5DB",
+          "$description": "Neutral for disabled states",
+          "hex": "#D1D5DB",
+          "rgb": "rgb(209, 213, 219)",
+          "hsl": "hsl(214, 12%, 84%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#D1D5DB",
+          "$description": "Body text in dark mode",
+          "hex": "#D1D5DB",
+          "rgb": "rgb(209, 213, 219)",
+          "hsl": "hsl(214, 12%, 84%)"
+        }
+      },
+      "400": {
+        "light": {
+          "$type": "color",
+          "$value": "#9CA3AF",
+          "$description": "Neutral for placeholders",
+          "hex": "#9CA3AF",
+          "rgb": "rgb(156, 163, 175)",
+          "hsl": "hsl(218, 11%, 65%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#9CA3AF",
+          "$description": "Secondary text in dark mode",
+          "hex": "#9CA3AF",
+          "rgb": "rgb(156, 163, 175)",
+          "hsl": "hsl(218, 11%, 65%)"
+        }
+      },
+      "500": {
+        "light": {
+          "$type": "color",
+          "$value": "#6B7280",
+          "$description": "Neutral for secondary text",
+          "hex": "#6B7280",
+          "rgb": "rgb(107, 114, 128)",
+          "hsl": "hsl(220, 9%, 46%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#6B7280",
+          "$description": "Disabled text in dark mode",
+          "hex": "#6B7280",
+          "rgb": "rgb(107, 114, 128)",
+          "hsl": "hsl(220, 9%, 46%)"
+        }
+      },
+      "600": {
+        "light": {
+          "$type": "color",
+          "$value": "#4B5563",
+          "$description": "Neutral for body text",
+          "hex": "#4B5563",
+          "rgb": "rgb(75, 85, 99)",
+          "hsl": "hsl(215, 14%, 34%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#4B5563",
+          "$description": "Borders in dark mode",
+          "hex": "#4B5563",
+          "rgb": "rgb(75, 85, 99)",
+          "hsl": "hsl(215, 14%, 34%)"
+        }
+      },
+      "700": {
+        "light": {
+          "$type": "color",
+          "$value": "#374151",
+          "$description": "Neutral for headings",
+          "hex": "#374151",
+          "rgb": "rgb(55, 65, 81)",
+          "hsl": "hsl(217, 19%, 27%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#374151",
+          "$description": "Elevated surface in dark mode",
+          "hex": "#374151",
+          "rgb": "rgb(55, 65, 81)",
+          "hsl": "hsl(217, 19%, 27%)"
+        }
+      },
+      "800": {
+        "light": {
+          "$type": "color",
+          "$value": "#1F2937",
+          "$description": "Neutral for emphasis text",
+          "hex": "#1F2937",
+          "rgb": "rgb(31, 41, 55)",
+          "hsl": "hsl(215, 28%, 17%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#1F2937",
+          "$description": "Surface in dark mode",
+          "hex": "#1F2937",
+          "rgb": "rgb(31, 41, 55)",
+          "hsl": "hsl(215, 28%, 17%)"
+        }
+      },
+      "900": {
+        "light": {
+          "$type": "color",
+          "$value": "#111827",
+          "$description": "Darkest neutral for high contrast text",
+          "hex": "#111827",
+          "rgb": "rgb(17, 24, 39)",
+          "hsl": "hsl(222, 39%, 11%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#111827",
+          "$description": "Background in dark mode",
+          "hex": "#111827",
+          "rgb": "rgb(17, 24, 39)",
+          "hsl": "hsl(222, 39%, 11%)"
+        }
+      }
+    },
+    "financial": {
+      "positive": {
+        "light": {
+          "$type": "color",
+          "$value": "#059669",
+          "$description": "Color for positive financial values (gains, increases)",
+          "hex": "#059669",
+          "rgb": "rgb(5, 150, 105)",
+          "hsl": "hsl(160, 94%, 30%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#10B981",
+          "$description": "Color for positive financial values in dark mode",
+          "hex": "#10B981",
+          "rgb": "rgb(16, 185, 129)",
+          "hsl": "hsl(160, 84%, 39%)"
+        }
+      },
+      "negative": {
+        "light": {
+          "$type": "color",
+          "$value": "#DC2626",
+          "$description": "Color for negative financial values (losses, decreases)",
+          "hex": "#DC2626",
+          "rgb": "rgb(220, 38, 38)",
+          "hsl": "hsl(0, 72%, 51%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#EF4444",
+          "$description": "Color for negative financial values in dark mode",
+          "hex": "#EF4444",
+          "rgb": "rgb(239, 68, 68)",
+          "hsl": "hsl(0, 84%, 60%)"
+        }
+      },
+      "neutral": {
+        "light": {
+          "$type": "color",
+          "$value": "#6B7280",
+          "$description": "Color for neutral financial values (zero, unchanged)",
+          "hex": "#6B7280",
+          "rgb": "rgb(107, 114, 128)",
+          "hsl": "hsl(220, 9%, 46%)"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#9CA3AF",
+          "$description": "Color for neutral financial values in dark mode",
+          "hex": "#9CA3AF",
+          "rgb": "rgb(156, 163, 175)",
+          "hsl": "hsl(218, 11%, 65%)"
+        }
+      }
+    }
+  }
+}
