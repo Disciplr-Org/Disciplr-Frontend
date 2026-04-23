@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { WalletConnectButton } from './Wallet/WalletConnectButton'
+import ThemeToggle from './ThemeToggle'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -51,6 +52,7 @@ export default function Layout({ children }: LayoutProps) {
             >
               Create Vault
             </Link>
+            <ThemeToggle />
             <WalletConnectButton />
           </div>
         </nav>
