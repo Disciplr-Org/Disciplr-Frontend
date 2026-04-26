@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Vaults from './pages/Vaults'
 import CreateVault from './pages/CreateVault'
+import VaultTransactions from './pages/VaultTransactions'
 
 export default function App() {
   return (

@@ -25,6 +25,15 @@ export default function Layout({ children }: LayoutProps) {
           <Link to="/" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>
             Disciplr
           </Link>
+          <Link
+          to="/transactions"
+          style={{
+           color: location.pathname === '/transactions' ? 'var(--accent)' : 'var(--muted)',
+         textDecoration: 'none',
+            }}
+>
+  Transactions
+</Link>
         </div>
 
         <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
