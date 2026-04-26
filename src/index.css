@@ -1,14 +1,77 @@
 :root {
-  --bg: #0a0e17;
-  --surface: #121a2a;
-  --border: #1e2d42;
-  --text: #e8edf5;
-  --muted: #6b7a8f;
-  --accent: #00c389;
-  --accent-dim: #00996e;
-  --danger: #e5534b;
+  /* Light theme (default) */
+  --bg: #F9FAFB;
+  --surface: #F3F4F6;
+  --surface-raised: #E5E7EB;
+  --border: #E5E7EB;
+  --text: #111827;
+  --muted: #4B5563;
+  --accent: #00C389;
+  --accent-dim: #00996E;
+  --accent-transparent: rgba(0, 195, 137, 0.1);
+  --hover: #E5E7EB;
+  --danger: #DC2626;
+  --success: #059669;
+  --warning: #D97706;
+  --info: #2563EB;
   --radius: 10px;
   --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+/* Dark theme - auto if OS prefers dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --surface: #1F2937;
+    --surface-raised: #374151;
+    --border: #4B5563;
+    --text: #F9FAFB;
+    --muted: #9CA3AF;
+    --accent: #14B8A6;
+    --accent-dim: #0D9488;
+    --accent-transparent: rgba(20, 184, 166, 0.1);
+    --hover: #374151;
+    --danger: #EF4444;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --info: #60A5FA;
+  }
+}
+
+/* Manual dark theme override (if user selects dark) */
+:root[data-theme="dark"] {
+  --bg: #111827;
+  --surface: #1F2937;
+  --surface-raised: #374151;
+  --border: #4B5563;
+  --text: #F9FAFB;
+  --muted: #9CA3AF;
+  --accent: #14B8A6;
+  --accent-dim: #0D9488;
+  --accent-transparent: rgba(20, 184, 166, 0.1);
+  --hover: #374151;
+  --danger: #EF4444;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --info: #60A5FA;
+}
+
+/* Manual light theme override (if user selects light) */
+:root[data-theme="light"] {
+  --bg: #F9FAFB;
+  --surface: #F3F4F6;
+  --surface-raised: #E5E7EB;
+  --border: #E5E7EB;
+  --text: #111827;
+  --muted: #4B5563;
+  --accent: #0A7668;
+  --accent-dim: #095C4F;
+  --accent-transparent: rgba(10, 118, 104, 0.1);
+  --hover: #E5E7EB;
+  --danger: #DC2626;
+  --success: #059669;
+  --warning: #D97706;
+  --info: #2563EB;
 }
 
 * {
