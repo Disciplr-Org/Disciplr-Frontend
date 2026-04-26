@@ -14,7 +14,7 @@ export default function Layout({ children }: LayoutProps) {
       <header
         style={{
           borderBottom: '1px solid var(--border)',
-          padding: '1rem 2rem',
+          padding: 'var(--spacing-4) var(--spacing-8)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -66,7 +66,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </nav>
       </header>
-      <main style={{ flex: 1, padding: '2rem', maxWidth: 960, margin: '0 auto', width: '100%' }}>
+      <main style={{ flex: 1, padding: 'var(--spacing-8)', maxWidth: 960, margin: '0 auto', width: '100%' }}>
         {children}
       </main>
     </div>
