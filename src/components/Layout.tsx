@@ -3,14 +3,16 @@ import { WalletConnectButton } from './Wallet/WalletConnectButton'
 import ThemeToggle from './ThemeToggle'
 
 interface LayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const location = useLocation()
+  const location = useLocation();
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+    >
       <header
         style={{
           borderBottom: '1px solid var(--border)',
@@ -40,29 +42,46 @@ export default function Layout({ children }: LayoutProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    <Link
             to="/"
             style={{
-              color: location.pathname === '/' ? 'var(--accent)' : 'var(--muted)',
-              textDecoration: 'none',
+              fontSize: "1.25rem",
+              fontWeight: 700,
+              color: "var(--text)",
+              textDecoration: "none",
             }}
           >
-            Home
+            Disciplr
           </Link>
+        </div>
 
+        <nav style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {" "}
+            <Link
+              to="/"
+              style={{
+                color:
+                  location.pathname === "/" ? "var(--accent)" : "var(--muted)",
+                textDecoration: "none",
+              }}
+            >
+              Home
+            </Link>
             <Link
               to="/vaults/create"
               style={{
-                color: 'var(--surface)',
-                background: 'var(--accent)',
-                padding: '0.5rem 1rem',
-                borderRadius: '9999px',
-                textDecoration: 'none',
+                color: "var(--surface)",
+                background: "var(--accent)",
+                padding: "0.5rem 1rem",
+                borderRadius: "9999px",
+                textDecoration: "none",
                 fontWeight: 500,
-                fontSize: '0.875rem'
+                fontSize: "0.875rem",
               }}
             >
               Create Vault
             </Link>
             <ThemeToggle />
             <WalletConnectButton />
+            <NotificationIcon />
           </div>
         </nav>
       </header>
@@ -70,5 +89,5 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
     </div>
-  )
+  );
 }
