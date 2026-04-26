@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
-import { WalletConnectButton } from "./Wallet/WalletConnectButton";
-import NotificationIcon from "./Notification/NotificationIcon";
+import { Link, useLocation } from 'react-router-dom'
+import { WalletConnectButton } from './Wallet/WalletConnectButton'
+import ThemeToggle from './ThemeToggle'
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,16 +15,31 @@ export default function Layout({ children }: LayoutProps) {
     >
       <header
         style={{
-          borderBottom: "1px solid var(--border)",
-          padding: "1rem 2rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "var(--surface)",
+          borderBottom: '1px solid var(--border)',
+          padding: 'var(--spacing-4) var(--spacing-8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--surface)',
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+          <Link to="/" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>
+            Disciplr
+          </Link>
           <Link
+          to="/transactions"
+          style={{
+           color: location.pathname === '/transactions' ? 'var(--accent)' : 'var(--muted)',
+         textDecoration: 'none',
+            }}
+>
+  Transactions
+</Link>
+        </div>
+
+        <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    <Link
             to="/"
             style={{
               fontSize: "1.25rem",
@@ -64,20 +79,13 @@ export default function Layout({ children }: LayoutProps) {
             >
               Create Vault
             </Link>
+            <ThemeToggle />
             <WalletConnectButton />
             <NotificationIcon />
           </div>
         </nav>
       </header>
-      <main
-        style={{
-          flex: 1,
-          padding: "2rem",
-          maxWidth: 960,
-          margin: "0 auto",
-          width: "100%",
-        }}
-      >
+      <main style={{ flex: 1, padding: 'var(--spacing-8)', maxWidth: 960, margin: '0 auto', width: '100%' }}>
         {children}
       </main>
     </div>
