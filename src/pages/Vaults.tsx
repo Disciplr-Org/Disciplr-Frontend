@@ -1,10 +1,14 @@
+import { Text } from '../components/Text'
+
 export default function Vaults() {
   return (
     <div>
-      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Your Vaults</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: '2rem' }}>
+      <Text role="display" as="h1" style={{ marginBottom: '0.5rem' }}>
+        Your Vaults
+      </Text>
+      <Text role="body" as="p" style={{ color: 'var(--muted)', marginBottom: '2rem' }}>
         View and manage your productivity vaults.
-      </p>
+      </Text>
       <div
         style={{
           background: 'var(--surface)',
@@ -15,7 +19,9 @@ export default function Vaults() {
           color: 'var(--muted)',
         }}
       >
-        No vaults yet. Create your first vault to get started.
+        <Text role="body" as="div">
+          No vaults yet. Create your first vault to get started.
+        </Text>
       </div>
     </div>
   )

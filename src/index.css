@@ -15,7 +15,138 @@
   --warning: #D97706;
   --info: #2563EB;
   --radius: 10px;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-sans: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+  
+  /* Display Scale - sm breakpoint (< 640px) */
+  --font-size-display: 28px;
+  --line-height-display: 36px;
+  --letter-spacing-display: -0.01em;
+  --font-weight-display: 700;
+  
+  /* Title Scale - sm breakpoint (< 640px) */
+  --font-size-title: 20px;
+  --line-height-title: 28px;
+  --letter-spacing-title: 0;
+  --font-weight-title: 600;
+  
+  /* Body Scale - sm breakpoint (< 640px) */
+  --font-size-body: 14px;
+  --line-height-body: 20px;
+  --letter-spacing-body: 0;
+  --font-weight-body: 400;
+  
+  /* Caption Scale - sm breakpoint (< 640px) */
+  --font-size-caption: 12px;
+  --line-height-caption: 16px;
+  --letter-spacing-caption: 0;
+  --font-weight-caption: 400;
+  
+  /* Mono Scale - sm breakpoint (< 640px) */
+  --font-size-mono: 12px;
+  --line-height-mono: 18px;
+  --letter-spacing-mono: 0;
+  --font-weight-mono: 400;
+  --font-family-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+/* Responsive breakpoints - update CSS variables */
+@media (min-width: 640px) {
+  :root {
+    /* Display at md (640px-768px) */
+    --font-size-display: 48px;
+    --line-height-display: 60px;
+    --letter-spacing-display: -0.01em;
+    
+    /* Title at md (640px-768px) */
+    --font-size-title: 28px;
+    --line-height-title: 36px;
+    --letter-spacing-title: -0.01em;
+    
+    /* Body at md (640px-768px) */
+    --font-size-body: 16px;
+    --line-height-body: 24px;
+    --letter-spacing-body: 0;
+    
+    /* Caption at md (640px-768px) */
+    --font-size-caption: 13px;
+    --line-height-caption: 18px;
+    --letter-spacing-caption: 0;
+    
+    /* Mono at md (640px-768px) */
+    --font-size-mono: 14px;
+    --line-height-mono: 20px;
+    --letter-spacing-mono: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    /* Display at lg (≥768px) */
+    --font-size-display: 72px;
+    --line-height-display: 90px;
+    --letter-spacing-display: -0.02em;
+    
+    /* Title at lg (≥768px) */
+    --font-size-title: 36px;
+    --line-height-title: 44px;
+    --letter-spacing-title: -0.01em;
+    
+    /* Body at lg (≥768px) */
+    --font-size-body: 18px;
+    --line-height-body: 28px;
+    --letter-spacing-body: 0;
+    
+    /* Caption at lg (≥768px) */
+    --font-size-caption: 14px;
+    --line-height-caption: 20px;
+    --letter-spacing-caption: 0;
+    
+    /* Mono at lg (≥768px) */
+    --font-size-mono: 16px;
+    --line-height-mono: 24px;
+    --letter-spacing-mono: 0;
+  }
+}
+
+/* Typography utility classes */
+.text-display {
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-display);
+  letter-spacing: var(--letter-spacing-display);
+  font-weight: var(--font-weight-display);
+  font-family: var(--font-sans);
+}
+
+.text-title {
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  letter-spacing: var(--letter-spacing-title);
+  font-weight: var(--font-weight-title);
+  font-family: var(--font-sans);
+}
+
+.text-body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+  font-weight: var(--font-weight-body);
+  font-family: var(--font-sans);
+}
+
+.text-caption {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  letter-spacing: var(--letter-spacing-caption);
+  font-weight: var(--font-weight-caption);
+  font-family: var(--font-sans);
+}
+
+.text-mono {
+  font-size: var(--font-size-mono);
+  line-height: var(--line-height-mono);
+  letter-spacing: var(--letter-spacing-mono);
+  font-weight: var(--font-weight-mono);
+  font-family: var(--font-family-mono);
 }
 
 /* Dark theme - auto if OS prefers dark */

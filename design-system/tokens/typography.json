@@ -41,6 +41,139 @@
       }
     },
     "display": {
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "28px" },
+        "lineHeight": { "$value": "36px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Display text at small breakpoint (< 640px), for hero sections"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "48px" },
+        "lineHeight": { "$value": "60px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Display text at medium breakpoint (640px-768px), for hero sections"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "72px" },
+        "lineHeight": { "$value": "90px" },
+        "fontWeight": { "$value": 700 },
+        "letterSpacing": { "$value": "-0.02em" },
+        "$description": "Display text at large breakpoint (≥768px), for hero sections and major headings"
+      }
+    },
+    "title": {
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "20px" },
+        "lineHeight": { "$value": "28px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Title text at small breakpoint (< 640px), for section headings"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "28px" },
+        "lineHeight": { "$value": "36px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Title text at medium breakpoint (640px-768px), for section headings"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "36px" },
+        "lineHeight": { "$value": "44px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Title text at large breakpoint (≥768px), for section headings"
+      }
+    },
+    "body": {
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "14px" },
+        "lineHeight": { "$value": "20px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Body text at small breakpoint (< 640px)"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "16px" },
+        "lineHeight": { "$value": "24px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Body text at medium breakpoint (640px-768px), default size"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "18px" },
+        "lineHeight": { "$value": "28px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Body text at large breakpoint (≥768px)"
+      }
+    },
+    "caption": {
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "12px" },
+        "lineHeight": { "$value": "16px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Caption text at small breakpoint (< 640px), for labels and helper text"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "13px" },
+        "lineHeight": { "$value": "18px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Caption text at medium breakpoint (640px-768px), for labels and helper text"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "14px" },
+        "lineHeight": { "$value": "20px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Caption text at large breakpoint (≥768px), for labels and helper text"
+      }
+    },
+    "mono": {
+      "sm": {
+        "$type": "typography",
+        "fontFamily": { "$value": "'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace" },
+        "fontSize": { "$value": "12px" },
+        "lineHeight": { "$value": "18px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Monospace text at small breakpoint (< 640px), for code and financial data"
+      },
+      "md": {
+        "$type": "typography",
+        "fontFamily": { "$value": "'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace" },
+        "fontSize": { "$value": "14px" },
+        "lineHeight": { "$value": "20px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Monospace text at medium breakpoint (640px-768px), for code and financial data"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontFamily": { "$value": "'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace" },
+        "fontSize": { "$value": "16px" },
+        "lineHeight": { "$value": "24px" },
+        "fontWeight": { "$value": 400 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Monospace text at large breakpoint (≥768px), for code and financial data"
+      }
+    },
+    "display": {
       "2xl": {
         "$type": "typography",
         "fontSize": { "$value": "72px" },
@@ -116,14 +249,14 @@
         "$description": "H6 heading for minor sections"
       }
     },
-    "body": {
+    "body-legacy": {
       "xl": {
         "$type": "typography",
         "fontSize": { "$value": "20px" },
         "lineHeight": { "$value": "30px" },
         "fontWeight": { "$value": 400 },
         "letterSpacing": { "$value": "0" },
-        "$description": "Extra large body text for emphasis"
+        "$description": "Extra large body text for emphasis (legacy)"
       },
       "lg": {
         "$type": "typography",
@@ -131,7 +264,7 @@
         "lineHeight": { "$value": "28px" },
         "fontWeight": { "$value": 400 },
         "letterSpacing": { "$value": "0" },
-        "$description": "Large body text"
+        "$description": "Large body text (legacy)"
       },
       "md": {
         "$type": "typography",
@@ -139,7 +272,7 @@
         "lineHeight": { "$value": "24px" },
         "fontWeight": { "$value": 400 },
         "letterSpacing": { "$value": "0" },
-        "$description": "Default body text size (base)"
+        "$description": "Default body text size (base) (legacy)"
       },
       "sm": {
         "$type": "typography",
@@ -147,7 +280,7 @@
         "lineHeight": { "$value": "20px" },
         "fontWeight": { "$value": 400 },
         "letterSpacing": { "$value": "0" },
-        "$description": "Small body text for secondary content"
+        "$description": "Small body text for secondary content (legacy)"
       },
       "xs": {
         "$type": "typography",
@@ -155,7 +288,7 @@
         "lineHeight": { "$value": "18px" },
         "fontWeight": { "$value": 400 },
         "letterSpacing": { "$value": "0" },
-        "$description": "Extra small body text for captions"
+        "$description": "Extra small body text for captions (legacy)"
       }
     },
     "specialized": {

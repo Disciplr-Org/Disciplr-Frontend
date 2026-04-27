@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { WalletConnectButton } from './Wallet/WalletConnectButton'
 import ThemeToggle from './ThemeToggle'
+import { Text } from './Text'
+import { NotificationIcon } from './Notification/NotificationIcon'
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,8 +26,18 @@ export default function Layout({ children }: LayoutProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <Link to="/" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>
-            Disciplr
+          <Link
+            to="/"
+            style={{
+              color: 'var(--text)',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Text role="title" as="span">
+              Disciplr
+            </Text>
           </Link>
           <Link
           to="/transactions"
@@ -39,45 +51,32 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    <Link
-            to="/"
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--text)",
-              textDecoration: "none",
-            }}
-          >
-            Disciplr
-          </Link>
-        </div>
-
-        <nav style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            {" "}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <Link
               to="/"
               style={{
-                color:
-                  location.pathname === "/" ? "var(--accent)" : "var(--muted)",
-                textDecoration: "none",
+                color: location.pathname === '/' ? 'var(--accent)' : 'var(--muted)',
+                textDecoration: 'none',
               }}
             >
-              Home
+              <Text role="caption" as="span">
+                Home
+              </Text>
             </Link>
             <Link
               to="/vaults/create"
               style={{
-                color: "var(--surface)",
-                background: "var(--accent)",
-                padding: "0.5rem 1rem",
-                borderRadius: "9999px",
-                textDecoration: "none",
-                fontWeight: 500,
-                fontSize: "0.875rem",
+                color: 'var(--surface)',
+                background: 'var(--accent)',
+                padding: '0.5rem 1rem',
+                borderRadius: '9999px',
+                textDecoration: 'none',
+                display: 'inline-block',
               }}
             >
-              Create Vault
+              <Text role="caption" as="span">
+                Create Vault
+              </Text>
             </Link>
             <ThemeToggle />
             <WalletConnectButton />
