@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { WalletConnectButton } from './Wallet/WalletConnectButton'
 import ThemeToggle from './ThemeToggle'
 import { Text } from './Text'
-import { NotificationIcon } from './Notification/NotificationIcon'
+import NotificationIcon from './Notification/NotificationIcon'
 
 interface LayoutProps {
   children: React.ReactNode;
