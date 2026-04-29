@@ -7,37 +7,7 @@ import Home from './pages/Home'
 import Vaults from './pages/Vaults'
 import CreateVault from './pages/CreateVault'
 import VaultTransactions from './pages/VaultTransactions'
-import { transitionPage } from './utils/motion'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit:    { opacity: 0, y: -6 },
-}
-
-function AnimatedRoutes() {
-  const location = useLocation()
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        variants={pageVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={transitionPage}
-        style={{ flex: 1, display: 'contents' }}
-      >
-        <Routes location={location}>
-          <Route path="/" element={<Home />} />
-          <Route path="/vaults" element={<Vaults />} />
-          <Route path="/vaults/create" element={<CreateVault />} />
-          <Route path="/transactions" element={<VaultTransactions />} />
-        </Routes>
-      </motion.div>
-    </AnimatePresence>
-  )
-}
+import VaultDetail from './pages/VaultDetail'
 
 export default function App() {
   return (
@@ -45,7 +15,14 @@ export default function App() {
       <WalletProvider>
         <BrowserRouter>
           <Layout>
-            <AnimatedRoutes />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/vaults" element={<Vaults />} />
+              <Route path="/vaults/create" element={<CreateVault />} />
+              <Route path="/vaults/:id" element={<VaultDetail />} />
+              <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
+            </Routes>
           </Layout>
         </BrowserRouter>
       </WalletProvider>

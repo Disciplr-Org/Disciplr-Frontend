@@ -1,0 +1,94 @@
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  /* Safe-area padding for notched devices */
+  padding:
+    var(--spacing-2)
+    max(var(--spacing-4), env(safe-area-inset-right))
+    var(--spacing-2)
+    max(var(--spacing-4), env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Prevent header itself from overflowing */
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+/* ─── Logo + primary link group ──────────────────────────────────────────── */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+/* ─── Nav ─────────────────────────────────────────────────────────────────── */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  flex-shrink: 0;
+}
+
+/* ─── Touch-target baseline for all interactive header elements ──────────── */
+.header-link,
+.header-nav a,
+.header-nav button {
+  min-height: var(--touch-target);   /* 44 px */
+  min-width: var(--touch-target);    /* 44 px */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--spacing-3);
+  text-decoration: none;
+  border-radius: var(--radius);
+  /* Keyboard focus ring (WCAG 2.1 AA) */
+  outline-offset: 2px;
+}
+
+.header-link:focus-visible,
+.header-nav a:focus-visible,
+.header-nav button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+/* ─── "Create Vault" pill ─────────────────────────────────────────────────── */
+.header-cta {
+  color: var(--surface);
+  background: var(--accent);
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* ─── Transactions link (hide label on very small screens) ───────────────── */
+.header-transactions-label {
+  display: none;
+}
+
+@media (min-width: 400px) {
+  .header-transactions-label {
+    display: inline;
+  }
+}
+
+/* ─── Wider screens: restore original generous padding ───────────────────── */
+@media (min-width: 640px) {
+  .site-header {
+    padding:
+      var(--spacing-4)
+      max(var(--spacing-8), env(safe-area-inset-right))
+      var(--spacing-4)
+      max(var(--spacing-8), env(safe-area-inset-left));
+  }
+
+  .header-brand {
+    gap: var(--spacing-6);
+  }
+
+  .header-nav {
+    gap: var(--spacing-4);
+  }
+}

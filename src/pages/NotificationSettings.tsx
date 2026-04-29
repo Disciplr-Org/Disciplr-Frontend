@@ -1,5 +1,4 @@
 import { vaults } from "@/components/Notification/exampleNotification/example";
-import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 
 export default function NotificationSettings() {
