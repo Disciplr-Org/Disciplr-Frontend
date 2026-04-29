@@ -102,8 +102,8 @@ function StatusBadge({ status }: { status: VaultStatus }) {
   const cfg = STATUS_CFG[status]
   return (
     <span style={{
-      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}`,
-      borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+      background: cfg.bg, color: cfg.color, border: `var(--border-width-1) solid ${cfg.color}`,
+      borderRadius: 'var(--radius-full)', padding: '2px 10px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
       {cfg.label}
     </span>

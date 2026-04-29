@@ -141,7 +141,7 @@ export default function NotificationIcon() {
                     color: "var(--surface)",
                     background: "var(--accent)",
                     padding: "0.5rem 1rem",
-                    borderRadius: "9999px",
+                    borderRadius: "var(--radius-full)",
                     textDecoration: "none",
                     fontWeight: 500,
                     fontSize: "0.875rem",

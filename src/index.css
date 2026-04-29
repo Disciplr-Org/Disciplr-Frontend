@@ -14,7 +14,31 @@
   --success: #059669;
   --warning: #D97706;
   --info: #2563EB;
-  --radius: 10px;
+
+  /* Border radius scale — mirrors design-system/tokens/borders.json */
+  --radius-none: 0px;        /* sharp corners */
+  --radius-sm: 4px;          /* inputs, tags */
+  --radius-md: 8px;          /* buttons, cards */
+  --radius-lg: 12px;         /* large cards, dropdowns */
+  --radius-xl: 16px;         /* modals, hero cards */
+  --radius-full: 9999px;     /* pills, avatars */
+  /* Legacy alias — kept for backward compatibility, resolves to md */
+  --radius: var(--radius-md);
+
+  /* Border width scale — mirrors design-system/tokens/borders.json */
+  --border-width-0: 0px;
+  --border-width-1: 1px;     /* default */
+  --border-width-2: 2px;     /* emphasis */
+  --border-width-4: 4px;     /* strong emphasis */
+
+  /* Semantic border colors — light-mode defaults; overridden in dark theme below */
+  --border-default: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  --border-emphasis: #D1D5DB;
+  --border-interactive: #1E40AF;
+  --border-error: #DC2626;
+  --border-success: #059669;
+
   --font-sans: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
 
   /* Spacing tokens */
@@ -177,6 +201,14 @@
     --success: #10B981;
     --warning: #F59E0B;
     --info: #60A5FA;
+
+    /* Semantic border colors — dark mode (mirrors borders.json border.color.dark) */
+    --border-default: #4B5563;
+    --border-subtle: #1F2937;
+    --border-emphasis: #374151;
+    --border-interactive: #3B82F6;
+    --border-error: #EF4444;
+    --border-success: #10B981;
   }
 }
 
@@ -196,6 +228,14 @@
   --success: #10B981;
   --warning: #F59E0B;
   --info: #60A5FA;
+
+  /* Semantic border colors — dark mode (mirrors borders.json border.color.dark) */
+  --border-default: #4B5563;
+  --border-subtle: #1F2937;
+  --border-emphasis: #374151;
+  --border-interactive: #3B82F6;
+  --border-error: #EF4444;
+  --border-success: #10B981;
 }
 
 /* Manual light theme override (if user selects light) */
@@ -214,6 +254,14 @@
   --success: #059669;
   --warning: #D97706;
   --info: #2563EB;
+
+  /* Semantic border colors — light mode (mirrors borders.json border.color.light) */
+  --border-default: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  --border-emphasis: #D1D5DB;
+  --border-interactive: #1E40AF;
+  --border-error: #DC2626;
+  --border-success: #059669;
 }
 
 * {

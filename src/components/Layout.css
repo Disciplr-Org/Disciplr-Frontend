@@ -59,7 +59,7 @@
 .header-cta {
   color: var(--surface);
   background: var(--accent);
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
 }
 

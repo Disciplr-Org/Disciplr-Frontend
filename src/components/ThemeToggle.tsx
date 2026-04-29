@@ -9,8 +9,8 @@ export default function ThemeToggle() {
       aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
       style={{
         background: 'transparent',
-        border: '1px solid var(--border)',
-        borderRadius: '9999px',
+        border: 'var(--border-width-1) solid var(--border)',
+        borderRadius: 'var(--radius-full)',
         width: '2.5rem',
         height: '2.5rem',
         display: 'flex',
