@@ -16,6 +16,7 @@ export default function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/vaults" element={<Vaults />} />
               <Route path="/vaults/create" element={<CreateVault />} />
               <Route path="/vaults/:id" element={<VaultDetail />} />
