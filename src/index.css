@@ -230,3 +230,20 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+/* ===== Navigation responsive ===== */
+@media (max-width: 767px) {
+  .desktop-nav-links,
+  .desktop-actions {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-menu-btn {
+    display: none !important;
+  }
+}
