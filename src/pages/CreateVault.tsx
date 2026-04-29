@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Text } from '../components/Text'
 
 export default function CreateVault() {
   const [amount, setAmount] = useState('')
@@ -14,10 +15,12 @@ export default function CreateVault() {
 
   return (
     <div>
-      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Create Vault</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: '2rem' }}>
+      <Text role="display" as="h1" style={{ marginBottom: '0.5rem' }}>
+        Create Vault
+      </Text>
+      <Text role="body" as="p" style={{ color: 'var(--muted)', marginBottom: '2rem' }}>
         Lock USDC with a deadline and milestone. Funds release on validation or redirect on failure.
-      </p>
+      </Text>
       <form
         onSubmit={handleSubmit}
         style={{
@@ -28,9 +31,13 @@ export default function CreateVault() {
         }}
       >
         <label>
-          <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+          <Text
+            role="caption"
+            as="span"
+            style={{ display: 'block', marginBottom: '0.25rem' }}
+          >
             Amount (USDC)
-          </span>
+          </Text>
           <input
             type="text"
             value={amount}
@@ -48,9 +55,13 @@ export default function CreateVault() {
           />
         </label>
         <label>
-          <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+          <Text
+            role="caption"
+            as="span"
+            style={{ display: 'block', marginBottom: '0.25rem' }}
+          >
             Deadline (ISO date)
-          </span>
+          </Text>
           <input
             type="datetime-local"
             value={deadline}
@@ -67,9 +78,13 @@ export default function CreateVault() {
           />
         </label>
         <label>
-          <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+          <Text
+            role="caption"
+            as="span"
+            style={{ display: 'block', marginBottom: '0.25rem' }}
+          >
             Success destination (Stellar address)
-          </span>
+          </Text>
           <input
             type="text"
             value={successAddress}
@@ -87,9 +102,13 @@ export default function CreateVault() {
           />
         </label>
         <label>
-          <span style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+          <Text
+            role="caption"
+            as="span"
+            style={{ display: 'block', marginBottom: '0.25rem' }}
+          >
             Failure destination (Stellar address)
-          </span>
+          </Text>
           <input
             type="text"
             value={failureAddress}
@@ -117,9 +136,16 @@ export default function CreateVault() {
             fontWeight: 600,
             cursor: 'pointer',
             marginTop: '0.5rem',
+            minHeight: '44px',
+            minWidth: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          Create Vault
+          <Text role="caption" as="span">
+            Create Vault
+          </Text>
         </button>
       </form>
     </div>
