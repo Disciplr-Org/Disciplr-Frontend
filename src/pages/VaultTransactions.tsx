@@ -606,7 +606,7 @@ const CSS = `
     background: rgba(110,231,183,0.08); border: 1px solid rgba(110,231,183,0.2);
     color: #6ee7b7; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
     padding: 10px 18px; border-radius: 8px; cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-export-btn:hover { background: rgba(110,231,183,0.14); border-color: rgba(110,231,183,0.4); }
   .vt-stats {
@@ -614,7 +614,7 @@ const CSS = `
   }
   .vt-stat-card {
     background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px; padding: 20px 22px; transition: border-color 0.2s;
+    border-radius: 12px; padding: 20px 22px; transition: border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-stat-card:hover { border-color: rgba(110,231,183,0.2); }
   .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; font-weight: 600; margin-bottom: 8px; }
@@ -631,7 +631,7 @@ const CSS = `
     width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px; color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
     font-size: 13px; padding: 9px 12px 9px 34px; outline: none; box-sizing: border-box;
-    transition: border-color 0.2s;
+    transition: border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-search::placeholder { color: #334155; }
   .vt-search:focus { border-color: rgba(110,231,183,0.3); }
@@ -642,14 +642,14 @@ const CSS = `
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     color: #94a3b8; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
     padding: 8px 30px 8px 12px; border-radius: 7px; cursor: pointer; outline: none;
-    transition: border-color 0.2s;
+    transition: border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-select:hover, .vt-select:focus { border-color: rgba(110,231,183,0.25); color: #e2e8f0; }
   .vt-amount-range { display: flex; align-items: center; gap: 6px; }
   .vt-amount-input {
     width: 90px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color 0.2s;
+    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-amount-input:focus { border-color: rgba(110,231,183,0.25); }
   .vt-amount-input::placeholder { color: #334155; }
@@ -658,13 +658,13 @@ const CSS = `
     display: flex; align-items: center;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     color: #94a3b8; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    padding: 8px 12px; border-radius: 7px; cursor: pointer; transition: all 0.2s;
+    padding: 8px 12px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
   }
   .vt-sort-btn:hover { color: #e2e8f0; border-color: rgba(110,231,183,0.25); }
   .vt-clear-btn {
     background: transparent; border: 1px solid rgba(252,165,165,0.2);
     color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all 0.2s;
+    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
   }
   .vt-clear-btn:hover { background: rgba(252,165,165,0.08); }
   .vt-clear-btn--lg { padding: 10px 20px; font-size: 13px; margin-top: 12px; }
@@ -681,7 +681,7 @@ const CSS = `
     display: flex; align-items: center; gap: 14px;
     background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
     border-radius: 10px; padding: 14px 16px; cursor: pointer;
-    transition: background 0.15s, border-color 0.15s; min-height: 64px;
+    transition: background var(--duration-fast) var(--ease-in-out), border-color var(--duration-fast) var(--ease-in-out); min-height: 64px;
   }
   .vt-tx-row:hover { background: rgba(255,255,255,0.045); border-color: rgba(110,231,183,0.15); }
   .vt-tx-icon {
@@ -697,10 +697,10 @@ const CSS = `
   .vt-tx-hash {
     font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #475569;
     background: none; border: none; cursor: pointer; padding: 0;
-    display: flex; align-items: center; gap: 3px; transition: color 0.15s;
+    display: flex; align-items: center; gap: 3px; transition: color var(--duration-fast) var(--ease-in-out);
   }
   .vt-tx-hash:hover { color: #94a3b8; }
-  .vt-tx-explorer { font-size: 11px; color: #334155; text-decoration: none; transition: color 0.15s; }
+  .vt-tx-explorer { font-size: 11px; color: #334155; text-decoration: none; transition: color var(--duration-fast) var(--ease-in-out); }
   .vt-tx-explorer:hover { color: #6ee7b7; }
   .vt-tx-amount { text-align: right; flex-shrink: 0; }
   .vt-tx-amount-val { display: block; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #f1f5f9; }
@@ -717,7 +717,7 @@ const CSS = `
   .vt-retry-btn {
     background: rgba(252,165,165,0.08); border: 1px solid rgba(252,165,165,0.2);
     color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
-    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal) var(--ease-in-out);
   }
   .vt-retry-btn:hover { background: rgba(252,165,165,0.15); }
   .vt-empty { text-align: center; padding: 56px 24px; }
@@ -728,21 +728,21 @@ const CSS = `
     position: fixed; inset: 0; z-index: 100;
     background: rgba(8,11,18,0.85); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; padding: 24px;
-    animation: vt-fadeIn 0.18s ease;
+    animation: vt-fadeIn var(--duration-normal) var(--ease-out);
   }
   @keyframes vt-fadeIn { from { opacity: 0 } to { opacity: 1 } }
   .vt-modal {
     background: #0e1420; border: 1px solid rgba(255,255,255,0.1);
     border-radius: 16px; padding: 28px; width: 100%; max-width: 580px;
     max-height: 90vh; overflow-y: auto; position: relative;
-    animation: vt-slideUp 0.2s ease;
+    animation: vt-slideUp var(--duration-normal) var(--ease-out);
   }
   @keyframes vt-slideUp { from { transform: translateY(16px); opacity:0 } to { transform: translateY(0); opacity:1 } }
   .vt-modal-close {
     position: absolute; top: 18px; right: 18px;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
     color: #64748b; font-size: 13px; width: 28px; height: 28px; border-radius: 6px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast) var(--ease-in-out);
   }
   .vt-modal-close:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
   .vt-modal-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
@@ -760,13 +760,13 @@ const CSS = `
   .vt-copy-btn {
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
     color: #94a3b8; padding: 4px 8px; border-radius: 5px; cursor: pointer;
-    flex-shrink: 0; font-size: 12px; transition: all 0.15s;
+    flex-shrink: 0; font-size: 12px; transition: all var(--duration-fast) var(--ease-in-out);
   }
   .vt-copy-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
   .vt-raw-section { margin-bottom: 20px; }
   .vt-raw-toggle {
     background: none; border: none; color: #475569; font-family: 'Syne', sans-serif;
-    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color 0.15s;
+    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color var(--duration-fast) var(--ease-in-out);
   }
   .vt-raw-toggle:hover { color: #94a3b8; }
   .vt-raw-pre {
@@ -776,7 +776,7 @@ const CSS = `
   }
   .vt-modal-footer { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; }
   .vt-explorer-link {
-    font-size: 13px; color: #6ee7b7; text-decoration: none; font-weight: 600; transition: opacity 0.15s;
+    font-size: 13px; color: #6ee7b7; text-decoration: none; font-weight: 600; transition: opacity var(--duration-fast) var(--ease-in-out);
   }
   .vt-explorer-link:hover { opacity: 0.75; }
 
