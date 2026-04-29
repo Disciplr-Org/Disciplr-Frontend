@@ -245,3 +245,25 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+/* ── prefers-reduced-motion ─────────────────────────────────────────────────
+   Collapse all durations to near-zero so CSS transitions still fire
+   (avoids layout jumps) but are imperceptible. JS/framer-motion components
+   read this via the useReducedMotion hook.                                   */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-micro:    1ms;
+    --duration-fast:     1ms;
+    --duration-normal:   1ms;
+    --duration-moderate: 1ms;
+    --duration-slow:     1ms;
+    --duration-slower:   1ms;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
