@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import Vaults from './pages/Vaults'
 import CreateVault from './pages/CreateVault'
 import VaultTransactions from './pages/VaultTransactions'
+import VaultDetail from './pages/VaultDetail'
 
 export default function App() {
   return (
@@ -17,6 +18,8 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/vaults" element={<Vaults />} />
               <Route path="/vaults/create" element={<CreateVault />} />
+              <Route path="/vaults/:id" element={<VaultDetail />} />
+              <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
             </Routes>
           </Layout>
         </BrowserRouter>
