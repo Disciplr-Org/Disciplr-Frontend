@@ -3,7 +3,6 @@ import { WalletConnectButton } from './Wallet/WalletConnectButton'
 import ThemeToggle from './ThemeToggle'
 import { Text } from './Text'
 import NotificationIcon from './Notification/NotificationIcon'
-import './Layout.css'
 
 interface LayoutProps {
   children: React.ReactNode;
