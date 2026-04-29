@@ -3,6 +3,7 @@ import { CiBellOn, CiBellOff } from "react-icons/ci";
 import Message from "./Messages";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { transitionEnter } from "../../utils/motion";
 
 import { Link } from "react-router-dom";
 import { useNotification } from "@/Zustand/Store";
@@ -101,7 +102,7 @@ export default function NotificationIcon() {
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              transition={transitionEnter}
               className="absolute w-[300px] h-[500px] bg-white shadow-2xl mt-2 -translate-x-[90%] z-50"
             >
               <div className="w-full h-full flex flex-col items-center justify-between pb-5">

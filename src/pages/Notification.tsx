@@ -1,6 +1,7 @@
 import Message from "@/components/Notification/Messages";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { Link } from "react-router-dom";
@@ -125,7 +126,7 @@ export default function Notification() {
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  transition={transitionEnter}
                   className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md z-20"
                 >
                   <h2>Filter By : </h2>

@@ -18,7 +18,7 @@ export default function ThemeToggle() {
         justifyContent: 'center',
         cursor: 'pointer',
         color: 'var(--text)',
-        transition: 'all 0.2s ease',
+        transition: 'all var(--duration-normal) var(--ease-in-out)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = 'var(--hover)';
