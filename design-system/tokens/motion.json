@@ -5,65 +5,81 @@
       "micro": {
         "$type": "duration",
         "$value": "100ms",
-        "$description": "Micro-interaction duration (button states, toggles)"
+        "$description": "Micro-interaction duration (button states, toggles)",
+        "cssVar": "--duration-micro"
       },
       "fast": {
         "$type": "duration",
         "$value": "150ms",
-        "$description": "Fast transition duration"
+        "$description": "Fast transition duration",
+        "cssVar": "--duration-fast"
       },
       "normal": {
         "$type": "duration",
         "$value": "200ms",
-        "$description": "Normal transition duration"
+        "$description": "Normal transition duration (hover, focus)",
+        "cssVar": "--duration-normal"
       },
       "moderate": {
         "$type": "duration",
         "$value": "300ms",
-        "$description": "Moderate animation duration (modals, dropdowns)"
+        "$description": "Moderate animation duration (modals, dropdowns)",
+        "cssVar": "--duration-moderate"
       },
       "slow": {
         "$type": "duration",
         "$value": "400ms",
-        "$description": "Slow animation duration"
+        "$description": "Slow animation duration",
+        "cssVar": "--duration-slow"
       },
       "slower": {
         "$type": "duration",
         "$value": "500ms",
-        "$description": "Slower animation duration (page transitions)"
+        "$description": "Slower animation duration (page transitions)",
+        "cssVar": "--duration-slower"
       }
     },
     "easing": {
       "ease-in-out": {
         "$type": "cubicBezier",
         "$value": [0.4, 0, 0.2, 1],
-        "$description": "Default easing for most transitions"
+        "$description": "Default easing for most transitions",
+        "cssVar": "--ease-in-out",
+        "cssValue": "cubic-bezier(0.4, 0, 0.2, 1)"
       },
       "ease-out": {
         "$type": "cubicBezier",
         "$value": [0, 0, 0.2, 1],
-        "$description": "Easing for entering elements"
+        "$description": "Easing for entering elements",
+        "cssVar": "--ease-out",
+        "cssValue": "cubic-bezier(0, 0, 0.2, 1)"
       },
       "ease-in": {
         "$type": "cubicBezier",
         "$value": [0.4, 0, 1, 1],
-        "$description": "Easing for exiting elements"
+        "$description": "Easing for exiting elements",
+        "cssVar": "--ease-in",
+        "cssValue": "cubic-bezier(0.4, 0, 1, 1)"
       },
       "bounce": {
         "$type": "cubicBezier",
         "$value": [0.68, -0.55, 0.265, 1.55],
-        "$description": "Bounce easing for playful interactions"
+        "$description": "Bounce easing for playful interactions",
+        "cssVar": "--ease-bounce",
+        "cssValue": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
       },
       "smooth": {
         "$type": "cubicBezier",
         "$value": [0.25, 0.1, 0.25, 1],
-        "$description": "Smooth easing for elegant transitions"
+        "$description": "Smooth easing for elegant transitions",
+        "cssVar": "--ease-smooth",
+        "cssValue": "cubic-bezier(0.25, 0.1, 0.25, 1)"
       }
     },
     "reducedMotion": {
       "$type": "boolean",
       "$value": true,
-      "$description": "Respect user's reduced motion preference"
+      "$description": "Respect user's reduced motion preference via prefers-reduced-motion media query"
     }
   }
 }

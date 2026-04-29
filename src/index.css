@@ -1,14 +1,219 @@
 :root {
-  --bg: #0a0e17;
-  --surface: #121a2a;
-  --border: #1e2d42;
-  --text: #e8edf5;
-  --muted: #6b7a8f;
-  --accent: #00c389;
-  --accent-dim: #00996e;
-  --danger: #e5534b;
+  /* Light theme (default) */
+  --bg: #F9FAFB;
+  --surface: #F3F4F6;
+  --surface-raised: #E5E7EB;
+  --border: #E5E7EB;
+  --text: #111827;
+  --muted: #4B5563;
+  --accent: #00C389;
+  --accent-dim: #00996E;
+  --accent-transparent: rgba(0, 195, 137, 0.1);
+  --hover: #E5E7EB;
+  --danger: #DC2626;
+  --success: #059669;
+  --warning: #D97706;
+  --info: #2563EB;
   --radius: 10px;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-sans: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+
+  /* Spacing tokens */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+
+  /* Touch target minimum */
+  --touch-target: 44px;
+  
+  /* Display Scale - sm breakpoint (< 640px) */
+  --font-size-display: 28px;
+  --line-height-display: 36px;
+  --letter-spacing-display: -0.01em;
+  --font-weight-display: 700;
+  
+  /* Title Scale - sm breakpoint (< 640px) */
+  --font-size-title: 20px;
+  --line-height-title: 28px;
+  --letter-spacing-title: 0;
+  --font-weight-title: 600;
+  
+  /* Body Scale - sm breakpoint (< 640px) */
+  --font-size-body: 14px;
+  --line-height-body: 20px;
+  --letter-spacing-body: 0;
+  --font-weight-body: 400;
+  
+  /* Caption Scale - sm breakpoint (< 640px) */
+  --font-size-caption: 12px;
+  --line-height-caption: 16px;
+  --letter-spacing-caption: 0;
+  --font-weight-caption: 400;
+  
+  /* Mono Scale - sm breakpoint (< 640px) */
+  --font-size-mono: 12px;
+  --line-height-mono: 18px;
+  --letter-spacing-mono: 0;
+  --font-weight-mono: 400;
+  --font-family-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+/* Responsive breakpoints - update CSS variables */
+@media (min-width: 640px) {
+  :root {
+    /* Display at md (640px-768px) */
+    --font-size-display: 48px;
+    --line-height-display: 60px;
+    --letter-spacing-display: -0.01em;
+    
+    /* Title at md (640px-768px) */
+    --font-size-title: 28px;
+    --line-height-title: 36px;
+    --letter-spacing-title: -0.01em;
+    
+    /* Body at md (640px-768px) */
+    --font-size-body: 16px;
+    --line-height-body: 24px;
+    --letter-spacing-body: 0;
+    
+    /* Caption at md (640px-768px) */
+    --font-size-caption: 13px;
+    --line-height-caption: 18px;
+    --letter-spacing-caption: 0;
+    
+    /* Mono at md (640px-768px) */
+    --font-size-mono: 14px;
+    --line-height-mono: 20px;
+    --letter-spacing-mono: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    /* Display at lg (≥768px) */
+    --font-size-display: 72px;
+    --line-height-display: 90px;
+    --letter-spacing-display: -0.02em;
+    
+    /* Title at lg (≥768px) */
+    --font-size-title: 36px;
+    --line-height-title: 44px;
+    --letter-spacing-title: -0.01em;
+    
+    /* Body at lg (≥768px) */
+    --font-size-body: 18px;
+    --line-height-body: 28px;
+    --letter-spacing-body: 0;
+    
+    /* Caption at lg (≥768px) */
+    --font-size-caption: 14px;
+    --line-height-caption: 20px;
+    --letter-spacing-caption: 0;
+    
+    /* Mono at lg (≥768px) */
+    --font-size-mono: 16px;
+    --line-height-mono: 24px;
+    --letter-spacing-mono: 0;
+  }
+}
+
+/* Typography utility classes */
+.text-display {
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-display);
+  letter-spacing: var(--letter-spacing-display);
+  font-weight: var(--font-weight-display);
+  font-family: var(--font-sans);
+}
+
+.text-title {
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  letter-spacing: var(--letter-spacing-title);
+  font-weight: var(--font-weight-title);
+  font-family: var(--font-sans);
+}
+
+.text-body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+  font-weight: var(--font-weight-body);
+  font-family: var(--font-sans);
+}
+
+.text-caption {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  letter-spacing: var(--letter-spacing-caption);
+  font-weight: var(--font-weight-caption);
+  font-family: var(--font-sans);
+}
+
+.text-mono {
+  font-size: var(--font-size-mono);
+  line-height: var(--line-height-mono);
+  letter-spacing: var(--letter-spacing-mono);
+  font-weight: var(--font-weight-mono);
+  font-family: var(--font-family-mono);
+}
+
+/* Dark theme - auto if OS prefers dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --surface: #1F2937;
+    --surface-raised: #374151;
+    --border: #4B5563;
+    --text: #F9FAFB;
+    --muted: #9CA3AF;
+    --accent: #14B8A6;
+    --accent-dim: #0D9488;
+    --accent-transparent: rgba(20, 184, 166, 0.1);
+    --hover: #374151;
+    --danger: #EF4444;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --info: #60A5FA;
+  }
+}
+
+/* Manual dark theme override (if user selects dark) */
+:root[data-theme="dark"] {
+  --bg: #111827;
+  --surface: #1F2937;
+  --surface-raised: #374151;
+  --border: #4B5563;
+  --text: #F9FAFB;
+  --muted: #9CA3AF;
+  --accent: #14B8A6;
+  --accent-dim: #0D9488;
+  --accent-transparent: rgba(20, 184, 166, 0.1);
+  --hover: #374151;
+  --danger: #EF4444;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --info: #60A5FA;
+}
+
+/* Manual light theme override (if user selects light) */
+:root[data-theme="light"] {
+  --bg: #F9FAFB;
+  --surface: #F3F4F6;
+  --surface-raised: #E5E7EB;
+  --border: #E5E7EB;
+  --text: #111827;
+  --muted: #4B5563;
+  --accent: #0A7668;
+  --accent-dim: #095C4F;
+  --accent-transparent: rgba(10, 118, 104, 0.1);
+  --hover: #E5E7EB;
+  --danger: #DC2626;
+  --success: #059669;
+  --warning: #D97706;
+  --info: #2563EB;
 }
 
 * {
@@ -22,6 +227,10 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Safe area for notched/rounded devices */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #root {
@@ -35,4 +244,26 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/* ── prefers-reduced-motion ─────────────────────────────────────────────────
+   Collapse all durations to near-zero so CSS transitions still fire
+   (avoids layout jumps) but are imperceptible. JS/framer-motion components
+   read this via the useReducedMotion hook.                                   */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-micro:    1ms;
+    --duration-fast:     1ms;
+    --duration-normal:   1ms;
+    --duration-moderate: 1ms;
+    --duration-slow:     1ms;
+    --duration-slower:   1ms;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
