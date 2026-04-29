@@ -4,6 +4,8 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Vaults from './pages/Vaults'
 import CreateVault from './pages/CreateVault'
+import Analytics from './pages/Analytics'
+
 
 export default function App() {
   return (
@@ -14,6 +16,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/vaults" element={<Vaults />} />
             <Route path="/vaults/create" element={<CreateVault />} />
+            <Route path="/analytics" element={<Analytics />} />
           </Routes>
         </Layout>
       </BrowserRouter>

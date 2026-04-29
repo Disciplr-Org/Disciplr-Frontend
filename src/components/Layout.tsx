@@ -27,7 +27,8 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    <Link
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    
+          <Link
             to="/"
             style={{
               color: location.pathname === '/' ? 'var(--accent)' : 'var(--muted)',
@@ -37,7 +38,17 @@ export default function Layout({ children }: LayoutProps) {
             Home
           </Link>
 
-            <Link
+          <Link
+            to="/analytics"
+            style={{
+              color: location.pathname === '/analytics' ? 'var(--accent)' : 'var(--muted)',
+              textDecoration: 'none',
+            }}
+          >
+            Analytics
+          </Link>
+          
+          <Link
               to="/vaults/create"
               style={{
                 color: 'var(--surface)',
