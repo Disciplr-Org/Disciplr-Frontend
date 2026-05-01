@@ -273,8 +273,8 @@ export default function VaultDetail() {
               <Text role="title" as="h1" style={{ margin: 0 }}>{vault.name}</Text>
               <span style={{
                 background: statusCfg.bg, color: statusCfg.color,
-                border: `1px solid ${statusCfg.color}`,
-                borderRadius: 20, padding: '2px 12px', fontSize: 13, fontWeight: 600,
+                border: `var(--border-width-1) solid ${statusCfg.color}`,
+                borderRadius: 'var(--radius-full)', padding: '2px 12px', fontSize: 13, fontWeight: 600,
               }}>
                 {statusCfg.label}
               </span>

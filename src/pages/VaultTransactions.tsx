@@ -605,7 +605,7 @@ const CSS = `
     display: flex; align-items: center;
     background: rgba(110,231,183,0.08); border: 1px solid rgba(110,231,183,0.2);
     color: #6ee7b7; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
-    padding: 10px 18px; border-radius: 8px; cursor: pointer;
+    padding: 10px 18px; border-radius: var(--radius-md); cursor: pointer;
     transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-export-btn:hover { background: rgba(110,231,183,0.14); border-color: rgba(110,231,183,0.4); }
@@ -614,7 +614,7 @@ const CSS = `
   }
   .vt-stat-card {
     background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px; padding: 20px 22px; transition: border-color var(--duration-normal) var(--ease-in-out);
+    border-radius: var(--radius-lg); padding: 20px 22px; transition: border-color var(--duration-normal) var(--ease-in-out);
   }
   .vt-stat-card:hover { border-color: rgba(110,231,183,0.2); }
   .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; font-weight: 600; margin-bottom: 8px; }
@@ -629,7 +629,7 @@ const CSS = `
   .vt-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #475569; }
   .vt-search {
     width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px; color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
+    border-radius: var(--radius-md); color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
     font-size: 13px; padding: 9px 12px 9px 34px; outline: none; box-sizing: border-box;
     transition: border-color var(--duration-normal) var(--ease-in-out);
   }
@@ -673,7 +673,7 @@ const CSS = `
   .vt-section-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .vt-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
   .vt-section-count {
-    font-size: 11px; background: rgba(255,255,255,0.06); border-radius: 20px;
+    font-size: 11px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full);
     padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
   }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
@@ -710,7 +710,7 @@ const CSS = `
   .vt-tx-status {
     display: inline-flex; align-items: center; gap: 5px;
     font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-    padding: 3px 9px; border-radius: 20px;
+    padding: 3px 9px; border-radius: var(--radius-full);
   }
   .vt-status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
   .vt-tx-time { font-size: 11px; color: #334155; }
@@ -733,7 +733,7 @@ const CSS = `
   @keyframes vt-fadeIn { from { opacity: 0 } to { opacity: 1 } }
   .vt-modal {
     background: #0e1420; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px; padding: 28px; width: 100%; max-width: 580px;
+    border-radius: var(--radius-xl); padding: 28px; width: 100%; max-width: 580px;
     max-height: 90vh; overflow-y: auto; position: relative;
     animation: vt-slideUp var(--duration-normal) var(--ease-out);
   }
@@ -772,7 +772,7 @@ const CSS = `
   .vt-raw-pre {
     font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b;
     background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 8px; padding: 14px; margin-top: 10px; overflow-x: auto; white-space: pre;
+    border-radius: var(--radius-md); padding: 14px; margin-top: 10px; overflow-x: auto; white-space: pre;
   }
   .vt-modal-footer { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; }
   .vt-explorer-link {

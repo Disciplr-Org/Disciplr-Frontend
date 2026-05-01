@@ -72,8 +72,8 @@ export default function Vaults() {
                   </Text>
                   <span style={{
                     background: cfg.bg, color: cfg.color,
-                    border: `1px solid ${cfg.color}`,
-                    borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600,
+                    border: `var(--border-width-1) solid ${cfg.color}`,
+                    borderRadius: 'var(--radius-full)', padding: '2px 10px', fontSize: 12, fontWeight: 600,
                   }}>
                     {cfg.label}
                   </span>
