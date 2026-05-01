@@ -9,8 +9,8 @@ import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import Vaults from './pages/Vaults'
 import CreateVault from './pages/CreateVault'
-import VaultTransactions from './pages/VaultTransactions'
-import VaultDetail from './pages/VaultDetail'
+import Analytics from './pages/Analytics'
+
 
 // New Verifier Page Imports
 import VerifierDashboard from './pages/VerifierDashboard'

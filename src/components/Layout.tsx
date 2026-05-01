@@ -115,7 +115,8 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        <nav className="header-nav" aria-label="Main navigation">
+        <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>    
           <Link
             to="/"
             className="header-link"
@@ -123,15 +124,33 @@ export default function Layout({ children }: LayoutProps) {
           >
             <Text role="caption" as="span">Home</Text>
           </Link>
+
           <Link
-            to="/vaults/create"
-            className="header-link header-cta"
+            to="/analytics"
+            style={{
+              color: location.pathname === '/analytics' ? 'var(--accent)' : 'var(--muted)',
+              textDecoration: 'none',
+            }}
           >
-            <Text role="caption" as="span">Create Vault</Text>
+            Analytics
           </Link>
-          <ThemeToggle />
-          <WalletConnectButton />
-          <NotificationIcon />
+          
+          <Link
+              to="/vaults/create"
+              style={{
+                color: 'var(--surface)',
+                background: 'var(--accent)',
+                padding: '0.5rem 1rem',
+                borderRadius: '9999px',
+                textDecoration: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem'
+              }}
+            >
+              Create Vault
+            </Link>
+            <WalletConnectButton />
+          </div>
         </nav>
       </header>
 
