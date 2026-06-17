@@ -26,3 +26,25 @@ import { Field } from '../components/Field'
   required
 />
 ```
+
+## Validation Pattern
+
+Pass validation messages through the `error` prop so `Field` can render an inline
+message, set `aria-invalid`, and associate the input with the error text via
+`aria-describedby`.
+
+```tsx
+<Field
+  label="Success destination (Stellar address)"
+  type="text"
+  value={successAddress}
+  onChange={(e) => setSuccessAddress(e.target.value)}
+  error={errors.successAddress}
+  required
+/>
+```
+
+Form submit handlers should validate all values before calling backend or
+contract code. For vault creation, reject empty or non-positive USDC amounts,
+amounts with more than 7 decimal places, invalid or past deadlines, malformed
+Stellar public keys, and identical success/failure destinations.

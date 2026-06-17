@@ -1,15 +1,26 @@
 import { useState } from 'react'
 import { Text } from '../components/Text'
 import { Field } from '../components/Field'
+import {
+  CreateVaultErrors,
+  hasCreateVaultErrors,
+  validateCreateVault,
+} from '../utils/vaultValidation'
 
 export default function CreateVault() {
   const [amount, setAmount] = useState('')
   const [deadline, setDeadline] = useState('')
   const [successAddress, setSuccessAddress] = useState('')
   const [failureAddress, setFailureAddress] = useState('')
+  const [errors, setErrors] = useState<CreateVaultErrors>({})
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors = validateCreateVault({ amount, deadline, successAddress, failureAddress })
+    setErrors(nextErrors)
+
+    if (hasCreateVaultErrors(nextErrors)) return
+
     // Placeholder: will call backend / contract
     console.log({ amount, deadline, successAddress, failureAddress })
   }
@@ -35,31 +46,47 @@ export default function CreateVault() {
           label="Amount (USDC)"
           type="text"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            setAmount(e.target.value)
+            setErrors((current) => ({ ...current, amount: undefined }))
+          }}
           placeholder="1000"
+          error={errors.amount}
           required
         />
         <Field
           label="Deadline (ISO date)"
           type="datetime-local"
           value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
+          onChange={(e) => {
+            setDeadline(e.target.value)
+            setErrors((current) => ({ ...current, deadline: undefined }))
+          }}
+          error={errors.deadline}
           required
         />
         <Field
           label="Success destination (Stellar address)"
           type="text"
           value={successAddress}
-          onChange={(e) => setSuccessAddress(e.target.value)}
+          onChange={(e) => {
+            setSuccessAddress(e.target.value)
+            setErrors((current) => ({ ...current, successAddress: undefined }))
+          }}
           placeholder="G..."
+          error={errors.successAddress}
           required
         />
         <Field
           label="Failure destination (Stellar address)"
           type="text"
           value={failureAddress}
-          onChange={(e) => setFailureAddress(e.target.value)}
+          onChange={(e) => {
+            setFailureAddress(e.target.value)
+            setErrors((current) => ({ ...current, failureAddress: undefined }))
+          }}
           placeholder="G..."
+          error={errors.failureAddress}
           required
         />
         <button
