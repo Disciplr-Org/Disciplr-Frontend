@@ -9,7 +9,7 @@ interface WalletDropdownProps {
 }
 
 export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
-    const { address, balance, network, disconnect } = useWallet();
+    const { address, balance, network, balanceStatus, balanceError, hasUsdcTrustline, disconnect } = useWallet();
     const [copied, setCopied] = useState(false);
 
     if (!address) return null;
@@ -45,8 +45,14 @@ export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
                     </button>
                 </div>
                 <div className="wallet-dropdown-balance">
-                    {balance !== null ? balance : '0.00'} <span>USDC</span>
+                    {balanceStatus === 'loading' ? 'Loading...' : balance !== null ? balance : '0.00'} <span>USDC</span>
                 </div>
+                {balanceStatus === 'error' && (
+                    <div className="wallet-dropdown-balance-note">{balanceError}</div>
+                )}
+                {balanceStatus === 'loaded' && !hasUsdcTrustline && (
+                    <div className="wallet-dropdown-balance-note">No USDC trustline found on {network ?? 'this network'}.</div>
+                )}
             </div>
 
             <div className="wallet-dropdown-actions">

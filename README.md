@@ -33,6 +33,12 @@ npm run dev
 
 App runs at **http://localhost:5173**. API requests to `/api` are proxied to `http://localhost:3000` (configure in `vite.config.ts`).
 
+## Wallet USDC balance
+
+The wallet dropdown reads the connected Freighter account's USDC balance from Horizon instead of showing a mocked value. Testnet accounts are fetched from `https://horizon-testnet.stellar.org`; public-network accounts are fetched from `https://horizon.stellar.org`.
+
+If the account is not funded or has no USDC trustline, the UI shows `0.00 USDC` with a trustline note. If Horizon returns an operational error, the dropdown keeps the balance empty and shows a recoverable loading error instead of displaying stale data.
+
 ### Scripts
 
 | Command     | Description              |

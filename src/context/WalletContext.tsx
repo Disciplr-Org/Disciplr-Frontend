@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
+import { fetchUsdcBalance } from '../utils/horizon';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 
@@ -7,6 +8,9 @@ interface WalletContextType {
     address: string | null;
     network: WalletNetwork | null;
     balance: string | null;
+    balanceStatus: 'idle' | 'loading' | 'loaded' | 'error';
+    balanceError: string | null;
+    hasUsdcTrustline: boolean;
     isConnecting: boolean;
     error: string | null;
     connect: () => Promise<void>;
@@ -20,28 +24,47 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [network, setNetwork] = useState<WalletNetwork | null>(null);
     const [balance, setBalance] = useState<string | null>(null);
+    const [balanceStatus, setBalanceStatus] = useState<WalletContextType['balanceStatus']>('idle');
+    const [balanceError, setBalanceError] = useState<string | null>(null);
+    const [hasUsdcTrustline, setHasUsdcTrustline] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchNetworkAndBalance = async () => {
+    const fetchNetworkAndBalance = async (publicKey: string) => {
+        setBalanceStatus('loading');
+        setBalanceError(null);
         try {
+            const allowedState = await isAllowed();
+            if (!allowedState.isAllowed) {
+                setBalance(null);
+                setHasUsdcTrustline(false);
+                setBalanceStatus('idle');
+                return;
+            }
             const netDetails = await getNetworkDetails();
-            setNetwork(netDetails.network as WalletNetwork);
-            // For a real app, you would query the Horizon API here to get the real balance.
-            // For this implementation, we will mock a balance.
-            setBalance('0.00');
+            const walletNetwork = netDetails.network as WalletNetwork;
+            setNetwork(walletNetwork);
+            const result = await fetchUsdcBalance(publicKey, walletNetwork);
+            setBalance(result.balance);
+            setHasUsdcTrustline(result.hasTrustline);
+            setBalanceStatus('loaded');
         } catch (err) {
             console.error('Failed to get network details', err);
+            setBalance(null);
+            setHasUsdcTrustline(false);
+            setBalanceError('Unable to load USDC balance from Horizon.');
+            setBalanceStatus('error');
         }
     };
 
     const checkConnection = async () => {
         try {
-            if (await isAllowed()) {
+            const allowedState = await isAllowed();
+            if (allowedState.isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
-                    await fetchNetworkAndBalance();
+                    await fetchNetworkAndBalance(pubKey);
                 }
             }
         } catch (err) {
@@ -60,16 +83,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             // Prompt user to allow access
             await setAllowed();
             const access = await requestAccess();
-            if (access) {
+            if (access.address && !access.error) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
-                    await fetchNetworkAndBalance();
+                    await fetchNetworkAndBalance(pubKey);
                 } else {
                     setError(addrError || 'Failed to get wallet address.');
                 }
             } else {
-                setError('Wallet access denied.');
+                setError(access.error || 'Wallet access denied.');
             }
         } catch (err: unknown) {
             console.error('Connection error', err);
@@ -84,6 +107,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setAddress(null);
         setNetwork(null);
         setBalance(null);
+        setBalanceStatus('idle');
+        setBalanceError(null);
+        setHasUsdcTrustline(false);
     };
 
     return (
@@ -92,6 +118,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 address,
                 network,
                 balance,
+                balanceStatus,
+                balanceError,
+                hasUsdcTrustline,
                 isConnecting,
                 error,
                 connect,

@@ -274,6 +274,13 @@
   font-weight: 400;
 }
 
+.wallet-dropdown-balance-note {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
 .wallet-dropdown-actions {
   padding: 0.5rem;
 }
