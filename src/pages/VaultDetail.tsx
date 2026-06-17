@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Text } from "../components/Text";
+import VaultProgressBar from "../components/VaultProgressBar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -490,42 +491,7 @@ export default function VaultDetail() {
         >
           Status Timeline
         </Text>
-        <div style={{ position: "relative", marginBottom: "0.5rem" }}>
-          {/* Track */}
-          <div
-            style={{ height: 6, background: "var(--border)", borderRadius: 3 }}
-          />
-          {/* Fill */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              height: 6,
-              width: `${progress}%`,
-              background: isActive ? "var(--accent)" : statusCfg.color,
-              borderRadius: 3,
-              transition: "width 0.4s",
-            }}
-          />
-          {/* Marker */}
-          {isActive && (
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: `${progress}%`,
-                transform: "translate(-50%, -50%)",
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "var(--accent)",
-                border: "2px solid var(--bg)",
-                boxShadow: "0 0 0 2px var(--accent)",
-              }}
-            />
-          )}
-        </div>
+        <VaultProgressBar value={progress} label="Timeline progress" />
         <div
           style={{
             display: "flex",
