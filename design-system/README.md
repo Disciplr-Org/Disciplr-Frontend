@@ -14,6 +14,8 @@ A comprehensive design system for the Disciplr financial platform.
 
 See `documentation/getting-started.md` for setup instructions.
 
+For a token-to-component reference, see `documentation/token-catalog.md`.
+
 ## Responsive breakpoints
 
 Disciplr uses a five-step breakpoint scale that is shared between CSS, Tailwind v4
