@@ -34,3 +34,6 @@ and `spacing.grid.{mobile|tablet|desktop}`.
 For the full breakpoint table, container max-width audit, vault-column stacking
 guidance, off-token usage catalogue, and example layouts per breakpoint, see
 [`documentation/breakpoints.md`](documentation/breakpoints.md).
+
+Validation history filtering and pagination behavior is documented in
+[`documentation/validation-history-filters.md`](documentation/validation-history-filters.md).
