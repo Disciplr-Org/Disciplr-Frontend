@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Text } from "../components/Text";
+import {
+  FundReleaseStatus,
+  FundReleaseStatusProps,
+} from "../components/FundReleaseStatus";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -272,6 +276,37 @@ function timelineProgress(created: string, deadline: string): number {
   return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
 }
 
+function settlementForVault(vault: Vault): FundReleaseStatusProps {
+  const releasedTx = vault.transactions.find((tx) => tx.type === "release");
+  const redirectedTx = vault.transactions.find((tx) => tx.type === "redirect");
+
+  if (vault.status === "completed") {
+    return {
+      outcome: "released",
+      destinationAddress: vault.successAddress,
+      amount: releasedTx?.amount ?? vault.amount,
+      assetCode: vault.currency,
+      transaction: releasedTx,
+    };
+  }
+
+  if (vault.status === "failed") {
+    return {
+      outcome: "redirected",
+      destinationAddress: vault.failureAddress,
+      amount: redirectedTx?.amount ?? vault.amount,
+      assetCode: vault.currency,
+      transaction: redirectedTx,
+    };
+  }
+
+  return {
+    outcome: "pending",
+    amount: vault.amount,
+    assetCode: vault.currency,
+  };
+}
+
 // ── Copy Button ───────────────────────────────────────────────────────────────
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -381,6 +416,7 @@ export default function VaultDetail() {
   const progress = timelineProgress(vault.createdAt, vault.deadline);
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
+  const settlement = settlementForVault(vault);
 
   return (
     <div
@@ -558,6 +594,10 @@ export default function VaultDetail() {
           </Text>
         </div>
       </Card>
+
+      <div style={{ marginBottom: "1.25rem" }}>
+        <FundReleaseStatus {...settlement} />
+      </div>
 
       {/* ── Info + Addresses ── */}
       <div

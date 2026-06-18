@@ -34,3 +34,5 @@ and `spacing.grid.{mobile|tablet|desktop}`.
 For the full breakpoint table, container max-width audit, vault-column stacking
 guidance, off-token usage catalogue, and example layouts per breakpoint, see
 [`documentation/breakpoints.md`](documentation/breakpoints.md).
+
+Settlement-panel guidance is documented in [`documentation/fund-release-status.md`](documentation/fund-release-status.md).
