@@ -1,6 +1,9 @@
+import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import { Text } from "./Text";
+import MobileDrawer from "./MobileDrawer";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,6 +12,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
   const toggleDrawer = () => setDrawerOpen(prev => !prev);
+  const drawerTriggerRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
 
   return (
@@ -45,7 +49,7 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        <nav style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
+        <nav className="desktop-nav" style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <Link
               to="/"
@@ -90,10 +94,26 @@ export default function Layout({ children }: LayoutProps) {
             <WalletConnectButton />
           </div>
         </nav>
-        <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
+        <button
+          ref={drawerTriggerRef}
+          className="mobile-hamburger"
+          type="button"
+          onClick={toggleDrawer}
+          aria-label="Open navigation drawer"
+          aria-controls="mobile-drawer"
+          aria-expanded={isDrawerOpen}
+        >
+          <Menu size={24} aria-hidden="true" />
+        </button>
+        <MobileDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          returnFocusRef={drawerTriggerRef}
+        />
       </header>
 
       <main
+        aria-hidden={isDrawerOpen}
         style={{
           flex: 1,
           padding: "var(--spacing-8)",

@@ -96,8 +96,8 @@
 /* ─── Responsive Navigation (Mobile hamburger + drawer) ─────────────────── */
 .mobile-hamburger {
   display: none;
-  background: none;
-  border: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
   padding: var(--spacing-2);
@@ -155,6 +155,19 @@
   animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.mobile-drawer-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 .mobile-drawer-close {
   align-self: flex-end;
   background: none;
@@ -197,4 +210,3 @@
     transform: translateX(0);
   }
 }
-
