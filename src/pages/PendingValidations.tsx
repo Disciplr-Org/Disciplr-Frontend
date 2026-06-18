@@ -1,88 +1,114 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CountdownDeadline } from '../components/CountdownDeadline';
-import { Text } from '../components/Text';
-import { useVerifierStore } from '../Zustand/Store';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Text } from "../components/Text";
+import { useVerifierStore } from "../Zustand/Store";
+import "./VerifierPages.css";
 
 export default function PendingValidations() {
   const navigate = useNavigate();
   const { pendingValidations } = useVerifierStore();
-  
+
   // Optional: Simple state to handle sorting by days remaining
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const sortedValidations = [...pendingValidations].sort((a, b) => {
-    return sortOrder === 'asc' 
-      ? a.daysRemaining - b.daysRemaining 
+    return sortOrder === "asc"
+      ? a.daysRemaining - b.daysRemaining
       : b.daysRemaining - a.daysRemaining;
   });
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <header className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-2">
+    <div className="verifier-page">
+      <header className="verifier-page__header">
         <div>
-          <button 
-            onClick={() => navigate('/verifier')}
-            className="text-gray-500 hover:text-gray-800 mb-2 text-sm font-medium transition"
+          <button
+            onClick={() => navigate("/verifier")}
+            className="verifier-page__link-button"
           >
             &larr; Back to Dashboard
           </button>
-          <Text role="display" as="h1">Pending Validations</Text>
-          <Text role="body" as="p" className="text-gray-500 mt-1">
+          <Text role="display" as="h1">
+            Pending Validations
+          </Text>
+          <Text role="body" as="p" className="verifier-page__lede">
             Review and validate milestones submitted by vault owners.
           </Text>
         </div>
-        
-        <button 
-          onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-          className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50 transition"
+
+        <button
+          onClick={() =>
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+          }
+          className="verifier-page__button"
         >
-          Sort by Urgency: {sortOrder === 'asc' ? 'High to Low' : 'Low to High'}
+          Sort by Urgency: {sortOrder === "asc" ? "High to Low" : "Low to High"}
         </button>
       </header>
 
-      <section className="bg-white border rounded-lg shadow-sm overflow-x-auto">
+      <section className="verifier-table-card">
         {sortedValidations.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            <Text role="body" as="h3">All caught up!</Text>
-            <Text role="body" as="p" className="mt-2">There are no pending validations in your queue.</Text>
+          <div className="verifier-page__empty">
+            <Text role="body" as="h3">
+              All caught up!
+            </Text>
+            <Text role="body" as="p" className="verifier-page__lede">
+              There are no pending validations in your queue.
+            </Text>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="verifier-table">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="p-4 font-medium text-sm text-gray-600">Vault & Milestone</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Owner</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Amount at Stake</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Deadline</th>
-                <th className="p-4 font-medium text-sm text-gray-600 text-right">Actions</th>
+              <tr className="verifier-table__head-row">
+                <th className="verifier-table__header">Vault & Milestone</th>
+                <th className="verifier-table__header">Owner</th>
+                <th className="verifier-table__header">Amount at Stake</th>
+                <th className="verifier-table__header">Deadline</th>
+                <th className="verifier-table__header verifier-table__header--actions">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {sortedValidations.map((task) => (
-                <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-4">
-                    <Text role="body" as="p" className="font-semibold text-gray-800">{task.vaultName}</Text>
-                    <Text role="body" as="p" className="text-sm text-gray-500 mt-1">{task.milestone}</Text>
+                <tr key={task.id} className="verifier-table__row">
+                  <td className="verifier-table__cell">
+                    <Text role="body" as="p" className="verifier-table__title">
+                      {task.vaultName}
+                    </Text>
+                    <Text
+                      role="body"
+                      as="p"
+                      className="verifier-table__subtext"
+                    >
+                      {task.milestone}
+                    </Text>
                   </td>
-                  <td className="p-4">
-                    <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded font-mono">
-                      {task.owner}
-                    </span>
+                  <td className="verifier-table__cell">
+                    <span className="verifier-table__wallet">{task.owner}</span>
                   </td>
-                  <td className="p-4">
-                    <Text role="body" as="p" className="font-medium text-gray-800">{task.amount}</Text>
+                  <td className="verifier-table__cell">
+                    <Text role="body" as="p" className="verifier-table__amount">
+                      {task.amount}
+                    </Text>
                   </td>
-                  <td className="p-4">
-                    <div className="flex flex-col">
-                      <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                      <CountdownDeadline deadline={task.deadline} />
+                  <td className="verifier-table__cell">
+                    <div className="verifier-table__deadline-cell">
+                      <Text role="body" as="p">
+                        {task.deadline}
+                      </Text>
+                      <span
+                        className={`verifier-table__deadline ${
+                          task.daysRemaining <= 3 ? "is-urgent" : ""
+                        }`}
+                      >
+                        {task.daysRemaining} days left
+                      </span>
                     </div>
                   </td>
-                  <td className="p-4 text-right">
-                    <button 
+                  <td className="verifier-table__cell verifier-table__cell--actions">
+                    <button
                       onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                      className="px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition text-sm font-medium"
+                      className="verifier-table__review-button"
                     >
                       Review
                     </button>
