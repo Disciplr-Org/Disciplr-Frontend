@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Text } from "../components/Text";
+import { SafeLink } from "../components/SafeLink";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -697,14 +698,12 @@ export default function VaultDetail() {
                   </Text>
                 )}
                 {m.evidenceUrl && (
-                  <a
+                  <SafeLink
                     href={m.evidenceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     style={{ fontSize: 12, color: "var(--accent)" }}
                   >
                     View evidence ↗
-                  </a>
+                  </SafeLink>
                 )}
               </div>
             );

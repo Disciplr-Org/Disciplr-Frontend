@@ -3,6 +3,7 @@ import FocusTrap from 'focus-trap-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { Text } from './Text';
+import { SafeLink } from './SafeLink';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -139,15 +140,13 @@ export function ConfirmationModal({
                     <Text role="body" as="span" className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
                       Review Evidence
                     </Text>
-                    <a
+                    <SafeLink
                       href={evidenceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline w-fit"
                     >
                       <ExternalLink size={14} />
                       View submitted proof
-                    </a>
+                    </SafeLink>
                   </div>
                 )}
 

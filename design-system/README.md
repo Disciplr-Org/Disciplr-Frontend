@@ -34,3 +34,10 @@ and `spacing.grid.{mobile|tablet|desktop}`.
 For the full breakpoint table, container max-width audit, vault-column stacking
 guidance, off-token usage catalogue, and example layouts per breakpoint, see
 [`documentation/breakpoints.md`](documentation/breakpoints.md).
+
+## Evidence Link Safety
+
+Verifier evidence links come from vault owners and must be treated as untrusted
+input. Use the shared safe-link policy and wrapper documented in
+[`documentation/evidence-link-safety.md`](documentation/evidence-link-safety.md)
+before rendering externally provided evidence URLs.

@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ValidationDetail from '../ValidationDetail';
 import { useVerifierStore } from '../../Zustand/Store';
 
@@ -38,13 +38,15 @@ const mockPendingValidations = [
   },
 ];
 
+const mockUseVerifierStore = vi.mocked(useVerifierStore);
+
 describe('ValidationDetail Page', () => {
   const mockApproveValidation = vi.fn();
   const mockRejectValidation = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({
+    mockUseVerifierStore.mockReturnValue({
       pendingValidations: mockPendingValidations,
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
@@ -65,7 +67,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('shows "Validation Not Found" if task does not exist', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockUseVerifierStore.mockReturnValue({
       pendingValidations: [],
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
@@ -166,7 +168,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('renders "No evidence link provided" when task has no evidenceUrl', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockUseVerifierStore.mockReturnValue({
       pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: undefined }],
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
@@ -179,6 +181,23 @@ describe('ValidationDetail Page', () => {
     );
 
     expect(screen.getByText('No evidence link provided.')).toBeInTheDocument();
+  });
+
+  it('renders unsafe evidence URLs as rejected text without a link', () => {
+    mockUseVerifierStore.mockReturnValue({
+      pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: 'javascript:alert(1)' }],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('link', { name: /View Attached Evidence/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Rejected unsafe evidence URL')).toBeInTheDocument();
   });
 
   it('allows switching decision inside the modal', async () => {

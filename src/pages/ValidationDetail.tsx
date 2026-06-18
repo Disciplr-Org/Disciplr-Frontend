@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { SafeLink } from '../components/SafeLink';
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
@@ -110,14 +111,12 @@ export default function ValidationDetail() {
             
             <Text role="body" as="p" className="font-bold mb-2">Submitted Proof:</Text>
             {task.evidenceUrl ? (
-              <a 
-                href={task.evidenceUrl} 
-                target="_blank" 
-                rel="noreferrer"
+              <SafeLink
+                href={task.evidenceUrl}
                 className="inline-block px-4 py-2 border border-blue-300 text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition font-medium text-sm"
               >
                 &#128279; View Attached Evidence
-              </a>
+              </SafeLink>
             ) : (
               <Text role="body" as="p" className="text-gray-500 italic">No evidence link provided.</Text>
             )}
