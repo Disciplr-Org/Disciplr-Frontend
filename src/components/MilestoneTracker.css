@@ -1,0 +1,66 @@
+.milestone-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.milestone-tracker__empty {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: 0.75rem 0;
+}
+
+.milestone-tracker__item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  border-left-width: 3px;
+  border-left-style: solid;
+}
+
+.milestone-tracker__item[aria-current='step'] {
+  box-shadow: 0 0 0 1px var(--accent-transparent);
+}
+
+.milestone-tracker__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.milestone-tracker__title {
+  font-weight: 600;
+}
+
+.milestone-tracker__badge {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.milestone-tracker__text {
+  color: var(--muted);
+  margin: 0 0 0.3rem;
+}
+
+.milestone-tracker__validated {
+  color: var(--success);
+  margin: 0 0 0.3rem;
+}
+
+.milestone-tracker__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.milestone-tracker__link:hover {
+  text-decoration: underline;
+}
