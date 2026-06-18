@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
+import { CountdownDeadline } from '../components/CountdownDeadline';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
@@ -75,9 +76,7 @@ export default function PendingValidations() {
                   <td className="p-4">
                     <div className="flex flex-col">
                       <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                      <span className={`text-xs font-bold mt-1 ${task.daysRemaining <= 3 ? 'text-red-600' : 'text-green-600'}`}>
-                        {task.daysRemaining} days left
-                      </span>
+                      <CountdownDeadline deadline={task.deadline} labelPrefix="Validation deadline" />
                     </div>
                   </td>
                   <td className="p-4 text-right">

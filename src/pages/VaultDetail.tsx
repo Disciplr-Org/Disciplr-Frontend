@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Text } from "../components/Text";
+import { CountdownDeadline } from "../components/CountdownDeadline";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -254,15 +255,6 @@ function fmtDateTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function timeRemaining(deadline: string): string {
-  const diff = new Date(deadline).getTime() - Date.now();
-  if (diff <= 0) return "Expired";
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  if (days > 0) return `${days}d ${hours}h remaining`;
-  return `${hours}h remaining`;
 }
 
 function timelineProgress(created: string, deadline: string): number {
@@ -542,7 +534,7 @@ export default function VaultDetail() {
               as="span"
               style={{ color: "var(--accent)", fontWeight: 600 }}
             >
-              {timeRemaining(vault.deadline)}
+              <CountdownDeadline deadline={vault.deadline} labelPrefix="Vault deadline" />
             </Text>
           ) : (
             <Text

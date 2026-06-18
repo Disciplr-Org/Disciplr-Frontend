@@ -34,11 +34,12 @@ describe('VaultCard', () => {
     expect(screen.getByText('12,500 USDC')).toBeInTheDocument();
   });
 
-  it('renders formatted deadline with days remaining', () => {
+  it('renders a live countdown deadline', () => {
     renderCard();
-    // Expected days remaining from fixedNow (July 1) to July 15 => 14 days
-    const deadlineRegex = /Deadline: Jul 15, 2024 \(14d left\)/;
-    expect(screen.getByText(deadlineRegex)).toBeInTheDocument();
+    const countdown = screen.getByText('14d 10h left');
+    expect(countdown).toBeInTheDocument();
+    expect(countdown).toHaveAttribute('aria-label', expect.stringContaining('Vault deadline'));
+    expect(countdown).toHaveStyle({ color: 'var(--muted)' });
   });
 
   it('displays correct status badge', () => {
