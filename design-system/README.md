@@ -16,6 +16,9 @@ See `documentation/getting-started.md` for setup instructions.
 
 For a token-to-component map, see `documentation/token-catalog.md`.
 
+For test commands, coverage expectations, and Jest token utility patterns, see
+the repository testing guide at [`../docs/TESTING.md`](../docs/TESTING.md).
+
 ## Component Documentation
 
 - [`MilestoneTracker`](documentation/milestone-tracker.md) - ordered vault
