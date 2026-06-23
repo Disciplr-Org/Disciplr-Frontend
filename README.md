@@ -63,10 +63,12 @@ wallet UI in `src/components/Wallet/`.
   truncated address plus network badge when connected.
 - `WalletSelectionModal.tsx` calls Freighter through `setAllowed`,
   `requestAccess`, `getAddress`, and `getNetworkDetails`.
-- `WalletDropdown.tsx` shows the connected address, mock USDC balance, explorer
-  link, switch action, copy action, and disconnect action.
+- `WalletDropdown.tsx` shows the connected address, Horizon-backed Circle USDC
+  balance, explorer link, switch action, copy action, and disconnect action.
 - Supported wallet network labels come from `WalletNetwork`: `TESTNET` and
   `PUBLIC`.
+- The full wallet lifecycle and balance state machine are documented in
+  [`docs/WALLET_INTEGRATION.md`](docs/WALLET_INTEGRATION.md).
 
 ## Design System
 

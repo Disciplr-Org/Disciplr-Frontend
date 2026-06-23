@@ -2,6 +2,10 @@
 
 Connected wallets display the Circle USDC trustline balance for the active Stellar network.
 
+For the end-to-end Freighter connection flow, `WalletContext` state machine,
+Horizon error codes, and network extension checklist, see
+`docs/WALLET_INTEGRATION.md`.
+
 - `TESTNET` accounts query `https://horizon-testnet.stellar.org`.
 - `PUBLIC` accounts query `https://horizon.stellar.org`.
 - The balance helper only accepts the configured Circle USDC issuer for the active network.
