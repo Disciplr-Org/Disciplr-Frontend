@@ -147,6 +147,10 @@ cd design-system
 npm test
 ```
 
+For the full contributor testing guide, including app Vitest conventions,
+design-system Jest conventions, coverage, and common mock recipes, see
+[`docs/TESTING.md`](docs/TESTING.md).
+
 ## Project Layout
 
 ```text
