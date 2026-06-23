@@ -14,6 +14,7 @@ A comprehensive design system for the Disciplr financial platform.
 
 See `documentation/getting-started.md` for setup instructions.
 
+For token authoring conventions, see `documentation/token-authoring.md`.
 For a token-to-component map, see `documentation/token-catalog.md`.
 
 ## Component Documentation

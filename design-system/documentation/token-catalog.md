@@ -4,6 +4,9 @@ This catalog maps token groups to their runtime CSS variables, utility files,
 and component consumers. Keep it current when adding tokens or migrating
 components to the design system.
 
+For JSON authoring conventions, DTCG field usage, naming rules, and worked
+validator examples, see `documentation/token-authoring.md`.
+
 | Token group | Token source | Runtime variables or utilities | Current consumers |
 | --- | --- | --- | --- |
 | Core color surfaces | `tokens/colors.json` | `--bg`, `--surface`, `--surface-raised`, `--border`, `--text`, `--muted`, `--hover` in `src/index.css` | `Layout`, `Dashboard`, `VaultCard`, `Field`, `ConfirmationModal`, wallet components, notification settings |

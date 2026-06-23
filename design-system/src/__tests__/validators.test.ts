@@ -38,6 +38,11 @@ const validChart = () => ({
   sequential: ramp(5),
 });
 
+const documentedChartTokenGroup = (light: string, dark: string) => ({
+  light: colorToken(light),
+  dark: colorToken(dark),
+});
+
 describe('standalone color string validators', () => {
   it('validates six-digit hex colors case-insensitively', () => {
     expect(isValidHexColor('#ABCDEF')).toBe(true);
@@ -169,6 +174,52 @@ describe('isValidColorToken', () => {
 describe('isValidChartTokens', () => {
   it('accepts a complete chart token set', () => {
     expect(isValidChartTokens(validChart())).toBe(true);
+  });
+
+  it('accepts the token authoring guide examples', () => {
+    const guideColorToken = {
+      $type: 'color',
+      $value: '#2563EB',
+      $description: 'Review action color in light mode',
+      accessibility: {
+        wcagLevel: 'AA',
+        colorblindSafe: true,
+        colorblindSimulation: {
+          protanopia: '#2564EB',
+          deuteranopia: '#2563EB',
+          tritanopia: '#2563EC',
+        },
+      },
+    };
+
+    expect(isKebabCase('color-action-review')).toBe(true);
+    expect(hasValidTokenPrefix('color-action-review')).toBe(true);
+    expect(isValidColorToken(guideColorToken)).toBe(true);
+
+    expect(
+      isValidChartTokens({
+        axis: documentedChartTokenGroup('#334155', '#CBD5E1'),
+        grid: documentedChartTokenGroup('#E2E8F0', '#334155'),
+        tooltipBg: documentedChartTokenGroup('#FFFFFF', '#0F172A'),
+        tooltipBorder: documentedChartTokenGroup('#CBD5E1', '#475569'),
+        tooltipText: documentedChartTokenGroup('#0F172A', '#F8FAFC'),
+        tooltipLabel: documentedChartTokenGroup('#475569', '#CBD5E1'),
+        categorical: {
+          'step-1': documentedChartTokenGroup('#2563EB', '#60A5FA'),
+          'step-2': documentedChartTokenGroup('#0D9488', '#2DD4BF'),
+          'step-3': documentedChartTokenGroup('#7C3AED', '#A78BFA'),
+          'step-4': documentedChartTokenGroup('#EA580C', '#FDBA74'),
+          'step-5': documentedChartTokenGroup('#DC2626', '#FCA5A5'),
+        },
+        sequential: {
+          'step-1': documentedChartTokenGroup('#EFF6FF', '#172554'),
+          'step-2': documentedChartTokenGroup('#BFDBFE', '#1E3A8A'),
+          'step-3': documentedChartTokenGroup('#60A5FA', '#1D4ED8'),
+          'step-4': documentedChartTokenGroup('#2563EB', '#3B82F6'),
+          'step-5': documentedChartTokenGroup('#1E40AF', '#93C5FD'),
+        },
+      }),
+    ).toBe(true);
   });
 
   it('rejects missing or malformed surface tokens', () => {
