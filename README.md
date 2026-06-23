@@ -68,6 +68,14 @@ wallet UI in `src/components/Wallet/`.
 - Supported wallet network labels come from `WalletNetwork`: `TESTNET` and
   `PUBLIC`.
 
+## Verifier Flow
+
+The verifier journey and store state model are documented in
+[`docs/VERIFIER_FLOW.md`](docs/VERIFIER_FLOW.md). Keep that guide aligned with
+`src/Zustand/Store.ts`, `src/pages/VerifierDashboard.tsx`,
+`src/pages/PendingValidations.tsx`, `src/pages/ValidationDetail.tsx`,
+`src/pages/ValidationHistory.tsx`, and `src/components/ConfirmationModal.tsx`.
+
 ## Design System
 
 The `design-system/` package contains Disciplr's token source and validation

@@ -3,6 +3,9 @@
 The verifier validation history page supports client-side filtering, search, and
 pagination for completed milestone decisions.
 
+For the full verifier journey, `ValidationTask` data model, and
+pending-to-history transition, see `docs/VERIFIER_FLOW.md`.
+
 ## Controls
 
 - Outcome filter: `All outcomes`, `Approved`, or `Rejected`.

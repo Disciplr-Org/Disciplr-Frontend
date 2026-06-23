@@ -34,6 +34,9 @@ The `ConfirmationModal` component implements the following a11y patterns:
 
 Component: `src/components/ConfirmationModal.tsx`
 
+For the end-to-end verifier store transition around this modal, see
+`docs/VERIFIER_FLOW.md`.
+
 ```tsx
 <ConfirmationModal
   isOpen={isModalOpen}
