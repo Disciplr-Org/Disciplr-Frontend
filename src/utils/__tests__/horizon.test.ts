@@ -1,10 +1,20 @@
+import { describe, expect, test, vi } from 'vitest';
 import { fetchUsdcBalance, horizonUrl, HorizonBalanceError, USDC_ISSUERS } from '../horizon';
 
+// Each branch injects a fake fetcher so tests never call the real Horizon API.
 function mockResponse(status: number, body: unknown) {
     return {
         ok: status >= 200 && status < 300,
         status,
         json: vi.fn().mockResolvedValue(body),
+    } as unknown as Response;
+}
+
+function mockJsonFailure(status = 200) {
+    return {
+        ok: status >= 200 && status < 300,
+        status,
+        json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token < in JSON')),
     } as unknown as Response;
 }
 
@@ -38,6 +48,43 @@ describe('horizon wallet balance helpers', () => {
         expect(fetcher).toHaveBeenCalledWith('https://horizon-testnet.stellar.org/accounts/GTEST%20ACCOUNT');
     });
 
+    test('encodes reserved address characters in the Horizon account URL', async () => {
+        const fetcher = vi.fn().mockResolvedValue(mockResponse(200, { balances: [] }));
+
+        await fetchUsdcBalance('G/ACCOUNT?BAD', 'TESTNET', fetcher);
+
+        expect(fetcher).toHaveBeenCalledWith('https://horizon-testnet.stellar.org/accounts/G%2FACCOUNT%3FBAD');
+    });
+
+    test('uses the public USDC issuer while ignoring native assets and other issuers', async () => {
+        const fetcher = vi.fn().mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    { asset_type: 'native', balance: '150.0000000' },
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '999.0000000',
+                    },
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.PUBLIC,
+                        balance: '7.1250000',
+                    },
+                ],
+            }),
+        );
+
+        await expect(fetchUsdcBalance('GPUBLIC', 'PUBLIC', fetcher)).resolves.toEqual({
+            balance: '7.1250000',
+            hasTrustline: true,
+            issuer: USDC_ISSUERS.PUBLIC,
+            network: 'PUBLIC',
+        });
+    });
+
     test('returns zero with no trustline when Horizon has no matching USDC issuer', async () => {
         const fetcher = vi.fn().mockResolvedValue(
             mockResponse(200, {
@@ -60,6 +107,21 @@ describe('horizon wallet balance helpers', () => {
         });
     });
 
+    test('returns zero with no trustline when the account only has native balance lines', async () => {
+        const fetcher = vi.fn().mockResolvedValue(
+            mockResponse(200, {
+                balances: [{ asset_type: 'native', balance: '10.0000000' }],
+            }),
+        );
+
+        await expect(fetchUsdcBalance('GNATIVEONLY', 'TESTNET', fetcher)).resolves.toEqual({
+            balance: '0.00',
+            hasTrustline: false,
+            issuer: USDC_ISSUERS.TESTNET,
+            network: 'TESTNET',
+        });
+    });
+
     test('throws an account-not-found error for Horizon 404 responses', async () => {
         const fetcher = vi.fn().mockResolvedValue(mockResponse(404, {}));
 
@@ -78,11 +140,30 @@ describe('horizon wallet balance helpers', () => {
         });
     });
 
+    test('throws an invalid-response error when Horizon JSON parsing fails', async () => {
+        const fetcher = vi.fn().mockResolvedValue(mockJsonFailure());
+
+        await expect(fetchUsdcBalance('GBADJSON', 'TESTNET', fetcher)).rejects.toMatchObject({
+            name: 'HorizonBalanceError',
+            code: 'INVALID_RESPONSE',
+            message: 'Horizon account response could not be parsed.',
+        } satisfies Partial<HorizonBalanceError>);
+    });
+
     test('throws an invalid-response error when balances are missing', async () => {
         const fetcher = vi.fn().mockResolvedValue(mockResponse(200, { id: 'GNO_BALANCES' }));
 
         await expect(fetchUsdcBalance('GNO_BALANCES', 'PUBLIC', fetcher)).rejects.toMatchObject({
             code: 'INVALID_RESPONSE',
         });
+    });
+
+    test('throws an invalid-response error when balances is not an array', async () => {
+        const fetcher = vi.fn().mockResolvedValue(mockResponse(200, { balances: { asset_type: 'native' } }));
+
+        await expect(fetchUsdcBalance('GBAD_BALANCES', 'PUBLIC', fetcher)).rejects.toMatchObject({
+            code: 'INVALID_RESPONSE',
+            message: 'Horizon account response did not include balances.',
+        } satisfies Partial<HorizonBalanceError>);
     });
 });

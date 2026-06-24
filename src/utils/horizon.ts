@@ -63,7 +63,13 @@ export async function fetchUsdcBalance(
         );
     }
 
-    const account = (await response.json()) as HorizonAccountResponse;
+    let account: HorizonAccountResponse;
+
+    try {
+        account = (await response.json()) as HorizonAccountResponse;
+    } catch {
+        throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response could not be parsed.');
+    }
 
     if (!Array.isArray(account.balances)) {
         throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response did not include balances.');
