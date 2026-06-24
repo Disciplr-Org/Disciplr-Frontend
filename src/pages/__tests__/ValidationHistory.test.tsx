@@ -178,6 +178,75 @@ describe('ValidationHistory', () => {
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
   });
 
+  it('exports the full filtered history as CSV instead of only the current page', async () => {
+    let exportedBlob: Blob | null = null;
+    const anchorClick = vi.fn();
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const originalCreateElement = document.createElement.bind(document);
+    const createObjectURL = vi.fn((blob: Blob) => {
+      exportedBlob = blob;
+      return 'blob:validation-history';
+    });
+    const revokeObjectURL = vi.fn();
+    const createElement = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        Object.defineProperty(element, 'click', { configurable: true, value: anchorClick });
+      }
+      return element;
+    });
+
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+
+    try {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
+        target: { value: 'gowner' },
+      });
+
+      expect(screen.queryByText('Zeta Treasury')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', {
+        name: 'Export filtered validation history as CSV',
+      }));
+
+      expect(anchorClick).toHaveBeenCalledTimes(1);
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:validation-history');
+      expect(exportedBlob).not.toBeNull();
+
+      const csv = await exportedBlob!.text();
+      expect(csv).toContain('ID,Status,Vault Name,Owner,Amount,Deadline,Milestone,Notes');
+      expect(csv).toContain('Alpha Vault');
+      expect(csv).toContain('Zeta Treasury');
+      expect(csv).toContain('"6,000 USDC"');
+    } finally {
+      createElement.mockRestore();
+      Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
+      Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
+    }
+  });
+
+  it('does not crash when object URL downloads are unavailable', () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: undefined });
+
+    try {
+      renderHistory();
+
+      expect(() => {
+        fireEvent.click(screen.getByRole('button', {
+          name: 'Export filtered validation history as CSV',
+        }));
+      }).not.toThrow();
+    } finally {
+      Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
+    }
+  });
+
   it('navigates back to the verifier dashboard', () => {
     renderHistory();
 

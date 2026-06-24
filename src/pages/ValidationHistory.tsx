@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
+import type { ValidationTask } from '../Zustand/Store';
+import { toCsv } from '../utils/csv';
+import type { CsvColumn } from '../utils/csv';
 import {
   filterValidationHistory,
   paginate,
@@ -9,6 +12,69 @@ import {
 import type { ValidationHistoryStatusFilter } from '../utils/paginate';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25];
+const VALIDATION_HISTORY_CSV_FILENAME = 'validation-history.csv';
+
+// Stable audit export order: keep this header sequence append-only unless coordinated.
+const VALIDATION_HISTORY_CSV_COLUMNS: CsvColumn<ValidationTask>[] = [
+  { header: 'ID', value: (task) => task.id },
+  { header: 'Status', value: (task) => task.status },
+  { header: 'Vault Name', value: (task) => task.vaultName },
+  { header: 'Owner', value: (task) => task.owner },
+  { header: 'Amount', value: (task) => task.amount },
+  { header: 'Deadline', value: (task) => task.deadline },
+  { header: 'Milestone', value: (task) => task.milestone },
+  { header: 'Notes', value: (task) => task.notes ?? '' },
+];
+
+interface CsvDownloadAdapter {
+  createBlob: (content: string) => Blob | null;
+  createObjectUrl: (blob: Blob) => string | null;
+  createAnchor: () => HTMLAnchorElement | null;
+  revokeObjectUrl: (url: string) => void;
+}
+
+const browserCsvDownloadAdapter: CsvDownloadAdapter = {
+  createBlob: (content) => (typeof Blob === 'undefined'
+    ? null
+    : new Blob([content], { type: 'text/csv;charset=utf-8' })),
+  createObjectUrl: (blob) => (
+    typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function'
+      ? null
+      : URL.createObjectURL(blob)
+  ),
+  createAnchor: () => (
+    typeof document === 'undefined' || typeof document.createElement !== 'function'
+      ? null
+      : document.createElement('a')
+  ),
+  revokeObjectUrl: (url) => {
+    if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(url);
+    }
+  },
+};
+
+function downloadCsv(content: string, filename: string, adapter = browserCsvDownloadAdapter): boolean {
+  const blob = adapter.createBlob(content);
+  if (!blob) {
+    return false;
+  }
+
+  const url = adapter.createObjectUrl(blob);
+  const anchor = adapter.createAnchor();
+  if (!url || !anchor) {
+    if (url) {
+      adapter.revokeObjectUrl(url);
+    }
+    return false;
+  }
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  adapter.revokeObjectUrl(url);
+  return true;
+}
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
@@ -42,6 +108,13 @@ export default function ValidationHistory() {
   const updatePageSize = (size: number) => {
     setPageSize(size);
     setPage(1);
+  };
+
+  const exportFilteredHistory = () => {
+    downloadCsv(
+      toCsv(filteredHistory, VALIDATION_HISTORY_CSV_COLUMNS),
+      VALIDATION_HISTORY_CSV_FILENAME,
+    );
   };
 
   return (
@@ -144,6 +217,22 @@ export default function ValidationHistory() {
             ))}
           </select>
         </label>
+
+        <div className="flex items-end">
+          <button
+            type="button"
+            aria-label="Export filtered validation history as CSV"
+            onClick={exportFilteredHistory}
+            className="px-4 py-2 rounded text-sm font-medium"
+            style={{
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              background: 'var(--bg)',
+            }}
+          >
+            Export CSV
+          </button>
+        </div>
       </section>
 
       {/* History Log */}
