@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalletProvider, useWallet } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
@@ -30,6 +31,9 @@ function WalletProbe() {
             </button>
             <button type="button" onClick={wallet.disconnect}>
                 Disconnect
+            </button>
+            <button type="button" onClick={wallet.refreshBalance}>
+                Refresh Balance
             </button>
             <div data-testid="address">{wallet.address ?? ''}</div>
             <div data-testid="network">{wallet.network ?? ''}</div>
@@ -132,6 +136,98 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(screen.getByTestId('balanceError')).toHaveTextContent('Horizon balance request failed with status 500.');
 
         error.mockRestore();
+    });
+
+    test('refreshBalance retries the current address after a Horizon error', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        vi.mocked(globalThis.fetch)
+            .mockResolvedValueOnce(mockResponse(500, {}))
+            .mockResolvedValueOnce(
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDC_ISSUERS.TESTNET,
+                            balance: '18.5000000',
+                        },
+                    ],
+                }),
+            );
+
+        renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error'));
+
+        fireEvent.click(screen.getByRole('button', { name: /refresh balance/i }));
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('balance')).toHaveTextContent('18.5000000');
+        expect(globalThis.fetch).toHaveBeenLastCalledWith('https://horizon-testnet.stellar.org/accounts/GCONNECTED');
+
+        error.mockRestore();
+    });
+
+    test('refreshBalance is a no-op without a connected address', async () => {
+        renderWallet();
+
+        fireEvent.click(screen.getByRole('button', { name: /refresh balance/i }));
+        await Promise.resolve();
+
+        expect(freighterMocks.getNetworkDetails).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+    });
+
+    test('coalesces concurrent refreshBalance calls', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '9.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+
+        let resolveFetch: (value: Response) => void = () => undefined;
+        vi.mocked(globalThis.fetch).mockClear();
+        freighterMocks.getNetworkDetails.mockClear();
+        vi.mocked(globalThis.fetch).mockReturnValue(
+            new Promise<Response>((resolve) => {
+                resolveFetch = resolve;
+            }),
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /refresh balance/i }));
+        fireEvent.click(screen.getByRole('button', { name: /refresh balance/i }));
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
+        expect(freighterMocks.getNetworkDetails).toHaveBeenCalledTimes(1);
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+        resolveFetch(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '11.0000000',
+                    },
+                ],
+            }),
+        );
+
+        await waitFor(() => expect(screen.getByTestId('balance')).toHaveTextContent('11.0000000'));
     });
 
     test('uses the generic balance error when network details throw a non-Error value', async () => {

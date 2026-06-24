@@ -9,7 +9,7 @@ interface WalletDropdownProps {
 }
 
 export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
-    const { address, balance, balanceStatus, balanceError, network, disconnect } = useWallet();
+    const { address, balance, balanceStatus, balanceError, network, disconnect, refreshBalance } = useWallet();
     const [copied, setCopied] = useState(false);
 
     if (!address) return null;
@@ -50,6 +50,13 @@ export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
                 <div className="wallet-dropdown-balance-state error" role="status">
                     Balance unavailable
                     {balanceError && <small>{balanceError}</small>}
+                    <button
+                        type="button"
+                        className="wallet-dropdown-balance-retry"
+                        onClick={refreshBalance}
+                    >
+                        Retry
+                    </button>
                 </div>
             );
         }

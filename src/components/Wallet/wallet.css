@@ -298,6 +298,22 @@
   margin-top: 0.25rem;
 }
 
+.wallet-dropdown-balance-retry {
+  background: var(--surface-raised);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.wallet-dropdown-balance-retry:hover {
+  background: var(--danger-transparent);
+}
+
 .wallet-dropdown-actions {
   padding: 0.5rem;
 }

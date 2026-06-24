@@ -1,5 +1,6 @@
 import { act } from 'react';
 import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalletDropdown } from '../WalletDropdown';
 import type { BalanceStatus, WalletNetwork } from '../../../context/WalletContext';
 
@@ -10,6 +11,7 @@ const walletState = vi.hoisted(() => ({
     balanceError: null as string | null,
     network: 'TESTNET' as WalletNetwork,
     disconnect: vi.fn(),
+    refreshBalance: vi.fn(),
 }));
 
 vi.mock('../../../context/WalletContext', () => ({
@@ -35,6 +37,7 @@ describe('WalletDropdown balance states', () => {
         walletState.balanceError = null;
         walletState.network = 'TESTNET';
         walletState.disconnect.mockClear();
+        walletState.refreshBalance.mockClear();
         vi.useRealTimers();
     });
 
@@ -74,6 +77,18 @@ describe('WalletDropdown balance states', () => {
 
         expect(screen.getByRole('status')).toHaveTextContent('Balance unavailable');
         expect(screen.getByText('Horizon balance request failed with status 500.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    });
+
+    test('calls refreshBalance from the Horizon error retry action', () => {
+        walletState.balance = null;
+        walletState.balanceStatus = 'error';
+        walletState.balanceError = 'Horizon balance request failed with status 500.';
+
+        renderDropdown();
+        screen.getByRole('button', { name: /retry/i }).click();
+
+        expect(walletState.refreshBalance).toHaveBeenCalledTimes(1);
     });
 
     test('renders nothing when no wallet is connected', () => {

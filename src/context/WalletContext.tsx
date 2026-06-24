@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 
@@ -16,6 +16,8 @@ interface WalletContextType {
     connect: () => Promise<void>;
     disconnect: () => void;
     checkConnection: () => Promise<void>;
+    /** Retries the current wallet's network and USDC balance lookup; no-ops without an address. */
+    refreshBalance: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -28,12 +30,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [balanceError, setBalanceError] = useState<string | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const balanceRefreshRef = useRef<Promise<void> | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
     };
 
-    const fetchNetworkAndBalance = async (pubKey: string) => {
+    const fetchNetworkAndBalance = useCallback(async (pubKey: string) => {
         setBalanceStatus('loading');
         setBalanceError(null);
 
@@ -52,9 +55,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setBalanceStatus('error');
             setBalanceError(message);
         }
-    };
+    }, []);
 
-    const checkConnection = async () => {
+    const checkConnection = useCallback(async () => {
         try {
             if (await isAllowed()) {
                 const { address: pubKey, error: addrError } = await getAddress();
@@ -66,11 +69,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error('Check connection error', err);
         }
-    };
+    }, [fetchNetworkAndBalance]);
 
     useEffect(() => {
-        checkConnection();
-    }, []);
+        void checkConnection();
+    }, [checkConnection]);
+
+    const refreshBalance = useCallback(async () => {
+        if (!address) return;
+        if (balanceRefreshRef.current) return balanceRefreshRef.current;
+
+        const refresh = fetchNetworkAndBalance(address).finally(() => {
+            if (balanceRefreshRef.current === refresh) {
+                balanceRefreshRef.current = null;
+            }
+        });
+        balanceRefreshRef.current = refresh;
+        return refresh;
+    }, [address, fetchNetworkAndBalance]);
 
     const connect = async () => {
         setIsConnecting(true);
@@ -100,6 +116,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
 
     const disconnect = () => {
+        balanceRefreshRef.current = null;
         setAddress(null);
         setNetwork(null);
         setBalance(null);
@@ -120,6 +137,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 connect,
                 disconnect,
                 checkConnection,
+                refreshBalance,
             }}
         >
             {children}
