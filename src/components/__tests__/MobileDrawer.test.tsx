@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Layout from '../Layout';
 import MobileDrawer from '../MobileDrawer';
@@ -20,9 +21,9 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
-function renderOpenDrawer(onClose = vi.fn()) {
+function renderOpenDrawer(onClose = vi.fn(), initialEntry = '/') {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <MobileDrawer isOpen onClose={onClose} />
     </MemoryRouter>,
   );
@@ -71,6 +72,22 @@ describe('MobileDrawer accessibility', () => {
       screen.getByRole('button', { name: /close navigation drawer/i }),
     );
     expect((focusTrapState.options[0].fallbackFocus as () => HTMLElement)()).toBe(dialog);
+  });
+
+  test('exposes a labelled mobile navigation landmark with the active route', () => {
+    renderOpenDrawer(vi.fn(), '/analytics');
+
+    const nav = screen.getByRole('navigation', { name: /mobile navigation/i });
+    const activeLinks = within(nav)
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page');
+
+    expect(within(nav).getByRole('link', { name: /home/i })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: /transactions/i })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: /analytics/i })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: /create vault/i })).toBeInTheDocument();
+    expect(activeLinks).toHaveLength(1);
+    expect(activeLinks[0]).toHaveAccessibleName('Analytics');
   });
 
   test('closes on Escape and restores focus to the trigger', async () => {
@@ -122,7 +139,7 @@ describe('MobileDrawer accessibility', () => {
     if (activeElementDescriptor) {
       Object.defineProperty(document, 'activeElement', activeElementDescriptor);
     } else {
-      delete (document as Document & { activeElement?: Element | null }).activeElement;
+      Reflect.deleteProperty(document, 'activeElement');
     }
   });
 

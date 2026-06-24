@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import FocusTrap from 'focus-trap-react';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
@@ -12,6 +12,8 @@ interface MobileDrawerProps {
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const location = useLocation();
+  const isActive = (path: string) => location.pathname === path;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -61,7 +63,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
       }}
     >
       <div className="mobile-drawer-backdrop" onClick={onClose}>
-        <nav
+        <div
           className="mobile-drawer"
           role="dialog"
           aria-modal="true"
@@ -77,20 +79,42 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <button className="mobile-drawer-close" onClick={onClose} aria-label="Close navigation drawer">
             <X size={24} />
           </button>
-          <Link to="/" className="mobile-drawer-link" onClick={onClose}>
-            Home
-          </Link>
-          <Link to="/transactions" className="mobile-drawer-link" onClick={onClose}>
-            Transactions
-          </Link>
-          <Link to="/analytics" className="mobile-drawer-link" onClick={onClose}>
-            Analytics
-          </Link>
-          <Link to="/vaults/create" className="mobile-drawer-link" onClick={onClose}>
-            Create Vault
-          </Link>
+          <nav className="mobile-drawer-nav" aria-label="Mobile navigation">
+            <Link
+              to="/"
+              className="mobile-drawer-link"
+              aria-current={isActive('/') ? 'page' : undefined}
+              onClick={onClose}
+            >
+              Home
+            </Link>
+            <Link
+              to="/transactions"
+              className="mobile-drawer-link"
+              aria-current={isActive('/transactions') ? 'page' : undefined}
+              onClick={onClose}
+            >
+              Transactions
+            </Link>
+            <Link
+              to="/analytics"
+              className="mobile-drawer-link"
+              aria-current={isActive('/analytics') ? 'page' : undefined}
+              onClick={onClose}
+            >
+              Analytics
+            </Link>
+            <Link
+              to="/vaults/create"
+              className="mobile-drawer-link"
+              aria-current={isActive('/vaults/create') ? 'page' : undefined}
+              onClick={onClose}
+            >
+              Create Vault
+            </Link>
+          </nav>
           <WalletConnectButton />
-        </nav>
+        </div>
       </div>
     </FocusTrap>
   );

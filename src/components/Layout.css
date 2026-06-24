@@ -171,6 +171,12 @@
   border: 0;
 }
 
+.mobile-drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
 .mobile-drawer-close {
   align-self: flex-end;
   background: none;

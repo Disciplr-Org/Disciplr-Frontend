@@ -14,7 +14,10 @@ export default function Layout({ children }: LayoutProps) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
   const toggleDrawer = () => setDrawerOpen(prev => !prev);
   const location = useLocation();
+  const isHomeActive = location.pathname === "/";
   const isTransactionsActive = location.pathname === "/transactions";
+  const isAnalyticsActive = location.pathname === "/analytics";
+  const isCreateVaultActive = location.pathname === "/vaults/create";
   const backgroundA11yProps = isDrawerOpen
     ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & { inert: "" })
     : {};
@@ -50,14 +53,15 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        <nav className="desktop-nav" {...backgroundA11yProps}>
+        <nav className="desktop-nav" aria-label="Primary navigation" {...backgroundA11yProps}>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <Link
               to="/"
               className="header-link"
+              aria-current={isHomeActive ? "page" : undefined}
               style={{
                 color:
-                  location.pathname === "/" ? "var(--accent)" : "var(--muted)",
+                  isHomeActive ? "var(--accent)" : "var(--muted)",
               }}
             >
               <Text role="caption" as="span">
@@ -67,11 +71,10 @@ export default function Layout({ children }: LayoutProps) {
 
             <Link
               to="/analytics"
+              aria-current={isAnalyticsActive ? "page" : undefined}
               style={{
                 color:
-                  location.pathname === "/analytics"
-                    ? "var(--accent)"
-                    : "var(--muted)",
+                  isAnalyticsActive ? "var(--accent)" : "var(--muted)",
                 textDecoration: "none",
               }}
             >
@@ -80,6 +83,7 @@ export default function Layout({ children }: LayoutProps) {
 
             <Link
               to="/vaults/create"
+              aria-current={isCreateVaultActive ? "page" : undefined}
               style={{
                 color: "var(--surface)",
                 background: "var(--accent)",
