@@ -2,6 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 
+const tokenStyles = {
+  mutedText: { color: 'var(--muted)' },
+  surfacePanel: { background: 'var(--surface)', borderColor: 'var(--border)' },
+  raisedPanel: { background: 'var(--surface-raised)', borderColor: 'var(--border)' },
+  primaryButton: { background: 'var(--accent)', color: 'var(--bg)' },
+  secondaryButton: { background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' },
+  accentText: { color: 'var(--accent)' },
+};
+
 export default function VerifierDashboard() {
   const navigate = useNavigate();
   
@@ -17,23 +26,37 @@ export default function VerifierDashboard() {
     <div className="flex flex-col gap-6 p-6">
       <header className="mb-4">
         <Text role="display" as="h1">Verifier Dashboard</Text>
-        <Text role="body" as="p" className="text-gray-500 mt-1">
+        <Text role="body" as="p" className="mt-1" style={tokenStyles.mutedText}>
           Overview of your assigned vaults and validation activity.
         </Text>
       </header>
 
       {/* Overview Stats Cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-6 border rounded-lg shadow-sm bg-white">
-          <Text role="body" as="p" className="text-gray-500 mb-2">Total Assigned</Text>
+        <div className="p-6 border rounded-lg shadow-sm" style={tokenStyles.surfacePanel}>
+          <Text role="body" as="p" className="mb-2" style={tokenStyles.mutedText}>Total Assigned</Text>
           <Text role="display" as="h1">{totalAssigned}</Text>
         </div>
-        <div className="p-6 border rounded-lg shadow-sm bg-white border-l-4 border-l-blue-500">
-          <Text role="body" as="p" className="text-gray-500 mb-2">Pending Validations</Text>
+        <div
+          className="p-6 border rounded-lg shadow-sm"
+          style={{
+            ...tokenStyles.surfacePanel,
+            borderLeftWidth: 'var(--border-width-4)',
+            borderLeftColor: 'var(--accent)',
+          }}
+        >
+          <Text role="body" as="p" className="mb-2" style={tokenStyles.mutedText}>Pending Validations</Text>
           <Text role="display" as="h1">{totalPending}</Text>
         </div>
-        <div className="p-6 border rounded-lg shadow-sm bg-white border-l-4 border-l-green-500">
-          <Text role="body" as="p" className="text-gray-500 mb-2">Completed</Text>
+        <div
+          className="p-6 border rounded-lg shadow-sm"
+          style={{
+            ...tokenStyles.surfacePanel,
+            borderLeftWidth: 'var(--border-width-4)',
+            borderLeftColor: 'var(--success)',
+          }}
+        >
+          <Text role="body" as="p" className="mb-2" style={tokenStyles.mutedText}>Completed</Text>
           <Text role="display" as="h1">{totalCompleted}</Text>
         </div>
       </section>
@@ -42,13 +65,15 @@ export default function VerifierDashboard() {
       <section className="flex gap-4 mt-4">
         <button 
           onClick={() => navigate('/verifier/queue')}
-          className="px-6 py-3 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition"
+          className="px-6 py-3 font-medium rounded transition"
+          style={tokenStyles.primaryButton}
         >
           View Pending Queue
         </button>
         <button 
           onClick={() => navigate('/verifier/history')}
-          className="px-6 py-3 border border-gray-300 font-medium rounded hover:bg-gray-50 transition"
+          className="px-6 py-3 border font-medium rounded transition"
+          style={tokenStyles.secondaryButton}
         >
           View History
         </button>
@@ -59,18 +84,22 @@ export default function VerifierDashboard() {
         <Text role="display" as="h2" className="mb-4">Urgent Pending Validations</Text>
         <div className="flex flex-col gap-3">
           {pendingValidations.length === 0 ? (
-            <div className="p-8 border rounded shadow-sm text-center text-gray-500 bg-gray-50">
+            <div
+              className="p-8 border rounded shadow-sm text-center"
+              style={{ ...tokenStyles.raisedPanel, ...tokenStyles.mutedText }}
+            >
               <Text role="body" as="p">You have no pending validations at this time.</Text>
             </div>
           ) : (
             pendingValidations.slice(0, 3).map((task) => (
               <div 
                 key={task.id} 
-                className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center bg-white hover:shadow-md transition gap-4"
+                className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center hover:shadow-md transition gap-4"
+                style={tokenStyles.surfacePanel}
               >
                 <div>
                   <Text role="body" as="h3">{task.vaultName}</Text>
-                  <Text role="body" as="p" className="text-sm text-gray-500 mt-1">
+                  <Text role="body" as="p" className="text-sm mt-1" style={tokenStyles.mutedText}>
                     Milestone: {task.milestone}
                   </Text>
                 </div>
@@ -78,13 +107,15 @@ export default function VerifierDashboard() {
                   <Text 
                     role="body" 
                     as="p"
-                    className={`font-bold ${task.daysRemaining <= 3 ? 'text-red-600' : 'text-gray-700'}`}
+                    className="font-bold"
+                    style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
                   >
-                    {task.daysRemaining} days left
+                    {task.daysRemaining <= 3 ? 'Urgent: ' : ''}{task.daysRemaining} days left
                   </Text>
                   <button 
                     onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                    className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2"
+                    className="font-medium text-sm mt-2"
+                    style={tokenStyles.accentText}
                   >
                     Review Now &rarr;
                   </button>

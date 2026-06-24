@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import { useVerifierStore } from '../../Zustand/Store';
+import { expectNoVerifierHardcodedColorClasses } from './verifierColorClassAssertions';
 
 vi.mock('../../Zustand/Store', () => ({
   useVerifierStore: vi.fn(),
@@ -58,10 +59,19 @@ function renderPage() {
   );
 }
 
+function mockVerifierStore(pendingValidations = makeTasks()) {
+  vi.mocked(useVerifierStore).mockReturnValue({
+    pendingValidations,
+    validationHistory: [],
+    approveValidation: vi.fn(),
+    rejectValidation: vi.fn(),
+  } as ReturnType<typeof useVerifierStore>);
+}
+
 describe('PendingValidations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: makeTasks() });
+    mockVerifierStore();
   });
 
   it('renders the page heading', () => {
@@ -70,14 +80,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockVerifierStore([]);
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockVerifierStore([]);
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -142,38 +152,36 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [makeTasks()[0]],
-    });
+    mockVerifierStore([makeTasks()[0]]);
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + 1 row
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [
-        { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
-        { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
-      ],
-    });
+    mockVerifierStore([
+      { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
+      { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
+    ]);
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
-    // both show 5 days left — just assert they render without error
-    expect(screen.getAllByText('5 days left')).toHaveLength(2);
+    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+    expect(screen.getByText('Beta Vault')).toBeInTheDocument();
   });
 
-  it('shows daysRemaining in red for tasks with 3 or fewer days', () => {
+  it('uses design tokens instead of hardcoded verifier color classes', () => {
     renderPage();
-    // v-2 has daysRemaining: 2 — should have red styling
-    const urgentSpan = screen.getByText('2 days left');
-    expect(urgentSpan.className).toContain('text-red-600');
-  });
 
-  it('shows daysRemaining in green for tasks with more than 3 days', () => {
-    renderPage();
-    const safeSpan = screen.getByText('10 days left');
-    expect(safeSpan.className).toContain('text-green-600');
+    expectNoVerifierHardcodedColorClasses();
+    expect(screen.getByRole('button', { name: /sort by urgency/i })).toHaveStyle({
+      background: 'var(--surface)',
+      borderColor: 'var(--border)',
+      color: 'var(--text)',
+    });
+    expect(screen.getAllByRole('button', { name: 'Review' })[0]).toHaveStyle({
+      background: 'var(--accent)',
+      color: 'var(--bg)',
+    });
   });
 });

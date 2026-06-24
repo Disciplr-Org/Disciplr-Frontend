@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ValidationDetail from '../ValidationDetail';
 import { useVerifierStore } from '../../Zustand/Store';
+import { expectNoVerifierHardcodedColorClasses } from './verifierColorClassAssertions';
 
 // Mock focus-trap-react as it can be tricky in jsdom
 vi.mock('focus-trap-react', () => ({
@@ -42,13 +43,19 @@ describe('ValidationDetail Page', () => {
   const mockApproveValidation = vi.fn();
   const mockRejectValidation = vi.fn();
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({
+  function mockVerifierStore(overrides: Partial<ReturnType<typeof useVerifierStore>> = {}) {
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: mockPendingValidations,
+      validationHistory: [],
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
-    });
+      ...overrides,
+    } as ReturnType<typeof useVerifierStore>);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifierStore();
   });
 
   it('renders task details correctly', () => {
@@ -62,13 +69,34 @@ describe('ValidationDetail Page', () => {
     expect(screen.getByText('Task ID: v-101')).toBeInTheDocument();
     expect(screen.getByText('Test Vault')).toBeInTheDocument();
     expect(screen.getByText('Test Milestone')).toBeInTheDocument();
+    expectNoVerifierHardcodedColorClasses();
+  });
+
+  it('uses token styles and text cues for urgent deadline state', () => {
+    mockVerifierStore({
+      pendingValidations: [{ ...mockPendingValidations[0], daysRemaining: 2 }],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expectNoVerifierHardcodedColorClasses();
+    expect(screen.getByText('Deadline: Urgent, 2 days remaining')).toHaveStyle({
+      color: 'var(--danger)',
+      border: 'var(--border-width-1) solid var(--danger)',
+    });
+    expect(screen.getByText('Vault Summary').closest('section')).toHaveStyle({
+      background: 'var(--surface)',
+      borderColor: 'var(--border)',
+    });
   });
 
   it('shows "Validation Not Found" if task does not exist', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockVerifierStore({
       pendingValidations: [],
-      approveValidation: mockApproveValidation,
-      rejectValidation: mockRejectValidation,
     });
 
     render(
@@ -166,10 +194,8 @@ describe('ValidationDetail Page', () => {
   });
 
   it('renders "No evidence link provided" when task has no evidenceUrl', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockVerifierStore({
       pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: undefined }],
-      approveValidation: mockApproveValidation,
-      rejectValidation: mockRejectValidation,
     });
 
     render(
