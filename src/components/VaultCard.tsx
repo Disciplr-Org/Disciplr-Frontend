@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
+import { deadlineUrgency, type DeadlineUrgencyTier } from '../utils/deadlineUrgency';
 
 export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
 
@@ -46,6 +46,57 @@ function StatusBadge({ status }: { status: VaultStatus }) {
   );
 }
 
+const URGENCY_CONFIG: Record<
+  DeadlineUrgencyTier,
+  { label: string; ariaLabel: string; bg: string; fg: string }
+> = {
+  safe: {
+    label: 'Safe',
+    ariaLabel: 'Deadline urgency: safe',
+    bg: 'var(--accent-transparent)',
+    fg: 'var(--accent)',
+  },
+  soon: {
+    label: 'Due soon',
+    ariaLabel: 'Deadline urgency: soon',
+    bg: 'var(--warning-transparent)',
+    fg: 'var(--warning)',
+  },
+  critical: {
+    label: 'Critical',
+    ariaLabel: 'Deadline urgency: critical',
+    bg: 'var(--danger-transparent)',
+    fg: 'var(--danger)',
+  },
+};
+
+function DeadlineUrgencyBadge({ urgency }: { urgency: DeadlineUrgencyTier }) {
+  const config = URGENCY_CONFIG[urgency];
+
+  return (
+    <span
+      aria-label={config.ariaLabel}
+      data-deadline-urgency={urgency}
+      style={{
+        background: config.bg,
+        color: config.fg,
+        border: `1px solid ${config.fg}`,
+        borderRadius: 'var(--radius-full)',
+        padding: '2px 8px',
+        fontSize: 11,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {config.label}
+    </span>
+  );
+}
+
+function isTerminalStatus(status: VaultStatus) {
+  return status === 'completed' || status === 'failed';
+}
+
 export default function VaultCard({
   id,
   name,
@@ -57,6 +108,8 @@ export default function VaultCard({
   linkTo,
 }: VaultCardProps) {
   const link = linkTo ?? `/vaults/${id}`;
+  const urgency = isTerminalStatus(status) ? null : deadlineUrgency(deadline);
+  const urgencyConfig = urgency ? URGENCY_CONFIG[urgency] : null;
 
   return (
     <Link to={link} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -64,6 +117,7 @@ export default function VaultCard({
         style={{
           background: 'var(--bg)',
           border: '1px solid var(--border)',
+          borderLeft: urgencyConfig ? `4px solid ${urgencyConfig.fg}` : '1px solid var(--border)',
           borderRadius: 'var(--radius)',
           padding: '0.875rem 1rem',
           display: 'grid',
@@ -86,6 +140,7 @@ export default function VaultCard({
           </Text>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {urgency && <DeadlineUrgencyBadge urgency={urgency} />}
           <StatusBadge status={status} />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
