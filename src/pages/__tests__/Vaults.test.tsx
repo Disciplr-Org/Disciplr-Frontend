@@ -1,46 +1,69 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import Vaults from '../../pages/Vaults';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import Vaults from '../Vaults';
 
-// Helper to mock fetch function
-const mockSuccess = <T,>(data: T) => vi.fn().mockResolvedValue(data);
-const mockFailure = (message = 'Network error') => vi.fn().mockRejectedValue(new Error(message));
+function renderVaults() {
+  return render(
+    <MemoryRouter>
+      <Vaults />
+    </MemoryRouter>,
+  );
+}
 
-describe('Vaults page states', () => {
-  test('shows loading skeletons initially', async () => {
-    render(<Vaults fetchVaults={mockSuccess([])} />);
-    // Skeletons should be present immediately
-    const skeletons = screen.getAllByTestId('skeleton');
-    expect(skeletons.length).toBeGreaterThanOrEqual(3);
-    // Wait for loading to finish (no data)
-    await waitFor(() => expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument());
+function vaultRowNames() {
+  return screen.getAllByTestId('vault-row').map((row) => {
+    const heading = within(row).getByText(/Alpha Vault|Beta Reserve|Gamma Fund/);
+    return heading.textContent;
+  });
+}
+
+describe('Vaults', () => {
+  it('renders vault rows sorted by soonest deadline by default and preserves row links', () => {
+    renderVaults();
+
+    expect(vaultRowNames()).toEqual(['Gamma Fund', 'Beta Reserve', 'Alpha Vault']);
+    expect(screen.getByRole('link', { name: /Alpha Vault/i })).toHaveAttribute('href', '/vaults/1');
   });
 
-  test('shows empty state when no vaults', async () => {
-    render(<Vaults fetchVaults={mockSuccess([])} />);
-    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
-    expect(screen.getByRole('link', { name: /Create your first vault/i })).toBeInTheDocument();
+  it('filters vaults with keyboard-operable status chips', () => {
+    renderVaults();
+
+    const completed = screen.getByRole('button', { name: 'Completed' });
+    fireEvent.click(completed);
+
+    expect(completed).toHaveAttribute('aria-pressed', 'true');
+    expect(vaultRowNames()).toEqual(['Beta Reserve']);
+    expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
   });
 
-  test('shows data state when vaults exist', async () => {
-    const mockData = [
-      { id: '1', name: 'Test Vault', amount: 1000, currency: 'USDC', status: 'active' as any, deadline: '2025-01-01T00:00:00Z' },
-    ];
-    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
-    await waitFor(() => screen.getByText('Test Vault'));
-    expect(screen.getByText(/Test Vault/i)).toBeInTheDocument();
+  it('searches vault names case-insensitively', () => {
+    renderVaults();
+
+    fireEvent.change(screen.getByLabelText('Search vaults by name'), {
+      target: { value: 'gamma' },
+    });
+
+    expect(vaultRowNames()).toEqual(['Gamma Fund']);
+    expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
   });
 
-  test('shows error state and can retry', async () => {
-    const fetchMock = mockFailure();
-    render(<Vaults fetchVaults={fetchMock} />);
-    await waitFor(() => screen.getByText(/Failed to load vaults./i));
-    const retryBtn = screen.getByRole('button', { name: /Retry/i });
-    expect(retryBtn).toBeInTheDocument();
-    // Mock success on retry
-    fetchMock.mockImplementationOnce(() => Promise.resolve([]));
-    userEvent.click(retryBtn);
-    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
+  it('sorts vaults by highest amount', () => {
+    renderVaults();
+
+    fireEvent.change(screen.getByLabelText('Sort vaults'), {
+      target: { value: 'amount-desc' },
+    });
+
+    expect(vaultRowNames()).toEqual(['Alpha Vault', 'Gamma Fund', 'Beta Reserve']);
+  });
+
+  it('shows a token-styled empty state when filters match no vaults', () => {
+    renderVaults();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pending Validation' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('No vaults match your filters.');
+    expect(screen.queryByTestId('vault-row')).not.toBeInTheDocument();
   });
 });
