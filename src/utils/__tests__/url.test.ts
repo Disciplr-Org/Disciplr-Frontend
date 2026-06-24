@@ -1,50 +1,42 @@
 import { describe, expect, it, test } from 'vitest';
-import { isSafeEvidenceUrl, normalizeEvidenceUrl } from '../url';
-
-describe('isSafeEvidenceUrl', () => {
-  test('should return true for valid http URLs', () => {
-    expect(isSafeEvidenceUrl('http://example.com')).toBe(true);
-  });
-
-  test('should return true for valid https URLs', () => {
-    expect(isSafeEvidenceUrl('https://example.com')).toBe(true);
-  });
-
-  test('should return false for javascript: URLs', () => {
-    expect(isSafeEvidenceUrl('javascript:alert(1)')).toBe(false);
-  });
-
-  test('should return false for data: URLs', () => {
-    expect(isSafeEvidenceUrl('data:text/html,test')).toBe(false);
-  });
-
-  test('should return false for invalid URLs', () => {
-    expect(isSafeEvidenceUrl('not-a-url')).toBe(false);
-  });
-
-  test('should handle trailing whitespace', () => {
-    expect(isSafeEvidenceUrl('  https://example.com  ')).toBe(true);
-  });
-
-  test('should handle different casing for https', () => {
-    expect(isSafeEvidenceUrl('HTTPS://example.com')).toBe(true);
-  });
-});
+import { getEvidenceUrlSafety, isSafeEvidenceUrl, normalizeEvidenceUrl } from '../url';
 
 describe('evidence URL validation', () => {
-  it('accepts http and https URLs', () => {
-    expect(isSafeEvidenceUrl('https://github.com/org/repo/pull/42')).toBe(true)
-    expect(isSafeEvidenceUrl('http://example.com/evidence')).toBe(true)
-  })
+  it('accepts plain http and https evidence URLs', () => {
+    expect(isSafeEvidenceUrl('https://github.com/org/repo/pull/42')).toBe(true);
+    expect(isSafeEvidenceUrl('http://example.com/evidence')).toBe(true);
+    expect(getEvidenceUrlSafety('https://example.com/evidence')).toEqual({
+      safe: true,
+      normalizedUrl: 'https://example.com/evidence',
+    });
+  });
 
   it('trims safe URLs before returning them', () => {
-    expect(normalizeEvidenceUrl('  https://example.com/doc  ')).toBe('https://example.com/doc')
-  })
+    expect(normalizeEvidenceUrl('  https://example.com/doc  ')).toBe('https://example.com/doc');
+  });
 
-  it('rejects unsafe and missing schemes', () => {
-    expect(isSafeEvidenceUrl('javascript:alert(1)')).toBe(false)
-    expect(isSafeEvidenceUrl('data:text/html,hello')).toBe(false)
-    expect(isSafeEvidenceUrl('example.com/evidence')).toBe(false)
-    expect(isSafeEvidenceUrl('')).toBe(false)
-  })
-})
+  it('preserves current behavior for mixed-case schemes and default ports', () => {
+    expect(isSafeEvidenceUrl('HTTPS://example.com')).toBe(true);
+    expect(isSafeEvidenceUrl('https://example.com:443/evidence')).toBe(true);
+    expect(isSafeEvidenceUrl('http://example.com:80/evidence')).toBe(true);
+  });
+
+  test.each([
+    ['javascript:alert(1)', 'unsupported-protocol'],
+    ['data:text/html,hello', 'unsupported-protocol'],
+    ['file:///tmp/evidence.txt', 'unsupported-protocol'],
+    ['https://user:pass@example.com/evidence', 'embedded-credentials'],
+    ['https://user@example.com/evidence', 'embedded-credentials'],
+    ['https://xn--pple-43d.com/evidence', 'punycode-host'],
+    ['https://XN--PPLE-43D.com/evidence', 'punycode-host'],
+    ['https://example.com:8443/evidence', 'unexpected-port'],
+    ['http://127.0.0.1/evidence', 'ip-literal-host'],
+    ['http://[::1]/evidence', 'ip-literal-host'],
+    ['example.com/evidence', 'invalid-url'],
+    ['', 'empty'],
+  ])('rejects %s as %s', (url, reason) => {
+    expect(isSafeEvidenceUrl(url)).toBe(false);
+    expect(normalizeEvidenceUrl(url)).toBeNull();
+    expect(getEvidenceUrlSafety(url)).toMatchObject({ safe: false, reason });
+  });
+});

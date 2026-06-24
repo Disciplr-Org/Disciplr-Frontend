@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { SafeLink } from '../SafeLink';
 
 describe('SafeLink component', () => {
-  test('renders as anchor tag for safe URLs', () => {
+  test('renders as anchor tag for safe URLs with external-link protections', () => {
     const url = 'https://example.com';
     render(<SafeLink href={url}>Link</SafeLink>);
     const link = screen.getByRole('link', { name: /link/i });
@@ -13,13 +13,20 @@ describe('SafeLink component', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  test('renders as span for unsafe URLs', () => {
-    const url = 'javascript:alert(1)';
+  test.each([
+    ['javascript:alert(1)', 'unsupported protocol'],
+    ['https://user:pass@example.com/evidence', 'embedded credentials'],
+    ['https://xn--pple-43d.com/evidence', 'punycode or IDN host'],
+    ['https://example.com:8443/evidence', 'unexpected port'],
+    ['http://127.0.0.1/evidence', 'IP literal host'],
+  ])('renders %s as inert text with the %s reason', (url, reasonLabel) => {
     render(<SafeLink href={url}>Link</SafeLink>);
+
     const link = screen.queryByRole('link', { name: /link/i });
     expect(link).not.toBeInTheDocument();
+
     const span = screen.getByText('[Invalid Link]');
     expect(span).toBeInTheDocument();
-    expect(span).toHaveAttribute('title', `Rejected URL: ${url}`);
+    expect(span).toHaveAttribute('title', `Rejected URL (${reasonLabel}): ${url}`);
   });
 });

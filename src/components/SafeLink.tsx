@@ -1,5 +1,5 @@
 import React from 'react';
-import { isSafeEvidenceUrl } from '../utils/url';
+import { getEvidenceUrlRejectionLabel, getEvidenceUrlSafety } from '../utils/url';
 
 interface SafeLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string;
@@ -12,13 +12,16 @@ interface SafeLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
  * If safe, it enforces target="_blank" and rel="noopener noreferrer".
  */
 export const SafeLink: React.FC<SafeLinkProps> = ({ href, children, ...props }) => {
-  if (!isSafeEvidenceUrl(href)) {
-    return <span title={`Rejected URL: ${href}`}>[Invalid Link]</span>;
+  const safety = getEvidenceUrlSafety(href);
+
+  if (!safety.safe) {
+    const reasonLabel = getEvidenceUrlRejectionLabel(safety.reason);
+    return <span title={`Rejected URL (${reasonLabel}): ${href}`}>[Invalid Link]</span>;
   }
 
   return (
     <a
-      href={href}
+      href={safety.normalizedUrl}
       target="_blank"
       rel="noopener noreferrer"
       {...props}
