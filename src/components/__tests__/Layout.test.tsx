@@ -1,9 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, test, vi } from 'vitest';
 import Layout from '../Layout';
 
 vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
+}));
+
+vi.mock('../NetworkGuardBanner', () => ({
+  NetworkGuardBanner: () => null,
 }));
 
 describe('Layout component navigation', () => {

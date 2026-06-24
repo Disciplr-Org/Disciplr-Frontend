@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
+import { NetworkGuardBanner } from "./NetworkGuardBanner";
 import { Text } from "./Text";
 import "./Layout.css";
 
@@ -107,6 +108,10 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
       </header>
+
+      <div {...backgroundA11yProps}>
+        <NetworkGuardBanner />
+      </div>
 
       <main
         {...backgroundA11yProps}
