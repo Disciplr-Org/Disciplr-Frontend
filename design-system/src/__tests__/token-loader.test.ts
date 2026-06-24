@@ -1,8 +1,81 @@
 import { loadTokens, getAllTokens } from '../utils/token-loader';
 import * as fs from 'fs';
+import fc from 'fast-check';
 
 jest.mock('fs');
 const mockedFs = fs as jest.Mocked<typeof fs>;
+
+const tokenFiles = [
+  'colors.json',
+  'typography.json',
+  'spacing.json',
+  'shadows.json',
+  'motion.json',
+  'borders.json',
+] as const;
+
+const tokenKey = fc.constantFrom(
+  '$type',
+  '$value',
+  '$description',
+  'color',
+  'typography',
+  'spacing',
+  'shadow',
+  'motion',
+  'border',
+  'light',
+  'dark',
+  'nested',
+  'token',
+  'level',
+);
+
+const jsonValue = fc.letrec((tie) => ({
+  value: fc.oneof(
+    fc.string(),
+    fc.integer(),
+    fc.boolean(),
+    fc.constant(null),
+    fc.array(tie('value'), { maxLength: 3 }),
+    fc.dictionary(tokenKey, tie('value'), { maxKeys: 4 }),
+  ),
+}));
+
+const tokenObject = fc.dictionary(tokenKey, jsonValue.value, {
+  minKeys: 1,
+  maxKeys: 4,
+});
+
+const filePayloads = fc.record({
+  'colors.json': tokenObject.map((color) => ({ color })),
+  'typography.json': tokenObject.map((typography) => ({ typography })),
+  'spacing.json': tokenObject.map((spacing) => ({ spacing })),
+  'shadows.json': tokenObject.map((shadow) => ({ shadow })),
+  'motion.json': tokenObject.map((motion) => ({ motion })),
+  'borders.json': tokenObject.map((border) => ({ border })),
+});
+
+const mockTokenFiles = (
+  payloads: Record<(typeof tokenFiles)[number], Record<string, unknown>>,
+  missingFile?: (typeof tokenFiles)[number],
+) => {
+  mockedFs.readFileSync.mockImplementation((filePath) => {
+    const matchedFile = tokenFiles.find((file) =>
+      filePath.toString().includes(file),
+    );
+
+    if (!matchedFile) {
+      return '{}';
+    }
+
+    if (matchedFile === missingFile) {
+      throw new Error(`Missing ${matchedFile}`);
+    }
+
+    return JSON.stringify(payloads[matchedFile]);
+  });
+};
 
 describe('token-loader', () => {
   beforeEach(() => {
@@ -15,6 +88,17 @@ describe('token-loader', () => {
       mockedFs.readFileSync.mockReturnValue('{"color": {"primary": "red"}}');
       const tokens = loadTokens('colors.json');
       expect(tokens).toEqual({"color": {"primary": "red"}});
+    });
+
+    it('round-trips arbitrary nested token trees from JSON', () => {
+      fc.assert(
+        fc.property(tokenObject, (tree) => {
+          mockedFs.readFileSync.mockReturnValue(JSON.stringify(tree));
+
+          expect(loadTokens('colors.json')).toEqual(tree);
+        }),
+        { seed: 202601, numRuns: 50 },
+      );
     });
 
     it('should throw if file does not exist', () => {
@@ -51,6 +135,50 @@ describe('token-loader', () => {
             "motion": "ease",
             "border": "1px"
         });
+    });
+
+    it('merges arbitrary nested token file payloads without flattening them', () => {
+      fc.assert(
+        fc.property(filePayloads, (payloads) => {
+          mockTokenFiles(payloads);
+
+          expect(getAllTokens()).toEqual(
+            Object.assign(
+              {},
+              payloads['colors.json'],
+              payloads['typography.json'],
+              payloads['spacing.json'],
+              payloads['shadows.json'],
+              payloads['motion.json'],
+              payloads['borders.json'],
+            ),
+          );
+        }),
+        { seed: 202602, numRuns: 50 },
+      );
+    });
+
+    it('skips arbitrary missing token files and preserves the rest', () => {
+      fc.assert(
+        fc.property(
+          filePayloads,
+          fc.constantFrom(...tokenFiles),
+          (payloads, missingFile) => {
+            mockTokenFiles(payloads, missingFile);
+
+            const expectedPayloads = tokenFiles
+              .filter((file) => file !== missingFile)
+              .map((file) => payloads[file]);
+
+            expect(getAllTokens()).toEqual(Object.assign({}, ...expectedPayloads));
+            expect(console.warn).toHaveBeenCalledWith(
+              `Failed to load ${missingFile}:`,
+              expect.any(Error),
+            );
+          },
+        ),
+        { seed: 202603, numRuns: 50 },
+      );
     });
 
     it('should continue and warn if a file fails to load', () => {
