@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
+import { VerifierMetrics } from '../components/VerifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 
 export default function VerifierDashboard() {
@@ -21,6 +22,11 @@ export default function VerifierDashboard() {
           Overview of your assigned vaults and validation activity.
         </Text>
       </header>
+
+      <VerifierMetrics
+        pendingValidations={pendingValidations}
+        validationHistory={validationHistory}
+      />
 
       {/* Overview Stats Cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
