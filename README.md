@@ -113,7 +113,8 @@ Root package scripts:
 | `npm run build` | Run TypeScript build mode and create a Vite production build |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint across the frontend |
-| `npm run test` | Run the Vitest suite with coverage |
+| `npm test` | Run the canonical Vitest suite with coverage for CI-style checks |
+| `npm run test:watch` | Run Vitest in interactive watch mode for local development |
 
 Design-system package scripts:
 
@@ -131,7 +132,13 @@ Frontend tests use Vitest, the DOM test setup in `src/setupTests.ts`, and
 Testing Library.
 
 ```bash
-npm run test
+npm test
+```
+
+For local interactive development, use watch mode:
+
+```bash
+npm run test:watch
 ```
 
 For targeted frontend checks during development, run Vitest directly:
