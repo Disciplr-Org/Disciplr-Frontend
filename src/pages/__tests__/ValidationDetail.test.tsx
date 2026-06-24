@@ -1,8 +1,12 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ValidationDetail from '../ValidationDetail';
 import { useVerifierStore } from '../../Zustand/Store';
+
+const storeMocks = vi.hoisted(() => ({
+  pushToast: vi.fn(),
+}));
 
 // Mock focus-trap-react as it can be tricky in jsdom
 vi.mock('focus-trap-react', () => ({
@@ -12,6 +16,9 @@ vi.mock('focus-trap-react', () => ({
 // Mock Zustand store
 vi.mock('../../Zustand/Store', () => ({
   useVerifierStore: vi.fn(),
+  useToastStore: vi.fn((selector: (state: { push: typeof storeMocks.pushToast }) => unknown) =>
+    selector({ push: storeMocks.pushToast }),
+  ),
 }));
 
 const mockNavigate = vi.fn();
@@ -36,19 +43,42 @@ const mockPendingValidations = [
     milestone: 'Test Milestone',
     evidenceUrl: 'https://example.com/evidence',
   },
-];
+] satisfies MockValidationTask[];
+
+type MockValidationTask = {
+  id: string;
+  vaultName: string;
+  owner: string;
+  amount: string;
+  deadline: string;
+  daysRemaining: number;
+  status: 'pending';
+  milestone: string;
+  evidenceUrl?: string;
+};
 
 describe('ValidationDetail Page', () => {
   const mockApproveValidation = vi.fn();
   const mockRejectValidation = vi.fn();
+  const setVerifierStore = (pendingValidations: MockValidationTask[]) => {
+    const mockedUseVerifierStore = useVerifierStore as unknown as {
+      mockReturnValue: (value: {
+        pendingValidations: MockValidationTask[];
+        approveValidation: typeof mockApproveValidation;
+        rejectValidation: typeof mockRejectValidation;
+      }) => void;
+    };
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: mockPendingValidations,
+    mockedUseVerifierStore.mockReturnValue({
+      pendingValidations,
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
     });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setVerifierStore(mockPendingValidations);
   });
 
   it('renders task details correctly', () => {
@@ -65,11 +95,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('shows "Validation Not Found" if task does not exist', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [],
-      approveValidation: mockApproveValidation,
-      rejectValidation: mockRejectValidation,
-    });
+    setVerifierStore([]);
 
     render(
       <MemoryRouter initialEntries={['/verifier/v-999']}>
@@ -120,6 +146,10 @@ describe('ValidationDetail Page', () => {
     fireEvent.click(confirmBtn);
 
     expect(mockApproveValidation).toHaveBeenCalledWith('v-101', '');
+    expect(storeMocks.pushToast).toHaveBeenCalledWith({
+      kind: 'success',
+      message: 'Validation approved for Test Vault.',
+    });
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue');
   });
 
@@ -144,6 +174,10 @@ describe('ValidationDetail Page', () => {
     fireEvent.click(confirmBtn);
 
     expect(mockRejectValidation).toHaveBeenCalledWith('v-101', 'Evidence is missing details.');
+    expect(storeMocks.pushToast).toHaveBeenCalledWith({
+      kind: 'info',
+      message: 'Validation rejected for Test Vault.',
+    });
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue');
   });
 
@@ -166,11 +200,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('renders "No evidence link provided" when task has no evidenceUrl', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: undefined }],
-      approveValidation: mockApproveValidation,
-      rejectValidation: mockRejectValidation,
-    });
+    setVerifierStore([{ ...mockPendingValidations[0], evidenceUrl: undefined }]);
 
     render(
       <MemoryRouter initialEntries={['/verifier/v-101']}>

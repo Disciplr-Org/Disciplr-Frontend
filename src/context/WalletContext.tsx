@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
+import { useToastStore } from '../Zustand/Store';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
@@ -28,6 +29,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [balanceError, setBalanceError] = useState<string | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const pushToast = useToastStore((state) => state.push);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -51,6 +53,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setBalance(null);
             setBalanceStatus('error');
             setBalanceError(message);
+            pushToast({ kind: 'error', message });
         }
     };
 
@@ -83,23 +86,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
+                    pushToast({ kind: 'success', message: 'Wallet connected.' });
                     await fetchNetworkAndBalance(pubKey);
                 } else {
-                    setError(addrError || 'Failed to get wallet address.');
+                    const message = addrError || 'Failed to get wallet address.';
+                    setError(message);
+                    pushToast({ kind: 'error', message });
                 }
             } else {
-                setError('Wallet access denied.');
+                const message = 'Wallet access denied.';
+                setError(message);
+                pushToast({ kind: 'error', message });
             }
         } catch (err: unknown) {
             console.error('Connection error', err);
             const message = err instanceof Error ? err.message : undefined;
-            setError(message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.');
+            const fallback = message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.';
+            setError(fallback);
+            pushToast({ kind: 'error', message: fallback });
         } finally {
             setIsConnecting(false);
         }
     };
 
     const disconnect = () => {
+        if (address) {
+            pushToast({ kind: 'info', message: 'Wallet disconnected.' });
+        }
         setAddress(null);
         setNetwork(null);
         setBalance(null);

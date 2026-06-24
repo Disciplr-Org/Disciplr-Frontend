@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
-import { useVerifierStore } from '../Zustand/Store';
+import { useToastStore, useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 
@@ -11,6 +11,7 @@ export default function ValidationDetail() {
   
   // Pull data and actions from Zustand
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
+  const pushToast = useToastStore((state) => state.push);
   
   // Local state for notes and the confirmation modal
   const [notes, setNotes] = useState('');
@@ -46,8 +47,10 @@ export default function ValidationDetail() {
   const executeAction = (decision: 'approve' | 'reject', modalNotes: string) => {
     if (decision === 'approve') {
       approveValidation(task.id, modalNotes);
+      pushToast({ kind: 'success', message: `Validation approved for ${task.vaultName}.` });
     } else if (decision === 'reject') {
       rejectValidation(task.id, modalNotes);
+      pushToast({ kind: 'info', message: `Validation rejected for ${task.vaultName}.` });
     }
     setIsModalOpen(false);
     navigate('/verifier/queue'); // Send them back to the list

@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
 import { Text } from "./Text";
+import { Toaster } from "./Toaster";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -120,6 +121,7 @@ export default function Layout({ children }: LayoutProps) {
       >
         {children}
       </main>
+      <Toaster />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalletProvider, useWallet } from '../WalletContext';
+import { useToastStore } from '../../Zustand/Store';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
@@ -71,6 +73,10 @@ describe('WalletContext Horizon USDC balance path', () => {
         globalThis.fetch = originalFetch;
     });
 
+    afterEach(() => {
+        useToastStore.getState().clear();
+    });
+
     test('loads the real USDC balance after connecting', async () => {
         let resolveFetch: (value: Response) => void = () => undefined;
         vi.mocked(globalThis.fetch).mockReturnValue(
@@ -102,6 +108,9 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(screen.getByTestId('network')).toHaveTextContent('TESTNET');
         expect(screen.getByTestId('balance')).toHaveTextContent('42.2500000');
         expect(globalThis.fetch).toHaveBeenCalledWith('https://horizon-testnet.stellar.org/accounts/GCONNECTED');
+        expect(useToastStore.getState().toasts).toContainEqual(
+            expect.objectContaining({ kind: 'success', message: 'Wallet connected.' }),
+        );
     });
 
     test('marks no-trustline when a connected public account has no Circle USDC balance line', async () => {
@@ -130,6 +139,12 @@ describe('WalletContext Horizon USDC balance path', () => {
         await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error'));
         expect(screen.getByTestId('balance')).toHaveTextContent('');
         expect(screen.getByTestId('balanceError')).toHaveTextContent('Horizon balance request failed with status 500.');
+        expect(useToastStore.getState().toasts).toContainEqual(
+            expect.objectContaining({
+                kind: 'error',
+                message: 'Horizon balance request failed with status 500.',
+            }),
+        );
 
         error.mockRestore();
     });
@@ -154,6 +169,9 @@ describe('WalletContext Horizon USDC balance path', () => {
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
 
         await waitFor(() => expect(screen.getByTestId('connectionError')).toHaveTextContent('Wallet access denied.'));
+        expect(useToastStore.getState().toasts).toContainEqual(
+            expect.objectContaining({ kind: 'error', message: 'Wallet access denied.' }),
+        );
 
         freighterMocks.requestAccess.mockResolvedValueOnce(true);
         freighterMocks.getAddress.mockResolvedValueOnce({ address: null, error: 'Address unavailable.' });
@@ -244,6 +262,9 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(screen.getByTestId('network')).toHaveTextContent('');
         expect(screen.getByTestId('balance')).toHaveTextContent('');
         expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        expect(useToastStore.getState().toasts).toContainEqual(
+            expect.objectContaining({ kind: 'info', message: 'Wallet disconnected.' }),
+        );
     });
 
     test('throws when useWallet is rendered outside the provider', () => {

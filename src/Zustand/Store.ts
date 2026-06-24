@@ -15,6 +15,76 @@ export const useNotification = create<notificationsType>((set) => ({
     set(() => ({ notification: value })),
 }));
 
+// --- Toast Store ---
+export type ToastKind = 'success' | 'error' | 'info';
+
+export type ToastMessage = {
+  id: string;
+  kind: ToastKind;
+  message: string;
+};
+
+type ToastInput = {
+  kind: ToastKind;
+  message: string;
+};
+
+type ToastStoreType = {
+  toasts: ToastMessage[];
+  push: (toast: ToastInput) => string;
+  dismiss: (id: string) => void;
+  clear: () => void;
+};
+
+export const TOAST_AUTO_DISMISS_MS = 5000;
+export const TOAST_QUEUE_LIMIT = 4;
+
+let toastSequence = 0;
+const toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const clearToastTimer = (id: string) => {
+  const timer = toastTimers.get(id);
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    toastTimers.delete(id);
+  }
+};
+
+export const useToastStore = create<ToastStoreType>((set, get) => ({
+  toasts: [],
+  push: (toast) => {
+    const id = `toast-${++toastSequence}`;
+    const nextToast: ToastMessage = { id, ...toast };
+
+    set((state) => {
+      const overflowCount = Math.max(state.toasts.length + 1 - TOAST_QUEUE_LIMIT, 0);
+      const droppedToasts = state.toasts.slice(0, overflowCount);
+      droppedToasts.forEach(({ id: droppedId }) => clearToastTimer(droppedId));
+
+      return {
+        toasts: [...state.toasts.slice(overflowCount), nextToast],
+      };
+    });
+
+    const timer = setTimeout(() => {
+      get().dismiss(id);
+    }, TOAST_AUTO_DISMISS_MS);
+    toastTimers.set(id, timer);
+
+    return id;
+  },
+  dismiss: (id) => {
+    clearToastTimer(id);
+    set((state) => ({
+      toasts: state.toasts.filter((toast) => toast.id !== id),
+    }));
+  },
+  clear: () => {
+    get().toasts.forEach(({ id }) => clearToastTimer(id));
+    set({ toasts: [] });
+  },
+}));
+
 
 // --- New Verifier Store ---
 export type ValidationTask = {
