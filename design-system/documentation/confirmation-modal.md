@@ -48,3 +48,9 @@ Component: `src/components/ConfirmationModal.tsx`
 The "Confirm" button is disabled until:
 1.  A decision (Approve or Reject) is selected.
 2.  If Reject is selected, notes must be non-empty.
+
+## Related Flow Documentation
+
+See `../../docs/VERIFIER_FLOW.md` for the end-to-end verifier journey, including
+how `ValidationDetail` opens this modal and how confirmed decisions call
+`approveValidation` or `rejectValidation` in `useVerifierStore`.

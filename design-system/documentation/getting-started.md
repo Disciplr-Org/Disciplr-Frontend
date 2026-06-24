@@ -57,6 +57,8 @@ component path exists before opening the PR.
 ## Related Documentation
 
 - `documentation/token-catalog.md` maps token groups to consumers.
+- `../../docs/VERIFIER_FLOW.md` documents the verifier journey and
+  `useVerifierStore` state model.
 - `documentation/breakpoints.md` documents the responsive spacing and layout
   scale.
 - `documentation/chart-palette.md` documents analytics chart color usage.

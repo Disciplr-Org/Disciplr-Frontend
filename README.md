@@ -209,7 +209,15 @@ disciplr-frontend/
 ## Contributor Notes
 
 - Keep route documentation aligned with `src/App.tsx`.
+- Keep verifier flow documentation aligned with `docs/VERIFIER_FLOW.md`,
+  `src/Zustand/Store.ts`, and the verifier pages in `src/pages/`.
 - Keep wallet documentation aligned with `src/context/WalletContext.tsx` and
   `src/components/Wallet/`.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
+
+## Verifier Documentation
+
+- `docs/VERIFIER_FLOW.md` documents the verifier route journey,
+  `ValidationTask` data model, approve/reject transitions, pending-to-history
+  state movement, no-op cases, and related design-system documentation.

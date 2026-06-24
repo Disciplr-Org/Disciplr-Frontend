@@ -27,3 +27,9 @@ The surface uses semantic tokens:
 - `--muted` for labels and helper text.
 - `--success` for approved status.
 - `--danger` for rejected status.
+
+## Related Flow Documentation
+
+See `../../docs/VERIFIER_FLOW.md` for the `ValidationTask` lifecycle and the
+store transition that moves approved or rejected tasks from the pending queue
+into validation history.
