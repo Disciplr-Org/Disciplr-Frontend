@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
+import { formatAddress, formatUsdc } from '../utils/format';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -18,12 +19,8 @@ export interface FundReleaseStatusProps {
   transaction?: SettlementTransaction;
 }
 
-export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
-  if (value.length <= prefixLength + suffixLength + 3) {
-    return value;
-  }
-
-  return `${value.slice(0, prefixLength)}...${value.slice(-suffixLength)}`;
+function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
+  return formatAddress(value, { prefixLength, suffixLength });
 }
 
 function explorerUrl(hash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
@@ -115,7 +112,7 @@ export function FundReleaseStatus({
                 title={destinationAddress}
                 aria-label={`Destination address ${destinationAddress}`}
               >
-                {truncateMiddle(destinationAddress)}
+                {formatAddress(destinationAddress)}
               </Text>
             ) : (
               <Text role="caption" as="span" className="fund-release-status__label">
@@ -128,7 +125,7 @@ export function FundReleaseStatus({
               Amount
             </Text>
             <Text role="mono" as="span" className="fund-release-status__value">
-              {amount.toLocaleString()} {currency}
+              {formatUsdc(amount, { currency })}
             </Text>
           </div>
           <div className="fund-release-status__field">

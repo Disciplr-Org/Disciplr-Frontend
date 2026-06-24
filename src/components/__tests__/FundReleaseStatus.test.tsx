@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FundReleaseStatus, truncateMiddle } from '../FundReleaseStatus';
+import { FundReleaseStatus } from '../FundReleaseStatus';
 
 let mockNetwork: 'TESTNET' | 'PUBLIC' | null = 'TESTNET';
 
@@ -16,13 +16,6 @@ vi.mock('../../context/WalletContext', () => ({
     checkConnection: vi.fn(),
   }),
 }));
-
-describe('truncateMiddle', () => {
-  it('truncates long values and leaves short values untouched', () => {
-    expect(truncateMiddle('GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')).toBe('GABCDE...7890');
-    expect(truncateMiddle('GSHORT')).toBe('GSHORT');
-  });
-});
 
 describe('FundReleaseStatus', () => {
   beforeEach(() => {

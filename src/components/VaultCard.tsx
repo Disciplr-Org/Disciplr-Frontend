@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
+import { formatUsdc } from '../utils/format';
 
 export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
 
@@ -78,7 +78,7 @@ export default function VaultCard({
             {name}
           </Text>
           <Text role="caption" as="div" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-            {amount.toLocaleString()} {currency}
+            {formatUsdc(amount, { currency })}
           </Text>
           <Text role="caption" as="div" style={{ color: 'var(--muted)' }}>
             Deadline:{' '}

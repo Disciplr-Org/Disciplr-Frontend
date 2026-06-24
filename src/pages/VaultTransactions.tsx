@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { formatAddress, formatUsdc } from "../utils/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TxType = "create" | "validate" | "release" | "redirect";
@@ -272,11 +273,12 @@ function fmtFullTime(date: Date): string {
   });
 }
 
-function fmtAmount(n: number): string {
+function fmtTransactionAmount(n: number): string {
   if (n === 0) return "—";
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  return formatUsdc(n, {
+    includeCurrency: false,
+    minFractionDigits: 2,
+    maxFractionDigits: 2,
   });
 }
 
@@ -285,7 +287,7 @@ function exportCSV(txs: Transaction[]): void {
     "ID",
     "Type",
     "Vault",
-    "Amount (XLM)",
+    "Amount (USDC)",
     "Fee (XLM)",
     "Status",
     "Timestamp",
@@ -443,7 +445,10 @@ export default function VaultTransactions() {
               },
               {
                 label: "Capital Moved",
-                value: `${fmtAmount(stats.capital)} XLM`,
+                value: formatUsdc(stats.capital, {
+                  minFractionDigits: 2,
+                  maxFractionDigits: 2,
+                }),
                 sub: "Across all vaults",
               },
             ].map((s, i) => (
@@ -490,7 +495,7 @@ export default function VaultTransactions() {
               <div className="vt-amount-range">
                 <input
                   className="vt-amount-input"
-                  placeholder="Min XLM"
+                  placeholder="Min USDC"
                   value={amountMin}
                   onChange={(e) => setAmountMin(e.target.value)}
                   type="number"
@@ -498,7 +503,7 @@ export default function VaultTransactions() {
                 <span className="vt-amount-sep">–</span>
                 <input
                   className="vt-amount-input"
-                  placeholder="Max XLM"
+                  placeholder="Max USDC"
                   value={amountMax}
                   onChange={(e) => setAmountMax(e.target.value)}
                   type="number"
@@ -662,8 +667,8 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
       <div className="vt-tx-amount">
         {tx.amount > 0 && (
           <span className="vt-tx-amount-val">
-            {fmtAmount(tx.amount)}
-            <span className="vt-tx-xlm">XLM</span>
+            {fmtTransactionAmount(tx.amount)}
+            <span className="vt-tx-currency">USDC</span>
           </span>
         )}
         <span className="vt-tx-fee">Fee: {tx.fee.toFixed(5)}</span>
@@ -766,16 +771,16 @@ function TxModal({ tx, onClose, onCopy, copiedId }: TxModalProps) {
             </div>
           </Field>
           <Field label="From">
-            <span className="vt-mono">{tx.from}</span>
+            <span className="vt-mono">{formatAddress(tx.from)}</span>
           </Field>
           <Field label="To">
-            <span className="vt-mono">{tx.to}</span>
+            <span className="vt-mono">{formatAddress(tx.to)}</span>
           </Field>
           <div className="vt-modal-row2">
             <Field label="Amount">
               <span className="vt-modal-amount">
-                {fmtAmount(tx.amount)}{" "}
-                <span style={{ opacity: 0.5, fontSize: "0.85em" }}>XLM</span>
+                {fmtTransactionAmount(tx.amount)}{" "}
+                <span style={{ opacity: 0.5, fontSize: "0.85em" }}>USDC</span>
               </span>
             </Field>
             <Field label="Fee Paid">
@@ -1217,7 +1222,7 @@ const CSS = `
   .vt-tx-explorer:hover { color: #6ee7b7; }
   .vt-tx-amount { text-align: right; flex-shrink: 0; }
   .vt-tx-amount-val { display: block; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #f1f5f9; }
-  .vt-tx-xlm { font-size: 10px; color: #475569; margin-left: 4px; }
+  .vt-tx-currency { font-size: 10px; color: #475569; margin-left: 4px; }
   .vt-tx-fee { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #334155; margin-top: 3px; }
   .vt-tx-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
   .vt-tx-status {

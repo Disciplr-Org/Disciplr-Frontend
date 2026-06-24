@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text'
+import { formatUsdc } from '../utils/format'
 
 type VaultStatus = 'active' | 'completed' | 'failed' | 'cancelled' | 'pending_validation'
 
@@ -68,7 +69,7 @@ export default function Vaults() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <Text role="body" as="span" style={{ fontWeight: 700, color: 'var(--accent)' }}>
-                    {vault.amount.toLocaleString()} {vault.currency}
+                    {formatUsdc(vault.amount, { currency: vault.currency })}
                   </Text>
                   <span style={{
                     background: cfg.bg, color: cfg.color,

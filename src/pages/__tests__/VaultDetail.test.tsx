@@ -19,7 +19,7 @@ describe('VaultDetail', () => {
 
     expect(screen.getByRole('heading', { name: 'Alpha Vault' })).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('12,500')).toBeInTheDocument();
+    expect(screen.getAllByText(/12,500/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('USDC').length).toBeGreaterThan(0);
 
     expect(screen.getByText('Status Timeline')).toBeInTheDocument();

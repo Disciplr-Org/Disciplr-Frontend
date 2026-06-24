@@ -8,6 +8,7 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { Text } from "../components/Text";
+import { formatAddress, formatUsdc } from "../utils/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -228,10 +229,6 @@ const TX_LABELS: Record<string, string> = {
   redirect: "Funds Redirected",
 };
 
-function truncAddr(addr: string): string {
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
-}
-
 function truncHash(hash: string): string {
   return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
 }
@@ -341,7 +338,7 @@ function AddrRow({ label, value }: { label: string; value: string }) {
       </Text>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <Text role="mono" as="span" style={{ color: "var(--text)" }}>
-          {truncAddr(value)}
+          {formatAddress(value)}
         </Text>
         <CopyButton value={value} />
       </div>
@@ -467,7 +464,10 @@ export default function VaultDetail() {
               as="div"
               style={{ color: "var(--accent)", lineHeight: 1.1 }}
             >
-              {vault.amount.toLocaleString()}{" "}
+              {formatUsdc(vault.amount, {
+                currency: vault.currency,
+                includeCurrency: false,
+              })}{" "}
               <span
                 style={{
                   fontSize: "0.45em",
@@ -576,7 +576,7 @@ export default function VaultDetail() {
             />
             <InfoRow
               label="Amount"
-              value={`${vault.amount.toLocaleString()} ${vault.currency}`}
+              value={formatUsdc(vault.amount, { currency: vault.currency })}
             />
           </div>
         </Card>
@@ -685,7 +685,7 @@ export default function VaultDetail() {
                     as="span"
                     style={{ color: "var(--text)", fontWeight: 600 }}
                   >
-                    {tx.amount.toLocaleString()} {vault.currency}
+                    {formatUsdc(tx.amount, { currency: vault.currency })}
                   </Text>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

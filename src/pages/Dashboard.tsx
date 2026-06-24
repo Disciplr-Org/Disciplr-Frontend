@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text';
 import VaultCard from '../components/VaultCard';
+import { formatUsdc } from '../utils/format';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
@@ -114,32 +115,6 @@ const DEADLINES: Deadline[] = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-};
-
 const ACTIVITY_CFG: Record<
   Activity["type"],
   { label: string; icon: string; color: string }
@@ -233,26 +208,6 @@ function SummaryCard({
   );
 }
 
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const cfg = STATUS_CFG[status];
-  return (
-    <span
-      style={{
-        background: cfg.bg,
-        color: cfg.color,
-        border: `var(--border-width-1) solid ${cfg.color}`,
-        borderRadius: "var(--radius-full)",
-        padding: "2px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cfg.label}
-    </span>
-  );
-}
-
 function SectionHeader({
   title,
   action,
@@ -316,7 +271,7 @@ export default function Dashboard() {
       >
         <SummaryCard
           label="Total Locked"
-          value={`$${SUMMARY.totalLocked.toLocaleString()}`}
+          value={formatUsdc(SUMMARY.totalLocked, { includeCurrency: false })}
           sub="USDC"
           accent
         />
@@ -533,7 +488,7 @@ export default function Dashboard() {
                           as="div"
                           style={{ color: "var(--muted)" }}
                         >
-                          {a.amount.toLocaleString()} USDC
+                          {formatUsdc(a.amount)}
                         </Text>
                       )}
                     </div>
@@ -622,7 +577,7 @@ export default function Dashboard() {
                         as="div"
                         style={{ color: "var(--muted)", marginTop: 2 }}
                       >
-                        {d.amount.toLocaleString()} USDC ·{" "}
+                        {formatUsdc(d.amount)} ·{" "}
                         {new Date(d.deadline).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
