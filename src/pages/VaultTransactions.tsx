@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
+import { CopyButton } from "../components/CopyButton";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TxType = "create" | "validate" | "release" | "redirect";
@@ -40,6 +41,10 @@ interface IconProps {
 }
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
+const USER_ADDRESS = "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L";
+const VAULT_ADDRESS = "GCVAULT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQM3P";
+const DELTA_ADDRESS = "GDELTA3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQX9K";
+
 const MOCK_TRANSACTIONS: Transaction[] = [
   {
     id: "tx1",
@@ -50,8 +55,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48201933,
     hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d7c5e9b3f1a2d4c6e8b0f2a4c6d8e0f2a",
     status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
+    from: USER_ADDRESS,
+    to: VAULT_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
     memo: "Initial deposit",
   },
@@ -64,8 +69,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48202011,
     hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b4c6d0e2f4a6c8e0b2d4f6a8c0e2d4f6a",
     status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
+    from: USER_ADDRESS,
+    to: VAULT_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.5),
     memo: "",
   },
@@ -78,8 +83,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48202450,
     hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c5d7e1f3b5d7f9b1d3f5b7d9f1b3d5f7b",
     status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
+    from: VAULT_ADDRESS,
+    to: USER_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 45),
     memo: "Milestone payout",
   },
@@ -92,8 +97,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48202891,
     hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d6e8f2a4c6e8a0c2e4f6a8c0e2f4a6c8e",
     status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GDELTA...X9K",
+    from: VAULT_ADDRESS,
+    to: DELTA_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 20),
     memo: "Redirect to escrow",
   },
@@ -106,8 +111,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48201100,
     hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e7f9a3b5d7f9b1d3f5b7d9f1b3d5f7b9d",
     status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
+    from: USER_ADDRESS,
+    to: VAULT_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
     memo: "New vault",
   },
@@ -120,8 +125,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48203100,
     hash: "f8c4a6b3d7e29501fk8c4b6a7d3e9c2f8a0c4b6d8f0b2d4f6a8b0d2f4a6b8d0f",
     status: "failed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
+    from: VAULT_ADDRESS,
+    to: USER_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 10),
     memo: "Partial release",
   },
@@ -134,8 +139,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48201788,
     hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
     status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
+    from: USER_ADDRESS,
+    to: VAULT_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3.5),
     memo: "",
   },
@@ -148,8 +153,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48203222,
     hash: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
     status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
+    from: VAULT_ADDRESS,
+    to: USER_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 5),
     memo: "Reallocation",
   },
@@ -162,8 +167,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48200500,
     hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4",
     status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
+    from: USER_ADDRESS,
+    to: VAULT_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
     memo: "Large vault",
   },
@@ -176,8 +181,8 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     block: 48203400,
     hash: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5",
     status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
+    from: VAULT_ADDRESS,
+    to: USER_ADDRESS,
     timestamp: new Date(Date.now() - 1000 * 60 * 2),
     memo: "Q3 release",
   },
@@ -251,6 +256,10 @@ const TYPES: string[] = [
 function truncHash(hash: string, head = 8, tail = 6): string {
   if (!hash) return "";
   return `${hash.slice(0, head)}...${hash.slice(-tail)}`;
+}
+
+function truncAddr(addr: string): string {
+  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
 }
 
 function fmtTime(date: Date): string {
@@ -330,14 +339,7 @@ export default function VaultTransactions() {
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
-  const copy = useCallback((text: string, id: string) => {
-    navigator.clipboard.writeText(text).catch(() => {});
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1800);
-  }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
     let list = [...MOCK_TRANSACTIONS];
@@ -529,8 +531,6 @@ export default function VaultTransactions() {
                   key={tx.id}
                   tx={tx}
                   onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
                 />
               ))}
             </Section>
@@ -544,8 +544,6 @@ export default function VaultTransactions() {
                   key={tx.id}
                   tx={tx}
                   onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
                 >
                   <button className="vt-retry-btn">Retry →</button>
                 </TxRow>
@@ -563,8 +561,6 @@ export default function VaultTransactions() {
                   key={tx.id}
                   tx={tx}
                   onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
                 />
               ))
             )}
@@ -575,8 +571,6 @@ export default function VaultTransactions() {
           <TxModal
             tx={selectedTx}
             onClose={() => setSelectedTx(null)}
-            onCopy={copy}
-            copiedId={copiedId}
           />
         )}
       </div>
@@ -608,12 +602,10 @@ function Section({ title, accent, count, children }: SectionProps) {
 interface TxRowProps {
   tx: Transaction;
   onSelect: (tx: Transaction) => void;
-  onCopy: (text: string, id: string) => void;
-  copiedId: string | null;
   children?: React.ReactNode;
 }
 
-function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
+function TxRow({ tx, onSelect, children }: TxRowProps) {
   const meta = TYPE_META[tx.type];
   const status = STATUS_META[tx.status];
   const Icon = meta.icon;
@@ -636,17 +628,14 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
           {tx.memo && <span className="vt-tx-memo">"{tx.memo}"</span>}
         </div>
         <div className="vt-tx-bottom">
-          <button
+          <CopyButton
             className="vt-tx-hash"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCopy(tx.hash, tx.id + "-hash");
-            }}
-            title="Copy hash"
+            value={tx.hash}
+            label="Copy transaction hash"
+            stopPropagation
           >
-            {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
-            <CopyIcon small />
-          </button>
+            {truncHash(tx.hash)}
+          </CopyButton>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
             target="_blank"
@@ -688,11 +677,9 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
 interface TxModalProps {
   tx: Transaction;
   onClose: () => void;
-  onCopy: (text: string, id: string) => void;
-  copiedId: string | null;
 }
 
-function TxModal({ tx, onClose, onCopy, copiedId }: TxModalProps) {
+function TxModal({ tx, onClose }: TxModalProps) {
   const [rawOpen, setRawOpen] = useState(false);
   const meta = TYPE_META[tx.type];
   const status = STATUS_META[tx.status];
@@ -757,19 +744,32 @@ function TxModal({ tx, onClose, onCopy, copiedId }: TxModalProps) {
           <Field label="Full Hash">
             <div className="vt-modal-hash-row">
               <span className="vt-modal-hash">{tx.hash}</span>
-              <button
+              <CopyButton
+                value={tx.hash}
+                label="Copy transaction hash"
                 className="vt-copy-btn"
-                onClick={() => onCopy(tx.hash, "modal-hash")}
-              >
-                {copiedId === "modal-hash" ? "✓" : <CopyIcon />}
-              </button>
+              />
             </div>
           </Field>
           <Field label="From">
-            <span className="vt-mono">{tx.from}</span>
+            <div className="vt-modal-hash-row">
+              <span className="vt-mono">{truncAddr(tx.from)}</span>
+              <CopyButton
+                value={tx.from}
+                label="Copy from address"
+                className="vt-copy-btn"
+              />
+            </div>
           </Field>
           <Field label="To">
-            <span className="vt-mono">{tx.to}</span>
+            <div className="vt-modal-hash-row">
+              <span className="vt-mono">{truncAddr(tx.to)}</span>
+              <CopyButton
+                value={tx.to}
+                label="Copy to address"
+                className="vt-copy-btn"
+              />
+            </div>
           </Field>
           <div className="vt-modal-row2">
             <Field label="Amount">
@@ -950,37 +950,6 @@ function RedirectIcon({ color = "currentColor", size = 16 }: IconProps) {
   );
 }
 
-interface CopyIconProps {
-  small?: boolean;
-}
-function CopyIcon({ small }: CopyIconProps) {
-  const s = small ? 11 : 14;
-  return (
-    <svg
-      width={s}
-      height={s}
-      viewBox="0 0 16 16"
-      fill="none"
-      style={{ display: "inline", marginLeft: small ? 3 : 0, opacity: 0.6 }}
-    >
-      <rect
-        x="5"
-        y="5"
-        width="9"
-        height="9"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M3 11V3a1 1 0 011-1h8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg

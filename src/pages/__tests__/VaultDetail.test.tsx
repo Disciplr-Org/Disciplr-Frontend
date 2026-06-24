@@ -33,6 +33,7 @@ describe('VaultDetail', () => {
     expect(within(addresses!).getByText('Failure destination')).toBeInTheDocument();
     expect(within(addresses!).getByText('Contract')).toBeInTheDocument();
     expect(within(addresses!).getByText('GBVZ3K...QK7L')).toBeInTheDocument();
+    expect(within(addresses!).getByRole('button', { name: 'Copy creator address' })).toBeInTheDocument();
 
     expect(screen.getByText(/1\. Phase 1 Complete/)).toBeInTheDocument();
     expect(screen.getByText('Complete initial development phase')).toBeInTheDocument();
@@ -50,6 +51,7 @@ describe('VaultDetail', () => {
     expect(screen.getByText('Milestone Validated')).toBeInTheDocument();
     expect(screen.getByText('a3f9d1c8...8f0a4d')).toBeInTheDocument();
     expect(screen.getByText('b4e0c2d9...9a5e8b')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Copy transaction hash' }).length).toBeGreaterThan(0);
   });
 
   it('renders completed vault release details without a verifier address', () => {

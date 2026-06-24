@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -8,6 +7,7 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { Text } from "../components/Text";
+import { CopyButton } from "../components/CopyButton";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -292,34 +292,6 @@ function settlementForVault(vault: Vault): FundReleaseStatusProps {
   };
 }
 
-// ── Copy Button ───────────────────────────────────────────────────────────────
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      title="Copy"
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        color: copied ? "var(--success)" : "var(--muted)",
-        padding: "0 4px",
-        fontSize: 13,
-        lineHeight: 1,
-      }}
-    >
-      {copied ? "✓" : "⎘"}
-    </button>
-  );
-}
-
 // ── Address Row ───────────────────────────────────────────────────────────────
 function AddrRow({ label, value }: { label: string; value: string }) {
   return (
@@ -343,7 +315,7 @@ function AddrRow({ label, value }: { label: string; value: string }) {
         <Text role="mono" as="span" style={{ color: "var(--text)" }}>
           {truncAddr(value)}
         </Text>
-        <CopyButton value={value} />
+        <CopyButton value={value} label={`Copy ${label.toLowerCase()} address`} />
       </div>
     </div>
   );
@@ -696,7 +668,7 @@ export default function VaultDetail() {
                   >
                     {truncHash(tx.hash)}
                   </Text>
-                  <CopyButton value={tx.hash} />
+                  <CopyButton value={tx.hash} label="Copy transaction hash" />
                   <a
                     href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
                     target="_blank"
