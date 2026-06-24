@@ -10,48 +10,10 @@ import { useNotification } from "@/Zustand/Store";
 export default function NotificationIcon() {
   const [isOpen, setIsOpen] = useState(false);
   const notifications = useNotification((state) => state.notification);
-  const setNotifications = useNotification((state) => state.setNotification);
-  const [unread, setUnread] = useState(0);
-  const [recentNotifications, setRecentNotifications] = useState<
-    typeof notifications
-  >([]);
-  const getNotificationStatus = () => {
-    const recent = notifications.slice(0, 5);
-    setRecentNotifications(recent);
-
-    // FIX: Unread should be where isRead is FALSE
-    const unreadCount = notifications.filter((n) => !n.isRead).length;
-    setUnread(unreadCount);
-  };
-  useEffect(() => {
-    if (notifications.length <= 0) return;
-    getNotificationStatus();
-  }, [notifications]);
-
-  const markAllAsRead = () => {
-    console.log("marked all as read");
-
-    // FIX: Create a NEW array with updated objects
-    const updatedNotifications = notifications.map((n) => ({
-      ...n,
-      isRead: true,
-    }));
-
-    // Set the new state
-    setNotifications(updatedNotifications);
-
-    // getNotificationStatus will run automatically via your useEffect
-    // because [notifications] is in the dependency array.
-  };
-
-  const setRead = (id: string) => {
-    setNotifications(
-      notifications.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-  };
+  const unreadCount = useNotification((state) => state.unreadCount);
+  const markRead = useNotification((state) => state.markRead);
+  const markAllRead = useNotification((state) => state.markAllRead);
+  const recentNotifications = notifications.slice(0, 5);
 
   const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
 
@@ -78,23 +40,30 @@ export default function NotificationIcon() {
   return (
     <>
       <div ref={containerRef} className="relative inline-block">
-        <div
+        <button
+          type="button"
+          aria-label={
+            unreadCount > 0
+              ? `Open notifications, ${unreadCount} unread`
+              : "Open notifications, no unread"
+          }
           onClick={() => {
             setIsOpen((prev) => !prev);
           }}
+          className="relative border-0 bg-transparent p-0 text-inherit cursor-pointer"
         >
-          {notifications.filter((n) => !n.isRead).length > 0 ? (
+          {unreadCount > 0 ? (
             <CiBellOn size="2rem" />
           ) : (
             <CiBellOff size="2rem" />
           )}
 
-          {notifications.length > 0 && (
+          {unreadCount > 0 && (
             <div className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white flex items-center justify-center rounded-full text-[10px] font-bold transform translate-x-1/2 -translate-y-1/2">
-              {unread}
+              {unreadCount}
             </div>
           )}
-        </div>
+        </button>
 
         <AnimatePresence>
           {isOpen && (
@@ -112,7 +81,8 @@ export default function NotificationIcon() {
                       Notifications
                     </h2>
                     <button
-                      onClick={markAllAsRead}
+                      onClick={markAllRead}
+                      disabled={unreadCount === 0}
                       className="bg-white text-[#00c389] px-3 rounded-lg shadow-lg"
                     >
                       Mark All As Read
@@ -129,7 +99,7 @@ export default function NotificationIcon() {
                           type={items.type}
                           read={items.isRead}
                           isFullPage={false}
-                          setRead={setRead}
+                          setRead={markRead}
                         />
                       </div>
                     ))}

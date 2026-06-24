@@ -1,5 +1,5 @@
 import Message from "@/components/Notification/Messages";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
@@ -8,7 +8,9 @@ import { Link } from "react-router-dom";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
-  const setNotifications = useNotification((state) => state.setNotification);
+  const unreadCount = useNotification((state) => state.unreadCount);
+  const markRead = useNotification((state) => state.markRead);
+  const markAllRead = useNotification((state) => state.markAllRead);
   const [currentNotification, setCurrentNotification] = useState(notifications);
   const [currentFilterReadSeletion, setCurrentFilterReadSeletion] =
     useState("all");
@@ -49,7 +51,7 @@ export default function Notification() {
     };
   }, []);
 
-  const filterNotification = () => {
+  const filterNotification = useCallback(() => {
     let filtered = notifications;
 
     if (!filtered) return;
@@ -67,32 +69,31 @@ export default function Notification() {
     }
     setCurrentNotification(filtered);
     setCurrentPage(1);
-  };
-  useEffect(() => {
-    filterNotification();
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
+  useEffect(() => {
+    filterNotification();
+  }, [filterNotification]);
+
   // 2. Calculate total pages
-  const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
-  const setRead = (id: string) => {
-    setNotifications(
-      notifications.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-    setCurrentNotification((prev) =>
-      prev.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-  };
+  const totalPages = Math.max(
+    1,
+    Math.ceil(currentNotification.length / itemsPerPage),
+  );
+
   return (
     <>
       <div ref={containerRef} className="flex justify-between items-center">
         <div className="text-xl font-bold">Notification Page </div>
         <div className="flex gap-5 items-center justify-center">
+          <button
+            type="button"
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
+            className="bg-[#00c389] px-3 py-2 rounded-md disabled:opacity-50"
+          >
+            Mark All As Read
+          </button>
           <div className="relative">
             <Link
               to="/notification/settings"
@@ -132,6 +133,7 @@ export default function Notification() {
                   <h2>Filter By : </h2>
                   <div className="flex justify-between">
                     <select
+                      aria-label="Filter by read status"
                       onChange={(e) => {
                         setCurrentFilterReadSeletion(e.target.value);
                       }}
@@ -144,6 +146,7 @@ export default function Notification() {
                       <option value="1">Read</option>
                     </select>
                     <select
+                      aria-label="Filter by notification type"
                       onChange={(e) => {
                         setCurrentFilterTypeSeletion(e.target.value);
                       }}
@@ -181,7 +184,7 @@ export default function Notification() {
                 type={items.type}
                 read={items.isRead}
                 isFullPage={true}
-                setRead={setRead}
+                setRead={markRead}
               />
             </div>
           ))

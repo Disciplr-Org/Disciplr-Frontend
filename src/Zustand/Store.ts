@@ -4,15 +4,53 @@ import { create } from "zustand";
 // --- Existing Notification Store ---
 const n = getNotifications();
 
+export type NotificationList = typeof n;
+
+export const getUnreadCount = (notifications: NotificationList) =>
+  notifications.filter((item) => !item.isRead).length;
+
 type notificationsType = {
-  notification: typeof n;
-  setNotification: (value: typeof n) => void;
+  notification: NotificationList;
+  /** Derived from notification so badges and pages share one unread source. */
+  unreadCount: number;
+  setNotification: (value: NotificationList) => void;
+  /** Marks one notification read without mutating the existing list. */
+  markRead: (id: string) => void;
+  /** Marks every unread notification read without changing the data shape. */
+  markAllRead: () => void;
 };
 
 export const useNotification = create<notificationsType>((set) => ({
   notification: n,
-  setNotification: (value: typeof n) =>
-    set(() => ({ notification: value })),
+  unreadCount: getUnreadCount(n),
+  setNotification: (value: NotificationList) =>
+    set(() => ({ notification: value, unreadCount: getUnreadCount(value) })),
+  markRead: (id: string) =>
+    set((state) => {
+      let changed = false;
+      const notification = state.notification.map((item) => {
+        if (item.id !== id || item.isRead) return item;
+        changed = true;
+        return { ...item, isRead: true };
+      });
+
+      if (!changed) return state;
+
+      return {
+        notification,
+        unreadCount: getUnreadCount(notification),
+      };
+    }),
+  markAllRead: () =>
+    set((state) => {
+      if (state.unreadCount === 0) return state;
+
+      const notification = state.notification.map((item) =>
+        item.isRead ? item : { ...item, isRead: true },
+      );
+
+      return { notification, unreadCount: 0 };
+    }),
 }));
 
 
