@@ -12,6 +12,7 @@ interface ConfirmationModalProps {
   initialDecision?: 'approve' | 'reject';
   initialNotes?: string;
   evidenceUrl?: string;
+  summary?: string;
 }
 
 /**
@@ -32,6 +33,7 @@ export function ConfirmationModal({
   initialDecision,
   initialNotes = '',
   evidenceUrl,
+  summary,
 }: ConfirmationModalProps) {
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(initialDecision || null);
   const [notes, setNotes] = useState(initialNotes);
@@ -89,6 +91,11 @@ export function ConfirmationModal({
                   <Text role="body" as="span" className="font-semibold text-gray-700 dark:text-gray-300">
                     Final Decision
                   </Text>
+                  {summary && (
+                    <Text role="caption" as="p" className="text-gray-600 dark:text-gray-300">
+                      {summary}
+                    </Text>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={() => setDecision('approve')}
