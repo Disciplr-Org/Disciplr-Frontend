@@ -1,8 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
+import {
+  filterTransactions,
+  type TransactionStatus,
+  type TransactionType,
+} from "../utils/transactionFilter";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type TxType = "create" | "validate" | "release" | "redirect";
-type TxStatus = "confirmed" | "pending" | "failed";
+type TxType = TransactionType;
+type TxStatus = TransactionStatus;
 
 interface Transaction {
   id: string;
@@ -239,12 +244,12 @@ const VAULTS = [
   "All Vaults",
   ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
 ];
-const TYPES: string[] = [
-  "All Types",
-  "create",
-  "validate",
-  "release",
-  "redirect",
+const TYPES: SelectOption[] = [
+  { value: "all", label: "All Types" },
+  { value: "create", label: "Create" },
+  { value: "validate", label: "Validate" },
+  { value: "release", label: "Release" },
+  { value: "redirect", label: "Redirect" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -323,12 +328,14 @@ function exportCSV(txs: Transaction[]): void {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultTransactions() {
-  const [filterType, setFilterType] = useState<string>("All Types");
+  const [filterType, setFilterType] = useState<TxType | "all">("all");
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<TxStatus | "all">("all");
   const [searchHash, setSearchHash] = useState<string>("");
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
+  const [dateStart, setDateStart] = useState<string>("");
+  const [dateEnd, setDateEnd] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -340,13 +347,14 @@ export default function VaultTransactions() {
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
-    let list = [...MOCK_TRANSACTIONS];
-    if (filterType !== "All Types")
-      list = list.filter((t) => t.type === filterType);
+    let list = filterTransactions(MOCK_TRANSACTIONS, {
+      type: filterType,
+      status: filterStatus,
+      startDate: dateStart,
+      endDate: dateEnd,
+    });
     if (filterVault !== "All Vaults")
       list = list.filter((t) => t.vault === filterVault);
-    if (filterStatus !== "all")
-      list = list.filter((t) => t.status === filterStatus);
     if (searchHash.trim())
       list = list.filter((t) =>
         t.hash.toLowerCase().includes(searchHash.toLowerCase()),
@@ -368,6 +376,8 @@ export default function VaultTransactions() {
     searchHash,
     amountMin,
     amountMax,
+    dateStart,
+    dateEnd,
     sortDir,
   ]);
 
@@ -385,21 +395,25 @@ export default function VaultTransactions() {
   );
 
   const clearFilters = () => {
-    setFilterType("All Types");
+    setFilterType("all");
     setFilterVault("All Vaults");
     setFilterStatus("all");
     setSearchHash("");
     setAmountMin("");
     setAmountMax("");
+    setDateStart("");
+    setDateEnd("");
   };
 
   const hasFilters =
-    filterType !== "All Types" ||
+    filterType !== "all" ||
     filterVault !== "All Vaults" ||
     filterStatus !== "all" ||
     !!searchHash ||
     !!amountMin ||
-    !!amountMax;
+    !!amountMax ||
+    !!dateStart ||
+    !!dateEnd;
 
   return (
     <>
@@ -461,6 +475,7 @@ export default function VaultTransactions() {
               <SearchIcon className="vt-search-icon" />
               <input
                 className="vt-search"
+                aria-label="Search transactions by hash"
                 placeholder="Search by transaction hash…"
                 value={searchHash}
                 onChange={(e) => setSearchHash(e.target.value)}
@@ -468,18 +483,21 @@ export default function VaultTransactions() {
             </div>
             <div className="vt-filter-row">
               <Select
+                label="Filter transactions by type"
                 value={filterType}
-                onChange={setFilterType}
+                onChange={(value) => setFilterType(value as TxType | "all")}
                 options={TYPES}
               />
               <Select
+                label="Filter transactions by vault"
                 value={filterVault}
                 onChange={setFilterVault}
                 options={VAULTS}
               />
               <Select
+                label="Filter transactions by status"
                 value={filterStatus}
-                onChange={setFilterStatus}
+                onChange={(value) => setFilterStatus(value as TxStatus | "all")}
                 options={[
                   { value: "all", label: "All Statuses" },
                   { value: "confirmed", label: "Confirmed" },
@@ -487,9 +505,27 @@ export default function VaultTransactions() {
                   { value: "failed", label: "Failed" },
                 ]}
               />
+              <div className="vt-date-range">
+                <input
+                  className="vt-date-input"
+                  aria-label="Filter transactions from date"
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                  type="date"
+                />
+                <span className="vt-amount-sep">–</span>
+                <input
+                  className="vt-date-input"
+                  aria-label="Filter transactions to date"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                  type="date"
+                />
+              </div>
               <div className="vt-amount-range">
                 <input
                   className="vt-amount-input"
+                  aria-label="Minimum transaction amount"
                   placeholder="Min XLM"
                   value={amountMin}
                   onChange={(e) => setAmountMin(e.target.value)}
@@ -498,6 +534,7 @@ export default function VaultTransactions() {
                 <span className="vt-amount-sep">–</span>
                 <input
                   className="vt-amount-input"
+                  aria-label="Maximum transaction amount"
                   placeholder="Max XLM"
                   value={amountMax}
                   onChange={(e) => setAmountMax(e.target.value)}
@@ -521,54 +558,60 @@ export default function VaultTransactions() {
             </div>
           </div>
 
-          {/* Pending */}
-          {pending.length > 0 && (
-            <Section title="Pending" accent="#fcd34d" count={pending.length}>
-              {pending.map((tx) => (
-                <TxRow
-                  key={tx.id}
-                  tx={tx}
-                  onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
-                />
-              ))}
-            </Section>
-          )}
-
-          {/* Failed */}
-          {failed.length > 0 && (
-            <Section title="Failed" accent="#fca5a5" count={failed.length}>
-              {failed.map((tx) => (
-                <TxRow
-                  key={tx.id}
-                  tx={tx}
-                  onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
-                >
-                  <button className="vt-retry-btn">Retry →</button>
-                </TxRow>
-              ))}
-            </Section>
-          )}
-
-          {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
-            {rest.length === 0 ? (
+          {filtered.length === 0 ? (
+            <Section title="Transactions" accent="#64748b" count={0}>
               <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
-            ) : (
-              rest.map((tx) => (
-                <TxRow
-                  key={tx.id}
-                  tx={tx}
-                  onSelect={setSelectedTx}
-                  onCopy={copy}
-                  copiedId={copiedId}
-                />
-              ))
-            )}
-          </Section>
+            </Section>
+          ) : (
+            <>
+              {/* Pending */}
+              {pending.length > 0 && (
+                <Section title="Pending" accent="#fcd34d" count={pending.length}>
+                  {pending.map((tx) => (
+                    <TxRow
+                      key={tx.id}
+                      tx={tx}
+                      onSelect={setSelectedTx}
+                      onCopy={copy}
+                      copiedId={copiedId}
+                    />
+                  ))}
+                </Section>
+              )}
+
+              {/* Failed */}
+              {failed.length > 0 && (
+                <Section title="Failed" accent="#fca5a5" count={failed.length}>
+                  {failed.map((tx) => (
+                    <TxRow
+                      key={tx.id}
+                      tx={tx}
+                      onSelect={setSelectedTx}
+                      onCopy={copy}
+                      copiedId={copiedId}
+                    >
+                      <button className="vt-retry-btn">Retry →</button>
+                    </TxRow>
+                  ))}
+                </Section>
+              )}
+
+              {/* Confirmed */}
+              {rest.length > 0 && (
+                <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+                  {rest.map((tx) => (
+                    <TxRow
+                      key={tx.id}
+                      tx={tx}
+                      onSelect={setSelectedTx}
+                      onCopy={copy}
+                      copiedId={copiedId}
+                    />
+                  ))}
+                </Section>
+              )}
+            </>
+          )}
         </div>
 
         {selectedTx && (
@@ -843,12 +886,13 @@ interface SelectOption {
 }
 
 interface SelectProps {
+  label: string;
   value: string;
   onChange: (val: string) => void;
   options: string[] | SelectOption[];
 }
 
-function Select({ value, onChange, options }: SelectProps) {
+function Select({ label, value, onChange, options }: SelectProps) {
   const opts: SelectOption[] = options.map((o) =>
     typeof o === "string" ? { value: o, label: o } : o,
   );
@@ -856,6 +900,7 @@ function Select({ value, onChange, options }: SelectProps) {
     <div className="vt-select-wrap">
       <select
         className="vt-select"
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -1159,12 +1204,14 @@ const CSS = `
   }
   .vt-select:hover, .vt-select:focus { border-color: rgba(110,231,183,0.25); color: #e2e8f0; }
   .vt-amount-range { display: flex; align-items: center; gap: 6px; }
-  .vt-amount-input {
+  .vt-date-range { display: flex; align-items: center; gap: 6px; }
+  .vt-amount-input, .vt-date-input {
     width: 90px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 12px;
     padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal) var(--ease-in-out);
   }
-  .vt-amount-input:focus { border-color: rgba(110,231,183,0.25); }
+  .vt-date-input { width: 132px; color-scheme: dark; }
+  .vt-amount-input:focus, .vt-date-input:focus { border-color: rgba(110,231,183,0.25); }
   .vt-amount-input::placeholder { color: #334155; }
   .vt-amount-sep { color: #334155; font-size: 13px; }
   .vt-sort-btn {
@@ -1302,6 +1349,7 @@ const CSS = `
     .vt-modal-row2 { grid-template-columns: 1fr 1fr; }
     .vt-filter-row { gap: 8px; }
     .vt-amount-range { display: none; }
+    .vt-date-range { flex: 1 1 100%; }
   }
   @media (max-width: 480px) {
     .vt-stats { grid-template-columns: 1fr; }
