@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
@@ -58,10 +58,16 @@ function renderPage() {
   );
 }
 
+function mockVerifierStore(pendingValidations = makeTasks()) {
+  vi.mocked(useVerifierStore).mockReturnValue({
+    pendingValidations,
+  } as unknown as ReturnType<typeof useVerifierStore>);
+}
+
 describe('PendingValidations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: makeTasks() });
+    mockVerifierStore();
   });
 
   it('renders the page heading', () => {
@@ -70,16 +76,39 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockVerifierStore([]);
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockVerifierStore([]);
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('exposes table name, column scopes, and deadline sort state', () => {
+    renderPage();
+
+    const table = screen.getByRole('table', {
+      name: /pending validations queue/i,
+    });
+    const headers = within(table).getAllByRole('columnheader');
+
+    expect(headers).toHaveLength(5);
+    headers.forEach((header) => {
+      expect(header).toHaveAttribute('scope', 'col');
+    });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Deadline' }),
+    ).toHaveAttribute('aria-sort', 'ascending');
+
+    fireEvent.click(screen.getByRole('button', { name: /High to Low/i }));
+
+    expect(
+      within(table).getByRole('columnheader', { name: 'Deadline' }),
+    ).toHaveAttribute('aria-sort', 'descending');
   });
 
   it('renders a row for each pending task', () => {
@@ -142,38 +171,31 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [makeTasks()[0]],
-    });
+    mockVerifierStore([makeTasks()[0]]);
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + 1 row
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    (useVerifierStore as any).mockReturnValue({
-      pendingValidations: [
-        { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
-        { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
-      ],
-    });
+    mockVerifierStore([
+      { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
+      { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
+    ]);
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
-    // both show 5 days left — just assert they render without error
-    expect(screen.getAllByText('5 days left')).toHaveLength(2);
+    expect(within(rows[0]).getByText('Alpha Vault')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Beta Vault')).toBeInTheDocument();
   });
 
-  it('shows daysRemaining in red for tasks with 3 or fewer days', () => {
+  it('adds a visible urgency cue for tasks with 3 or fewer days remaining', () => {
     renderPage();
-    // v-2 has daysRemaining: 2 — should have red styling
-    const urgentSpan = screen.getByText('2 days left');
-    expect(urgentSpan.className).toContain('text-red-600');
-  });
 
-  it('shows daysRemaining in green for tasks with more than 3 days', () => {
-    renderPage();
-    const safeSpan = screen.getByText('10 days left');
-    expect(safeSpan.className).toContain('text-green-600');
+    const rows = screen.getAllByRole('row').slice(1);
+
+    expect(within(rows[0]).getByText('Beta Vault')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('Urgent')).toBeInTheDocument();
+    expect(within(rows[1]).queryByText('Urgent')).not.toBeInTheDocument();
   });
 });

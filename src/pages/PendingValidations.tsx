@@ -12,10 +12,11 @@ export default function PendingValidations() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const sortedValidations = [...pendingValidations].sort((a, b) => {
-    return sortOrder === 'asc' 
-      ? a.daysRemaining - b.daysRemaining 
+    return sortOrder === 'asc'
+      ? a.daysRemaining - b.daysRemaining
       : b.daysRemaining - a.daysRemaining;
   });
+  const deadlineSort = sortOrder === 'asc' ? 'ascending' : 'descending';
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -33,8 +34,10 @@ export default function PendingValidations() {
           </Text>
         </div>
         
-        <button 
+        <button
           onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+          aria-controls="pending-validations-table"
+          aria-label={`Sort by Urgency: ${sortOrder === 'asc' ? 'High to Low' : 'Low to High'}`}
           className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50 transition"
         >
           Sort by Urgency: {sortOrder === 'asc' ? 'High to Low' : 'Low to High'}
@@ -48,14 +51,17 @@ export default function PendingValidations() {
             <Text role="body" as="p" className="mt-2">There are no pending validations in your queue.</Text>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table id="pending-validations-table" className="w-full text-left border-collapse">
+            <caption className="sr-only">
+              Pending validations queue sorted by deadline urgency.
+            </caption>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="p-4 font-medium text-sm text-gray-600">Vault & Milestone</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Owner</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Amount at Stake</th>
-                <th className="p-4 font-medium text-sm text-gray-600">Deadline</th>
-                <th className="p-4 font-medium text-sm text-gray-600 text-right">Actions</th>
+                <th scope="col" className="p-4 font-medium text-sm text-gray-600">Vault & Milestone</th>
+                <th scope="col" className="p-4 font-medium text-sm text-gray-600">Owner</th>
+                <th scope="col" className="p-4 font-medium text-sm text-gray-600">Amount at Stake</th>
+                <th scope="col" aria-sort={deadlineSort} className="p-4 font-medium text-sm text-gray-600">Deadline</th>
+                <th scope="col" className="p-4 font-medium text-sm text-gray-600 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +83,11 @@ export default function PendingValidations() {
                     <div className="flex flex-col">
                       <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
                       <CountdownDeadline deadline={task.deadline} />
+                      {task.daysRemaining <= 3 && (
+                        <span className="mt-1 inline-flex w-fit rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          Urgent
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="p-4 text-right">

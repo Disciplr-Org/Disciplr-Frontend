@@ -246,6 +246,12 @@ const TYPES: string[] = [
   "release",
   "redirect",
 ];
+const TRANSACTION_TABLE_COLUMNS = [
+  "Transaction",
+  "Amount and fee",
+  "Status and time",
+  "Actions",
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function truncHash(hash: string, head = 8, tail = 6): string {
@@ -523,7 +529,12 @@ export default function VaultTransactions() {
 
           {/* Pending */}
           {pending.length > 0 && (
-            <Section title="Pending" accent="#fcd34d" count={pending.length}>
+            <Section
+              title="Pending"
+              accent="#fcd34d"
+              count={pending.length}
+              tableLabel="Pending transactions table"
+            >
               {pending.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -538,7 +549,12 @@ export default function VaultTransactions() {
 
           {/* Failed */}
           {failed.length > 0 && (
-            <Section title="Failed" accent="#fca5a5" count={failed.length}>
+            <Section
+              title="Failed"
+              accent="#fca5a5"
+              count={failed.length}
+              tableLabel="Failed transactions table"
+            >
               {failed.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -554,9 +570,22 @@ export default function VaultTransactions() {
           )}
 
           {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+          <Section
+            title="Confirmed"
+            accent="#6ee7b7"
+            count={rest.length}
+            tableLabel="Confirmed transactions table"
+          >
             {rest.length === 0 ? (
-              <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
+              <div className="vt-empty-row" role="row">
+                <div
+                  className="vt-empty-cell"
+                  role="cell"
+                  aria-colspan={TRANSACTION_TABLE_COLUMNS.length}
+                >
+                  <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
+                </div>
+              </div>
             ) : (
               rest.map((tx) => (
                 <TxRow
@@ -589,10 +618,11 @@ interface SectionProps {
   title: string;
   accent: string;
   count: number;
+  tableLabel: string;
   children: React.ReactNode;
 }
 
-function Section({ title, accent, count, children }: SectionProps) {
+function Section({ title, accent, count, tableLabel, children }: SectionProps) {
   return (
     <section className="vt-section">
       <div className="vt-section-header">
@@ -600,7 +630,30 @@ function Section({ title, accent, count, children }: SectionProps) {
         <span className="vt-section-title">{title}</span>
         <span className="vt-section-count">{count}</span>
       </div>
-      <div className="vt-tx-list">{children}</div>
+      <div
+        className="vt-tx-list"
+        role="table"
+        aria-label={tableLabel}
+        aria-colcount={TRANSACTION_TABLE_COLUMNS.length}
+        aria-rowcount={Math.max(count, 1) + 1}
+      >
+        <div className="vt-sr-only" role="rowgroup">
+          <div role="row">
+            {TRANSACTION_TABLE_COLUMNS.map((column, index) => (
+              <span
+                key={column}
+                role="columnheader"
+                aria-colindex={index + 1}
+              >
+                {column}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="vt-tx-rowgroup" role="rowgroup">
+          {children}
+        </div>
+      </div>
     </section>
   );
 }
@@ -619,15 +672,21 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
   const Icon = meta.icon;
 
   return (
-    <div className="vt-tx-row" onClick={() => onSelect(tx)}>
+    <div
+      className="vt-tx-row"
+      role="row"
+      aria-label={`${status.label} ${meta.label} transaction for ${tx.vault}`}
+      onClick={() => onSelect(tx)}
+    >
       <div
         className="vt-tx-icon"
+        aria-hidden="true"
         style={{ background: meta.bg, border: `1px solid ${meta.border}` }}
       >
         <Icon color={meta.color} />
       </div>
 
-      <div className="vt-tx-main">
+      <div className="vt-tx-main" role="cell">
         <div className="vt-tx-top">
           <span className="vt-tx-type" style={{ color: meta.color }}>
             {meta.label}
@@ -659,7 +718,7 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
         </div>
       </div>
 
-      <div className="vt-tx-amount">
+      <div className="vt-tx-amount" role="cell">
         {tx.amount > 0 && (
           <span className="vt-tx-amount-val">
             {fmtAmount(tx.amount)}
@@ -669,18 +728,25 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
         <span className="vt-tx-fee">Fee: {tx.fee.toFixed(5)}</span>
       </div>
 
-      <div className="vt-tx-right">
+      <div className="vt-tx-right" role="cell">
         <span
           className="vt-tx-status"
+          aria-label={`Status: ${status.label}`}
           style={{ color: status.color, background: status.bg }}
         >
-          <span className="vt-status-dot" style={{ background: status.dot }} />
+          <span
+            className="vt-status-dot"
+            aria-hidden="true"
+            style={{ background: status.dot }}
+          />
           {status.label}
         </span>
         <span className="vt-tx-time">{fmtTime(tx.timestamp)}</span>
       </div>
 
-      {children}
+      <div className="vt-tx-actions" role="cell">
+        {children}
+      </div>
     </div>
   );
 }
@@ -1189,7 +1255,12 @@ const CSS = `
     font-size: 11px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full);
     padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
   }
+  .vt-sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
+  .vt-tx-rowgroup { display: flex; flex-direction: column; gap: 4px; }
   .vt-tx-row {
     display: flex; align-items: center; gap: 14px;
     background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
@@ -1227,12 +1298,14 @@ const CSS = `
   }
   .vt-status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
   .vt-tx-time { font-size: 11px; color: #334155; }
+  .vt-tx-actions { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; min-width: 0; }
   .vt-retry-btn {
     background: rgba(252,165,165,0.08); border: 1px solid rgba(252,165,165,0.2);
     color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
     padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal) var(--ease-in-out);
   }
   .vt-retry-btn:hover { background: rgba(252,165,165,0.15); }
+  .vt-empty-row, .vt-empty-cell { width: 100%; }
   .vt-empty { text-align: center; padding: 56px 24px; }
   .vt-empty-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.2; }
   .vt-empty-title { font-size: 16px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
