@@ -10,13 +10,27 @@ import {
   ArrowUpRight, ArrowDownRight, Zap, Flag, BarChart2,
   Users, Lock, Crown
 } from 'lucide-react'
-import jsPDF from 'jspdf'
 import { useTheme } from '../context/ThemeContext'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Period = '7d' | '30d' | '90d' | '1y' | 'All'
+type JsPDFModule = typeof import('jspdf')
+type JsPDFConstructor = JsPDFModule['default']
+
+let jsPDFModulePromise: Promise<JsPDFModule> | null = null
+
+function loadJsPDF() {
+  if (!jsPDFModulePromise) {
+    jsPDFModulePromise = import('jspdf').catch(error => {
+      jsPDFModulePromise = null
+      throw error
+    })
+  }
+
+  return jsPDFModulePromise
+}
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -235,8 +249,8 @@ function exportCSV(data: typeof allData['30d']) {
   URL.revokeObjectURL(url)
 }
 
-function exportPDF(period: Period, data: typeof allData['30d']) {
-  const doc = new jsPDF()
+function exportPDF(period: Period, data: typeof allData['30d'], JsPDF: JsPDFConstructor) {
+  const doc = new JsPDF()
   const accent = [0, 195, 137] as const
 
   // Header bar
@@ -372,6 +386,8 @@ export default function Analytics() {
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
   const [isLoading] = useState(false)
+  const [isPdfExporting, setIsPdfExporting] = useState(false)
+  const [pdfExportError, setPdfExportError] = useState<string | null>(null)
   const hasData = true
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
@@ -397,6 +413,25 @@ export default function Analytics() {
     itemStyle: { color: seriesColors.tooltipText },
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
+
+  const handleExportPDF = async () => {
+    if (isPdfExporting) {
+      return
+    }
+
+    setIsPdfExporting(true)
+    setPdfExportError(null)
+
+    try {
+      const { default: JsPDF } = await loadJsPDF()
+      exportPDF(period, chartData, JsPDF)
+    } catch (error) {
+      console.error('Failed to export analytics PDF', error)
+      setPdfExportError('PDF export could not load. Please try again.')
+    } finally {
+      setIsPdfExporting(false)
+    }
+  }
 
   return (
     <>
@@ -463,6 +498,15 @@ export default function Analytics() {
           transition: all 0.15s;
         }
         .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .action-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+        .pdf-export-error {
+          color: var(--danger);
+          font-size: 0.8rem;
+          line-height: 1.3;
+        }
         input[type="date"] {
           background: var(--surface);
           color: var(--text);
@@ -569,9 +613,19 @@ export default function Analytics() {
           <button className="action-btn" onClick={() => exportCSV(chartData)}>
             <Download size={14} /> CSV
           </button>
-          <button className="action-btn" onClick={() => exportPDF(period, chartData)}>
-            <Download size={14} /> PDF Report
+          <button
+            className="action-btn"
+            onClick={handleExportPDF}
+            disabled={isPdfExporting}
+            aria-describedby={pdfExportError ? 'analytics-pdf-export-error' : undefined}
+          >
+            <Download size={14} /> {isPdfExporting ? 'Preparing PDF...' : 'PDF Report'}
           </button>
+          {pdfExportError && (
+            <span id="analytics-pdf-export-error" className="pdf-export-error" role="alert">
+              {pdfExportError}
+            </span>
+          )}
         </div>
 
         {/* ── SECTION 1: Key Metrics Cards ── */}

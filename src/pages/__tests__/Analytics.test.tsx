@@ -1,8 +1,31 @@
 import React, { Suspense, lazy, act } from 'react'
-import { describe, expect, it, vi, beforeAll } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeAll, beforeEach } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
+
+type ChartContainerProps = React.PropsWithChildren
+
+const pdfMocks = vi.hoisted(() => {
+  const doc = {
+    setFillColor: vi.fn(),
+    rect: vi.fn(),
+    setTextColor: vi.fn(),
+    setFontSize: vi.fn(),
+    setFont: vi.fn(),
+    text: vi.fn(),
+    setDrawColor: vi.fn(),
+    setLineWidth: vi.fn(),
+    line: vi.fn(),
+    save: vi.fn(),
+  }
+
+  return {
+    doc,
+    importDelayMs: 0,
+    constructor: vi.fn(() => doc),
+  }
+})
 
 // ── Browser API stubs (jsdom doesn't implement these) ─────────────────────────
 
@@ -22,13 +45,19 @@ beforeAll(() => {
   })
 })
 
+beforeEach(() => {
+  pdfMocks.importDelayMs = 0
+  pdfMocks.constructor.mockClear()
+  Object.values(pdfMocks.doc).forEach(mock => mock.mockClear())
+})
+
 // ── Heavy dep mocks ───────────────────────────────────────────────────────────
 
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  AreaChart: ({ children }: any) => <div>{children}</div>,
-  BarChart: ({ children }: any) => <div>{children}</div>,
-  PieChart: ({ children }: any) => <div>{children}</div>,
+  ResponsiveContainer: ({ children }: ChartContainerProps) => <div>{children}</div>,
+  AreaChart: ({ children }: ChartContainerProps) => <div>{children}</div>,
+  BarChart: ({ children }: ChartContainerProps) => <div>{children}</div>,
+  PieChart: ({ children }: ChartContainerProps) => <div>{children}</div>,
   Area: () => null,
   Bar: () => null,
   Pie: () => null,
@@ -38,20 +67,22 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Tooltip: () => null,
   Legend: () => null,
-  LineChart: ({ children }: any) => <div>{children}</div>,
+  LineChart: ({ children }: ChartContainerProps) => <div>{children}</div>,
   Line: () => null,
 }))
 
-vi.mock('jspdf', () => ({
-  default: class {
-    text() {}
-    save() {}
-    addImage() {}
-  },
-}))
+vi.mock('jspdf', async () => {
+  if (pdfMocks.importDelayMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, pdfMocks.importDelayMs))
+  }
+
+  return {
+    default: pdfMocks.constructor,
+  }
+})
 
 vi.mock('../../context/WalletContext', () => ({
-  WalletProvider: ({ children }: any) => <>{children}</>,
+  WalletProvider: ({ children }: ChartContainerProps) => <>{children}</>,
   useWallet: () => ({
     address: null,
     network: null,
@@ -65,9 +96,19 @@ vi.mock('../../context/WalletContext', () => ({
 }))
 
 vi.mock('../../context/ThemeContext', () => ({
-  ThemeProvider: ({ children }: any) => <>{children}</>,
+  ThemeProvider: ({ children }: ChartContainerProps) => <>{children}</>,
   useTheme: () => ({ theme: 'light', toggleTheme: () => {} }),
 }))
+
+async function renderAnalytics() {
+  const { default: Analytics } = await import('../Analytics')
+
+  return render(
+    <MemoryRouter>
+      <Analytics />
+    </MemoryRouter>,
+  )
+}
 
 // ── Theme mapping tests ───────────────────────────────────────────────────────
 
@@ -117,6 +158,48 @@ export const analyticsThemeCoverage = [
   'milestone bars map to --accent',
   'axis/grid/tooltip colors map to neutral surface tokens',
 ]
+
+// ── PDF export tests ─────────────────────────────────────────────────────────
+
+describe('Analytics PDF export', () => {
+  it('disables the PDF export button while jsPDF loads and then saves the report', async () => {
+    pdfMocks.importDelayMs = 25
+
+    await renderAnalytics()
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /pdf report/i }))
+    })
+
+    expect(screen.getByRole('button', { name: /preparing pdf/i })).toBeDisabled()
+
+    await waitFor(() => {
+      expect(pdfMocks.doc.save).toHaveBeenCalledWith('disciplr-report-30d.pdf')
+    })
+    expect(screen.getByRole('button', { name: /pdf report/i })).not.toBeDisabled()
+  })
+
+  it('shows an inline error when PDF export fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pdfMocks.constructor.mockImplementationOnce(() => {
+      throw new Error('jsPDF failed to load')
+    })
+
+    await renderAnalytics()
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /pdf report/i }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('PDF export could not load. Please try again.')
+    })
+    expect(pdfMocks.constructor).not.toHaveBeenCalled()
+    expect(pdfMocks.doc.save).not.toHaveBeenCalled()
+
+    consoleError.mockRestore()
+  })
+})
 
 // ── Lazy-route / Suspense tests ───────────────────────────────────────────────
 
