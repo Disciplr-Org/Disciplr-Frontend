@@ -7,7 +7,9 @@ import {
   FundReleaseStatus,
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
+import { ExplorerLink } from "../components/ExplorerLink";
 import { Text } from "../components/Text";
+import type { ExplorerKind } from "../utils/explorer";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus =
@@ -321,7 +323,15 @@ function CopyButton({ value }: { value: string }) {
 }
 
 // ── Address Row ───────────────────────────────────────────────────────────────
-function AddrRow({ label, value }: { label: string; value: string }) {
+function AddrRow({
+  label,
+  value,
+  kind = "account",
+}: {
+  label: string;
+  value: string;
+  kind?: ExplorerKind;
+}) {
   return (
     <div
       style={{
@@ -340,9 +350,16 @@ function AddrRow({ label, value }: { label: string; value: string }) {
         {label}
       </Text>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <Text role="mono" as="span" style={{ color: "var(--text)" }}>
-          {truncAddr(value)}
-        </Text>
+        <ExplorerLink
+          kind={kind}
+          id={value}
+          aria-label={`View ${label.toLowerCase()} ${value} on Stellar Expert`}
+          style={{ color: "var(--text)", textDecoration: "none" }}
+        >
+          <Text role="mono" as="span" style={{ color: "inherit" }}>
+            {truncAddr(value)}
+          </Text>
+        </ExplorerLink>
         <CopyButton value={value} />
       </div>
     </div>
@@ -603,7 +620,7 @@ export default function VaultDetail() {
             )}
             <AddrRow label="Success destination" value={vault.successAddress} />
             <AddrRow label="Failure destination" value={vault.failureAddress} />
-            <AddrRow label="Contract" value={vault.contractAddress} />
+            <AddrRow label="Contract" value={vault.contractAddress} kind="contract" />
           </div>
         </Card>
       </div>
@@ -697,14 +714,14 @@ export default function VaultDetail() {
                     {truncHash(tx.hash)}
                   </Text>
                   <CopyButton value={tx.hash} />
-                  <a
-                    href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <ExplorerLink
+                    kind="tx"
+                    id={tx.hash}
+                    aria-label={`View transaction ${tx.hash} on Stellar Expert`}
                     style={{ color: "var(--accent)", fontSize: 11 }}
                   >
                     ↗
-                  </a>
+                  </ExplorerLink>
                 </div>
               </div>
             </div>

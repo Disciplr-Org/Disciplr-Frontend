@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { ExplorerLink } from "../components/ExplorerLink";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TxType = "create" | "validate" | "release" | "redirect";
@@ -647,15 +648,14 @@ function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
             {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
             <CopyIcon small />
           </button>
-          <a
-            href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <ExplorerLink
+            kind="tx"
+            id={tx.hash}
             className="vt-tx-explorer"
             onClick={(e) => e.stopPropagation()}
           >
             Explorer ↗
-          </a>
+          </ExplorerLink>
         </div>
       </div>
 
@@ -809,14 +809,13 @@ function TxModal({ tx, onClose, onCopy, copiedId }: TxModalProps) {
         </div>
 
         <div className="vt-modal-footer">
-          <a
-            href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <ExplorerLink
+            kind="tx"
+            id={tx.hash}
             className="vt-explorer-link"
           >
             View on Stellar Explorer ↗
-          </a>
+          </ExplorerLink>
         </div>
       </div>
     </div>
