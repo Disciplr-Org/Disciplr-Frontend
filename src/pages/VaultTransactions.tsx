@@ -1,18 +1,20 @@
-import { useState, useMemo, useCallback } from "react";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type TxType = "create" | "validate" | "release" | "redirect";
-type TxStatus = "confirmed" | "pending" | "failed";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { vaultService } from "../services/vaultService";
+import type {
+  VaultTransaction as ServiceVaultTransaction,
+  VaultTransactionStatus,
+  VaultTransactionType,
+} from "../types/vault";
 
 interface Transaction {
   id: string;
-  type: TxType;
+  type: VaultTransactionType;
   vault: string;
   amount: number;
   fee: number;
   block: number;
   hash: string;
-  status: TxStatus;
+  status: VaultTransactionStatus;
   from: string;
   to: string;
   timestamp: Date;
@@ -39,151 +41,28 @@ interface IconProps {
   size?: number;
 }
 
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: "tx1",
-    type: "create",
-    vault: "Alpha Vault",
-    amount: 12500.0,
-    fee: 0.00012,
-    block: 48201933,
-    hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d7c5e9b3f1a2d4c6e8b0f2a4c6d8e0f2a",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    memo: "Initial deposit",
-  },
-  {
-    id: "tx2",
-    type: "validate",
-    vault: "Alpha Vault",
-    amount: 0,
-    fee: 0.00008,
-    block: 48202011,
-    hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b4c6d0e2f4a6c8e0b2d4f6a8c0e2d4f6a",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.5),
-    memo: "",
-  },
-  {
-    id: "tx3",
-    type: "release",
-    vault: "Beta Reserve",
-    amount: 4200.5,
-    fee: 0.00015,
-    block: 48202450,
-    hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c5d7e1f3b5d7f9b1d3f5b7d9f1b3d5f7b",
-    status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45),
-    memo: "Milestone payout",
-  },
-  {
-    id: "tx4",
-    type: "redirect",
-    vault: "Gamma Fund",
-    amount: 8800.0,
-    fee: 0.00011,
-    block: 48202891,
-    hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d6e8f2a4c6e8a0c2e4f6a8c0e2f4a6c8e",
-    status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GDELTA...X9K",
-    timestamp: new Date(Date.now() - 1000 * 60 * 20),
-    memo: "Redirect to escrow",
-  },
-  {
-    id: "tx5",
-    type: "create",
-    vault: "Beta Reserve",
-    amount: 31000.0,
-    fee: 0.00013,
-    block: 48201100,
-    hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e7f9a3b5d7f9b1d3f5b7d9f1b3d5f7b9d",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    memo: "New vault",
-  },
-  {
-    id: "tx6",
-    type: "release",
-    vault: "Alpha Vault",
-    amount: 500.0,
-    fee: 0.00009,
-    block: 48203100,
-    hash: "f8c4a6b3d7e29501fk8c4b6a7d3e9c2f8a0c4b6d8f0b2d4f6a8b0d2f4a6b8d0f",
-    status: "failed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 10),
-    memo: "Partial release",
-  },
-  {
-    id: "tx7",
-    type: "validate",
-    vault: "Gamma Fund",
-    amount: 0,
-    fee: 0.00007,
-    block: 48201788,
-    hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3.5),
-    memo: "",
-  },
-  {
-    id: "tx8",
-    type: "redirect",
-    vault: "Alpha Vault",
-    amount: 1200.75,
-    fee: 0.0001,
-    block: 48203222,
-    hash: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
-    status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    memo: "Reallocation",
-  },
-  {
-    id: "tx9",
-    type: "create",
-    vault: "Delta Safe",
-    amount: 99000.0,
-    fee: 0.0002,
-    block: 48200500,
-    hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
-    memo: "Large vault",
-  },
-  {
-    id: "tx10",
-    type: "release",
-    vault: "Delta Safe",
-    amount: 15000.0,
-    fee: 0.00016,
-    block: 48203400,
-    hash: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5",
-    status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    memo: "Q3 release",
-  },
-];
+function toTransaction(tx: ServiceVaultTransaction): Transaction {
+  return {
+    id: tx.id,
+    type: tx.type,
+    vault: tx.vaultName ?? "Unknown Vault",
+    amount: tx.amount ?? 0,
+    fee: tx.fee ?? 0,
+    block: tx.block ?? 0,
+    hash: tx.hash,
+    status: tx.status ?? "confirmed",
+    from: tx.from ?? "",
+    to: tx.to ?? "",
+    timestamp: new Date(tx.timestamp),
+    memo: tx.memo ?? "",
+  };
+}
 
-const TYPE_META: Record<TxType, TypeMeta> = {
+function listTransactionSnapshots(): Transaction[] {
+  return vaultService.listTransactionsSnapshot().map(toTransaction);
+}
+
+const TYPE_META: Record<VaultTransactionType, TypeMeta> = {
   create: {
     label: "Create",
     color: "#6ee7b7",
@@ -214,7 +93,7 @@ const TYPE_META: Record<TxType, TypeMeta> = {
   },
 };
 
-const STATUS_META: Record<TxStatus, StatusMeta> = {
+const STATUS_META: Record<VaultTransactionStatus, StatusMeta> = {
   confirmed: {
     label: "Confirmed",
     color: "#6ee7b7",
@@ -235,10 +114,6 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-const VAULTS = [
-  "All Vaults",
-  ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
-];
 const TYPES: string[] = [
   "All Types",
   "create",
@@ -323,6 +198,9 @@ function exportCSV(txs: Transaction[]): void {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultTransactions() {
+  const [transactions, setTransactions] = useState<Transaction[]>(() =>
+    listTransactionSnapshots(),
+  );
   const [filterType, setFilterType] = useState<string>("All Types");
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -333,6 +211,18 @@ export default function VaultTransactions() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  useEffect(() => {
+    let active = true;
+
+    vaultService.listTransactions().then((nextTransactions) => {
+      if (active) setTransactions(nextTransactions.map(toTransaction));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
@@ -340,7 +230,7 @@ export default function VaultTransactions() {
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
-    let list = [...MOCK_TRANSACTIONS];
+    let list = [...transactions];
     if (filterType !== "All Types")
       list = list.filter((t) => t.type === filterType);
     if (filterVault !== "All Vaults")
@@ -369,6 +259,7 @@ export default function VaultTransactions() {
     amountMin,
     amountMax,
     sortDir,
+    transactions,
   ]);
 
   const pending = filtered.filter((t) => t.status === "pending");
@@ -377,11 +268,16 @@ export default function VaultTransactions() {
 
   const stats = useMemo(
     () => ({
-      total: MOCK_TRANSACTIONS.length,
-      fees: MOCK_TRANSACTIONS.reduce((s, t) => s + t.fee, 0),
-      capital: MOCK_TRANSACTIONS.reduce((s, t) => s + t.amount, 0),
+      total: transactions.length,
+      fees: transactions.reduce((s, t) => s + t.fee, 0),
+      capital: transactions.reduce((s, t) => s + t.amount, 0),
     }),
-    [],
+    [transactions],
+  );
+
+  const vaultOptions = useMemo(
+    () => ["All Vaults", ...Array.from(new Set(transactions.map((t) => t.vault)))],
+    [transactions],
   );
 
   const clearFilters = () => {
@@ -475,7 +371,7 @@ export default function VaultTransactions() {
               <Select
                 value={filterVault}
                 onChange={setFilterVault}
-                options={VAULTS}
+                options={vaultOptions}
               />
               <Select
                 value={filterStatus}

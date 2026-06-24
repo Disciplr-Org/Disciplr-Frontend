@@ -1,13 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text'
-
-type VaultStatus = 'active' | 'completed' | 'failed' | 'cancelled' | 'pending_validation'
-
-const MOCK_VAULTS = [
-  { id: '1', name: 'Alpha Vault',   amount: 12500,  currency: 'USDC', status: 'active' as VaultStatus,    deadline: '2024-07-15T10:00:00Z' },
-  { id: '2', name: 'Beta Reserve',  amount: 4200.5, currency: 'USDC', status: 'completed' as VaultStatus, deadline: '2024-01-01T09:00:00Z' },
-  { id: '3', name: 'Gamma Fund',    amount: 8800,   currency: 'USDC', status: 'failed' as VaultStatus,    deadline: '2023-12-01T08:00:00Z' },
-]
+import { vaultService } from '../services/vaultService'
+import type { VaultStatus } from '../types/vault'
 
 const STATUS_CONFIG: Record<VaultStatus, { label: string; color: string; bg: string }> = {
   active:             { label: 'Active',             color: 'var(--accent)',  bg: 'var(--accent-transparent)' },
@@ -18,6 +13,20 @@ const STATUS_CONFIG: Record<VaultStatus, { label: string; color: string; bg: str
 }
 
 export default function Vaults() {
+  const [vaults, setVaults] = useState(() => vaultService.listVaultsSnapshot())
+
+  useEffect(() => {
+    let active = true
+
+    vaultService.listVaults().then((nextVaults) => {
+      if (active) setVaults(nextVaults)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -41,7 +50,7 @@ export default function Vaults() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {MOCK_VAULTS.map((vault) => {
+        {vaults.map((vault) => {
           const cfg = STATUS_CONFIG[vault.status]
           return (
             <Link

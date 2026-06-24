@@ -3,8 +3,7 @@ import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
 import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
-
-export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
+import type { VaultStatus } from '../types/vault';
 
 export interface VaultCardProps {
   id: string;
@@ -23,6 +22,7 @@ function StatusBadge({ status }: { status: VaultStatus }) {
     pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
     completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
     failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
+    cancelled: { label: 'Cancelled', bg: 'rgba(156,163,175,0.1)', fg: 'var(--muted)' },
   }[status];
 
   return (

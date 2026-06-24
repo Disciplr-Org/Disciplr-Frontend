@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -8,186 +8,8 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { Text } from "../components/Text";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type VaultStatus =
-  | "active"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "pending_validation";
-
-type MilestoneStatus = "pending" | "validated" | "failed";
-
-interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  criteria: string;
-  status: MilestoneStatus;
-  validatedAt?: string;
-  evidenceUrl?: string;
-}
-
-interface VaultTransaction {
-  id: string;
-  type: "create" | "validate" | "release" | "redirect";
-  hash: string;
-  timestamp: string;
-  amount?: number;
-}
-
-interface Vault {
-  id: string;
-  name: string;
-  status: VaultStatus;
-  amount: number;
-  currency: string;
-  createdAt: string;
-  deadline: string;
-  creatorAddress: string;
-  verifierAddress?: string;
-  successAddress: string;
-  failureAddress: string;
-  contractAddress: string;
-  milestones: Milestone[];
-  transactions: VaultTransaction[];
-}
-
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_VAULTS: Record<string, Vault> = {
-  "1": {
-    id: "1",
-    name: "Alpha Vault",
-    status: "active",
-    amount: 12500,
-    currency: "USDC",
-    createdAt: "2024-01-15T10:00:00Z",
-    deadline: "2024-07-15T10:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    verifierAddress: "GVERIF3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Phase 1 Complete",
-        description: "Complete initial development phase",
-        criteria: "All unit tests passing, code reviewed",
-        status: "validated",
-        validatedAt: "2024-02-20T14:30:00Z",
-        evidenceUrl: "https://github.com/org/repo/pull/42",
-      },
-      {
-        id: "m2",
-        title: "Beta Launch",
-        description: "Launch beta version to 100 users",
-        criteria: "Beta deployed, 100 active users onboarded",
-        status: "pending",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d",
-        timestamp: "2024-01-15T10:00:00Z",
-        amount: 12500,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b",
-        timestamp: "2024-02-20T14:30:00Z",
-      },
-    ],
-  },
-  "2": {
-    id: "2",
-    name: "Beta Reserve",
-    status: "completed",
-    amount: 4200.5,
-    currency: "USDC",
-    createdAt: "2023-10-01T09:00:00Z",
-    deadline: "2024-01-01T09:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT4KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Project Delivery",
-        description: "Deliver final project",
-        criteria: "All deliverables submitted and approved",
-        status: "validated",
-        validatedAt: "2023-12-28T11:00:00Z",
-        evidenceUrl: "https://docs.example.com/delivery",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e",
-        timestamp: "2023-10-01T09:00:00Z",
-        amount: 4200.5,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-        timestamp: "2023-12-28T11:00:00Z",
-      },
-      {
-        id: "tx3",
-        type: "release",
-        hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c",
-        timestamp: "2024-01-01T09:00:00Z",
-        amount: 4200.5,
-      },
-    ],
-  },
-  "3": {
-    id: "3",
-    name: "Gamma Fund",
-    status: "failed",
-    amount: 8800,
-    currency: "USDC",
-    createdAt: "2023-08-01T08:00:00Z",
-    deadline: "2023-12-01T08:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT5KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Milestone 1",
-        description: "First milestone",
-        criteria: "Criteria not met",
-        status: "failed",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-        timestamp: "2023-08-01T08:00:00Z",
-        amount: 8800,
-      },
-      {
-        id: "tx2",
-        type: "redirect",
-        hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d",
-        timestamp: "2023-12-01T08:00:00Z",
-        amount: 8800,
-      },
-    ],
-  },
-};
+import { vaultService } from "../services/vaultService";
+import type { Vault, VaultStatus } from "../types/vault";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -375,7 +197,28 @@ function Card({
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
-  const vault = id ? MOCK_VAULTS[id] : undefined;
+  const [vault, setVault] = useState<Vault | undefined>(() =>
+    id ? vaultService.getVaultSnapshot(id) : undefined,
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    if (!id) {
+      setVault(undefined);
+      return () => {
+        active = false;
+      };
+    }
+
+    vaultService.getVault(id).then((nextVault) => {
+      if (active) setVault(nextVault);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   if (!vault) {
     return (
