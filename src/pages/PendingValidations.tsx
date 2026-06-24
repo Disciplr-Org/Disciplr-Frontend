@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CountdownDeadline } from '../components/CountdownDeadline';
+import { StatusChip } from '../components/StatusChip';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 
@@ -64,6 +65,9 @@ export default function PendingValidations() {
                   <td className="p-4">
                     <Text role="body" as="p" className="font-semibold text-gray-800">{task.vaultName}</Text>
                     <Text role="body" as="p" className="text-sm text-gray-500 mt-1">{task.milestone}</Text>
+                    <div className="mt-2">
+                      <StatusChip status="pending_validation" size="sm" label="Pending" />
+                    </div>
                   </td>
                   <td className="p-4">
                     <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded font-mono">

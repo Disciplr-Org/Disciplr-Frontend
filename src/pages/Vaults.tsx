@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { StatusChip } from '../components/StatusChip'
 import { Text } from '../components/Text'
 
 type VaultStatus = 'active' | 'completed' | 'failed' | 'cancelled' | 'pending_validation'
@@ -8,14 +9,6 @@ const MOCK_VAULTS = [
   { id: '2', name: 'Beta Reserve',  amount: 4200.5, currency: 'USDC', status: 'completed' as VaultStatus, deadline: '2024-01-01T09:00:00Z' },
   { id: '3', name: 'Gamma Fund',    amount: 8800,   currency: 'USDC', status: 'failed' as VaultStatus,    deadline: '2023-12-01T08:00:00Z' },
 ]
-
-const STATUS_CONFIG: Record<VaultStatus, { label: string; color: string; bg: string }> = {
-  active:             { label: 'Active',             color: 'var(--accent)',  bg: 'var(--accent-transparent)' },
-  completed:          { label: 'Completed',          color: 'var(--success)', bg: 'rgba(16,185,129,0.1)' },
-  failed:             { label: 'Failed',             color: 'var(--danger)',  bg: 'rgba(239,68,68,0.1)' },
-  cancelled:          { label: 'Cancelled',          color: 'var(--muted)',   bg: 'rgba(156,163,175,0.1)' },
-  pending_validation: { label: 'Pending Validation', color: 'var(--warning)', bg: 'rgba(245,158,11,0.1)' },
-}
 
 export default function Vaults() {
   return (
@@ -42,7 +35,6 @@ export default function Vaults() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {MOCK_VAULTS.map((vault) => {
-          const cfg = STATUS_CONFIG[vault.status]
           return (
             <Link
               key={vault.id}
@@ -70,13 +62,7 @@ export default function Vaults() {
                   <Text role="body" as="span" style={{ fontWeight: 700, color: 'var(--accent)' }}>
                     {vault.amount.toLocaleString()} {vault.currency}
                   </Text>
-                  <span style={{
-                    background: cfg.bg, color: cfg.color,
-                    border: `var(--border-width-1) solid ${cfg.color}`,
-                    borderRadius: 'var(--radius-full)', padding: '2px 10px', fontSize: 12, fontWeight: 600,
-                  }}>
-                    {cfg.label}
-                  </span>
+                  <StatusChip status={vault.status} />
                 </div>
               </div>
             </Link>

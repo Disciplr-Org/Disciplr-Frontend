@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
+import { CountdownDeadline } from './CountdownDeadline';
+import { StatusChip } from './StatusChip';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
-import { CountdownDeadline } from './CountdownDeadline';
 
 export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
 
@@ -15,35 +15,6 @@ export interface VaultCardProps {
   deadline: string;
   progressPct: number;
   linkTo?: string;
-}
-
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const config = {
-    active: { label: 'Active', bg: 'var(--accent-transparent)', fg: 'var(--accent)' },
-    pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
-    completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
-    failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
-  }[status];
-
-  return (
-    <span
-      style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-      }}
-    >
-      {config.label}
-    </span>
-  );
 }
 
 export default function VaultCard({
@@ -86,7 +57,11 @@ export default function VaultCard({
           </Text>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <StatusBadge status={status} />
+          <StatusChip
+            status={status}
+            size="sm"
+            label={status === 'pending_validation' ? 'Pending' : undefined}
+          />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
           <VaultProgressBar value={progressPct} label={`${name} progress`} />

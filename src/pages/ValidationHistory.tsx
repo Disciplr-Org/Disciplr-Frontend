@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { StatusChip } from '../components/StatusChip';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import {
@@ -173,18 +174,12 @@ export default function ValidationHistory() {
               >
                 <div className="flex flex-col gap-2 md:w-1/3">
                   <div className="flex items-center gap-3">
-                    <span
-                      className="px-2 py-1 rounded text-xs font-bold uppercase"
-                      style={{
-                        color: task.status === 'approved' ? 'var(--success)' : 'var(--danger)',
-                        border: `1px solid ${task.status === 'approved' ? 'var(--success)' : 'var(--danger)'}`,
-                        background: task.status === 'approved'
-                          ? 'var(--success-transparent)'
-                          : 'var(--danger-transparent)',
-                      }}
-                    >
-                      {task.status}
-                    </span>
+                    <StatusChip
+                      status={task.status === 'pending' ? 'pending_validation' : task.status}
+                      size="sm"
+                      label={task.status}
+                      className="uppercase"
+                    />
                     <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
                       ID: {task.id}
                     </Text>
