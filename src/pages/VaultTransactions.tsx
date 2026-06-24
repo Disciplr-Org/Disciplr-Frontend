@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type UIEvent } from "react";
+import { getWindowRange, sliceWindow, type WindowRange } from "../utils/windowRange";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type TxType = "create" | "validate" | "release" | "redirect";
-type TxStatus = "confirmed" | "pending" | "failed";
+export type TxType = "create" | "validate" | "release" | "redirect";
+export type TxStatus = "confirmed" | "pending" | "failed";
 
-interface Transaction {
+export interface Transaction {
   id: string;
   type: TxType;
   vault: string;
@@ -38,6 +39,11 @@ interface IconProps {
   color?: string;
   size?: number;
 }
+
+const VAULT_TRANSACTION_WINDOW_THRESHOLD = 30;
+const VAULT_TRANSACTION_ROW_HEIGHT = 76;
+const VAULT_TRANSACTION_VIEWPORT_HEIGHT = 640;
+const VAULT_TRANSACTION_OVERSCAN = 4;
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 const MOCK_TRANSACTIONS: Transaction[] = [
@@ -235,10 +241,6 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-const VAULTS = [
-  "All Vaults",
-  ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
-];
 const TYPES: string[] = [
   "All Types",
   "create",
@@ -322,7 +324,21 @@ function exportCSV(txs: Transaction[]): void {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function VaultTransactions() {
+interface VaultTransactionsProps {
+  transactions?: Transaction[];
+  windowThreshold?: number;
+  rowHeight?: number;
+  viewportHeight?: number;
+  overscan?: number;
+}
+
+export default function VaultTransactions({
+  transactions = MOCK_TRANSACTIONS,
+  windowThreshold = VAULT_TRANSACTION_WINDOW_THRESHOLD,
+  rowHeight = VAULT_TRANSACTION_ROW_HEIGHT,
+  viewportHeight = VAULT_TRANSACTION_VIEWPORT_HEIGHT,
+  overscan = VAULT_TRANSACTION_OVERSCAN,
+}: VaultTransactionsProps = {}) {
   const [filterType, setFilterType] = useState<string>("All Types");
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -332,6 +348,23 @@ export default function VaultTransactions() {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [confirmedScrollTop, setConfirmedScrollTop] = useState(0);
+
+  const metadataMaps = useMemo(
+    () => ({
+      typeMeta: TYPE_META,
+      statusMeta: STATUS_META,
+    }),
+    [],
+  );
+
+  const vaultOptions = useMemo(
+    () => [
+      "All Vaults",
+      ...Array.from(new Set(transactions.map((transaction) => transaction.vault))),
+    ],
+    [transactions],
+  );
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -340,7 +373,7 @@ export default function VaultTransactions() {
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
-    let list = [...MOCK_TRANSACTIONS];
+    let list = [...transactions];
     if (filterType !== "All Types")
       list = list.filter((t) => t.type === filterType);
     if (filterVault !== "All Vaults")
@@ -369,6 +402,7 @@ export default function VaultTransactions() {
     amountMin,
     amountMax,
     sortDir,
+    transactions,
   ]);
 
   const pending = filtered.filter((t) => t.status === "pending");
@@ -377,12 +411,34 @@ export default function VaultTransactions() {
 
   const stats = useMemo(
     () => ({
-      total: MOCK_TRANSACTIONS.length,
-      fees: MOCK_TRANSACTIONS.reduce((s, t) => s + t.fee, 0),
-      capital: MOCK_TRANSACTIONS.reduce((s, t) => s + t.amount, 0),
+      total: transactions.length,
+      fees: transactions.reduce((s, t) => s + t.fee, 0),
+      capital: transactions.reduce((s, t) => s + t.amount, 0),
     }),
-    [],
+    [transactions],
   );
+
+  const confirmedWindow = useMemo(
+    () =>
+      getWindowRange({
+        total: rest.length,
+        scrollTop: confirmedScrollTop,
+        rowHeight,
+        viewportHeight,
+        threshold: windowThreshold,
+        overscan,
+      }),
+    [confirmedScrollTop, overscan, rest.length, rowHeight, viewportHeight, windowThreshold],
+  );
+
+  const visibleConfirmed = useMemo(
+    () => sliceWindow(rest, confirmedWindow),
+    [confirmedWindow, rest],
+  );
+
+  const handleConfirmedScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    setConfirmedScrollTop(event.currentTarget.scrollTop);
+  }, []);
 
   const clearFilters = () => {
     setFilterType("All Types");
@@ -475,7 +531,7 @@ export default function VaultTransactions() {
               <Select
                 value={filterVault}
                 onChange={setFilterVault}
-                options={VAULTS}
+                options={vaultOptions}
               />
               <Select
                 value={filterStatus}
@@ -528,6 +584,8 @@ export default function VaultTransactions() {
                 <TxRow
                   key={tx.id}
                   tx={tx}
+                  typeMeta={metadataMaps.typeMeta}
+                  statusMeta={metadataMaps.statusMeta}
                   onSelect={setSelectedTx}
                   onCopy={copy}
                   copiedId={copiedId}
@@ -543,6 +601,8 @@ export default function VaultTransactions() {
                 <TxRow
                   key={tx.id}
                   tx={tx}
+                  typeMeta={metadataMaps.typeMeta}
+                  statusMeta={metadataMaps.statusMeta}
                   onSelect={setSelectedTx}
                   onCopy={copy}
                   copiedId={copiedId}
@@ -554,14 +614,24 @@ export default function VaultTransactions() {
           )}
 
           {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+          <Section
+            title="Confirmed"
+            accent="#6ee7b7"
+            count={rest.length}
+            windowRange={confirmedWindow}
+            viewportHeight={viewportHeight}
+            onScroll={handleConfirmedScroll}
+            testId="confirmed-transaction-list"
+          >
             {rest.length === 0 ? (
               <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
             ) : (
-              rest.map((tx) => (
+              visibleConfirmed.map((tx) => (
                 <TxRow
                   key={tx.id}
                   tx={tx}
+                  typeMeta={metadataMaps.typeMeta}
+                  statusMeta={metadataMaps.statusMeta}
                   onSelect={setSelectedTx}
                   onCopy={copy}
                   copiedId={copiedId}
@@ -590,36 +660,70 @@ interface SectionProps {
   accent: string;
   count: number;
   children: React.ReactNode;
+  windowRange?: WindowRange;
+  viewportHeight?: number;
+  onScroll?: (event: UIEvent<HTMLDivElement>) => void;
+  testId?: string;
 }
 
-function Section({ title, accent, count, children }: SectionProps) {
+function Section({
+  title,
+  accent,
+  count,
+  children,
+  windowRange,
+  viewportHeight,
+  onScroll,
+  testId,
+}: SectionProps) {
+  const isWindowed = windowRange?.isWindowed ?? false;
+
   return (
     <section className="vt-section">
       <div className="vt-section-header">
         <span className="vt-section-dot" style={{ background: accent }} />
         <span className="vt-section-title">{title}</span>
         <span className="vt-section-count">{count}</span>
+        {isWindowed && windowRange && (
+          <span className="vt-section-window">
+            Rendering {windowRange.start + 1}-{windowRange.end} of {count}
+          </span>
+        )}
       </div>
-      <div className="vt-tx-list">{children}</div>
+      <div
+        className="vt-tx-list"
+        data-testid={testId}
+        onScroll={onScroll}
+        style={isWindowed && windowRange ? {
+          maxHeight: viewportHeight,
+          overflowY: "auto",
+          paddingTop: windowRange.beforeHeight,
+          paddingBottom: windowRange.afterHeight,
+        } : undefined}
+      >
+        {children}
+      </div>
     </section>
   );
 }
 
 interface TxRowProps {
   tx: Transaction;
+  typeMeta: Readonly<Record<TxType, TypeMeta>>;
+  statusMeta: Readonly<Record<TxStatus, StatusMeta>>;
   onSelect: (tx: Transaction) => void;
   onCopy: (text: string, id: string) => void;
   copiedId: string | null;
   children?: React.ReactNode;
 }
 
-function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
-  const meta = TYPE_META[tx.type];
-  const status = STATUS_META[tx.status];
+function TxRow({ tx, typeMeta, statusMeta, onSelect, onCopy, copiedId, children }: TxRowProps) {
+  const meta = typeMeta[tx.type];
+  const status = statusMeta[tx.status];
   const Icon = meta.icon;
 
   return (
-    <div className="vt-tx-row" onClick={() => onSelect(tx)}>
+    <div className="vt-tx-row" data-testid="vault-transaction-row" onClick={() => onSelect(tx)}>
       <div
         className="vt-tx-icon"
         style={{ background: meta.bg, border: `1px solid ${meta.border}` }}
@@ -1188,6 +1292,9 @@ const CSS = `
   .vt-section-count {
     font-size: 11px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full);
     padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
+  }
+  .vt-section-window {
+    margin-left: auto; font-size: 11px; color: #475569; font-family: 'JetBrains Mono', monospace;
   }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
   .vt-tx-row {
