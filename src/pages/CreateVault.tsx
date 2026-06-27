@@ -13,6 +13,7 @@ export default function CreateVault() {
   const [deadline, setDeadline] = useState('')
   const [successAddress, setSuccessAddress] = useState('')
   const [failureAddress, setFailureAddress] = useState('')
+  const [verifierAddress, setVerifierAddress] = useState('')
   const [errors, setErrors] = useState<CreateVaultErrors>({})
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>()
 
@@ -23,12 +24,13 @@ export default function CreateVault() {
       deadline,
       successAddress,
       failureAddress,
+      verifierAddress,
     })
     setErrors(nextErrors)
     if (hasCreateVaultErrors(nextErrors)) return
 
     // Placeholder: will call backend / contract
-    console.log({ amount, deadline, successAddress, failureAddress, evidenceUrl })
+    console.log({ amount, deadline, successAddress, failureAddress, verifierAddress, evidenceUrl })
   }
 
   return (
@@ -95,6 +97,17 @@ export default function CreateVault() {
           placeholder="G..."
           error={errors.failureAddress}
           required
+        />
+        <Field
+          label="Verifier (Stellar address, optional)"
+          type="text"
+          value={verifierAddress}
+          onChange={(e) => {
+            setVerifierAddress(e.target.value)
+            setErrors((current) => ({ ...current, verifierAddress: undefined }))
+          }}
+          placeholder="G..."
+          error={errors.verifierAddress}
         />
         <EvidenceUpload onChange={setEvidenceUrl} />
         <button

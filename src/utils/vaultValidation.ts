@@ -3,6 +3,7 @@ export interface CreateVaultFormValues {
   deadline: string;
   successAddress: string;
   failureAddress: string;
+  verifierAddress: string;
 }
 
 export type CreateVaultErrors = Partial<Record<keyof CreateVaultFormValues, string>>;
@@ -32,6 +33,7 @@ export function validateCreateVault(
   const errors: CreateVaultErrors = {};
   const successAddress = values.successAddress.trim();
   const failureAddress = values.failureAddress.trim();
+  const verifierAddress = values.verifierAddress.trim();
 
   if (!isValidUsdcAmount(values.amount)) {
     errors.amount = 'Enter a positive USDC amount with up to 7 decimal places.';
@@ -49,6 +51,16 @@ export function validateCreateVault(
     errors.failureAddress = 'Enter a valid Stellar public key starting with G.';
   } else if (successAddress === failureAddress) {
     errors.failureAddress = 'Failure destination must be different from success destination.';
+  }
+
+  if (verifierAddress) {
+    if (!isValidStellarAddress(verifierAddress)) {
+      errors.verifierAddress = 'Enter a valid Stellar public key starting with G.';
+    } else if (verifierAddress === successAddress) {
+      errors.verifierAddress = 'Verifier must be different from the success destination.';
+    } else if (verifierAddress === failureAddress) {
+      errors.verifierAddress = 'Verifier must be different from the failure destination.';
+    }
   }
 
   return errors;

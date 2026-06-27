@@ -4,6 +4,7 @@ import CreateVault from '../CreateVault';
 
 const successAddress = `G${'A'.repeat(55)}`;
 const failureAddress = `G${'B'.repeat(55)}`;
+const verifierAddress = `G${'C'.repeat(55)}`;
 
 function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -63,6 +64,76 @@ describe('CreateVault', () => {
       deadline: '2030-01-01T00:00',
       successAddress,
       failureAddress,
+      verifierAddress: '',
     });
+  });
+
+  it('accepts valid optional verifier address', () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    render(<CreateVault />);
+
+    fillField(/amount/i, '100');
+    fillField(/deadline/i, '2030-01-01T00:00');
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/verifier/i, verifierAddress);
+    fireEvent.click(screen.getByRole('button', { name: /create vault/i }));
+
+    expect(screen.queryByText(/Enter a valid Stellar public key/)).not.toBeInTheDocument();
+    expect(consoleLog).toHaveBeenCalledWith({
+      amount: '100',
+      deadline: '2030-01-01T00:00',
+      successAddress,
+      failureAddress,
+      verifierAddress,
+    });
+  });
+
+  it('rejects verifier matching success destination', () => {
+    render(<CreateVault />);
+
+    fillField(/amount/i, '100');
+    fillField(/deadline/i, '2030-01-01T00:00');
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/verifier/i, successAddress);
+    fireEvent.click(screen.getByRole('button', { name: /create vault/i }));
+
+    expect(
+      screen.getByText('Verifier must be different from the success destination.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/verifier/i)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('rejects verifier matching failure destination', () => {
+    render(<CreateVault />);
+
+    fillField(/amount/i, '100');
+    fillField(/deadline/i, '2030-01-01T00:00');
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/verifier/i, failureAddress);
+    fireEvent.click(screen.getByRole('button', { name: /create vault/i }));
+
+    expect(
+      screen.getByText('Verifier must be different from the failure destination.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/verifier/i)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('rejects invalid verifier address', () => {
+    render(<CreateVault />);
+
+    fillField(/amount/i, '100');
+    fillField(/deadline/i, '2030-01-01T00:00');
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/verifier/i, 'bad');
+    fireEvent.click(screen.getByRole('button', { name: /create vault/i }));
+
+    expect(
+      screen.getByText('Enter a valid Stellar public key starting with G.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/verifier/i)).toHaveAttribute('aria-invalid', 'true');
   });
 });
