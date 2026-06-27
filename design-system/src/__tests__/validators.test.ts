@@ -47,6 +47,16 @@ describe('standalone color string validators', () => {
     expect(isValidHexColor('ABCDEF')).toBe(false);
   });
 
+  it('rejects hex color boundary cases outside the documented six-digit format', () => {
+    ['#abc', '#AABBCCDD', '0A7668', '#0A76GG', '', ' #0A7668'].forEach(
+      value => {
+        expect(isValidHexColor(value)).toBe(false);
+      },
+    );
+
+    expect(isValidHexColor('#0A7668')).toBe(true);
+  });
+
   it('validates rgb colors with numeric channels', () => {
     expect(isValidRgbColor('rgb(0,0,0)')).toBe(true);
     expect(isValidRgbColor('rgb(255, 255, 255)')).toBe(true);
@@ -54,10 +64,40 @@ describe('standalone color string validators', () => {
     expect(isValidRgbColor('rgb(a, b, c)')).toBe(false);
   });
 
+  it('accepts canonical rgb colors and rejects spacing, comma, and alpha variants', () => {
+    expect(isValidRgbColor('rgb(12, 34, 56)')).toBe(true);
+
+    [
+      'rgb(12 34 56)',
+      'rgb(12, 34, 56,)',
+      'rgb(12, 34)',
+      'rgba(12, 34, 56, 0.5)',
+      ' rgb(12, 34, 56)',
+      'rgb(12, 34, 56) ',
+    ].forEach(value => {
+      expect(isValidRgbColor(value)).toBe(false);
+    });
+  });
+
   it('validates hsl colors with percentage saturation and lightness', () => {
     expect(isValidHslColor('hsl(210, 50%, 40%)')).toBe(true);
     expect(isValidHslColor('hsl(210, 50, 40)')).toBe(false);
     expect(isValidHslColor('hsla(210, 50%, 40%, 1)')).toBe(false);
+  });
+
+  it('accepts canonical hsl colors and rejects missing percentages or alpha syntax', () => {
+    expect(isValidHslColor('hsl(210, 50%, 40%)')).toBe(true);
+
+    [
+      'hsl(210 50% 40%)',
+      'hsl(210, 50, 40%)',
+      'hsl(210, 50%, 40)',
+      'hsla(210, 50%, 40%, 0.5)',
+      'hsl(210, 50%, 40%,)',
+      ' hsl(210, 50%, 40%)',
+    ].forEach(value => {
+      expect(isValidHslColor(value)).toBe(false);
+    });
   });
 
   it('accepts any supported color string format', () => {
@@ -77,6 +117,16 @@ describe('token name validators', () => {
     expect(isKebabCase('-color-chart')).toBe(false);
   });
 
+  it('covers token name kebab-case boundaries', () => {
+    expect(isKebabCase('chart-grid')).toBe(true);
+
+    ['Chart-Grid', 'chart_grid', '1-chart-grid', 'chart-grid-', '', 'chart grid'].forEach(
+      value => {
+        expect(isKebabCase(value)).toBe(false);
+      },
+    );
+  });
+
   it('requires one of the supported token prefixes', () => {
     expect(hasValidTokenPrefix('color-accent')).toBe(true);
     expect(hasValidTokenPrefix('spacing-4')).toBe(true);
@@ -87,6 +137,26 @@ describe('token name validators', () => {
     expect(hasValidTokenPrefix('motion-fast')).toBe(true);
     expect(hasValidTokenPrefix('chart-accent')).toBe(false);
     expect(hasValidTokenPrefix('color')).toBe(false);
+  });
+
+  it('accepts every documented prefix and rejects unknown or bare prefixes', () => {
+    [
+      'color-accent',
+      'spacing-sm',
+      'typography-body',
+      'shadow-card',
+      'radius-md',
+      'border-default',
+      'motion-fast',
+    ].forEach(value => {
+      expect(hasValidTokenPrefix(value)).toBe(true);
+    });
+
+    ['chart-accent', 'color', 'spacing', 'unknown-token', 'motion'].forEach(
+      value => {
+        expect(hasValidTokenPrefix(value)).toBe(false);
+      },
+    );
   });
 });
 
