@@ -19,6 +19,8 @@ export default function CreateVault() {
   const [deadline, setDeadline] = useState("");
   const [successAddress, setSuccessAddress] = useState("");
   const [failureAddress, setFailureAddress] = useState("");
+  const [milestoneTitle, setMilestoneTitle] = useState("");
+  const [milestoneCriteria, setMilestoneCriteria] = useState("");
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
@@ -30,6 +32,8 @@ export default function CreateVault() {
       deadline,
       successAddress,
       failureAddress,
+      milestoneTitle,
+      milestoneCriteria,
     });
     setErrors(nextErrors);
     if (hasCreateVaultErrors(nextErrors)) return;
@@ -44,6 +48,8 @@ export default function CreateVault() {
       deadline,
       successAddress,
       failureAddress,
+      milestoneTitle,
+      milestoneCriteria,
       evidenceUrl,
     });
   };
@@ -145,6 +151,30 @@ export default function CreateVault() {
             }}
             placeholder="G..."
             error={errors.failureAddress}
+            required
+          />
+          <Field
+            label="Milestone title"
+            type="text"
+            value={milestoneTitle}
+            onChange={(e) => {
+              setMilestoneTitle(e.target.value);
+              setErrors((current) => ({ ...current, milestoneTitle: undefined }));
+            }}
+            placeholder="e.g. Launch MVP"
+            error={errors.milestoneTitle}
+            required
+          />
+          <Field
+            label="Milestone criteria"
+            type="text"
+            value={milestoneCriteria}
+            onChange={(e) => {
+              setMilestoneCriteria(e.target.value);
+              setErrors((current) => ({ ...current, milestoneCriteria: undefined }));
+            }}
+            placeholder="Describe the completion criteria"
+            error={errors.milestoneCriteria}
             required
           />
           <EvidenceUpload onChange={setEvidenceUrl} />
