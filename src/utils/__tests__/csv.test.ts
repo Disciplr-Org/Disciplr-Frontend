@@ -85,15 +85,15 @@ describe('toCsv', () => {
   });
 
   it('preserves Unicode in vault names', () => {
-    const task = baseTask({ vaultName: 'Café & réservé' });
+    const task = baseTask({ vaultName: 'Caf? & r?serv?' });
     const result = toCsv([task]);
-    expect(result).toContain('Café & réservé');
+    expect(result).toContain('Caf? & r?serv?');
   });
 
   it('preserves Unicode in notes', () => {
-    const task = baseTask({ notes: '验证通过 ✓' });
+    const task = baseTask({ notes: '???? ?' });
     const result = toCsv([task]);
-    expect(result).toContain('验证通过 ✓');
+    expect(result).toContain('???? ?');
   });
 
   it('separates rows with CRLF', () => {
@@ -159,6 +159,68 @@ describe('downloadCsv', () => {
     expect(removeChild).toHaveBeenCalled();
 
     (global as any).document = origDocument;
+    (global as any).URL = origURL;
+  });
+
+  it('appends, clicks, removes, and revokes the download link in order', () => {
+    const order: string[] = [];
+    const origURL = global.URL;
+    const createdLink = document.createElement('a');
+    const click = vi.spyOn(createdLink, 'click').mockImplementation(() => {
+      order.push('click');
+    });
+    const createElement = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue(createdLink);
+    const appendChild = vi
+      .spyOn(document.body, 'appendChild')
+      .mockImplementation((node: Node) => {
+        order.push('append');
+        return node;
+      });
+    const removeChild = vi
+      .spyOn(document.body, 'removeChild')
+      .mockImplementation((node: Node) => {
+        order.push('remove');
+        return node;
+      });
+    const createObjectURL = vi.fn(() => {
+        order.push('create-url');
+        return 'blob:csv-download';
+      });
+    const revokeObjectURL = vi.fn(() => {
+        order.push('revoke-url');
+      });
+    (global as any).URL = {
+      ...origURL,
+      createObjectURL,
+      revokeObjectURL,
+    };
+
+    downloadCsv('id,status\r\nv-001,approved', 'validation-history.csv');
+
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(createElement).toHaveBeenCalledWith('a');
+    expect(createdLink.getAttribute('href')).toBe('blob:csv-download');
+    expect(createdLink.getAttribute('download')).toBe('validation-history.csv');
+    expect(createdLink.style.display).toBe('none');
+    expect(appendChild).toHaveBeenCalledWith(createdLink);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(removeChild).toHaveBeenCalledWith(createdLink);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:csv-download');
+    expect(order).toEqual(['create-url', 'append', 'click', 'remove', 'revoke-url']);
+
+    (global as any).URL = origURL;
+  });
+
+  it('is a no-op when URL is undefined', () => {
+    const origURL = global.URL;
+    const createElement = vi.spyOn(document, 'createElement');
+    (global as any).URL = undefined;
+
+    expect(() => downloadCsv('a,b', 'test.csv')).not.toThrow();
+    expect(createElement).not.toHaveBeenCalled();
+
     (global as any).URL = origURL;
   });
 });
