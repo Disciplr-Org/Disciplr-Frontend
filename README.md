@@ -113,7 +113,8 @@ Root package scripts:
 | `npm run build` | Run TypeScript build mode and create a Vite production build |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint across the frontend |
-| `npm run test` | Run the Vitest suite with coverage |
+| `npm run test` | Run the Vitest suite with coverage (CI) |
+| `npm run test:watch` | Run Vitest in watch mode for interactive development |
 
 Design-system package scripts:
 
@@ -130,8 +131,16 @@ Design-system package scripts:
 Frontend tests use Vitest, the DOM test setup in `src/setupTests.ts`, and
 Testing Library.
 
+**CI / one-off run (with coverage):**
+
 ```bash
-npm run test
+npm test
+```
+
+**Interactive watch mode (local development):**
+
+```bash
+npm run test:watch
 ```
 
 For targeted frontend checks during development, run Vitest directly:
@@ -161,6 +170,8 @@ disciplr-frontend/
 |   |-- tokens/
 |   |-- package.json
 |   `-- README.md
+|-- docs/
+|   `-- STORES.md
 |-- public/
 |-- src/
 |   |-- components/
@@ -211,5 +222,7 @@ disciplr-frontend/
 - Keep route documentation aligned with `src/App.tsx`.
 - Keep wallet documentation aligned with `src/context/WalletContext.tsx` and
   `src/components/Wallet/`.
+- Keep Zustand store documentation in `docs/STORES.md` aligned with
+  `src/Zustand/Store.ts` and the verifier/notification consumers.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
