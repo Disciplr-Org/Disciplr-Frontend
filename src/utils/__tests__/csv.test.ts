@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationTask } from '../../Zustand/Store';
 import { downloadCsv, toCsv } from '../csv';
 
@@ -113,6 +113,77 @@ describe('toCsv', () => {
     const result = toCsv([]);
     expect(result).toBe('ID,Status,Vault Name,Owner,Amount,Deadline,Milestone,Notes');
   });
+
+  it('escapes commas in transactions by wrapping the field in double quotes', () => {
+    const tx = {
+      id: 'tx-001',
+      type: 'create' as const,
+      vault: 'Alpha, Vault',
+      amount: 100,
+      fee: 0.0001,
+      status: 'confirmed' as const,
+      timestamp: new Date('2026-01-01T00:00:00.000Z'),
+      hash: 'hash123',
+      block: 12345,
+      from: 'G1',
+      to: 'G2',
+      memo: 'Initial, deposit',
+    };
+    const result = toCsv([tx], 'transactions');
+    expect(result).toContain('"Alpha, Vault"');
+    expect(result).toContain('"Initial, deposit"');
+  });
+
+  describe('CSV injection mitigation', () => {
+    it('escapes cells starting with =', () => {
+      const task = baseTask({ vaultName: '=cmd' });
+      const result = toCsv([task]);
+      expect(result).toContain("v-001,approved,'=cmd,");
+    });
+
+    it('escapes cells starting with +', () => {
+      const task = baseTask({ vaultName: '+1-1' });
+      const result = toCsv([task]);
+      expect(result).toContain("v-001,approved,'+1-1,");
+    });
+
+    it('escapes cells starting with -', () => {
+      const task = baseTask({ vaultName: '-1+1' });
+      const result = toCsv([task]);
+      expect(result).toContain("v-001,approved,'-1+1,");
+    });
+
+    it('escapes cells starting with @', () => {
+      const task = baseTask({ vaultName: '@SUM' });
+      const result = toCsv([task]);
+      expect(result).toContain("v-001,approved,'@SUM,");
+    });
+
+    it('escapes cells starting with tab', () => {
+      const task = baseTask({ vaultName: '\tcmd' });
+      const result = toCsv([task]);
+      expect(result).toContain("v-001,approved,'\tcmd,");
+    });
+
+    it('escapes cells starting with CR', () => {
+      const task = baseTask({ vaultName: '\rcmd' });
+      const result = toCsv([task]);
+      // Should prepend ' and since it has a CR, also escape and quote it
+      expect(result).toContain('v-001,approved,"\'\rcmd",');
+    });
+
+    it('does not escape benign positive numbers', () => {
+      const task = baseTask({ vaultName: '123' });
+      const result = toCsv([task]);
+      expect(result).toContain('v-001,approved,123,');
+    });
+
+    it('does not escape empty cells or cells starting with normal characters', () => {
+      const task = baseTask({ vaultName: 'Alpha Vault', notes: '' });
+      const result = toCsv([task]);
+      expect(result).toContain('v-001,approved,Alpha Vault,GOWNER...ALPHA,"1,000 USDC",2026-01-01,Launch,');
+    });
+  });
 });
 
 describe('downloadCsv', () => {
@@ -120,45 +191,79 @@ describe('downloadCsv', () => {
     vi.restoreAllMocks();
   });
 
-  it('is a no-op when document is undefined', () => {
-    const orig = global.document;
-    (global as any).document = undefined;
-    expect(() => downloadCsv('a,b', 'test.csv')).not.toThrow();
-    (global as any).document = orig;
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('creates a blob and triggers a download', () => {
+  it('is a no-op when URL is undefined', () => {
+    const createElement = vi.fn();
     const appendChild = vi.fn();
     const removeChild = vi.fn();
-    const click = vi.fn();
-    const setAttribute = vi.fn();
 
-    const createElement = vi.fn(() => ({
-      setAttribute,
-      click,
-      style: {},
-    }));
-
-    const origDocument = global.document;
-    const origURL = global.URL;
-    (global as any).document = {
+    vi.stubGlobal('document', {
       createElement,
       body: { appendChild, removeChild },
-    };
-    (global as any).URL = {
-      createObjectURL: vi.fn(() => 'blob:mock'),
-      revokeObjectURL: vi.fn(),
-    };
+    } as unknown as Document);
+    vi.stubGlobal('URL', undefined as unknown as typeof URL);
+
+    expect(() => downloadCsv('a,b', 'test.csv')).not.toThrow();
+    expect(createElement).not.toHaveBeenCalled();
+    expect(appendChild).not.toHaveBeenCalled();
+    expect(removeChild).not.toHaveBeenCalled();
+  });
+
+  it('creates an anchor, wires the blob url, and cleans up in order', () => {
+    const lifecycle: string[] = [];
+    const anchor = {
+      click: vi.fn(() => lifecycle.push('click')),
+      setAttribute: vi.fn(),
+      style: {},
+    } as unknown as HTMLAnchorElement;
+
+    const createElement = vi.fn(() => anchor);
+    const appendChild = vi.fn((node: Node) => {
+      lifecycle.push('appendChild');
+      return node;
+    });
+    const removeChild = vi.fn((node: Node) => {
+      lifecycle.push('removeChild');
+      return node;
+    });
+
+    vi.stubGlobal('document', {
+      createElement,
+      body: { appendChild, removeChild },
+    } as unknown as Document);
+
+    const createObjectURL = vi.fn(() => {
+      lifecycle.push('createObjectURL');
+      return 'blob:mock';
+    });
+    const revokeObjectURL = vi.fn(() => {
+      lifecycle.push('revokeObjectURL');
+    });
+
+    vi.stubGlobal('URL', {
+      createObjectURL,
+      revokeObjectURL,
+    } as unknown as typeof URL);
 
     downloadCsv('a,b,c', 'test.csv');
 
     expect(createElement).toHaveBeenCalledWith('a');
-    expect(setAttribute).toHaveBeenCalledWith('download', 'test.csv');
-    expect(appendChild).toHaveBeenCalled();
-    expect(click).toHaveBeenCalled();
-    expect(removeChild).toHaveBeenCalled();
-
-    (global as any).document = origDocument;
-    (global as any).URL = origURL;
+    expect(anchor.setAttribute).toHaveBeenCalledWith('href', 'blob:mock');
+    expect(anchor.setAttribute).toHaveBeenCalledWith('download', 'test.csv');
+    expect(appendChild).toHaveBeenCalledWith(anchor);
+    expect(anchor.click).toHaveBeenCalledTimes(1);
+    expect(removeChild).toHaveBeenCalledWith(anchor);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+    expect(lifecycle).toEqual([
+      'createObjectURL',
+      'appendChild',
+      'click',
+      'removeChild',
+      'revokeObjectURL',
+    ]);
   });
 });

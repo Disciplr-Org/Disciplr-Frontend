@@ -4,6 +4,7 @@ import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
+import { isCriteriaGateOpen } from '../utils/criteriaGate';
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
@@ -14,6 +15,7 @@ export default function ValidationDetail() {
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
 
@@ -39,6 +41,16 @@ export default function ValidationDetail() {
     setConfirmAction(action);
     setIsModalOpen(true);
   };
+
+  const toggleCriterion = (index: number) => {
+    setCheckedCriteria((prev) => {
+      const next = new Set(prev);
+      next.has(index) ? next.delete(index) : next.add(index);
+      return next;
+    });
+  };
+
+  const gateOpen = isCriteriaGateOpen(task.criteria, checkedCriteria);
 
   const executeAction = (decision: 'approve' | 'reject', modalNotes: string) => {
     if (decision === 'approve') {
@@ -134,6 +146,30 @@ export default function ValidationDetail() {
         <div className="flex flex-col gap-4">
           <section className="p-6 border rounded-lg shadow-sm flex flex-col h-full" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
             <Text role="display" as="h2" className="mb-4">Verification Actions</Text>
+
+            {task.criteria && task.criteria.length > 0 && (
+              <fieldset className="mb-6 flex flex-col gap-2">
+                <legend className="font-medium text-sm mb-2">
+                  <Text role="body" as="span">Milestone Criteria</Text>
+                </legend>
+                {task.criteria.map((criterion, i) => (
+                  <label
+                    key={i}
+                    className="flex items-start gap-2 text-sm cursor-pointer"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checkedCriteria.has(i)}
+                      onChange={() => toggleCriterion(i)}
+                      aria-label={criterion}
+                      className="mt-0.5 accent-[var(--accent)] shrink-0"
+                    />
+                    {criterion}
+                  </label>
+                ))}
+              </fieldset>
+            )}
             
             <label className="flex flex-col gap-2 mb-6 flex-grow">
               <Text role="body" as="span" className="font-medium text-sm">Initial Verification Notes (Optional)</Text>
@@ -153,8 +189,15 @@ export default function ValidationDetail() {
             <div className="flex flex-col gap-3 mt-auto">
               <button
                 onClick={() => handleOpenModal('approve')}
+                disabled={!gateOpen}
+                aria-disabled={!gateOpen}
                 className="w-full py-3 font-bold rounded transition"
-                style={{ background: 'var(--success)', color: 'white' }}
+                style={{
+                  background: gateOpen ? 'var(--success)' : 'var(--muted)',
+                  color: 'white',
+                  cursor: gateOpen ? 'pointer' : 'not-allowed',
+                  opacity: gateOpen ? 1 : 0.5,
+                }}
               >
                 Approve Milestone
               </button>

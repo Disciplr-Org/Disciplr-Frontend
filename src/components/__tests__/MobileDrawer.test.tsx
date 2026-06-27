@@ -20,6 +20,10 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
+vi.mock('../TrustlineBanner', () => ({
+  TrustlineBanner: () => null,
+}));
+
 function renderOpenDrawer(onClose = vi.fn()) {
   render(
     <MemoryRouter>
@@ -163,5 +167,123 @@ describe('Layout drawer integration', () => {
     expect(hiddenMain).toHaveAttribute('aria-hidden', 'true');
     expect(hiddenMain).toHaveAttribute('inert');
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+describe('MobileDrawer scroll lock and focus restore', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+
+  test('locks body scroll while open and restores on close', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+
+    rerender(
+      <MemoryRouter>
+        <MobileDrawer isOpen={false} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('restores body scroll on unmount', () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('restores focus to trigger when drawer closes via close button', async () => {
+    render(<DrawerHarness />);
+
+    const trigger = screen.getByRole('button', { name: /open navigation menu/i });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /close navigation drawer/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+  });
+
+  test('prevents default on Escape keydown and calls onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={onClose} />
+      </MemoryRouter>,
+    );
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+    document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not handle Escape when drawer is closed', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <MobileDrawer isOpen={false} onClose={onClose} />
+      </MemoryRouter>,
+    );
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+    document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('MobileDrawer active links', () => {
+  test('verifier link receives active class and aria-current when on /verifier or subroutes', () => {
+    render(
+      <MemoryRouter initialEntries={['/verifier/queue']}>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const verifierLink = screen.getByRole('link', { name: /verifier/i });
+    expect(verifierLink).toHaveAttribute('aria-current', 'page');
+    expect(verifierLink).toHaveClass('active');
+  });
+
+  test('analytics link receives active class and aria-current when on /analytics', () => {
+    render(
+      <MemoryRouter initialEntries={['/analytics']}>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const analyticsLink = screen.getByRole('link', { name: /analytics/i });
+    expect(analyticsLink).toHaveAttribute('aria-current', 'page');
+    expect(analyticsLink).toHaveClass('active');
+  });
+
+  test('verifier and analytics links are not active on home route', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const verifierLink = screen.getByRole('link', { name: /verifier/i });
+    expect(verifierLink).not.toHaveAttribute('aria-current');
+    expect(verifierLink).not.toHaveClass('active');
+
+    const analyticsLink = screen.getByRole('link', { name: /analytics/i });
+    expect(analyticsLink).not.toHaveAttribute('aria-current');
+    expect(analyticsLink).not.toHaveClass('active');
   });
 });

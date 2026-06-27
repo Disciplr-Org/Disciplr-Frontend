@@ -18,6 +18,10 @@ vi.mock('@stellar/freighter-api', () => ({
   getNetworkDetails: vi.fn(),
 }));
 
+vi.mock('../../utils/horizon', () => ({
+  fetchUsdcBalance: vi.fn().mockResolvedValue({ balance: '0.00', hasTrustline: false }),
+}));
+
 const mockIsAllowed = vi.mocked(isAllowed);
 const mockSetAllowed = vi.mocked(setAllowed);
 const mockRequestAccess = vi.mocked(requestAccess);

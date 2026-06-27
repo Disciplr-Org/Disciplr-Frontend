@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Text } from './Text';
 
 export type DeadlineTone = 'normal' | 'urgent' | 'expired' | 'invalid';
@@ -39,7 +39,7 @@ export function timeRemaining(deadline: string, now: Date | number = Date.now())
   if (msRemaining <= 0) {
     return {
       tone: 'expired',
-      label: 'Expired',
+      label: 'Overdue',
       msRemaining,
       absoluteLabel,
     };
@@ -71,6 +71,7 @@ interface CountdownDeadlineProps {
   intervalMs?: number;
   prefix?: string;
   style?: CSSProperties;
+  onExpire?: () => void;
 }
 
 export function CountdownDeadline({
@@ -78,6 +79,7 @@ export function CountdownDeadline({
   intervalMs = 60000,
   prefix,
   style,
+  onExpire,
 }: CountdownDeadlineProps) {
   const [now, setNow] = useState(() => Date.now());
   const remaining = timeRemaining(deadline, now);
@@ -87,6 +89,16 @@ export function CountdownDeadline({
     expired: 'var(--danger)',
     invalid: 'var(--danger)',
   }[remaining.tone];
+
+  const firedRef = useRef(remaining.tone === 'expired');
+
+  useEffect(() => {
+    if (remaining.tone === 'expired' && !firedRef.current) {
+      firedRef.current = true;
+      onExpire?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining.tone]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), intervalMs);

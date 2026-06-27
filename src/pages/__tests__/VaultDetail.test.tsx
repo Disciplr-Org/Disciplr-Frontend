@@ -136,4 +136,50 @@ describe('VaultDetail', () => {
       '/vaults',
     );
   });
+
+  // ── Network footer banner ─────────────────────────────────────────────────
+
+  describe('NetworkFooterBanner', () => {
+    it('renders the network footer banner with an accessible landmark', () => {
+      renderVaultDetail('1');
+      expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+    });
+
+    it('shows the "Testnet" label when network is TESTNET', () => {
+      renderVaultDetail('1');
+      const footer = screen.getByRole('contentinfo');
+      expect(within(footer).getByText('Testnet')).toBeInTheDocument();
+    });
+
+    it('displays the contract address text in the footer', () => {
+      renderVaultDetail('1');
+      const footer = screen.getByRole('contentinfo');
+      // Vault 1 contract address
+      expect(within(footer).getByText('GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK')).toBeInTheDocument();
+    });
+
+    it('renders the explorer link pointing to the testnet contract URL', () => {
+      renderVaultDetail('1');
+      const link = screen.getByRole('link', { name: /View contract.*on Stellar Testnet explorer/i });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://stellar.expert/explorer/testnet/contract/GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK',
+      );
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('shows "Mainnet" label and a public explorer URL when network is PUBLIC', () => {
+      vi.resetModules();
+      // Override the mock for this specific test
+      vi.doMock('../../context/WalletContext', () => ({
+        useWallet: () => ({ network: 'PUBLIC' }),
+      }));
+    });
+
+    it('does not render the footer banner on the not-found page', () => {
+      renderVaultDetail('999');
+      expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -4,15 +4,41 @@ import { create } from "zustand";
 // --- Existing Notification Store ---
 const n = getNotifications();
 
+type NotificationItem = (typeof n)[number];
+
 type notificationsType = {
-  notification: typeof n;
-  setNotification: (value: typeof n) => void;
+  notification: NotificationItem[];
+  unreadCount: number;
+  setNotification: (value: NotificationItem[]) => void;
+  markRead: (id: string) => void;
+  markAllRead: () => void;
 };
 
 export const useNotification = create<notificationsType>((set) => ({
   notification: n,
-  setNotification: (value: typeof n) =>
-    set(() => ({ notification: value })),
+  unreadCount: n.filter((item) => !item.isRead).length,
+  setNotification: (value: NotificationItem[]) =>
+    set(() => ({
+      notification: value,
+      unreadCount: value.filter((item) => !item.isRead).length,
+    })),
+  markRead: (id: string) =>
+    set((state) => {
+      const idx = state.notification.findIndex((item) => item.id === id);
+      if (idx === -1) return state;
+      const item = state.notification[idx];
+      if (item.isRead) return state;
+      const notification = [...state.notification];
+      notification[idx] = { ...item, isRead: true };
+      return { notification, unreadCount: state.unreadCount - 1 };
+    }),
+  markAllRead: () =>
+    set((state) => ({
+      notification: state.notification.map((item) =>
+        item.isRead ? item : { ...item, isRead: true },
+      ),
+      unreadCount: 0,
+    })),
 }));
 
 
@@ -28,6 +54,7 @@ export type ValidationTask = {
   milestone: string;
   evidenceUrl?: string;
   notes?: string;
+  criteria?: string[];
 };
 
 type VerifierStoreType = {
@@ -51,6 +78,11 @@ const initialPending: ValidationTask[] = [
     status: 'pending',
     milestone: 'Beta Release Deployment',
     evidenceUrl: 'https://github.com/example/release-v1',
+    criteria: [
+      'Deployment URL is live and publicly accessible',
+      'All critical bugs from the backlog are resolved',
+      'Release notes are published',
+    ],
   },
   {
     id: 'v-102',
@@ -62,6 +94,10 @@ const initialPending: ValidationTask[] = [
     status: 'pending',
     milestone: 'Design System Figma Delivery',
     evidenceUrl: 'https://figma.com/example-link',
+    criteria: [
+      'Figma file is shared with the org',
+      'All component pages are complete',
+    ],
   }
 ];
 
@@ -121,3 +157,5 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     ids.forEach(id => get().rejectValidation(id, notes));
   }
 }));
+
+export * from "./notificationPreferences";

@@ -195,6 +195,114 @@ describe('ValidationHistory', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/verifier');
   });
 
+  describe('date range filters', () => {
+    it('filters to only items on or after the from date', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2026-01-05' },
+      });
+
+      expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
+      expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 2 of 2 matching validations.')).toBeInTheDocument();
+    });
+
+    it('filters to only items on or before the to date', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history to date'), {
+        target: { value: '2026-01-01' },
+      });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+    });
+
+    it('shows no-match state when date range excludes all items', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2030-01-01' },
+      });
+
+      expect(screen.getByText('No matching validations')).toBeInTheDocument();
+    });
+
+    it('resets to page 1 when from date changes', () => {
+      renderHistory();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2026-01-01' },
+      });
+
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    });
+  });
+
+  describe('milestone filter', () => {
+    it('filters by milestone substring case-insensitively', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'LAUNCH' },
+      });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 1 of 1 matching validations.')).toBeInTheDocument();
+    });
+
+    it('shows no-match state when milestone matches nothing', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'nonexistent' },
+      });
+
+      expect(screen.getByText('No matching validations')).toBeInTheDocument();
+    });
+
+    it('resets to page 1 when milestone changes', () => {
+      renderHistory();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'D' },
+      });
+
+      // 'D' matches Delivery (v-003) and Design (v-004) and Docs (v-005) — 3 items, 1 page at default page size 5
+      expect(screen.queryByText('Page 2 of 2')).not.toBeInTheDocument();
+    });
+  });
+
+  it('combines date range and milestone with status/search filters', () => {
+    renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Filter validation history by outcome'), {
+      target: { value: 'approved' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history to date'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+      target: { value: 'Launch' },
+    });
+
+    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 1 of 1 matching validations.')).toBeInTheDocument();
+  });
+
   describe('CSV export', () => {
     beforeEach(() => {
       mockDownloadCsv.mockClear();

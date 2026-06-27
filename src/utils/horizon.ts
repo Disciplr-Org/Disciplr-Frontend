@@ -48,9 +48,19 @@ export async function fetchUsdcBalance(
     address: string,
     network: WalletNetwork,
     fetcher: typeof fetch = fetch,
+    { signal, timeoutMs = 10000 }: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<UsdcBalanceResult> {
     const issuer = USDC_ISSUERS[network];
-    const response = await fetcher(`${horizonUrl(network)}/accounts/${encodeURIComponent(address)}`);
+    
+    const controller = new AbortController();
+    const combinedSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+        const response = await fetcher(`${horizonUrl(network)}/accounts/${encodeURIComponent(address)}`, {
+            signal: combinedSignal,
+        });
 
     if (response.status === 404) {
         throw new HorizonBalanceError('ACCOUNT_NOT_FOUND', 'Stellar account was not found on Horizon.');
@@ -69,17 +79,25 @@ export async function fetchUsdcBalance(
         throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response did not include balances.');
     }
 
-    const usdcBalance = account.balances.find(
-        (balanceLine) =>
-            balanceLine.asset_type !== 'native' &&
-            balanceLine.asset_code === 'USDC' &&
-            balanceLine.asset_issuer === issuer,
-    );
+        const usdcBalance = account.balances.find(
+            (balanceLine) =>
+                balanceLine.asset_type !== 'native' &&
+                balanceLine.asset_code === 'USDC' &&
+                balanceLine.asset_issuer === issuer,
+        );
 
-    return {
-        balance: usdcBalance?.balance ?? '0.00',
-        hasTrustline: Boolean(usdcBalance),
-        issuer,
-        network,
-    };
+        return {
+            balance: usdcBalance?.balance ?? '0.00',
+            hasTrustline: Boolean(usdcBalance),
+            issuer,
+            network,
+        };
+    } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+            throw new HorizonBalanceError('REQUEST_FAILED', 'Horizon balance request was aborted or timed out.');
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }

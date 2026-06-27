@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import FocusTrap from 'focus-trap-react';
+import NavLink from './NavLink';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
 
 interface MobileDrawerProps {
@@ -77,18 +78,21 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <button className="mobile-drawer-close" onClick={onClose} aria-label="Close navigation drawer">
             <X size={24} />
           </button>
-          <Link to="/" className="mobile-drawer-link" onClick={onClose}>
+          <NavLink to="/" className="mobile-drawer-link" onClick={onClose}>
             Home
-          </Link>
-          <Link to="/transactions" className="mobile-drawer-link" onClick={onClose}>
+          </NavLink>
+          <NavLink to="/transactions" className="mobile-drawer-link" onClick={onClose}>
             Transactions
-          </Link>
-          <Link to="/analytics" className="mobile-drawer-link" onClick={onClose}>
+          </NavLink>
+          <NavLink to="/verifier" className="mobile-drawer-link" onClick={onClose}>
+            Verifier
+          </NavLink>
+          <NavLink to="/analytics" className="mobile-drawer-link" onClick={onClose}>
             Analytics
-          </Link>
-          <Link to="/vaults/create" className="mobile-drawer-link" onClick={onClose}>
+          </NavLink>
+          <NavLink to="/vaults/create" className="mobile-drawer-link" onClick={onClose}>
             Create Vault
-          </Link>
+          </NavLink>
           <WalletConnectButton />
         </nav>
       </div>

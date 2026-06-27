@@ -5,6 +5,9 @@ export type ValidationHistoryStatusFilter = 'all' | 'approved' | 'rejected';
 export interface ValidationHistoryFilterOptions {
   status: ValidationHistoryStatusFilter;
   query: string;
+  from?: string;
+  to?: string;
+  milestone?: string;
 }
 
 export interface PaginationResult<T> {
@@ -17,9 +20,10 @@ export interface PaginationResult<T> {
 
 export function filterValidationHistory(
   tasks: ValidationTask[],
-  { status, query }: ValidationHistoryFilterOptions,
+  { status, query, from, to, milestone }: ValidationHistoryFilterOptions,
 ): ValidationTask[] {
   const normalizedQuery = query.trim().toLowerCase();
+  const normalizedMilestone = milestone?.trim().toLowerCase() ?? '';
 
   return tasks.filter((task) => {
     const matchesStatus = status === 'all' || task.status === status;
@@ -27,8 +31,13 @@ export function filterValidationHistory(
       normalizedQuery.length === 0 ||
       task.vaultName.toLowerCase().includes(normalizedQuery) ||
       task.owner.toLowerCase().includes(normalizedQuery);
+    const matchesFrom = !from || task.deadline >= from;
+    const matchesTo = !to || task.deadline <= to;
+    const matchesMilestone =
+      normalizedMilestone.length === 0 ||
+      task.milestone.toLowerCase().includes(normalizedMilestone);
 
-    return matchesStatus && matchesQuery;
+    return matchesStatus && matchesQuery && matchesFrom && matchesTo && matchesMilestone;
   });
 }
 

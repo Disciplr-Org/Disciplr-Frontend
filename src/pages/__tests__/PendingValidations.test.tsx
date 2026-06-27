@@ -236,4 +236,257 @@ describe('PendingValidations', () => {
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
   });
+
+  it('does not have hardcoded color classes on the primary container', () => {
+    const { container } = renderPage();
+    const primaryContainer = container.firstChild as HTMLElement;
+    expect(primaryContainer.className).not.toContain('bg-white');
+    expect(primaryContainer.className).not.toContain('text-gray-500');
+    expect(primaryContainer.className).not.toContain('text-red-600');
+  });
+
+  it('uses design tokens for batch action buttons', () => {
+    renderPage();
+    // Rejection button
+    const rejectBtn = screen.getByRole('button', { name: /Reject Selected/i });
+    expect(rejectBtn.getAttribute('style')).toContain('var(--danger)');
+    expect(rejectBtn.getAttribute('style')).toContain('var(--danger-transparent)');
+
+    // Approval button
+    const approveBtn = screen.getByRole('button', { name: /Approve Selected/i });
+    expect(approveBtn.getAttribute('style')).toContain('var(--success)');
+    expect(approveBtn.getAttribute('style')).toContain('white');
+  });
+
+  describe('search and filter controls', () => {
+    it('renders search input and milestone filter', () => {
+      renderPage();
+      expect(screen.getByLabelText(/Search by Vault Name or Owner/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Filter by Milestone/i)).toBeInTheDocument();
+    });
+
+    it('shows all available milestones in dropdown', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      const options = Array.from(milestoneSelect.options).map(opt => opt.value);
+      expect(options).toContain('');
+      expect(options).toContain('Phase 1');
+      expect(options).toContain('Phase 2');
+      expect(options).toContain('Phase 3');
+    });
+  });
+
+  describe('search by vault name', () => {
+    it('filters table rows when searching by vault name', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('search is case-insensitive', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'beta' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('search works with partial vault names', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'Vault' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+    });
+  });
+
+  describe('search by owner', () => {
+    it('filters table rows when searching by owner address', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xAAAA' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('owner search is case-insensitive', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xbbbb' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('search works with partial owner addresses', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xC' } });
+
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('milestone filter', () => {
+    it('filters table rows by milestone', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows single vault when filtering by Phase 2', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 2' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows all results when milestone filter is reset to "All Milestones"', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+      fireEvent.change(milestoneSelect, { target: { value: '' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+    });
+  });
+
+  describe('combined search and filter', () => {
+    it('applies both search and milestone filter together', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+
+      fireEvent.change(searchInput, { target: { value: 'Gamma' } });
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows no results when search matches but milestone does not', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+
+      fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 2' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows "No results found" when no validations match filters', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.getByText(/Try adjusting your search/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('select-all with filters', () => {
+    it('select-all only selects filtered items', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      const selectedCheckboxes = screen.getAllByRole('checkbox')
+        .filter(cb => (cb as HTMLInputElement).checked);
+      expect(selectedCheckboxes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('clears selection when search filter changes', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+      expect((selectAllCheckbox as HTMLInputElement).checked).toBe(true);
+
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
+      expect(screen.queryByLabelText(/Select all validations/i)).not.toBeInTheDocument();
+      expect(screen.getByText('0 selected')).toBeInTheDocument();
+    });
+  });
+
+  describe('batch actions with filters', () => {
+    it('batch approve button is disabled when no items are selected', () => {
+      renderPage();
+      const approveButton = screen.getByRole('button', { name: /Approve Selected/i });
+      expect(approveButton).toBeDisabled();
+    });
+
+    it('batch reject button is disabled when no items are selected', () => {
+      renderPage();
+      const rejectButton = screen.getByRole('button', { name: /Reject Selected/i });
+      expect(rejectButton).toBeDisabled();
+    });
+
+    it('batch approve button is enabled when items are selected', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      const approveButton = screen.getByRole('button', { name: /Approve Selected/i });
+      expect(approveButton).not.toBeDisabled();
+    });
+
+    it('selection count updates when filtering changes', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      let selectionText = screen.getByText('3 selected');
+      expect(selectionText).toBeInTheDocument();
+
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      selectionText = screen.getByText('0 selected');
+      expect(selectionText).toBeInTheDocument();
+    });
+  });
+
+  describe('empty state messaging', () => {
+    it('shows "All caught up!" when there are no pending validations', () => {
+      (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+      renderPage();
+
+      expect(screen.getByText('All caught up!')).toBeInTheDocument();
+      expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
+    });
+
+    it('shows "No results found" when filters eliminate all items', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'ZZZ' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.getByText(/Try adjusting your search/i)).toBeInTheDocument();
+    });
+  });
 });

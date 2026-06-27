@@ -17,6 +17,9 @@ export default function ValidationHistory() {
   const { validationHistory } = useVerifierStore();
   const [statusFilter, setStatusFilter] = useState<ValidationHistoryStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [milestoneFilter, setMilestoneFilter] = useState('');
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
 
@@ -26,8 +29,8 @@ export default function ValidationHistory() {
   const rejectedCount = validationHistory.filter((t) => t.status === 'rejected').length;
   const approvalRate = total > 0 ? Math.round((approvedCount / total) * 100) : 0;
   const filteredHistory = useMemo(
-    () => filterValidationHistory(validationHistory, { status: statusFilter, query: searchQuery }),
-    [validationHistory, statusFilter, searchQuery],
+    () => filterValidationHistory(validationHistory, { status: statusFilter, query: searchQuery, from: fromDate || undefined, to: toDate || undefined, milestone: milestoneFilter || undefined }),
+    [validationHistory, statusFilter, searchQuery, fromDate, toDate, milestoneFilter],
   );
   const pagination = paginate(filteredHistory, page, pageSize);
 
@@ -40,6 +43,10 @@ export default function ValidationHistory() {
     setSearchQuery(query);
     setPage(1);
   };
+
+  const updateFromDate = (value: string) => { setFromDate(value); setPage(1); };
+  const updateToDate = (value: string) => { setToDate(value); setPage(1); };
+  const updateMilestoneFilter = (value: string) => { setMilestoneFilter(value); setPage(1); };
 
   const updatePageSize = (size: number) => {
     setPageSize(size);
@@ -97,6 +104,57 @@ export default function ValidationHistory() {
             value={searchQuery}
             onChange={(event) => updateSearchQuery(event.target.value)}
             placeholder="Search vault or owner"
+            style={{
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '0.65rem 0.75rem',
+            }}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>From</Text>
+          <input
+            type="date"
+            aria-label="Filter validation history from date"
+            value={fromDate}
+            onChange={(event) => updateFromDate(event.target.value)}
+            style={{
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '0.65rem 0.75rem',
+            }}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>To</Text>
+          <input
+            type="date"
+            aria-label="Filter validation history to date"
+            value={toDate}
+            onChange={(event) => updateToDate(event.target.value)}
+            style={{
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '0.65rem 0.75rem',
+            }}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>Milestone</Text>
+          <input
+            aria-label="Filter validation history by milestone"
+            value={milestoneFilter}
+            onChange={(event) => updateMilestoneFilter(event.target.value)}
+            placeholder="Milestone"
             style={{
               background: 'var(--bg)',
               color: 'var(--text)',

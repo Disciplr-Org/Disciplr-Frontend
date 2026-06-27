@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
+import VerifierMetrics from '../components/VerifierMetrics';
+import { StatusChip } from '../components/StatusChip';
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function VerifierDashboard() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      <VerifierMetrics />
       <header className="mb-4">
         <Text role="display" as="h1">Verifier Dashboard</Text>
         <Text role="body" as="p" className="mt-1" style={{ color: 'var(--muted)' }}>
@@ -87,6 +90,47 @@ export default function VerifierDashboard() {
                     style={{ color: 'var(--accent)' }}
                   >
                     Review Now &rarr;
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="mt-8" aria-label="Recent Decisions">
+        <Text role="display" as="h2" className="mb-4">Recent Decisions</Text>
+        <div className="flex flex-col gap-3">
+          {validationHistory.length === 0 ? (
+            <div className="p-8 border rounded shadow-sm text-center" style={{ color: 'var(--muted)', background: 'var(--surface)' }}>
+              <Text role="body" as="p">No recent decisions found.</Text>
+            </div>
+          ) : (
+            validationHistory.slice(0, 5).map((task) => (
+              <div
+                key={task.id}
+                className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center transition gap-4"
+                style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Text role="body" as="h3">{task.vaultName}</Text>
+                    <StatusChip status={task.status as any} size="sm" />
+                  </div>
+                  <Text role="body" as="p" className="text-sm" style={{ color: 'var(--muted)' }}>
+                    Milestone: {task.milestone}
+                  </Text>
+                </div>
+                <div className="text-left md:text-right flex flex-col md:items-end justify-center">
+                  <Text role="body" as="p" className="text-sm font-medium" style={{ color: 'var(--muted)' }}>
+                    {task.decidedAt || task.deadline}
+                  </Text>
+                  <button
+                    onClick={() => navigate('/verifier/history')}
+                    className="font-medium text-sm mt-2 transition text-left md:text-right"
+                    style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    View in History &rarr;
                   </button>
                 </div>
               </div>

@@ -261,5 +261,5 @@ export const notificationTypeColors: { [key: string]: string } = {
   funds_released: "green",
   funds_redirected: "amber",
   verification_requested: "blue",
-  system_announcements: "grey",
+  system_announcement: "grey",
 };

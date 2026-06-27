@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -8,17 +7,12 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { Text } from "../components/Text";
+import { AddressDisplay } from "../components/AddressDisplay";
+import { useWallet } from "../context/WalletContext";
+import { contractExplorerUrl, networkLabel } from "../utils/explorer";
+import type { VaultStatus, MilestoneStatus, TxType } from "../types/vault";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type VaultStatus =
-  | "active"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "pending_validation";
-
-type MilestoneStatus = "pending" | "validated" | "failed";
-
 interface Milestone {
   id: string;
   title: string;
@@ -31,7 +25,7 @@ interface Milestone {
 
 interface VaultTransaction {
   id: string;
-  type: "create" | "validate" | "release" | "redirect";
+  type: TxType;
   hash: string;
   timestamp: string;
   amount?: number;
@@ -284,10 +278,6 @@ const TX_LABELS: Record<string, string> = {
   redirect: "Funds Redirected",
 };
 
-function truncAddr(addr: string): string {
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
-}
-
 function truncHash(hash: string): string {
   return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
 }
@@ -348,34 +338,6 @@ function settlementForVault(vault: Vault): FundReleaseStatusProps {
   };
 }
 
-// ── Copy Button ───────────────────────────────────────────────────────────────
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      title="Copy"
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        color: copied ? "var(--success)" : "var(--muted)",
-        padding: "0 4px",
-        fontSize: 13,
-        lineHeight: 1,
-      }}
-    >
-      {copied ? "✓" : "⎘"}
-    </button>
-  );
-}
-
 // ── Address Row ───────────────────────────────────────────────────────────────
 function AddrRow({ label, value }: { label: string; value: string }) {
   return (
@@ -395,12 +357,7 @@ function AddrRow({ label, value }: { label: string; value: string }) {
       >
         {label}
       </Text>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <Text role="mono" as="span" style={{ color: "var(--text)" }}>
-          {truncAddr(value)}
-        </Text>
-        <CopyButton value={value} />
-      </div>
+      <AddressDisplay address={value} />
     </div>
   );
 }
@@ -432,6 +389,7 @@ function Card({
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const vault = id ? MOCK_VAULTS[id] : undefined;
+  const { network } = useWallet();
 
   if (!vault) {
     return (
@@ -752,7 +710,24 @@ export default function VaultDetail() {
                   >
                     {truncHash(tx.hash)}
                   </Text>
-                  <CopyButton value={tx.hash} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(tx.hash).catch(() => {});
+                    }}
+                    title="Copy hash"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--muted)",
+                      padding: "0 4px",
+                      fontSize: 13,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ⎘
+                  </button>
                   <a
                     href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
                     target="_blank"
@@ -767,7 +742,111 @@ export default function VaultDetail() {
           ))}
         </div>
       </Card>
+
+      {/* ── Network Footer Banner ── */}
+      <NetworkFooterBanner
+        network={network}
+        contractAddress={vault.contractAddress}
+      />
     </div>
+  );
+}
+
+// ── Network Footer Banner ─────────────────────────────────────────────────────
+interface NetworkFooterBannerProps {
+  network: string | null | undefined;
+  contractAddress: string;
+}
+
+function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerProps) {
+  const label = networkLabel(network);
+  const explorerUrl = contractAddress
+    ? contractExplorerUrl(contractAddress, network ?? 'TESTNET')
+    : '';
+
+  const isTestnet = network !== 'PUBLIC';
+
+  return (
+    <footer
+      aria-label="Network information"
+      style={{
+        marginTop: "1.5rem",
+        padding: "0.75rem 1rem",
+        borderRadius: "var(--radius)",
+        border: `1px solid ${isTestnet ? "var(--warning, #f59e0b)" : "var(--success, #10b981)"}`,
+        background: isTestnet
+          ? "rgba(245,158,11,0.07)"
+          : "rgba(16,185,129,0.07)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "0.5rem 1rem",
+      }}
+    >
+      {/* Network badge */}
+      <span
+        aria-label={`Network: ${label}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          fontWeight: 700,
+          fontSize: 12,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: isTestnet
+            ? "var(--warning, #f59e0b)"
+            : "var(--success, #10b981)",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: isTestnet
+              ? "var(--warning, #f59e0b)"
+              : "var(--success, #10b981)",
+          }}
+        />
+        {label}
+      </span>
+
+      {/* Contract address */}
+      {contractAddress && (
+        <Text
+          role="mono"
+          as="span"
+          style={{ color: "var(--muted)", fontSize: 12, flex: 1, minWidth: 0 }}
+          aria-label={`Contract address: ${contractAddress}`}
+        >
+          {contractAddress}
+        </Text>
+      )}
+
+      {/* Explorer link */}
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View contract ${contractAddress} on Stellar ${label} explorer`}
+          style={{
+            color: isTestnet
+              ? "var(--warning, #f59e0b)"
+              : "var(--success, #10b981)",
+            fontSize: 12,
+            fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          View on Explorer ↗
+        </a>
+      )}
+    </footer>
   );
 }
 

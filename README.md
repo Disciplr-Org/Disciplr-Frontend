@@ -23,7 +23,7 @@ notification surfaces.
 - React Router for client-side routes
 - Vitest and Testing Library for frontend tests
 - Freighter wallet integration through `@stellar/freighter-api`
-- Zustand for notification state
+- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md))
 - Recharts and jsPDF for analytics/charting and export-related UI
 - Lucide React and React Icons for icons
 - A local `design-system/` package with Jest-tested token utilities
@@ -131,6 +131,10 @@ Design-system package scripts:
 Frontend tests use Vitest, the DOM test setup in `src/setupTests.ts`, and
 Testing Library.
 
+For contributor conventions, reusable mocking recipes, coverage guidance, and
+the split between the app Vitest stack and the design-system Jest stack, see
+[`docs/TESTING.md`](docs/TESTING.md).
+
 **CI / one-off run (with coverage):**
 
 ```bash
@@ -148,6 +152,21 @@ For targeted frontend checks during development, run Vitest directly:
 ```bash
 npx vitest run src/pages/__tests__/Vaults.test.tsx
 ```
+
+### Coverage
+
+Coverage thresholds are enforced in CI via `vitest.config.ts`:
+`statements: 50`, `branches: 80`, `functions: 65`, `lines: 50`. If new
+code drops coverage below these floors, `npm test` exits with a
+non-zero code and the CI run fails. To check current coverage locally,
+run:
+
+```bash
+npm test
+```
+
+The HTML report is written to `coverage/` — open `coverage/index.html`
+in a browser for a detailed view.
 
 Design-system tests use Jest:
 
@@ -222,3 +241,8 @@ disciplr-frontend/
   `src/components/Wallet/`.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
+- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md) and [Store.ts](src/Zustand/Store.ts).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the dual Vitest + Jest test setup, branch naming, and PR conventions.

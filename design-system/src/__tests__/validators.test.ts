@@ -164,6 +164,51 @@ describe('isValidColorToken', () => {
       }),
     ).toBe(false);
   });
+
+  it('rejects primitive types and edge cases', () => {
+    expect(isValidColorToken(undefined)).toBe(false);
+    expect(isValidColorToken(null)).toBe(false);
+    expect(isValidColorToken(123)).toBe(false);
+    expect(isValidColorToken(true)).toBe(false);
+    expect(isValidColorToken(false)).toBe(false);
+    expect(isValidColorToken('')).toBe(false);
+    expect(isValidColorToken(Symbol('test'))).toBe(false);
+  });
+
+  it('rejects partially-shaped objects with missing required fields', () => {
+    expect(isValidColorToken({})).toBe(false);
+    expect(isValidColorToken({ $type: 'color' })).toBe(false);
+    expect(isValidColorToken({ $value: '#112233' })).toBe(false);
+    expect(isValidColorToken({ $type: 'color', $value: null })).toBe(false);
+    expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
+  });
+
+  it('rejects objects with wrong $type', () => {
+    expect(isValidColorToken({ $type: 'dimension', $value: '#112233' })).toBe(false);
+    expect(isValidColorToken({ $type: 'typography', $value: '#112233' })).toBe(false);
+    expect(isValidColorToken({ $type: null, $value: '#112233' })).toBe(false);
+    expect(isValidColorToken({ $type: 123, $value: '#112233' })).toBe(false);
+  });
+
+  it('rejects malformed accessibility objects', () => {
+    expect(isValidColorToken({ ...colorToken(), accessibility: null })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: 'string' })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: 123 })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: [] })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { wcagLevel: 'A' } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { wcagLevel: 'BB' } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSafe: 'true' } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSafe: 1 } })).toBe(false);
+  });
+
+  it('rejects malformed colorblind simulation objects', () => {
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: null } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: 'string' } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: 123 } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: [] } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: { protanopia: 123 } } })).toBe(false);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: { protanopia: null } } })).toBe(false);
+  });
 });
 
 describe('isValidChartTokens', () => {
@@ -229,5 +274,58 @@ describe('isValidChartTokens', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it('rejects primitive types and edge cases', () => {
+    expect(isValidChartTokens(undefined)).toBe(false);
+    expect(isValidChartTokens(null)).toBe(false);
+    expect(isValidChartTokens(123)).toBe(false);
+    expect(isValidChartTokens(true)).toBe(false);
+    expect(isValidChartTokens(false)).toBe(false);
+    expect(isValidChartTokens('')).toBe(false);
+    expect(isValidChartTokens(Symbol('test'))).toBe(false);
+  });
+
+  it('rejects partially-shaped objects with missing required fields', () => {
+    expect(isValidChartTokens({})).toBe(false);
+    expect(isValidChartTokens({ axis: tokenGroup() })).toBe(false);
+    expect(isValidChartTokens({ axis: tokenGroup(), grid: tokenGroup() })).toBe(false);
+    expect(isValidChartTokens({ 
+      axis: tokenGroup(), 
+      grid: tokenGroup(), 
+      tooltipBg: tokenGroup(),
+      tooltipBorder: tokenGroup(),
+      tooltipText: tokenGroup(),
+      tooltipLabel: tokenGroup(),
+    })).toBe(false);
+  });
+
+  it('rejects malformed surface token groups', () => {
+    const chart = validChart();
+    expect(isValidChartTokens({ ...chart, axis: null })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: 'string' })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: 123 })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: [] })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: { light: colorToken() } })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: { dark: colorToken() } })).toBe(false);
+    expect(isValidChartTokens({ ...chart, axis: { light: 'bad', dark: colorToken() } })).toBe(false);
+  });
+
+  it('rejects malformed categorical ramp', () => {
+    const chart = validChart();
+    expect(isValidChartTokens({ ...chart, categorical: null })).toBe(false);
+    expect(isValidChartTokens({ ...chart, categorical: 'string' })).toBe(false);
+    expect(isValidChartTokens({ ...chart, categorical: 123 })).toBe(false);
+    expect(isValidChartTokens({ ...chart, categorical: [] })).toBe(false);
+    expect(isValidChartTokens({ ...chart, categorical: { 'step-1': 'bad' } })).toBe(false);
+  });
+
+  it('rejects malformed sequential ramp', () => {
+    const chart = validChart();
+    expect(isValidChartTokens({ ...chart, sequential: null })).toBe(false);
+    expect(isValidChartTokens({ ...chart, sequential: 'string' })).toBe(false);
+    expect(isValidChartTokens({ ...chart, sequential: 123 })).toBe(false);
+    expect(isValidChartTokens({ ...chart, sequential: [] })).toBe(false);
+    expect(isValidChartTokens({ ...chart, sequential: { 'step-1': 'bad' } })).toBe(false);
   });
 });

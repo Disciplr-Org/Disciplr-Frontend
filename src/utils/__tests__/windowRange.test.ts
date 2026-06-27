@@ -1,3 +1,4 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { WINDOW_SIZE, WINDOW_THRESHOLD, windowRange } from '../windowRange';
 
@@ -130,5 +131,67 @@ describe('generic type preservation', () => {
     const objs = range(100).map((i) => ({ id: i }));
     const r = windowRange(objs, 10);
     expect(r.items[0]).toBe(objs[10]);
+  });
+});
+
+// ── property-based coverage ───────────────────────────────────────────────────
+describe('property-based: threshold and slice bounds', () => {
+  it('returns the full array unchanged when total <= WINDOW_THRESHOLD', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: WINDOW_THRESHOLD }),
+        fc.integer({ min: -1000, max: 1000 }),
+        fc.integer({ min: -10, max: 200 }),
+        (total, anchorIndex, windowSize) => {
+          const list = range(total);
+          const r = windowRange(list, anchorIndex, windowSize);
+          expect(r.windowed).toBe(false);
+          expect(r.items).toBe(list);
+          expect(r.startIndex).toBe(0);
+          expect(r.endIndex).toBe(total);
+        },
+      ),
+    );
+  });
+
+  it('produces a valid, in-bounds slice when windowing is active', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: WINDOW_THRESHOLD + 1, max: WINDOW_THRESHOLD + 500 }),
+        fc.integer({ min: -1000, max: 1000 }),
+        fc.integer({ min: -10, max: 200 }),
+        (total, anchorIndex, windowSize) => {
+          const list = range(total);
+          const r = windowRange(list, anchorIndex, windowSize);
+
+          expect(r.windowed).toBe(true);
+          expect(r.startIndex).toBeGreaterThanOrEqual(0);
+          expect(r.startIndex).toBeLessThanOrEqual(r.endIndex);
+          expect(r.endIndex).toBeLessThanOrEqual(total);
+          expect(r.items.length).toBeLessThanOrEqual(Math.max(1, windowSize));
+          expect(r.items).toEqual(list.slice(r.startIndex, r.endIndex));
+        },
+      ),
+    );
+  });
+
+  it('clamps negative and out-of-range anchors without throwing', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: WINDOW_THRESHOLD + 1, max: WINDOW_THRESHOLD + 500 }),
+        fc.oneof(
+          fc.integer({ min: -1000, max: -1 }),
+          fc.integer({ min: 100000, max: 1000000 }),
+        ),
+        (total, anchorIndex) => {
+          const list = range(total);
+          expect(() => windowRange(list, anchorIndex)).not.toThrow();
+
+          const r = windowRange(list, anchorIndex);
+          expect(r.startIndex).toBeGreaterThanOrEqual(0);
+          expect(r.endIndex).toBeLessThanOrEqual(total);
+        },
+      ),
+    );
   });
 });

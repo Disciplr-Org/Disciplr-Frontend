@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useWallet } from '../../context/WalletContext';
 import { Copy, Plus, LogOut, Check, ExternalLink } from 'lucide-react';
+import { getExplorerAccountUrl } from '../../utils/explorer';
 import './wallet.css';
+import { logger } from '../../utils/logger';
 
 interface WalletDropdownProps {
     onClose: () => void;
@@ -24,15 +26,14 @@ export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy', err);
+            logger.error('Failed to copy', err);
         }
     };
 
     const openExplorer = () => {
-        const baseUrl = network === 'TESTNET'
-            ? 'https://stellar.expert/explorer/testnet'
-            : 'https://stellar.expert/explorer/public';
-        window.open(`${baseUrl}/account/${address}`, '_blank');
+        const url = getExplorerAccountUrl(address, network);
+        const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+        if (newWindow) newWindow.opener = null;
     };
 
     const renderBalance = () => {

@@ -1,6 +1,37 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import VaultTransactions from '../VaultTransactions';
+import VaultTransactions, { Transaction } from '../VaultTransactions';
+import { toCsv, downloadCsv } from '../../utils/csv';
+import { WINDOW_SIZE, WINDOW_THRESHOLD } from '../../utils/windowRange';
+
+vi.mock('../../utils/csv', () => ({
+  toCsv: vi.fn((_data, _type) => 'mocked,csv,content'),
+  downloadCsv: vi.fn(),
+}));
+
+const TX_TYPES = ['create', 'validate', 'release', 'redirect'] as const;
+
+function buildTransaction(index: number, status: 'confirmed' | 'pending' | 'failed' = 'confirmed') {
+  const hashPrefix = status === 'confirmed' ? 'aa' : status === 'pending' ? 'cc' : 'dd';
+  return {
+    id: `win-tx-${index}`,
+    type: TX_TYPES[index % TX_TYPES.length],
+    vault: `Vault ${index % 3}`,
+    amount: 1000 + index,
+    fee: 0.0001,
+    block: 48_000_000 + index,
+    hash: `${hashPrefix}${String(index).padStart(62, '0')}`,
+    status,
+    from: 'GFROM123...ADDR',
+    to: 'GTO12345...ADDR',
+    timestamp: new Date(FIXED_NOW - index * 60_000),
+    memo: '',
+  };
+}
+
+function buildConfirmedList(count: number) {
+  return Array.from({ length: count }, (_, index) => buildTransaction(index, 'confirmed'));
+}
 
 function renderPage() {
   return render(<VaultTransactions />);
@@ -193,16 +224,17 @@ describe('VaultTransactions', () => {
     it('clear button appears when a filter is applied', () => {
       renderPage();
       expect(screen.queryByRole('button', { name: /Clear/i })).not.toBeInTheDocument();
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: 'create' } });
+      const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+      fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
       expect(screen.getByRole('button', { name: /Clear/i })).toBeInTheDocument();
     });
 
     it('clearing filters removes the clear button', () => {
       renderPage();
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: 'create' } });
-      fireEvent.click(screen.getByRole('button', { name: /Clear/i }));
+      const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+      fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+      const clearButtons = screen.getAllByRole('button', { name: /Clear/i });
+      fireEvent.click(clearButtons[0]);
       expect(screen.queryByRole('button', { name: /Clear/i })).not.toBeInTheDocument();
     });
   });
@@ -270,12 +302,15 @@ describe('VaultTransactions', () => {
       const { container } = render(<VaultTransactions />);
       const selects = container.querySelectorAll('.vt-select');
       // Third select is the status filter
-      fireEvent.change(selects[2], { target: { value: 'confirmed' } });
+      fireEvent.change(selects[1], { target: { value: 'confirmed' } });
 
       // Pending and Failed sections should disappear
+      expect(screen.queryByRole('table', { name: /Pending transactions/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('table', { name: /Failed transactions/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('table', { name: /Confirmed transactions/i })).toBeInTheDocument();
       expect(screen.queryByText('Pending')).not.toBeInTheDocument();
       expect(screen.queryByText('Failed')).not.toBeInTheDocument();
-      expect(screen.getByText('Confirmed')).toBeInTheDocument();
+      expect(screen.getAllByText('Confirmed').length).toBeGreaterThan(0);
     });
 
     it('hash search filters the list to matching transactions only', () => {
@@ -309,17 +344,24 @@ describe('VaultTransactions with small list', () => {
     expect(document.querySelector('.vt-window-banner')).toBeNull();
   });
 
-  it('filters by transaction type', () => {
+  it('filters by transaction type via chip buttons', () => {
     render(<VaultTransactions />);
-    const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[0], { target: { value: 'create' } });
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    // Deselect "Create" by clicking it → remaining rows = 7 (all non-Create)
+    fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+    expect(document.querySelectorAll('.vt-tx-row').length).toBe(7);
+    // Re-select "Create" and deselect everything else
+    fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Validate').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Release').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Redirect').closest('button')!);
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(3);
   });
 
   it('filters by vault', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[1], { target: { value: 'Alpha Vault' } });
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(4);
   });
 
@@ -352,7 +394,7 @@ describe('VaultTransactions with small list', () => {
   it('shows filters and clear button resets them', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[0], { target: { value: 'create' } });
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(screen.getByText('Clear')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Clear'));
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(10);
@@ -368,7 +410,7 @@ describe('VaultTransactions with small list', () => {
   it('filters by status via select', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[2], { target: { value: 'pending' } });
+    fireEvent.change(selects[1], { target: { value: 'pending' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(2);
   });
 
@@ -380,6 +422,200 @@ describe('VaultTransactions with small list', () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.length).toBeLessThan(10);
   });
+
+  // ── Type filter toolbar chips ─────────────────────────────────────
+  it('renders the type filter toolbar with All and per-type chips', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    expect(toolbar).toBeInTheDocument();
+
+    expect(within(toolbar).getByText('All')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Create')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Validate')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Release')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Redirect')).toBeInTheDocument();
+  });
+
+  function getAllChip() {
+    return screen.getByRole('group', { name: /filter by transaction type/i })
+      .querySelector('button')!;
+  }
+
+  it('chip counts reflect the visible (filtered) set — All chip shows total', () => {
+    render(<VaultTransactions />);
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('10');
+  });
+
+  it('type chip counts update when vault filter is applied', () => {
+    render(<VaultTransactions />);
+    const selects = document.querySelectorAll('.vt-select');
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('4');
+  });
+
+  it('type chip counts update when status filter is applied', () => {
+    render(<VaultTransactions />);
+    const selects = document.querySelectorAll('.vt-select');
+    fireEvent.change(selects[1], { target: { value: 'pending' } });
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('2');
+  });
+
+  it('the "All" chip is aria-pressed when all types are selected', () => {
+    render(<VaultTransactions />);
+    const allBtn = getAllChip();
+    expect(allBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('deselecting a type removes it from visible rows and updates chip count', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(10);
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(7);
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('7');
+  });
+
+  it('re-selecting a type restores it to visible rows', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(7);
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(10);
+  });
+
+  // ── Totals strip ──────────────────────────────────────────────────
+  it('renders the totals strip with count, amount and fees for visible set', () => {
+    render(<VaultTransactions />);
+    expect(screen.getByText(/10 transactions/i)).toBeInTheDocument();
+    expect(screen.getByText(/Amount:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fees:/i)).toBeInTheDocument();
+    expect(document.querySelector('.vt-totals-strip')).toBeInTheDocument();
+  });
+
+  it('totals strip updates when a type filter is applied', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    fireEvent.click(createBtn);
+    expect(screen.getByText(/7 transactions/i)).toBeInTheDocument();
+  });
+
+  it('totals strip is hidden when filtered list is empty', () => {
+    render(<VaultTransactions />);
+    const allBtn = getAllChip();
+    fireEvent.click(allBtn);
+    expect(document.querySelector('.vt-totals-strip')).toBeNull();
+  });
+});
+
+describe('VaultTransactions windowing threshold rendering', () => {
+  beforeEach(() => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders all rows when the confirmed list is below WINDOW_THRESHOLD', () => {
+    const transactions = buildConfirmedList(WINDOW_THRESHOLD - 1);
+
+    render(<VaultTransactions transactions={transactions} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_THRESHOLD - 1);
+    expect(document.querySelector('.vt-window-banner')).toBeNull();
+  });
+
+  it('renders all rows at exactly WINDOW_THRESHOLD without windowing', () => {
+    const transactions = buildConfirmedList(WINDOW_THRESHOLD);
+
+    render(<VaultTransactions transactions={transactions} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_THRESHOLD);
+    expect(document.querySelector('.vt-window-banner')).toBeNull();
+  });
+
+  it('renders at most WINDOW_SIZE rows when the confirmed list exceeds the threshold', () => {
+    const transactions = buildConfirmedList(WINDOW_THRESHOLD + 5);
+
+    render(<VaultTransactions transactions={transactions} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
+    expect(screen.getByText(`Showing 1–${WINDOW_SIZE} of ${WINDOW_THRESHOLD + 5}`)).toBeInTheDocument();
+  });
+
+  it('keeps section headers and row metadata for windowed rows', () => {
+    const transactions = buildConfirmedList(WINDOW_THRESHOLD + 10);
+
+    render(<VaultTransactions transactions={transactions} />);
+
+    expect(screen.getByRole('table', { name: /Confirmed transactions/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Transaction Type/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Status/i })).toBeInTheDocument();
+
+    const statusBadges = document.querySelectorAll('.vt-tx-status');
+    expect(statusBadges).toHaveLength(WINDOW_SIZE);
+    statusBadges.forEach((badge) => {
+      expect(badge.textContent).toContain('Confirmed');
+    });
+
+    const typeLabels = Array.from(document.querySelectorAll('.vt-tx-type')).map((el) => el.textContent?.trim());
+    expect(typeLabels).toHaveLength(WINDOW_SIZE);
+    typeLabels.forEach((label) => {
+      expect(['Create', 'Validate', 'Release', 'Redirect']).toContain(label);
+    });
+  });
+
+  it('renders the empty confirmed state when no transactions are provided', () => {
+    render(<VaultTransactions transactions={[]} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(0);
+    expect(document.querySelector('.vt-window-banner')).toBeNull();
+    expect(screen.getByText('No transactions yet')).toBeInTheDocument();
+  });
+
+  it('updates visible rows when the transactions prop changes', () => {
+    const firstBatch = buildConfirmedList(WINDOW_THRESHOLD + 5);
+    const secondBatch = buildConfirmedList(WINDOW_THRESHOLD + 5).map((tx, index) => ({
+      ...tx,
+      id: `updated-${index}`,
+      hash: `bb${String(index).padStart(62, '0')}`,
+    }));
+
+    const { rerender } = render(<VaultTransactions transactions={firstBatch} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
+    expect(screen.getAllByTitle('Copy hash')[0].textContent).toContain('aa000000');
+
+    rerender(<VaultTransactions transactions={secondBatch} />);
+
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
+    const hashButtons = screen.getAllByTitle('Copy hash');
+    expect(hashButtons[0].textContent).toContain('bb000000');
+    expect(hashButtons.some((btn) => btn.textContent?.includes('aa000000'))).toBe(false);
+  });
+
+  it('advances the visible window when Next is clicked', () => {
+    const transactions = buildConfirmedList(WINDOW_THRESHOLD + 15);
+
+    render(<VaultTransactions transactions={transactions} />);
+
+    expect(screen.getByText(`Showing 1–${WINDOW_SIZE} of ${WINDOW_THRESHOLD + 15}`)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+
+    expect(screen.getByText(`Showing 11–${WINDOW_SIZE + 10} of ${WINDOW_THRESHOLD + 15}`)).toBeInTheDocument();
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
+  });
 });
 
 describe('VaultTransactions large fixture integration', () => {
@@ -387,5 +623,69 @@ describe('VaultTransactions large fixture integration', () => {
     render(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBe(10);
+  });
+});
+
+describe('CSV Export', () => {
+  it('calls toCsv and downloadCsv with the filtered subset when Export CSV is clicked', () => {
+    vi.mocked(toCsv).mockClear();
+    vi.mocked(downloadCsv).mockClear();
+
+    renderPage();
+    const exportBtn = screen.getByRole('button', { name: /Export CSV/i });
+    expect(exportBtn).not.toBeDisabled();
+
+    // Click the export button
+    fireEvent.click(exportBtn);
+
+    // It should have called toCsv with the mock transactions array (length 10) and 'transactions'
+    expect(toCsv).toHaveBeenCalledTimes(1);
+    const callArgs = vi.mocked(toCsv).mock.calls[0];
+    expect(callArgs[0]).toHaveLength(10);
+    expect(callArgs[1]).toBe('transactions');
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    expect(downloadCsv).toHaveBeenCalledWith('mocked,csv,content', 'vault-transactions.csv');
+  });
+
+  it('reflects active filters when exporting', () => {
+    vi.mocked(toCsv).mockClear();
+    vi.mocked(downloadCsv).mockClear();
+
+    renderPage();
+    
+    // Filter by type "create" (which has 3 items)
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    // Deselect all non-create types, leaving only "Create" selected
+    fireEvent.click(within(toolbar).getByText('Validate').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Release').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Redirect').closest('button')!);
+
+    const exportBtn = screen.getByRole('button', { name: /Export CSV/i });
+    fireEvent.click(exportBtn);
+
+    expect(toCsv).toHaveBeenCalledTimes(1);
+    const callArgs = vi.mocked(toCsv).mock.calls[0];
+    // Should only have the 3 filtered "create" transactions
+    expect(callArgs[0]).toHaveLength(3);
+    expect((callArgs[0] as Transaction[]).every(tx => tx.type === 'create')).toBe(true);
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the export button when the filtered list is empty', () => {
+    renderPage();
+
+    // Enter a search query that matches nothing
+    const searchInput = screen.getByPlaceholderText(/search by transaction hash/i);
+    fireEvent.change(searchInput, { target: { value: 'nonexistenthash12345' } });
+
+    const exportBtn = screen.getByRole('button', { name: /Export CSV/i });
+    expect(exportBtn).toBeDisabled();
+
+    // Clicking it does not trigger download
+    vi.mocked(downloadCsv).mockClear();
+    fireEvent.click(exportBtn);
+    expect(downloadCsv).not.toHaveBeenCalled();
   });
 });

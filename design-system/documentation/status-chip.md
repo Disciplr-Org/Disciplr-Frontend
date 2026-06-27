@@ -36,6 +36,37 @@ The chip uses `color-mix` to automatically generate transparent background color
 | `approved` | Approved | `var(--success)` | `color-mix(in srgb, var(--success) 10%, transparent)` |
 | `rejected` | Rejected | `var(--danger)` | `color-mix(in srgb, var(--danger) 10%, transparent)` |
 
+## Shared status types (`src/types/vault.ts`)
+
+The status unions consumed by `StatusChip` and the vault pages live in a single
+module, `src/types/vault.ts`, so they can no longer drift apart:
+
+- `VaultStatus` — `'active' | 'pending_validation' | 'completed' | 'failed' | 'cancelled'`.
+  Every member is a valid `ChipStatus`, so any `VaultStatus` can be passed
+  straight to `<StatusChip status={...} />` without a fallback.
+- `MilestoneStatus` — `'pending' | 'validated' | 'failed'`.
+- `TxType` — `'create' | 'validate' | 'release' | 'redirect'`.
+- `TxStatus` — `'confirmed' | 'pending' | 'failed'`.
+- `VAULT_STATUS_ORDER` — a `readonly VaultStatus[]` giving the canonical display
+  order (most to least active) for consistent sorting. It contains every
+  `VaultStatus` member exactly once.
+
+```tsx
+import type { VaultStatus } from '../types/vault';
+import { VAULT_STATUS_ORDER } from '../types/vault';
+
+// Sort vaults by their canonical status order.
+vaults.sort(
+  (a, b) =>
+    VAULT_STATUS_ORDER.indexOf(a.status) - VAULT_STATUS_ORDER.indexOf(b.status),
+);
+```
+
+`Dashboard`, `Vaults`, `VaultDetail`, `VaultCard`, and `VaultTransactions` all
+import these unions instead of declaring their own. When adding a new
+`VaultStatus`, add it here and to `STATUS_CONFIG` in `StatusChip.tsx` so the
+chip can render it.
+
 ## Accessibility
 
 - The component exposes its status using an implicit `role="status"` and includes an accessible `aria-label` covering the underlying meaning, regardless of whether a custom `label` string is passed in or not.

@@ -51,11 +51,62 @@
 
 .header-link:focus-visible,
 .header-nav a:focus-visible,
-.header-nav button:focus-visible {
+.header-nav button:focus-visible,
+.theme-toggle:focus-visible {
   outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.header-link {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.header-link:hover,
+.header-link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 2px;
+  font-weight: 600;
+}
+
+.header-link {
+  color: var(--muted);
 }
 
 .header-link.active {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 2px;
+  font-weight: 700;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: var(--border-width-1) solid var(--border);
+  border-radius: var(--radius-full);
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  transition: background-color var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
+}
+
+.theme-toggle:hover {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+.theme-toggle:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.header-brand .header-link[aria-label="Disciplr home"] {
   color: var(--accent);
 }
 
@@ -117,12 +168,21 @@
   outline-offset: 2px;
 }
 
+.mobile-bell-wrapper {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .mobile-hamburger {
     display: inline-flex;
   }
   .desktop-nav {
     display: none !important;
+  }
+  .mobile-bell-wrapper {
+    display: inline-flex;
+    align-items: center;
+    margin-right: var(--spacing-2);
   }
 }
 
@@ -141,7 +201,7 @@
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: var(--z-index-drawer);
   display: flex;
 }
 
@@ -205,6 +265,10 @@
 }
 
 .mobile-drawer-link:hover {
+  color: var(--accent);
+}
+
+.mobile-drawer-link.active {
   color: var(--accent);
 }
 

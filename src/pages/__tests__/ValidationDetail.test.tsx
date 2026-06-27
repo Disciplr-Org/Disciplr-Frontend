@@ -38,6 +38,13 @@ const mockPendingValidations = [
   },
 ];
 
+const mockPendingWithCriteria = [
+  {
+    ...mockPendingValidations[0],
+    criteria: ['Criterion A', 'Criterion B'],
+  },
+];
+
 describe('ValidationDetail Page', () => {
   const mockApproveValidation = vi.fn();
   const mockRejectValidation = vi.fn();
@@ -80,7 +87,17 @@ describe('ValidationDetail Page', () => {
     expect(screen.getByText('Validation Not Found')).toBeInTheDocument();
   });
 
-  it('opens confirmation modal when clicking approve', async () => {
+  it('approve button is enabled when task has no criteria', () => {
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
+  });
+
+  it('opens confirmation modal when clicking approve (no criteria)', async () => {
     render(
       <MemoryRouter initialEntries={['/verifier/v-101']}>
         <ValidationDetail />
@@ -198,5 +215,138 @@ describe('ValidationDetail Page', () => {
     fireEvent.click(rejectBtn);
 
     expect(screen.getByText(/Rejection will notify the vault owner/)).toBeInTheDocument();
+  });
+
+  it('does not have hardcoded color classes on the primary container', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+    const primaryContainer = container.firstChild as HTMLElement;
+    expect(primaryContainer.className).not.toContain('bg-white');
+    expect(primaryContainer.className).not.toContain('text-gray-500');
+    expect(primaryContainer.className).not.toContain('text-red-600');
+  });
+
+  // --- Criteria gate tests ---
+
+  it('renders criteria checkboxes when task has criteria', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+
+    expect(screen.getByLabelText('Criterion A')).toBeInTheDocument();
+    expect(screen.getByLabelText('Criterion B')).toBeInTheDocument();
+  });
+
+  it('approve button is disabled when criteria are present but unchecked', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+  });
+
+  it('approve button remains disabled when only some criteria are checked', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+  });
+
+  it('approve button is enabled when all criteria are checked', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+    fireEvent.click(screen.getByLabelText('Criterion B'));
+
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
+  });
+
+  it('reject button is always enabled regardless of criteria', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    // No criteria checked yet
+    expect(screen.getByRole('button', { name: /Reject Milestone/i })).not.toBeDisabled();
+  });
+
+  it('unchecking a criterion re-disables the approve button', () => {
+    (useVerifierStore as any).mockReturnValue({
+      pendingValidations: mockPendingWithCriteria,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+    fireEvent.click(screen.getByLabelText('Criterion B'));
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+  });
+
+  it('does not render criteria section when task has no criteria', () => {
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Milestone Criteria')).not.toBeInTheDocument();
   });
 });

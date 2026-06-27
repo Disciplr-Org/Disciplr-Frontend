@@ -19,66 +19,77 @@ export function isKebabCase(str: string): boolean {
 }
 
 export function hasValidTokenPrefix(tokenName: string): boolean {
-  const validPrefixes = ['color', 'spacing', 'typography', 'shadow', 'radius', 'border', 'motion'];
+  const validPrefixes = ['color', 'spacing', 'typography', 'shadow', 'radius', 'border', 'motion', 'z-index'];
   return validPrefixes.some(prefix => tokenName.startsWith(prefix + '-'));
 }
 export function isValidColorString(color: string): boolean {
   return isValidHexColor(color) || isValidRgbColor(color) || isValidHslColor(color);
 }
 
-export function isValidColorToken(token: any): boolean {
+export function isValidColorToken(token: unknown): boolean {
   if (!token || typeof token !== 'object') return false;
-  if (token.$type !== 'color') return false;
-  if (typeof token.$value !== 'string' || !isValidColorString(token.$value)) return false;
+  
+  const tokenObj = token as Record<string, unknown>;
+  if (tokenObj.$type !== 'color') return false;
+  if (typeof tokenObj.$value !== 'string' || !isValidColorString(tokenObj.$value)) return false;
 
   // Validate accessibility properties if present
-  if (token.accessibility) {
-    const acc = token.accessibility;
-    if (typeof acc !== 'object') return false;
-    if (acc.wcagLevel !== undefined && acc.wcagLevel !== 'AA' && acc.wcagLevel !== 'AAA') return false;
-    if (acc.colorblindSafe !== undefined && typeof acc.colorblindSafe !== 'boolean') return false;
-    if (acc.colorblindSimulation) {
-      const sim = acc.colorblindSimulation;
-      if (typeof sim !== 'object') return false;
-      if (sim.protanopia && !isValidColorString(sim.protanopia)) return false;
-      if (sim.deuteranopia && !isValidColorString(sim.deuteranopia)) return false;
-      if (sim.tritanopia && !isValidColorString(sim.tritanopia)) return false;
+  if (tokenObj.accessibility) {
+    const acc = tokenObj.accessibility;
+    if (typeof acc !== 'object' || acc === null) return false;
+    const accObj = acc as Record<string, unknown>;
+    if (accObj.wcagLevel !== undefined && accObj.wcagLevel !== 'AA' && accObj.wcagLevel !== 'AAA') return false;
+    if (accObj.colorblindSafe !== undefined && typeof accObj.colorblindSafe !== 'boolean') return false;
+    if (accObj.colorblindSimulation) {
+      const sim = accObj.colorblindSimulation;
+      if (typeof sim !== 'object' || sim === null) return false;
+      const simObj = sim as Record<string, unknown>;
+      if (simObj.protanopia !== undefined && (typeof simObj.protanopia !== 'string' || !isValidColorString(simObj.protanopia))) return false;
+      if (simObj.deuteranopia !== undefined && (typeof simObj.deuteranopia !== 'string' || !isValidColorString(simObj.deuteranopia))) return false;
+      if (simObj.tritanopia !== undefined && (typeof simObj.tritanopia !== 'string' || !isValidColorString(simObj.tritanopia))) return false;
     }
   }
   return true;
 }
 
-export function isValidChartTokens(chart: any): boolean {
+export function isValidChartTokens(chart: unknown): boolean {
   if (!chart || typeof chart !== 'object') return false;
+  
+  const chartObj = chart as Record<string, unknown>;
 
   // 1. Validate surface tokens
   const surfaceKeys = ['axis', 'grid', 'tooltipBg', 'tooltipBorder', 'tooltipText', 'tooltipLabel'];
   for (const key of surfaceKeys) {
-    const tokenGroup = chart[key];
+    const tokenGroup = chartObj[key];
     if (!tokenGroup || typeof tokenGroup !== 'object') return false;
-    if (!isValidColorToken(tokenGroup.light) || !isValidColorToken(tokenGroup.dark)) return false;
+    const tokenGroupObj = tokenGroup as Record<string, unknown>;
+    if (!isValidColorToken(tokenGroupObj.light) || !isValidColorToken(tokenGroupObj.dark)) return false;
   }
 
   // 2. Validate categorical ramp
-  const categorical = chart.categorical;
+  const categorical = chartObj.categorical;
   if (!categorical || typeof categorical !== 'object') return false;
-  const catSteps = Object.keys(categorical);
+  const categoricalObj = categorical as Record<string, unknown>;
+  const catSteps = Object.keys(categoricalObj);
   if (catSteps.length < 5) return false;
   for (const step of catSteps) {
-    const tokenGroup = categorical[step];
+    const tokenGroup = categoricalObj[step];
     if (!tokenGroup || typeof tokenGroup !== 'object') return false;
-    if (!isValidColorToken(tokenGroup.light) || !isValidColorToken(tokenGroup.dark)) return false;
+    const tokenGroupObj = tokenGroup as Record<string, unknown>;
+    if (!isValidColorToken(tokenGroupObj.light) || !isValidColorToken(tokenGroupObj.dark)) return false;
   }
 
   // 3. Validate sequential ramp
-  const sequential = chart.sequential;
+  const sequential = chartObj.sequential;
   if (!sequential || typeof sequential !== 'object') return false;
-  const seqSteps = Object.keys(sequential);
+  const sequentialObj = sequential as Record<string, unknown>;
+  const seqSteps = Object.keys(sequentialObj);
   if (seqSteps.length < 5) return false;
   for (const step of seqSteps) {
-    const tokenGroup = sequential[step];
+    const tokenGroup = sequentialObj[step];
     if (!tokenGroup || typeof tokenGroup !== 'object') return false;
-    if (!isValidColorToken(tokenGroup.light) || !isValidColorToken(tokenGroup.dark)) return false;
+    const tokenGroupObj = tokenGroup as Record<string, unknown>;
+    if (!isValidColorToken(tokenGroupObj.light) || !isValidColorToken(tokenGroupObj.dark)) return false;
   }
 
   return true;

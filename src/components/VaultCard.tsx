@@ -4,8 +4,9 @@ import { VaultProgressBar } from './VaultProgressBar';
 import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
 import { StatusChip } from './StatusChip';
+import type { VaultStatus } from '../types/vault';
 
-export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
+export type { VaultStatus };
 
 export interface VaultCardProps {
   id: string;
@@ -79,19 +80,21 @@ function UrgencyBadge({ tier }: { tier: UrgencyTier }) {
 }
 
 function StatusBadge({ status }: { status: VaultStatus }) {
-  const config = {
+  const config: Record<VaultStatus, { label: string; bg: string; fg: string }> = {
     active: { label: 'Active', bg: 'var(--accent-transparent)', fg: 'var(--accent)' },
     pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
     completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
     failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
-  }[status];
+    cancelled: { label: 'Cancelled', bg: 'rgba(156,163,175,0.1)', fg: 'var(--muted)' },
+  };
+  const badge = config[status];
 
   return (
     <span
       style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
+        background: badge.bg,
+        color: badge.fg,
+        border: `1px solid ${badge.fg}`,
         borderRadius: 'var(--radius-full)',
         padding: '2px 8px',
         fontSize: 11,
@@ -102,7 +105,7 @@ function StatusBadge({ status }: { status: VaultStatus }) {
         gap: 4,
       }}
     >
-      {config.label}
+      {badge.label}
     </span>
   );
 }
@@ -156,7 +159,6 @@ export default function VaultCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <UrgencyBadge tier={urgency} />
           <StatusBadge status={status} />
-          <StatusChip status={status} size="sm" label={status === 'pending_validation' ? 'Pending' : undefined} />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
           <VaultProgressBar value={progressPct} label={`${name} progress`} />

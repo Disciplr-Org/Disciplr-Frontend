@@ -3,7 +3,10 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
+import NavLink from "./NavLink";
 import { Text } from "./Text";
+import { TrustlineBanner } from "./TrustlineBanner";
+import NotificationBell from "./Notification/NotificationBell";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -14,7 +17,6 @@ export default function Layout({ children }: LayoutProps) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
   const toggleDrawer = () => setDrawerOpen(prev => !prev);
   const location = useLocation();
-  const isTransactionsActive = location.pathname === "/transactions";
   const backgroundA11yProps = isDrawerOpen
     ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & { inert: "" })
     : {};
@@ -30,14 +32,10 @@ export default function Layout({ children }: LayoutProps) {
               Disciplr
             </Text>
           </Link>
-          <Link
+          <NavLink
             to="/transactions"
-            className={`header-link${isTransactionsActive ? " active" : ""}`}
-            style={{
-              color: isTransactionsActive ? "var(--accent)" : "var(--muted)",
-            }}
-            aria-label="Transactions"
-            aria-current={isTransactionsActive ? "page" : undefined}
+            className="header-link"
+            ariaLabel="Transactions"
           >
             <span className="header-transactions-label">Transactions</span>
             <span
@@ -47,54 +45,54 @@ export default function Layout({ children }: LayoutProps) {
             >
               ↗
             </span>
-          </Link>
+          </NavLink>
         </div>
 
-        <nav className="desktop-nav" {...backgroundA11yProps}>
+        <nav className="desktop-nav" aria-label="Main navigation" {...backgroundA11yProps}>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <Link
+            <NavLink
               to="/"
               className="header-link"
-              style={{
-                color:
-                  location.pathname === "/" ? "var(--accent)" : "var(--muted)",
-              }}
+              aria-current={location.pathname === "/" ? "page" : undefined}
             >
               <Text role="caption" as="span">
                 Home
               </Text>
-            </Link>
+            </NavLink>
 
-            <Link
-              to="/analytics"
-              style={{
-                color:
-                  location.pathname === "/analytics"
-                    ? "var(--accent)"
-                    : "var(--muted)",
-                textDecoration: "none",
-              }}
+            <NavLink
+              to="/verifier"
+              className="header-link"
             >
-              Analytics
-            </Link>
+              <Text role="caption" as="span">
+                Verifier
+              </Text>
+            </NavLink>
+
+            <NavLink
+              to="/analytics"
+              className="header-link"
+              aria-current={location.pathname === "/analytics" ? "page" : undefined}
+            >
+              <Text role="caption" as="span">
+                Analytics
+              </Text>
+            </NavLink>
 
             <Link
               to="/vaults/create"
-              style={{
-                color: "var(--surface)",
-                background: "var(--accent)",
-                padding: "0.5rem 1rem",
-                borderRadius: "9999px",
-                textDecoration: "none",
-                fontWeight: 500,
-                fontSize: "0.875rem",
-              }}
+              className="header-link header-cta"
+              aria-current={location.pathname === "/vaults/create" ? "page" : undefined}
             >
               Create Vault
             </Link>
+            <NotificationBell />
             <WalletConnectButton />
           </div>
         </nav>
+        <div className="mobile-bell-wrapper" {...backgroundA11yProps}>
+          <NotificationBell />
+        </div>
         <button
           type="button"
           className="mobile-hamburger"
@@ -107,6 +105,7 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
       </header>
+      <TrustlineBanner />
 
       <main
         {...backgroundA11yProps}

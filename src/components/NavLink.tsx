@@ -1,18 +1,24 @@
 import { Link, useLocation } from 'react-router-dom';
 
-interface NavLinkProps {
-  to: string;
-  className?: string;
-  children: React.ReactNode;
+interface NavLinkProps extends React.ComponentPropsWithoutRef<typeof Link> {
   ariaLabel?: string;
 }
 
-export default function NavLink({ to, className = '', children, ariaLabel }: NavLinkProps) {
+export default function NavLink({ to, className = '', children, ariaLabel, ...props }: NavLinkProps) {
   const location = useLocation();
-  const isActive = location.pathname === to;
+  const toStr = typeof to === 'string' ? to : (to as any)?.pathname || '';
+  const isActive = toStr === '/'
+    ? location.pathname === '/'
+    : location.pathname.startsWith(toStr);
   const combinedClass = `${className} ${isActive ? 'active' : ''}`.trim();
   return (
-    <Link to={to} className={combinedClass} aria-label={ariaLabel} aria-current={isActive ? 'page' : undefined}>
+    <Link
+      to={to}
+      className={combinedClass}
+      aria-label={ariaLabel}
+      aria-current={isActive ? 'page' : undefined}
+      {...props}
+    >
       {children}
     </Link>
   );
