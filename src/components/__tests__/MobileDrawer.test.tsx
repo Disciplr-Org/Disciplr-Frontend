@@ -166,6 +166,82 @@ describe('Layout drawer integration', () => {
   });
 });
 
+describe('MobileDrawer scroll lock and focus restore', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+
+  test('locks body scroll while open and restores on close', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+
+    rerender(
+      <MemoryRouter>
+        <MobileDrawer isOpen={false} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('restores body scroll on unmount', () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('restores focus to trigger when drawer closes via close button', async () => {
+    render(<DrawerHarness />);
+
+    const trigger = screen.getByRole('button', { name: /open navigation menu/i });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /close navigation drawer/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+  });
+
+  test('prevents default on Escape keydown and calls onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <MobileDrawer isOpen onClose={onClose} />
+      </MemoryRouter>,
+    );
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+    document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not handle Escape when drawer is closed', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <MobileDrawer isOpen={false} onClose={onClose} />
+      </MemoryRouter>,
+    );
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+    document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 describe('MobileDrawer active links', () => {
   test('verifier link receives active class and aria-current when on /verifier or subroutes', () => {
     render(
