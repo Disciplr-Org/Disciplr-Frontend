@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
 import { StatusChip } from './StatusChip';
+import { Badge, BadgeTone } from './Badge';
 
 export type VaultStatus = 'active' | 'pending_validation' | 'completed' | 'failed';
 
@@ -42,68 +42,27 @@ export function deadlineUrgency(deadline: string, now: Date | number = Date.now(
 const URGENCY_BADGE_CONFIG = {
   critical: {
     label: 'Expires soon!',
-    bg: 'var(--danger-transparent)',
-    fg: 'var(--danger)',
+    tone: 'danger',
     ariaLabel: 'Critical: expires within 24 hours',
   },
   soon: {
     label: 'Due soon',
-    bg: 'var(--warning-transparent)',
-    fg: 'var(--warning)',
+    tone: 'warning',
     ariaLabel: 'Deadline approaching: due within 7 days',
   },
-} as const;
+} satisfies Record<Exclude<UrgencyTier, 'safe'>, { label: string; tone: BadgeTone; ariaLabel: string }>;
 
 function UrgencyBadge({ tier }: { tier: UrgencyTier }) {
   if (tier === 'safe') return null;
   const config = URGENCY_BADGE_CONFIG[tier];
   return (
-    <span
+    <Badge
       aria-label={config.ariaLabel}
-      style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-      }}
+      size="sm"
+      tone={config.tone}
     >
       {config.label}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const config = {
-    active: { label: 'Active', bg: 'var(--accent-transparent)', fg: 'var(--accent)' },
-    pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
-    completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
-    failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
-  }[status];
-
-  return (
-    <span
-      style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-      }}
-    >
-      {config.label}
-    </span>
+    </Badge>
   );
 }
 
@@ -155,7 +114,6 @@ export default function VaultCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <UrgencyBadge tier={urgency} />
-          <StatusBadge status={status} />
           <StatusChip status={status} size="sm" label={status === 'pending_validation' ? 'Pending' : undefined} />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
