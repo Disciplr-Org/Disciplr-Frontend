@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text';
 import VaultCard from '../components/VaultCard';
+import { getAtRiskVaults } from '../utils/atRiskVaults';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
@@ -55,7 +56,7 @@ const VAULTS: VaultPreview[] = [
     currency: "USDC",
     status: "pending_validation",
     progressPct: 78,
-    deadline: "2024-05-20T10:00:00Z",
+    deadline: "2024-07-01T10:00:00Z",
   },
   {
     id: "3",
@@ -286,6 +287,7 @@ function SectionHeader({
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const hasVaults = VAULTS.length > 0;
+  const atRiskVaults = getAtRiskVaults(VAULTS);
 
   return (
     <div
@@ -411,6 +413,30 @@ export default function Dashboard() {
               padding: "1.25rem",
             }}
           >
+            {atRiskVaults.length > 0 && (
+              <>
+                <SectionHeader
+                  title="At Risk"
+                  action="View all →"
+                  to="/vaults"
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+                  {atRiskVaults.map(v => (
+                    <VaultCard
+                      key={v.id}
+                      id={v.id}
+                      name={v.name}
+                      amount={v.amount}
+                      currency={v.currency}
+                      status={v.status}
+                      deadline={v.deadline}
+                      progressPct={v.progressPct}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
             <SectionHeader
               title="Active Vaults"
               action="View all →"
