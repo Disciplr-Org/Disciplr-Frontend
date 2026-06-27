@@ -44,6 +44,10 @@ export function horizonUrl(network: WalletNetwork) {
     return HORIZON_URLS[network];
 }
 
+function isFiniteDecimalString(value: unknown): value is string {
+    return typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value) && Number.isFinite(Number(value));
+}
+
 export async function fetchUsdcBalance(
     address: string,
     network: WalletNetwork,
@@ -75,6 +79,10 @@ export async function fetchUsdcBalance(
             balanceLine.asset_code === 'USDC' &&
             balanceLine.asset_issuer === issuer,
     );
+
+    if (usdcBalance && !isFiniteDecimalString(usdcBalance.balance)) {
+        throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon USDC balance was not a finite numeric string.');
+    }
 
     return {
         balance: usdcBalance?.balance ?? '0.00',

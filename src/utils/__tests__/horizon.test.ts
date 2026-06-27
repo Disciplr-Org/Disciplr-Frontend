@@ -8,6 +8,14 @@ function mockResponse(status: number, body: unknown) {
     } as unknown as Response;
 }
 
+const malformedBalanceCases: Array<[string, unknown]> = [
+    ['non-numeric text', 'not-a-balance'],
+    ['NaN-like text', 'NaN'],
+    ['infinite text', 'Infinity'],
+    ['exponent notation', '1e4'],
+    ['missing field', undefined],
+];
+
 describe('horizon wallet balance helpers', () => {
     test('returns the Horizon URL for each supported network', () => {
         expect(horizonUrl('TESTNET')).toBe('https://horizon-testnet.stellar.org');
@@ -85,4 +93,27 @@ describe('horizon wallet balance helpers', () => {
             code: 'INVALID_RESPONSE',
         });
     });
+
+    test.each(malformedBalanceCases)(
+        'throws an invalid-response error for %s USDC balance values',
+        async (_caseName: string, malformedBalance: unknown) => {
+            const fetcher = vi.fn().mockResolvedValue(
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDC_ISSUERS.PUBLIC,
+                            balance: malformedBalance,
+                        },
+                    ],
+                }),
+            );
+
+            await expect(fetchUsdcBalance('GBAD_BALANCE', 'PUBLIC', fetcher)).rejects.toMatchObject({
+                code: 'INVALID_RESPONSE',
+                message: 'Horizon USDC balance was not a finite numeric string.',
+            });
+        },
+    );
 });
