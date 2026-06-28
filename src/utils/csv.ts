@@ -3,6 +3,7 @@ import type { Transaction } from '../pages/VaultTransactions';
 
 const TASK_HEADERS: string[] = ['ID', 'Status', 'Vault Name', 'Owner', 'Amount', 'Deadline', 'Milestone', 'Notes'];
 const TX_HEADERS: string[] = ['ID', 'Type', 'Vault', 'Amount (XLM)', 'Fee (XLM)', 'Status', 'Timestamp', 'Hash', 'Block', 'From', 'To', 'Memo'];
+const NON_FINITE_NUMERIC_PLACEHOLDER = '0';
 
 function escapeCell(value: string): string {
   if (value.length > 0 && /^[=+\-@\t\r]/.test(value)) {
@@ -12,6 +13,32 @@ function escapeCell(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+}
+
+/** Canonical dot-decimal string for CSV amount/fee cells; non-finite values become a safe placeholder. */
+function normalizeNumericCell(value: unknown): string {
+  if (value === null || value === undefined) {
+    return NON_FINITE_NUMERIC_PLACEHOLDER;
+  }
+
+  let numeric: number;
+  if (typeof value === 'number') {
+    numeric = value;
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return NON_FINITE_NUMERIC_PLACEHOLDER;
+    }
+    numeric = Number(trimmed.replace(/,/g, ''));
+  } else {
+    return NON_FINITE_NUMERIC_PLACEHOLDER;
+  }
+
+  if (!Number.isFinite(numeric)) {
+    return NON_FINITE_NUMERIC_PLACEHOLDER;
+  }
+
+  return Object.is(numeric, -0) ? '0' : numeric.toString();
 }
 
 function taskToRow(task: ValidationTask): string {
@@ -33,8 +60,8 @@ function txToRow(tx: Transaction): string {
     tx.id,
     tx.type,
     tx.vault,
-    String(tx.amount),
-    String(tx.fee),
+    normalizeNumericCell(tx.amount),
+    normalizeNumericCell(tx.fee),
     tx.status,
     tx.timestamp instanceof Date ? tx.timestamp.toISOString() : String(tx.timestamp),
     tx.hash,
@@ -75,4 +102,3 @@ export function downloadCsv(csv: string, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-
