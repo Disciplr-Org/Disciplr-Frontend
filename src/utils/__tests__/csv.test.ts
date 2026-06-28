@@ -134,6 +134,63 @@ describe('toCsv', () => {
     expect(result).toContain('"Initial, deposit"');
   });
 
+  describe('transaction numeric normalization', () => {
+    const baseTx = (overrides: Record<string, unknown> = {}) => ({
+      id: 'tx-001',
+      type: 'create' as const,
+      vault: 'Alpha',
+      amount: 100,
+      fee: 0.0001,
+      status: 'confirmed' as const,
+      timestamp: new Date('2026-01-01T00:00:00.000Z'),
+      hash: 'hash123',
+      block: 12345,
+      from: 'G1',
+      to: 'G2',
+      memo: '',
+      ...overrides,
+    });
+
+    it('replaces NaN amount with a safe placeholder before escaping', () => {
+      const result = toCsv([baseTx({ amount: NaN })], 'transactions');
+      expect(result).toContain(',0,0.0001,');
+      expect(result).not.toContain('NaN');
+    });
+
+    it('replaces Infinity fee with a safe placeholder', () => {
+      const result = toCsv([baseTx({ fee: Infinity })], 'transactions');
+      expect(result).toContain(',100,0,');
+      expect(result).not.toContain('Infinity');
+    });
+
+    it('preserves negative numeric amounts', () => {
+      const result = toCsv([baseTx({ amount: -50.5 })], 'transactions');
+      expect(result).toContain(',-50.5,0.0001,');
+    });
+
+    it('normalizes locale-grouped string amounts to dot-decimal', () => {
+      const result = toCsv([baseTx({ amount: '1,234.56' })], 'transactions');
+      expect(result).toContain(',1234.56,0.0001,');
+    });
+
+    it('exports very large numbers without grouping separators', () => {
+      const result = toCsv([baseTx({ amount: 1_000_000_000.25 })], 'transactions');
+      expect(result).toContain('1000000000.25');
+      expect(result).not.toMatch(/1,000,000,000/);
+    });
+
+    it('normalizes malicious string amounts before formula escaping', () => {
+      const result = toCsv([baseTx({ amount: '@SUM(A1:A9)' })], 'transactions');
+      expect(result).not.toContain('@SUM');
+      expect(result).toContain(',0,0.0001,');
+    });
+
+    it('normalizes null and undefined fees to the placeholder', () => {
+      const result = toCsv([baseTx({ fee: null, amount: undefined })], 'transactions');
+      expect(result).toContain(',0,0,');
+    });
+  });
+
   describe('CSV injection mitigation', () => {
     it('escapes cells starting with =', () => {
       const task = baseTask({ vaultName: '=cmd' });
