@@ -37,7 +37,7 @@ Routes mounted in `src/App.tsx`:
 | `/` | `Home` | Landing overview and vault entry points |
 | `/dashboard` | `Dashboard` | Vault and activity dashboard |
 | `/vaults` | `Vaults` | Vault listing and state handling |
-| `/vaults/create` | `CreateVault` | Vault creation form |
+| `/vaults/create` | `CreateVault` | Vault creation form — see [`docs/CREATE_VAULT_VALIDATION.md`](docs/CREATE_VAULT_VALIDATION.md) for the full validation contract |
 | `/vaults/:id` | `VaultDetail` | Milestones, addresses, status, and transactions for one vault |
 | `/vaults/:id/transactions` | `VaultTransactions` | Transaction filters, summaries, and export actions |
 | `/verifier` | `VerifierDashboard` | Verifier overview |
@@ -242,6 +242,8 @@ disciplr-frontend/
 - Keep token and validator documentation aligned with the `design-system/`
   package.
 - Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md) and [Store.ts](src/Zustand/Store.ts).
+- Keep vault validation rules aligned with
+  [docs/CREATE_VAULT_VALIDATION.md](docs/CREATE_VAULT_VALIDATION.md).
 
 ## Contributing
 
