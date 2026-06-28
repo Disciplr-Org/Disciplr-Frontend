@@ -31,17 +31,22 @@ components to the design system.
 
 ## Security: Token File Loading
 
-`loadTokens(tokenFile)` in `design-system/src/utils/token-loader.ts` confines
-all file reads to the `tokens/` directory:
+`loadTokens(tokenFile)` and `getAllTokens()` in
+`design-system/src/utils/token-loader.ts` confine all file reads to the
+`tokens/` directory using:
 
-- The argument must be a plain basename (no `/`, `\`, or leading dots) with a
-  `.json` extension; anything else throws immediately.
-- The resolved path is asserted to remain inside `path.resolve(cwd, 'tokens')`
-  before the file is opened; a mismatch throws a `Path traversal detected`
-  error.
+- A **basename-only regex** — the argument must contain no `/` or `\` and must
+  end with `.json`; anything else throws `Invalid token file name`.
+- A **within-`tokens/` resolution guard** — the resolved absolute path must
+  start with `path.resolve(cwd, 'tokens') + path.sep`; a mismatch throws
+  `Path traversal detected`.
 
-Pass only static, trusted names (e.g. `'colors.json'`). Never derive the
-`tokenFile` argument from user-supplied or untrusted input.
+Pass only static, trusted names (e.g. `'colors.json'`). Never derive
+`tokenFile` from user-supplied or untrusted input.
+
+For the full loader contract, failure-mode table, worked examples, and guidance
+on adding a new file to the `getAllTokens` aggregator, see
+[**Token Loader Contract**](./token-loader.md).
 
 ## Validation Entry Points
 
