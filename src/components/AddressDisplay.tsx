@@ -1,20 +1,13 @@
 import { useState } from 'react';
+import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
 import { isValidStellarAddress } from '../utils/stellarAddress';
 
 interface AddressDisplayProps {
     address: string;
-    /** Controls the explorer network path. Omit to hide the explorer link. */
     network?: WalletNetwork | null;
-    /** Characters to keep at the head of the truncated display. Default 6. */
     chars?: number;
-    /** Characters to keep at the tail of the truncated display. Default 4. */
     tailChars?: number;
-}
-
-function truncate(addr: string, head: number, tail: number): string {
-    if (addr.length <= head + tail + 3) return addr;
-    return `${addr.slice(0, head)}...${addr.slice(-tail)}`;
 }
 
 export function AddressDisplay({
@@ -24,9 +17,8 @@ export function AddressDisplay({
     tailChars = 4,
 }: AddressDisplayProps) {
     const [copied, setCopied] = useState(false);
-
     const isValid = isValidStellarAddress(address);
-    const display = truncate(address, chars, tailChars);
+    const display = truncateMiddle(address, chars, tailChars);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {
@@ -55,35 +47,29 @@ export function AddressDisplay({
             >
                 {display}
             </span>
-
             <button
                 type="button"
                 onClick={copy}
                 title="Copy address"
                 aria-label={copied ? 'Copied' : 'Copy address'}
                 style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
+                    background: 'none', border: 'none', cursor: 'pointer',
                     color: copied ? 'var(--success)' : 'var(--muted)',
-                    padding: '0 2px',
-                    fontSize: 13,
-                    lineHeight: 1,
+                    padding: '0 2px', fontSize: 13, lineHeight: 1,
                 }}
             >
-                {copied ? '✓' : '⎘'}
+                {copied ? 'âœ“' : 'âŽ˜'}
             </button>
 
             {network != null && isValid && (
                 <a
                     href={`${explorerBase}/${address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target="_blank" rel="noopener noreferrer"
                     title="View on Stellar Expert"
                     aria-label={`View ${address} on Stellar Expert`}
                     style={{ color: 'var(--accent)', fontSize: 12, lineHeight: 1 }}
                 >
-                    ↗
+                    â†—
                 </a>
             )}
         </span>
