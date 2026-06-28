@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import FocusTrap from 'focus-trap-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from './Modal';
 import { X, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
@@ -55,23 +54,12 @@ export function ConfirmationModal({
   const isConfirmDisabled = !decision || (decision === 'reject' && !notes.trim());
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <FocusTrap focusTrapOptions={{ allowOutsideClick: true, escapeDeactivates: true, onDeactivate: onClose }}>
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-title"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabelledBy="modal-title"
+    >
+      {/* Header */}
               <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
                 <Text role="title" as="h2" id="modal-title" className="text-gray-900 dark:text-white">
                   Confirm Validation
@@ -211,10 +199,6 @@ export function ConfirmationModal({
                   Confirm {decision ? (decision.charAt(0).toUpperCase() + decision.slice(1)) : ''}
                 </button>
               </div>
-            </motion.div>
-          </div>
-        </FocusTrap>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }

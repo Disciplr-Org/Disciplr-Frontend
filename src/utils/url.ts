@@ -12,7 +12,15 @@ export function normalizeEvidenceUrl(value: string): string | null {
 
   try {
     const parsed = new URL(trimmed)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : null
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    // Reject userinfo-bearing URLs (e.g. https://trusted.com@evil.com) — a
+    // common credential/phishing vector that hides the real host.
+    if (parsed.username || parsed.password) {
+      return null
+    }
+    return trimmed
   } catch {
     return null
   }

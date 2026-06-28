@@ -27,6 +27,11 @@ export function filterPending(
   options: FilterOptions = {},
 ): PendingTask[] {
   const { query = '', milestone = '' } = options;
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (query && !normalizedQuery) {
+    return [];
+  }
 
   return tasks.filter((task) => {
     // Filter by milestone if provided
@@ -35,8 +40,7 @@ export function filterPending(
     }
 
     // Filter by search query if provided (case-insensitive match on vaultName or owner)
-    if (query) {
-      const normalizedQuery = query.toLowerCase().trim();
+    if (normalizedQuery) {
       const vaultNameMatch = task.vaultName.toLowerCase().includes(normalizedQuery);
       const ownerMatch = task.owner.toLowerCase().includes(normalizedQuery);
 

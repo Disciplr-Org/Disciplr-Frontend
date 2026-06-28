@@ -11,7 +11,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
   ({ label, hint, error, id, required, ...props }, ref) => {
   const fieldId = id || `field-${label.toLowerCase().replace(/\s+/g, '-')}`
   const errorId = error ? `${fieldId}-error` : undefined
-  const hintId = hint ? `${fieldId}-hint` : undefined
+  const hintId = hint && !error ? `${fieldId}-hint` : undefined
   const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined
 
   return (
@@ -32,7 +32,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
         required={required}
         aria-label={label}
         aria-describedby={describedBy}
-        aria-invalid={!!error}
+        aria-invalid={error ? 'true' : undefined}
         style={{
           width: '100%',
           padding: '0.75rem',

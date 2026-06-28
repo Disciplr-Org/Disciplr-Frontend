@@ -13,3 +13,18 @@ describe('spacing token container ramp', () => {
     });
   });
 });
+
+describe('z-index token layering scale', () => {
+  it('loads z-index tokens from z-index.json', () => {
+    const tokens = loadTokens('z-index.json');
+
+    expect(tokens).toHaveProperty('zIndex');
+    expect(tokens.zIndex).toMatchObject({
+      base: { $value: 0 },
+      header: { $value: 100 },
+      drawer: { $value: 200 },
+      modal: { $value: 300 },
+      toast: { $value: 400 },
+    });
+  });
+});

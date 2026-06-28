@@ -18,6 +18,15 @@ describe('Field component', () => {
     expect(screen.getByText('This is an error')).toBeInTheDocument()
     const input = screen.getByLabelText('Test Label')
     expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input).toHaveAttribute('aria-describedby', 'field-test-label-error')
+  })
+
+  test('does not reference a hidden hint when an error is shown', () => {
+    render(<Field label="Test Label" hint="This is a hint" error="This is an error" />)
+
+    const input = screen.getByLabelText('Test Label')
+    expect(screen.queryByText('This is a hint')).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-describedby', 'field-test-label-error')
   })
 
   test('renders required indicator', () => {

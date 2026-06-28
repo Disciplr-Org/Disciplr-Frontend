@@ -17,8 +17,7 @@ export function AddressDisplay({
     tailChars = 4,
 }: AddressDisplayProps) {
     const [copied, setCopied] = useState(false);
-    const isValid = isValidStellarAddress(address);
-    const display = truncateMiddle(address, chars, tailChars);
+
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {
@@ -60,6 +59,7 @@ export function AddressDisplay({
             >
                 {copied ? 'âœ“' : 'âŽ˜'}
             </button>
+
             {network != null && isValid && (
                 <a
                     href={`${explorerBase}/${address}`}

@@ -1,12 +1,14 @@
-import { Link } from 'react-router-dom'
-import { Text } from '../components/Text';
-import VaultCard from '../components/VaultCard';
+import { Link } from "react-router-dom";
+import { Text } from "../components/Text";
+import VaultCard from "../components/VaultCard";
+import UpcomingDeadlines from "../components/UpcomingDeadlines";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { useMemo } from 'react';
-import * as dashboardUtils from '../utils/dashboard';
-import type { VaultPreview, Activity, Deadline } from '../utils/dashboard';
-import type { VaultStatus } from '../types/vault';
+import { useState, useEffect, useMemo } from "react";
+import * as dashboardUtils from "../utils/dashboard";
+import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
+import type { VaultStatus } from "../types/vault";
+import { listVaults } from "../services/vaultService";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 const SUMMARY = {
@@ -15,36 +17,7 @@ const SUMMARY = {
   pendingMilestones: 2,
   completionRate: 67,
 };
-
-const VAULTS: VaultPreview[] = [
-  {
-    id: "1",
-    name: "Alpha Vault",
-    amount: 12500,
-    currency: "USDC",
-    status: "active",
-    progressPct: 42,
-    deadline: "2024-07-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Beta Reserve",
-    amount: 8800,
-    currency: "USDC",
-    status: "pending_validation",
-    progressPct: 78,
-    deadline: "2024-05-20T10:00:00Z",
-  },
-  {
-    id: "3",
-    name: "Gamma Fund",
-    amount: 4200,
-    currency: "USDC",
-    status: "active",
-    progressPct: 25,
-    deadline: "2024-09-01T10:00:00Z",
-  },
-];
+// VAULTS removed — now loaded async from vaultService (see Dashboard component).
 
 const ACTIVITY: Activity[] = [
   {
@@ -142,6 +115,14 @@ const ACTIVITY_CFG: Record<
 };
 
 // Pure formatting functions have been extracted to src/utils/dashboard.ts
+
+/** Same calculation as VaultDetail.tsx’s timelineProgress. */
+function timelineProgress(created: string, deadline: string): number {
+  const start = new Date(created).getTime();
+  const end = new Date(deadline).getTime();
+  const now = Date.now();
+  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 function SummaryCard({
@@ -250,20 +231,43 @@ function SectionHeader({
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard({
   summary = SUMMARY,
-  vaults = VAULTS,
   activity = ACTIVITY,
   deadlines = DEADLINES,
 }: {
   summary?: typeof SUMMARY;
-  vaults?: VaultPreview[];
   activity?: Activity[];
   deadlines?: Deadline[];
 } = {}) {
+  const [vaults, setVaults] = useState<VaultPreview[]>([]);
+  const [vaultsLoading, setVaultsLoading] = useState(true);
+
+  useEffect(() => {
+    listVaults().then((loaded) => {
+      setVaults(
+        loaded.map((v) => ({
+          id: v.id,
+          name: v.name,
+          amount: v.amount,
+          currency: v.currency,
+          status: v.status as VaultStatus,
+          deadline: v.deadline,
+          progressPct: timelineProgress(v.createdAt, v.deadline),
+        }))
+      );
+      setVaultsLoading(false);
+    });
+  }, []);
+
   const hasVaults = vaults.length > 0;
 
-  const memoizedSummary = useMemo(() => dashboardUtils.formatSummary(summary), [summary]);
-  const memoizedDeadlines = useMemo(() => dashboardUtils.processDeadlines(deadlines), [deadlines]);
-  const memoizedActivity = useMemo(() => dashboardUtils.processActivity(activity), [activity]);
+  const memoizedSummary = useMemo(
+    () => dashboardUtils.formatSummary(summary),
+    [summary],
+  );
+  const memoizedActivity = useMemo(
+    () => dashboardUtils.processActivity(activity),
+    [activity],
+  );
 
   return (
     <div
@@ -394,9 +398,19 @@ export default function Dashboard({
               action="View all →"
               to="/vaults"
             />
-            {hasVaults ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {vaults.map(v => (
+            {vaultsLoading ? (
+              <div style={{ textAlign: "center", padding: "2rem", color: "var(--muted)" }}>
+                <Text role="caption" as="div">Loading vaults…</Text>
+              </div>
+            ) : hasVaults ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {vaults.map((v) => (
                   <VaultCard
                     key={v.id}
                     id={v.id}
@@ -533,79 +547,7 @@ export default function Dashboard({
         <div
           style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
         >
-          {/* Upcoming Deadlines */}
-          <div
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius)",
-              padding: "1.25rem",
-            }}
-          >
-            <SectionHeader title="Upcoming Deadlines" />
-            {memoizedDeadlines.length === 0 ? (
-              <Text role="caption" as="div" style={{ color: "var(--muted)" }}>
-                No upcoming deadlines.
-              </Text>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
-                }}
-              >
-                {memoizedDeadlines.map((d) => {
-                  return (
-                    <div
-                      key={d.id}
-                      style={{
-                        background: "var(--bg)",
-                        border: `1px solid var(--border)`,
-                        borderLeft: `3px solid ${d.urgencyColor}`,
-                        borderRadius: "var(--radius)",
-                        padding: "0.75rem",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <Text
-                          role="caption"
-                          as="div"
-                          style={{ fontWeight: 600 }}
-                        >
-                          {d.name}
-                        </Text>
-                        <span
-                          style={{
-                            color: d.urgencyColor,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {d.formattedDays}
-                        </span>
-                      </div>
-                      <Text
-                        role="caption"
-                        as="div"
-                        style={{ color: "var(--muted)", marginTop: 2 }}
-                      >
-                        {d.formattedAmount} · {d.formattedDate}
-                      </Text>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <UpcomingDeadlines deadlines={deadlines} />
 
           {/* Success Rate Chart (sparkline bars) */}
           <div

@@ -1,8 +1,24 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VaultTransactions, { Transaction } from '../VaultTransactions';
 import { toCsv, downloadCsv } from '../../utils/csv';
 import { WINDOW_SIZE, WINDOW_THRESHOLD } from '../../utils/windowRange';
+import * as windowRangeMod from '../../utils/windowRange';
+import * as txTotalsMod from '../../utils/txTotals';
+
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }),
+});
 
 vi.mock('../../utils/csv', () => ({
   toCsv: vi.fn((_data, _type) => 'mocked,csv,content'),
@@ -224,16 +240,17 @@ describe('VaultTransactions', () => {
     it('clear button appears when a filter is applied', () => {
       renderPage();
       expect(screen.queryByRole('button', { name: /Clear/i })).not.toBeInTheDocument();
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: 'create' } });
+      const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+      fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
       expect(screen.getByRole('button', { name: /Clear/i })).toBeInTheDocument();
     });
 
     it('clearing filters removes the clear button', () => {
       renderPage();
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: 'create' } });
-      fireEvent.click(screen.getByRole('button', { name: /Clear/i }));
+      const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+      fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+      const clearButtons = screen.getAllByRole('button', { name: /Clear/i });
+      fireEvent.click(clearButtons[0]);
       expect(screen.queryByRole('button', { name: /Clear/i })).not.toBeInTheDocument();
     });
   });
@@ -291,7 +308,8 @@ describe('VaultTransactions', () => {
       fireEvent.click(rows[0]);
       // tx8 full hash
       const fullHash = 'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3';
-      expect(screen.getByText(fullHash)).toBeInTheDocument();
+      const modal = document.querySelector('.vt-modal') as HTMLElement;
+      expect(within(modal).getByText(fullHash)).toBeInTheDocument();
     });
   });
 
@@ -301,7 +319,7 @@ describe('VaultTransactions', () => {
       const { container } = render(<VaultTransactions />);
       const selects = container.querySelectorAll('.vt-select');
       // Third select is the status filter
-      fireEvent.change(selects[2], { target: { value: 'confirmed' } });
+      fireEvent.change(selects[1], { target: { value: 'confirmed' } });
 
       // Pending and Failed sections should disappear
       expect(screen.queryByRole('table', { name: /Pending transactions/i })).not.toBeInTheDocument();
@@ -343,17 +361,24 @@ describe('VaultTransactions with small list', () => {
     expect(document.querySelector('.vt-window-banner')).toBeNull();
   });
 
-  it('filters by transaction type', () => {
+  it('filters by transaction type via chip buttons', () => {
     render(<VaultTransactions />);
-    const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[0], { target: { value: 'create' } });
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    // Deselect "Create" by clicking it → remaining rows = 7 (all non-Create)
+    fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+    expect(document.querySelectorAll('.vt-tx-row').length).toBe(7);
+    // Re-select "Create" and deselect everything else
+    fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Validate').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Release').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Redirect').closest('button')!);
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(3);
   });
 
   it('filters by vault', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[1], { target: { value: 'Alpha Vault' } });
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(4);
   });
 
@@ -386,7 +411,7 @@ describe('VaultTransactions with small list', () => {
   it('shows filters and clear button resets them', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[0], { target: { value: 'create' } });
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(screen.getByText('Clear')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Clear'));
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(10);
@@ -402,7 +427,7 @@ describe('VaultTransactions with small list', () => {
   it('filters by status via select', () => {
     render(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
-    fireEvent.change(selects[2], { target: { value: 'pending' } });
+    fireEvent.change(selects[1], { target: { value: 'pending' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(2);
   });
 
@@ -413,6 +438,97 @@ describe('VaultTransactions with small list', () => {
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.length).toBeLessThan(10);
+  });
+
+  // ── Type filter toolbar chips ─────────────────────────────────────
+  it('renders the type filter toolbar with All and per-type chips', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    expect(toolbar).toBeInTheDocument();
+
+    expect(within(toolbar).getByText('All')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Create')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Validate')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Release')).toBeInTheDocument();
+    expect(within(toolbar).getByText('Redirect')).toBeInTheDocument();
+  });
+
+  function getAllChip() {
+    return screen.getByRole('group', { name: /filter by transaction type/i })
+      .querySelector('button')!;
+  }
+
+  it('chip counts reflect the visible (filtered) set — All chip shows total', () => {
+    render(<VaultTransactions />);
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('10');
+  });
+
+  it('type chip counts update when vault filter is applied', () => {
+    render(<VaultTransactions />);
+    const selects = document.querySelectorAll('.vt-select');
+    fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('4');
+  });
+
+  it('type chip counts update when status filter is applied', () => {
+    render(<VaultTransactions />);
+    const selects = document.querySelectorAll('.vt-select');
+    fireEvent.change(selects[1], { target: { value: 'pending' } });
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('2');
+  });
+
+  it('the "All" chip is aria-pressed when all types are selected', () => {
+    render(<VaultTransactions />);
+    const allBtn = getAllChip();
+    expect(allBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('deselecting a type removes it from visible rows and updates chip count', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(10);
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(7);
+    const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
+    expect(countEl.textContent).toBe('7');
+  });
+
+  it('re-selecting a type restores it to visible rows', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(7);
+    fireEvent.click(createBtn);
+    expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(10);
+  });
+
+  // ── Totals strip ──────────────────────────────────────────────────
+  it('renders the totals strip with count, amount and fees for visible set', () => {
+    render(<VaultTransactions />);
+    expect(screen.getByText(/10 transactions/i)).toBeInTheDocument();
+    expect(screen.getByText(/Amount:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fees:/i)).toBeInTheDocument();
+    expect(document.querySelector('.vt-totals-strip')).toBeInTheDocument();
+  });
+
+  it('totals strip updates when a type filter is applied', () => {
+    render(<VaultTransactions />);
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    const createBtn = within(toolbar).getByText('Create').closest('button')!;
+    fireEvent.click(createBtn);
+    expect(screen.getByText(/7 transactions/i)).toBeInTheDocument();
+  });
+
+  it('totals strip is hidden when filtered list is empty', () => {
+    render(<VaultTransactions />);
+    const allBtn = getAllChip();
+    fireEvent.click(allBtn);
+    expect(document.querySelector('.vt-totals-strip')).toBeNull();
   });
 });
 
@@ -525,6 +641,38 @@ describe('VaultTransactions large fixture integration', () => {
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBe(10);
   });
+
+  it('memoizes derivations so unrelated state changes do not re-run filter/total pipeline', () => {
+    const windowSpy = vi.spyOn(windowRangeMod, 'windowRange');
+    const totalsSpy = vi.spyOn(txTotalsMod, 'computeTxTotals');
+    
+    render(<VaultTransactions />);
+    
+    const initialWindowCalls = windowSpy.mock.calls.length;
+    const initialTotalsCalls = totalsSpy.mock.calls.length;
+    
+    expect(initialWindowCalls).toBeGreaterThan(0);
+    expect(initialTotalsCalls).toBeGreaterThan(0);
+    
+    // Click a row to set selectedTx (unrelated state)
+    const rows = document.querySelectorAll('.vt-tx-row');
+    fireEvent.click(rows[0]);
+    
+    expect(document.querySelector('.vt-modal')).toBeInTheDocument();
+    
+    expect(windowSpy.mock.calls.length).toBe(initialWindowCalls);
+    expect(totalsSpy.mock.calls.length).toBe(initialTotalsCalls);
+    
+    // Changing a filter should re-run derivations
+    const searchInput = screen.getByPlaceholderText(/search by transaction hash/i);
+    fireEvent.change(searchInput, { target: { value: 'a3f9' } });
+    
+    expect(windowSpy.mock.calls.length).toBeGreaterThan(initialWindowCalls);
+    expect(totalsSpy.mock.calls.length).toBeGreaterThan(initialTotalsCalls);
+    
+    windowSpy.mockRestore();
+    totalsSpy.mockRestore();
+  });
 });
 
 describe('CSV Export', () => {
@@ -556,8 +704,11 @@ describe('CSV Export', () => {
     renderPage();
     
     // Filter by type "create" (which has 3 items)
-    const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[0], { target: { value: 'create' } });
+    const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
+    // Deselect all non-create types, leaving only "Create" selected
+    fireEvent.click(within(toolbar).getByText('Validate').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Release').closest('button')!);
+    fireEvent.click(within(toolbar).getByText('Redirect').closest('button')!);
 
     const exportBtn = screen.getByRole('button', { name: /Export CSV/i });
     fireEvent.click(exportBtn);

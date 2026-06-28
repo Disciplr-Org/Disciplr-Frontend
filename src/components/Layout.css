@@ -168,12 +168,21 @@
   outline-offset: 2px;
 }
 
+.mobile-bell-wrapper {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .mobile-hamburger {
     display: inline-flex;
   }
   .desktop-nav {
     display: none !important;
+  }
+  .mobile-bell-wrapper {
+    display: inline-flex;
+    align-items: center;
+    margin-right: var(--spacing-2);
   }
 }
 
@@ -192,7 +201,7 @@
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: var(--z-index-drawer);
   display: flex;
 }
 

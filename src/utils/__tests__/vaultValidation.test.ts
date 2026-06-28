@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  exceedsBalance,
   isFutureDeadline,
   isValidStellarAddress,
   isValidUsdcAmount,
@@ -81,5 +82,36 @@ describe('vaultValidation', () => {
         now,
       ),
     ).toEqual({});
+  });
+});
+
+describe('exceedsBalance', () => {
+  it('returns true when amount is greater than balance', () => {
+    expect(exceedsBalance('200', '100')).toBe(true);
+  });
+
+  it('returns false when amount equals balance', () => {
+    expect(exceedsBalance('100', '100')).toBe(false);
+  });
+
+  it('returns false when amount is less than balance', () => {
+    expect(exceedsBalance('50', '100')).toBe(false);
+  });
+
+  it('returns false when balance is null (unknown)', () => {
+    expect(exceedsBalance('100', null)).toBe(false);
+  });
+
+  it('returns false when amount is not a finite number', () => {
+    expect(exceedsBalance('abc', '100')).toBe(false);
+  });
+
+  it('returns false when balance is not a finite number', () => {
+    expect(exceedsBalance('100', 'abc')).toBe(false);
+  });
+
+  it('handles decimal amounts correctly', () => {
+    expect(exceedsBalance('100.01', '100')).toBe(true);
+    expect(exceedsBalance('99.99', '100')).toBe(false);
   });
 });

@@ -1,5 +1,26 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
+// In‑memory fallback when localStorage fails
+let memoryTheme: Theme | null = null;
+
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch (_) {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (_) {
+    // ignore storage errors
+  }
+  memoryTheme = value as Theme;
+}
+
+
 type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
@@ -19,8 +40,10 @@ function getSystemTheme(): Theme {
 
 function getStoredTheme(): Theme | null {
   if (typeof window === 'undefined') return null;
-  const stored = localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === 'light' || stored === 'dark' ? stored : null;
+  const stored = safeGetItem(THEME_STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark') return stored as Theme;
+  // fallback to in-memory theme if storage unavailable
+  return memoryTheme;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -31,10 +54,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
+  const root = document.documentElement;
+  root.setAttribute('data-theme', theme);
+  safeSetItem(THEME_STORAGE_KEY, theme);
+}, [theme]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -53,8 +76,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-  };
+  setThemeState(newTheme);
+  safeSetItem(THEME_STORAGE_KEY, newTheme);
+};
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>

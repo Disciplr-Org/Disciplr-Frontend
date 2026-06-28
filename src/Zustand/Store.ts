@@ -157,3 +157,5 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     ids.forEach(id => get().rejectValidation(id, notes));
   }
 }));
+
+export * from "./notificationPreferences";

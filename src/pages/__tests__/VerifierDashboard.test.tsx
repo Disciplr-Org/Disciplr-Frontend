@@ -84,14 +84,15 @@ describe('VerifierDashboard', () => {
 
   it('renders stat cards with correct values', () => {
     renderPage();
-    expect(screen.getByText('Total Assigned')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
 
-    expect(screen.getByText('Pending Validations')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    const totalAssignedCard = screen.getByText('Total Assigned').parentElement;
+    expect(totalAssignedCard).toHaveTextContent('3');
 
-    expect(screen.getByText('Completed')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    const pendingCard = screen.getByText('Pending Validations').parentElement;
+    expect(pendingCard).toHaveTextContent('2');
+
+    const completedCard = screen.getByText('Completed').parentElement;
+    expect(completedCard).toHaveTextContent('1');
   });
 
   it('renders View Pending Queue button that navigates to /verifier/queue', () => {

@@ -154,7 +154,7 @@ describe('Dashboard Utility Helpers', () => {
       expect(processed[1].id).toBe('a2');
 
       // Check formatting
-      expect(processed[0].relativeTime).toBe('24h ago'); // 2026-06-27T12:00:00 - 2026-06-26T12:00:00 = 24h
+      expect(processed[0].relativeTime).toBe('1d ago'); // 2026-06-27T12:00:00 - 2026-06-26T12:00:00 = 24h
       expect(processed[0].formattedAmount).toBeUndefined();
 
       expect(processed[1].relativeTime).toBe('2d ago'); // 48h

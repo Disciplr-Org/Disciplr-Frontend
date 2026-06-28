@@ -1,5 +1,4 @@
-import { act, render, screen, fireEvent } from '@testing-library/react';
-import { WalletSelectionModal } from '../WalletSelectionModal';
+import { vi, describe, beforeEach, test, expect } from 'vitest';
 
 const walletState = vi.hoisted(() => ({
     connect: vi.fn(),
@@ -7,9 +6,12 @@ const walletState = vi.hoisted(() => ({
     error: null as string | null,
 }));
 
-vi.mock('../../../context/WalletContext', () => ({
+vi.mock('@/context/WalletContext', () => ({
     useWallet: () => walletState,
 }));
+
+import { act, render, screen, fireEvent } from '@testing-library/react';
+import { WalletSelectionModal } from '../WalletSelectionModal';
 
 function renderModal(onClose = vi.fn()) {
     return { onClose, ...render(<WalletSelectionModal onClose={onClose} />) };

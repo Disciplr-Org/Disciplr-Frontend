@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   ANALYTICS_TOKEN_FALLBACKS,
@@ -123,8 +124,8 @@ describe('buildAnalyticsSeriesColors', () => {
 })
 
 describe('ANALYTICS_TOKEN_FALLBACKS', () => {
-  it('has values for all 12 token keys', () => {
-    expect(Object.keys(ANALYTICS_TOKEN_FALLBACKS)).toHaveLength(12)
+  it('has values for all 15 token keys', () => {
+    expect(Object.keys(ANALYTICS_TOKEN_FALLBACKS)).toHaveLength(15)
   })
 
   it('every value is a non-empty string', () => {

@@ -82,4 +82,59 @@ describe("MilestoneTracker", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
+
+  it("renders the empty message with aria-live polite and correct class", () => {
+    render(<MilestoneTracker milestones={[]} />);
+
+    const emptyMessage = screen.getByText(
+      "No milestones have been defined for this vault.",
+    );
+    expect(emptyMessage).toHaveAttribute("aria-live", "polite");
+    expect(emptyMessage).toHaveClass("milestone-tracker-empty");
+  });
+
+  it("assigns the correct CSS class per milestone status", () => {
+    render(<MilestoneTracker milestones={milestones} />);
+
+    const steps = screen.getAllByRole("listitem");
+    expect(steps[0]).toHaveClass("is-validated");
+    expect(steps[1]).toHaveClass("is-pending");
+    expect(steps[2]).toHaveClass("is-failed");
+  });
+
+  it("shows formatted validatedAt only for milestones that have it", () => {
+    render(<MilestoneTracker milestones={milestones} />);
+
+    const validatedTexts = screen.getAllByText(/Validated Feb 20, 2024/);
+    expect(validatedTexts).toHaveLength(1);
+
+    const pendingStep = screen.getByText("Beta Launch").closest("li")!;
+    expect(
+      pendingStep.querySelector(".milestone-tracker-validated-at"),
+    ).toBeNull();
+
+    const failedStep = screen.getByText("Production Audit").closest("li")!;
+    expect(
+      failedStep.querySelector(".milestone-tracker-validated-at"),
+    ).toBeNull();
+  });
+
+  it("renders evidence link only for milestones that have evidenceUrl", () => {
+    render(<MilestoneTracker milestones={milestones} />);
+
+    const evidenceLinks = screen.getAllByRole("link", {
+      name: "View evidence",
+    });
+    expect(evidenceLinks).toHaveLength(1);
+    expect(evidenceLinks[0]).toHaveAttribute(
+      "href",
+      "https://github.com/org/repo/pull/42",
+    );
+
+    const pendingStep = screen.getByText("Beta Launch").closest("li")!;
+    expect(pendingStep.querySelector("a")).toBeNull();
+
+    const failedStep = screen.getByText("Production Audit").closest("li")!;
+    expect(failedStep.querySelector("a")).toBeNull();
+  });
 });

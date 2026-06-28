@@ -345,7 +345,7 @@ describe('PendingValidations', () => {
       fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
 
       expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
       expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
     });
 
@@ -380,9 +380,8 @@ describe('PendingValidations', () => {
       fireEvent.change(searchInput, { target: { value: 'Gamma' } });
       fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
 
-      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
-      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
-      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
     });
 
     it('shows no results when search matches but milestone does not', () => {
@@ -410,8 +409,8 @@ describe('PendingValidations', () => {
   describe('select-all with filters', () => {
     it('select-all only selects filtered items', () => {
       renderPage();
-      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
-      fireEvent.change(searchInput, { target: { value: 'Phase 1' } });
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
 
       const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
       fireEvent.click(selectAllCheckbox);
@@ -429,7 +428,8 @@ describe('PendingValidations', () => {
 
       const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
       fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
-      expect((selectAllCheckbox as HTMLInputElement).checked).toBe(false);
+      expect(screen.queryByLabelText(/Select all validations/i)).not.toBeInTheDocument();
+      expect(screen.getByText('0 selected')).toBeInTheDocument();
     });
   });
 

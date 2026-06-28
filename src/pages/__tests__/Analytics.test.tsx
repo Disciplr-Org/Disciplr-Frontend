@@ -1,10 +1,9 @@
-﻿import React, { Suspense, lazy, act } from 'react'
+import React, { Suspense, lazy } from 'react'
 import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
-
-// â”€â”€ Browser API stubs (jsdom doesn't implement these) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+import Analytics, { analyticsPeriodData } from '../Analytics'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -21,8 +20,6 @@ beforeAll(() => {
     }),
   })
 })
-
-// â”€â”€ Heavy dep mocks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -68,8 +65,6 @@ vi.mock('../../context/ThemeContext', () => ({
   ThemeProvider: ({ children }: any) => <>{children}</>,
   useTheme: () => ({ theme: 'light', toggleTheme: () => {} }),
 }))
-
-// â”€â”€ Theme mapping tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const tokenFixture = {
   accent: 'accent-token',
@@ -118,12 +113,9 @@ export const analyticsThemeCoverage = [
   'axis/grid/tooltip colors map to neutral surface tokens',
 ]
 
-// â”€â”€ Lazy-route / Suspense tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 describe('Analytics lazy route', () => {
   it('Suspense renders skeleton fallback before chunk resolves', async () => {
     const LazyAnalytics = lazy(
-      // Delay the import so the fallback is visible during the test
       () => new Promise<{ default: React.ComponentType }>(resolve =>
         setTimeout(() => import('../Analytics').then(resolve), 50),
       ),
@@ -137,10 +129,7 @@ describe('Analytics lazy route', () => {
       </MemoryRouter>,
     )
 
-    // Skeleton must be present while chunk is loading
     expect(screen.getByTestId('skeleton')).toBeTruthy()
-
-    // Wait for the lazy chunk to settle and skeleton to disappear
     await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 2000 })
   })
 
@@ -155,30 +144,71 @@ describe('Analytics lazy route', () => {
       </MemoryRouter>,
     )
 
-    // After the chunk resolves the skeleton must be gone
     await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 2000 })
   })
 
   it('lazy-loads jsPDF on export and shows loading state', async () => {
-    // Import the component synchronously for this interaction test
-    const { default: Analytics } = await import('../Analytics')
+    const { default: LazyLoadedAnalytics } = await import('../Analytics')
 
     render(
       <MemoryRouter>
-        <Analytics />
+        <LazyLoadedAnalytics />
       </MemoryRouter>,
     )
 
     const pdfBtn = screen.getByRole('button', { name: /pdf report/i })
     expect(pdfBtn).toBeTruthy()
 
-    // Click should enter loading state
     fireEvent.click(pdfBtn)
     const loadingBtn = screen.getByRole('button', { name: /loading/i })
     expect(loadingBtn).toBeDisabled()
 
-    // After export completes the button should return to normal
-    await waitFor(() => expect(screen.getByRole('button', { name: /pdf report/i })).not.toBeDisabled(), { timeout: 2000 })
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /pdf report/i })).not.toBeDisabled(),
+      { timeout: 2000 },
+    )
+  })
+
+  it('shows the tokenized chart legend when comparison mode is enabled', async () => {
+    const { default: LazyLoadedAnalytics } = await import('../Analytics')
+
+    render(
+      <MemoryRouter>
+        <LazyLoadedAnalytics />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /compare periods/i }))
+
+    expect(screen.getAllByLabelText('Chart legend')).toHaveLength(2)
+    expect(screen.getByText('This Period %')).toHaveClass('text-caption')
+    expect(screen.getByText('Prev Period')).toBeInTheDocument()
+  })
+
+  it('shows a no-data placeholder for empty periods and restores charts when switching to populated periods', () => {
+    const original90d = analyticsPeriodData['90d']
+    analyticsPeriodData['90d'] = []
+
+    try {
+      render(
+        <MemoryRouter>
+          <Analytics />
+        </MemoryRouter>,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: '90d' }))
+
+      expect(screen.getAllByTestId('analytics-empty-state')).toHaveLength(3)
+      expect(screen.getAllByText('No data for this period (90d).')).toHaveLength(3)
+
+      fireEvent.click(screen.getByRole('button', { name: '30d' }))
+
+      expect(screen.queryByTestId('analytics-empty-state')).not.toBeInTheDocument()
+      expect(screen.getByText('Success Rate Over Time')).toBeInTheDocument()
+      expect(screen.getByText('Capital Locked Over Time')).toBeInTheDocument()
+      expect(screen.getByText('Milestone Completion Trend')).toBeInTheDocument()
+    } finally {
+      analyticsPeriodData['90d'] = original90d
+    }
   })
 })
-

@@ -2,6 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
+vi.mock("../../context/WalletContext", () => ({
+  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
+}));
+
+import { useWallet } from "../../context/WalletContext";
+const mockUseWallet = vi.mocked(useWallet);
+
 const successAddress = `G${"A".repeat(55)}`;
 const failureAddress = `G${"B".repeat(55)}`;
 
@@ -12,33 +19,59 @@ function fillField(label: RegExp, value: string) {
 describe("CreateVault", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    mockUseWallet.mockReturnValue({
+      balance: null,
+      balanceStatus: "idle",
+    } as ReturnType<typeof useWallet>);
   });
 
   it("renders accessible inline errors and blocks invalid submissions", () => {
-    const consoleLog = vi
-      .spyOn(console, "log")
+    const consoleDebug = vi
+      .spyOn(console, "debug")
       .mockImplementation(() => undefined);
     render(<CreateVault />);
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Please fix the highlighted fields before creating the vault.",
+    );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "Enter a positive USDC amount with up to 7 decimal places.",
       ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
+    ).toHaveLength(2);
+    expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
     expect(
       screen.getAllByText("Enter a valid Stellar public key starting with G."),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
 
     const amount = screen.getByLabelText(/amount/i);
     expect(amount).toHaveAttribute("aria-invalid", "true");
     expect(amount).toHaveAttribute(
       "aria-describedby",
-      "field-amount-(usdc)-error",
+      "create-vault-amount-error",
     );
-    expect(consoleLog).not.toHaveBeenCalled();
+    expect(amount).toHaveFocus();
+
+    const deadline = screen.getByLabelText(/deadline/i);
+    expect(deadline).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-deadline-error",
+    );
+
+    const success = screen.getByLabelText(/success destination/i);
+    expect(success).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-success-address-error",
+    );
+
+    const failure = screen.getByLabelText(/failure destination/i);
+    expect(failure).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-failure-address-error",
+    );
+    expect(consoleDebug).not.toHaveBeenCalled();
   });
 
   it("rejects identical destination addresses", () => {
@@ -51,10 +84,10 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "Failure destination must be different from success destination.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
     expect(screen.getByLabelText(/failure destination/i)).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -62,8 +95,8 @@ describe("CreateVault", () => {
   });
 
   it("shows the review step for valid values and confirms once", () => {
-    const consoleLog = vi
-      .spyOn(console, "log")
+    const consoleDebug = vi
+      .spyOn(console, "debug")
       .mockImplementation(() => undefined);
     render(<CreateVault />);
 
@@ -82,13 +115,14 @@ describe("CreateVault", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(consoleLog).toHaveBeenCalledWith({
+    expect(consoleDebug).toHaveBeenCalledWith("CreateVault confirm", {
       amount: "100.1234567",
       deadline: "2030-01-01T00:00",
       successAddress,
       failureAddress,
+      evidenceUrl: undefined,
     });
-    expect(consoleLog).toHaveBeenCalledTimes(1);
+    expect(consoleDebug).toHaveBeenCalledTimes(1);
   });
 
   it("returns to edit mode without losing entered values", () => {
@@ -112,9 +146,6 @@ describe("CreateVault", () => {
     );
   });
 
-  /* ------------------------------------------------------------------ */
-  /*  Amount input mask                                                  */
-  /* ------------------------------------------------------------------ */
   it("formats amount with thousands grouping while typing", () => {
     render(<CreateVault />);
     const input = screen.getByLabelText(/amount/i);
@@ -162,12 +193,11 @@ describe("CreateVault", () => {
   });
 
   it("keeps underlying raw value compatible with isValidUsdcAmount", () => {
-    const consoleLog = vi
-      .spyOn(console, "log")
+    const consoleDebug = vi
+      .spyOn(console, "debug")
       .mockImplementation(() => undefined);
     render(<CreateVault />);
 
-    // Type a number that would get formatted with commas in the display
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "1234.5678" },
     });
@@ -184,10 +214,93 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    // The raw amount passed to the confirm handler should not have commas
-    // and should be compatible with isValidUsdcAmount
-    expect(consoleLog).toHaveBeenCalledWith(
+    expect(consoleDebug).toHaveBeenCalledWith(
+      "CreateVault confirm",
       expect.objectContaining({ amount: "1234.5678" }),
     );
+  });
+
+  it("shows insufficient balance warning when amount exceeds balance", () => {
+    mockUseWallet.mockReturnValue({
+      balance: "50",
+      balanceStatus: "success",
+    } as ReturnType<typeof useWallet>);
+    render(<CreateVault />);
+
+    fireEvent.change(screen.getByLabelText(/amount/i), {
+      target: { value: "100" },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /exceeds your available usdc balance/i,
+    );
+  });
+
+  it("does not show warning when amount equals balance", () => {
+    mockUseWallet.mockReturnValue({
+      balance: "100",
+      balanceStatus: "success",
+    } as ReturnType<typeof useWallet>);
+    render(<CreateVault />);
+
+    fireEvent.change(screen.getByLabelText(/amount/i), {
+      target: { value: "100" },
+    });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  Deadline preset buttons                                            */
+  /* ------------------------------------------------------------------ */
+  it("renders deadline preset buttons", () => {
+    render(<CreateVault />);
+
+    expect(screen.getByRole("button", { name: "7 days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "30 days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "90 days" })).toBeInTheDocument();
+  });
+
+  it("preset buttons populate deadline field with future timestamp", () => {
+    render(<CreateVault />);
+
+    const now = new Date();
+    fireEvent.click(screen.getByRole("button", { name: "7 days" }));
+
+    const deadlineInput = screen.getByLabelText(/deadline/i);
+    const value = deadlineInput.getAttribute("value");
+    expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+
+    const futureDate = new Date(value!);
+    expect(futureDate.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("selecting preset clears deadline error", () => {
+    const consoleDebug = vi
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
+    render(<CreateVault />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "30 days" }));
+    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+  });
+
+  it("computed deadline satisfies isFutureDeadline validation", () => {
+    const consoleDebug = vi
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
+    render(<CreateVault />);
+
+    fillField(/amount/i, "100");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+
+    fireEvent.click(screen.getByRole("button", { name: "90 days" }));
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
   });
 });

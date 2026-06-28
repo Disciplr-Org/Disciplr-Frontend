@@ -251,6 +251,63 @@ but current tests are primarily explicit fixture tests.
 - Add design-system tests inside `design-system/src/__tests__/` and run the
   design-system Jest command from inside that package.
 
+## Logging Convention
+
+All new code must use the typed logger instead of calling `console.*` directly.
+This gives a single place to control log levels, suppress output in production,
+and forward to an observability service in the future.
+
+**Frontend app** (`src/`):
+
+```ts
+import { logger } from '../utils/logger';
+
+logger.debug('Loading tokens');          // dev-only
+logger.info('Wallet connected', { address }); // dev-only
+logger.warn('No trustline found');       // dev-only
+logger.error('Connection failed', err);  // always – errors are never suppressed
+```
+
+The frontend logger reads `import.meta.env.PROD` (set by Vite) and no-ops
+`debug`, `info`, and `warn` when building for production. `error` always
+propagates.
+
+**Design system** (`design-system/`):
+
+```ts
+import { logger } from './logger';
+
+logger.warn(`Failed to load ${file}:`, error);
+```
+
+The design-system logger reads `process.env.NODE_ENV` (Node) and applies the
+same suppression rules.
+
+### Mocking the logger in tests
+
+Spy on the underlying `console` method rather than importing the logger:
+
+```ts
+const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+// …trigger the code path that logs…
+
+expect(warnSpy).toHaveBeenCalledWith('Failed to load colors.json:', expect.any(Error));
+vi.restoreAllMocks();
+```
+
+To test production-mode suppression, override `import.meta.env.PROD` before
+re-importing the module:
+
+```ts
+Object.defineProperty(import.meta.env, 'PROD', { value: true, configurable: true });
+vi.resetModules();
+const { logger } = await import('../logger');
+// now logger.warn is a no-op
+```
+
+See `src/utils/__tests__/logger.test.ts` for the full pattern.
+
 ## Troubleshooting
 
 - `matchMedia is not a function`: add the `window.matchMedia` stub before the

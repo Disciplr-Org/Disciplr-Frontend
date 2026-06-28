@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import {
   Target, TrendingUp, CheckCircle, AlertTriangle,
@@ -12,7 +12,10 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { ChartLegend } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
+import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
+import { toCsv, downloadCsv } from '../utils/csv'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,23 +39,9 @@ function useAnalyticsChartTokens() {
   return tokens
 }
 
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches)
-    syncPreference()
-    mediaQuery.addEventListener('change', syncPreference)
-    return () => mediaQuery.removeEventListener('change', syncPreference)
-  }, [])
-
-  return prefersReducedMotion
-}
-
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const allData: Record<Period, { name: string; success: number; failed: number; capital: number; milestones: number }[]> = {
+export const analyticsPeriodData: Record<Period, { name: string; success: number; failed: number; capital: number; milestones: number }[]> = {
   '7d': [
     { name: 'Mon', success: 80, failed: 20, capital: 2800, milestones: 2 },
     { name: 'Tue', success: 85, failed: 15, capital: 2900, milestones: 3 },
@@ -207,32 +196,21 @@ function SkeletonBox({ height = 220 }: { height?: number }) {
 
 function EmptyState({ message = 'No data yet. Create your first vault to see analytics.' }: { message?: string }) {
   return (
-    <div style={{
-      padding: '2.5rem',
-      textAlign: 'center',
-      color: 'var(--muted)',
-      border: '1px dashed var(--border)',
-      borderRadius: 'var(--radius)',
-    }}>
+    <div
+      data-testid="analytics-empty-state"
+      role="status"
+      style={{
+        padding: '2.5rem',
+        textAlign: 'center',
+        color: 'var(--muted)',
+        border: '1px dashed var(--border)',
+        borderRadius: 'var(--radius)',
+      }}
+    >
       <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
       <div style={{ fontSize: '0.9rem' }}>{message}</div>
     </div>
   )
-}
-
-// ─── Export Helpers ───────────────────────────────────────────────────────────
-
-function exportCSV(data: typeof allData['30d']) {
-  const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-  const rows = data.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-  const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'disciplr-analytics.csv'
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 // Note: `jsPDF` is lazy-loaded inside the component to keep the Analytics chunk small.
@@ -253,10 +231,10 @@ export default function Analytics() {
   const jsPDFRef = useRef<any>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
-  const hasData = true
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
-  const chartData = allData[period]
+  const chartData = analyticsPeriodData[period]
+  const hasChartData = chartData.length > 0
 
   // Merge current + previous period for comparison charts
   const comparisonData = chartData.map((d, i) => ({
@@ -278,6 +256,26 @@ export default function Analytics() {
     itemStyle: { color: seriesColors.tooltipText },
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
+
+  const successLegendEntries = showComparison
+    ? [
+        { label: 'This Period %', colorKey: 'success', id: 'success' },
+        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
+        { label: 'Prev Period %', colorKey: 'comparison', id: 'comparison' },
+      ]
+    : [
+        { label: 'This Period %', colorKey: 'success', id: 'success' },
+        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
+      ]
+
+  const capitalLegendEntries = showComparison
+    ? [
+        { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
+        { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
+      ]
+    : [
+        { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
+      ]
 
   return (
     <>
@@ -344,6 +342,7 @@ export default function Analytics() {
           transition: all 0.15s;
         }
         .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         input[type="date"] {
           background: var(--surface);
           color: var(--text);
@@ -443,11 +442,11 @@ export default function Analytics() {
             {showComparison ? '✓' : ''} Compare Periods
           </button>
 
-          {/* Spacer */}
+{/* Spacer */}
           <div style={{ flex: 1 }} />
 
           {/* Export Buttons */}
-          <button className="action-btn" onClick={() => exportCSV(chartData)}>
+          <button className="action-btn" onClick={() => downloadCsv(toCsv(chartData, 'analytics'), `disciplr-analytics-${period}.csv`)} disabled={chartData.length === 0}>
             <Download size={14} /> CSV
           </button>
           <button
@@ -641,21 +640,25 @@ export default function Analytics() {
                 Line chart summarizing success and failure percentages for the selected {period} period.
                 {showComparison ? ' Previous period success rate is included for comparison.' : ''}
               </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasData ? <EmptyState /> : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                    <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
-                    <Tooltip {...tooltipStyle} />
-                    {showComparison && <Legend wrapperStyle={{ fontSize: '0.78rem' }} />}
-                    <Line type="monotone" dataKey="success" stroke={seriesColors.success} strokeWidth={2.5} dot={{ r: 3, fill: seriesColors.success }} name="This Period %" isAnimationActive={chartAnimationEnabled} />
-                    <Line type="monotone" dataKey="failed" stroke={seriesColors.failed} strokeWidth={2} dot={{ r: 2, fill: seriesColors.failed }} name="Failed %" strokeDasharray="4 2" isAnimationActive={chartAnimationEnabled} />
-                    {showComparison && (
-                      <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
+              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={displayData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
+                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
+                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
+                      <Tooltip {...tooltipStyle} />
+                      <Line type="monotone" dataKey="success" stroke={seriesColors.success} strokeWidth={2.5} dot={{ r: 3, fill: seriesColors.success }} name="This Period %" isAnimationActive={chartAnimationEnabled} />
+                      <Line type="monotone" dataKey="failed" stroke={seriesColors.failed} strokeWidth={2} dot={{ r: 2, fill: seriesColors.failed }} name="Failed %" strokeDasharray="4 2" isAnimationActive={chartAnimationEnabled} />
+                      {showComparison && (
+                        <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                  {showComparison && (
+                    <ChartLegend entries={successLegendEntries} colors={seriesColors} tokens={chartTokens} />
+                  )}
+                </>
               )}
             </Card>
 
@@ -666,30 +669,34 @@ export default function Analytics() {
                 Area chart showing USDC capital locked over the selected {period} period.
                 {showComparison ? ' Previous period capital is shown as a comparison area.' : ''}
               </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasData ? <EmptyState /> : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={displayData}>
-                    <defs>
-                      <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={seriesColors.success} stopOpacity={0.25} />
-                        <stop offset="95%" stopColor={seriesColors.success} stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="prevCapGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={seriesColors.comparison} stopOpacity={0.15} />
-                        <stop offset="95%" stopColor={seriesColors.comparison} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                    <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <Tooltip {...tooltipStyle} />
-                    {showComparison && <Legend wrapperStyle={{ fontSize: '0.78rem' }} />}
-                    <Area type="monotone" dataKey="capital" stroke={seriesColors.success} strokeWidth={2.5} fill="url(#capGrad)" name="USDC Locked" isAnimationActive={chartAnimationEnabled} />
-                    {showComparison && (
-                      <Area type="monotone" dataKey="prevCapital" stroke={seriesColors.comparison} strokeWidth={1.5} fill="url(#prevCapGrad)" name="Prev Period" strokeDasharray="5 3" isAnimationActive={chartAnimationEnabled} />
-                    )}
-                  </AreaChart>
-                </ResponsiveContainer>
+              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={displayData}>
+                      <defs>
+                        <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={seriesColors.success} stopOpacity={0.25} />
+                          <stop offset="95%" stopColor={seriesColors.success} stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="prevCapGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={seriesColors.comparison} stopOpacity={0.15} />
+                          <stop offset="95%" stopColor={seriesColors.comparison} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
+                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
+                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
+                      <Tooltip {...tooltipStyle} />
+                      <Area type="monotone" dataKey="capital" stroke={seriesColors.success} strokeWidth={2.5} fill="url(#capGrad)" name="USDC Locked" isAnimationActive={chartAnimationEnabled} />
+                      {showComparison && (
+                        <Area type="monotone" dataKey="prevCapital" stroke={seriesColors.comparison} strokeWidth={1.5} fill="url(#prevCapGrad)" name="Prev Period" strokeDasharray="5 3" isAnimationActive={chartAnimationEnabled} />
+                      )}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  {showComparison && (
+                    <ChartLegend entries={capitalLegendEntries} colors={seriesColors} tokens={chartTokens} />
+                  )}
+                </>
               )}
             </Card>
 
@@ -699,7 +706,7 @@ export default function Analytics() {
               <ChartSummary>
                 Bar chart showing completed milestone counts for each point in the selected {period} period.
               </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasData ? <EmptyState /> : (
+              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
@@ -726,7 +733,7 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              {isLoading ? <SkeletonBox height={180} /> : !hasData ? <EmptyState /> : (
+              {isLoading ? <SkeletonBox height={180} /> : vaultStatusData.length === 0 ? <EmptyState message="No data for this period." /> : (
                 <>
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>

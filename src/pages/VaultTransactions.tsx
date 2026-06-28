@@ -1,24 +1,15 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, memo, useEffect } from "react";
 import { windowRange, WINDOW_THRESHOLD } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
+import { computeTxTotals } from "../utils/txTotals";
 import { AddressDisplay } from "../components/AddressDisplay";
+import { Tooltip } from "../components/Tooltip";
 import type { TxType, TxStatus } from "../types/vault";
+import type { VaultActivityRecord } from "../services/vaultService";
+import { listAllActivity } from "../services/vaultService";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export interface Transaction {
-  id: string;
-  type: TxType;
-  vault: string;
-  amount: number;
-  fee: number;
-  block: number;
-  hash: string;
-  status: TxStatus;
-  from: string;
-  to: string;
-  timestamp: Date;
-  memo: string;
-}
+export type Transaction = VaultActivityRecord;
 
 interface TypeMeta {
   label: string;
@@ -40,149 +31,8 @@ interface IconProps {
   size?: number;
 }
 
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: "tx1",
-    type: "create",
-    vault: "Alpha Vault",
-    amount: 12500.0,
-    fee: 0.00012,
-    block: 48201933,
-    hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d7c5e9b3f1a2d4c6e8b0f2a4c6d8e0f2a",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    memo: "Initial deposit",
-  },
-  {
-    id: "tx2",
-    type: "validate",
-    vault: "Alpha Vault",
-    amount: 0,
-    fee: 0.00008,
-    block: 48202011,
-    hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b4c6d0e2f4a6c8e0b2d4f6a8c0e2d4f6a",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.5),
-    memo: "",
-  },
-  {
-    id: "tx3",
-    type: "release",
-    vault: "Beta Reserve",
-    amount: 4200.5,
-    fee: 0.00015,
-    block: 48202450,
-    hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c5d7e1f3b5d7f9b1d3f5b7d9f1b3d5f7b",
-    status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45),
-    memo: "Milestone payout",
-  },
-  {
-    id: "tx4",
-    type: "redirect",
-    vault: "Gamma Fund",
-    amount: 8800.0,
-    fee: 0.00011,
-    block: 48202891,
-    hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d6e8f2a4c6e8a0c2e4f6a8c0e2f4a6c8e",
-    status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GDELTA...X9K",
-    timestamp: new Date(Date.now() - 1000 * 60 * 20),
-    memo: "Redirect to escrow",
-  },
-  {
-    id: "tx5",
-    type: "create",
-    vault: "Beta Reserve",
-    amount: 31000.0,
-    fee: 0.00013,
-    block: 48201100,
-    hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e7f9a3b5d7f9b1d3f5b7d9f1b3d5f7b9d",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    memo: "New vault",
-  },
-  {
-    id: "tx6",
-    type: "release",
-    vault: "Alpha Vault",
-    amount: 500.0,
-    fee: 0.00009,
-    block: 48203100,
-    hash: "f8c4a6b3d7e29501fk8c4b6a7d3e9c2f8a0c4b6d8f0b2d4f6a8b0d2f4a6b8d0f",
-    status: "failed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 10),
-    memo: "Partial release",
-  },
-  {
-    id: "tx7",
-    type: "validate",
-    vault: "Gamma Fund",
-    amount: 0,
-    fee: 0.00007,
-    block: 48201788,
-    hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3.5),
-    memo: "",
-  },
-  {
-    id: "tx8",
-    type: "redirect",
-    vault: "Alpha Vault",
-    amount: 1200.75,
-    fee: 0.0001,
-    block: 48203222,
-    hash: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
-    status: "pending",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    memo: "Reallocation",
-  },
-  {
-    id: "tx9",
-    type: "create",
-    vault: "Delta Safe",
-    amount: 99000.0,
-    fee: 0.0002,
-    block: 48200500,
-    hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4",
-    status: "confirmed",
-    from: "GBVZ3...QK7L",
-    to: "GCVAULT...M3P",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
-    memo: "Large vault",
-  },
-  {
-    id: "tx10",
-    type: "release",
-    vault: "Delta Safe",
-    amount: 15000.0,
-    fee: 0.00016,
-    block: 48203400,
-    hash: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5",
-    status: "confirmed",
-    from: "GCVAULT...M3P",
-    to: "GBVZ3...QK7L",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    memo: "Q3 release",
-  },
-];
+// ── Mock Data moved to vaultService.ts ────────────────────────────────────────────────
+// MOCK_TRANSACTIONS removed — listAllActivity() in vaultService is the source.
 
 const TYPE_META: Record<TxType, TypeMeta> = {
   create: {
@@ -215,6 +65,9 @@ const TYPE_META: Record<TxType, TypeMeta> = {
   },
 };
 
+const TX_TYPES: TxType[] = ["create", "validate", "release", "redirect"];
+const ALL_TYPES: TxType[] = [...TX_TYPES];
+
 const STATUS_META: Record<TxStatus, StatusMeta> = {
   confirmed: {
     label: "Confirmed",
@@ -236,10 +89,7 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-const VAULTS = [
-  "All Vaults",
-  ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
-];
+// VAULTS filter options are derived from loaded transactions in the component.
 const TYPES: string[] = [
   "All Types",
   "create",
@@ -282,15 +132,27 @@ function fmtAmount(n: number): string {
 }
 
 
-// ── Main Component ────────────────────────────────────────────────────────────
-interface VaultTransactionsProps {
-  transactions?: Transaction[];
-}
+// ── Main Component ─────────────────────────────────────────────────────────────────
+export default function VaultTransactions() {
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default function VaultTransactions({
-  transactions = MOCK_TRANSACTIONS,
-}: VaultTransactionsProps = {}) {
-  const [filterType, setFilterType] = useState<string>("All Types");
+  useEffect(() => {
+    listAllActivity().then((data) => {
+      setAllTransactions(data);
+      setLoading(false);
+    });
+  }, []);
+
+  // Derive vault filter options from loaded transactions
+  const VAULTS = useMemo(
+    () => ["All Vaults", ...Array.from(new Set(allTransactions.map((t) => t.vault)))],
+    [allTransactions]
+  );
+
+  const transactions = allTransactions;
+
+  const [selectedTypes, setSelectedTypes] = useState<TxType[]>([...ALL_TYPES]);
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchHash, setSearchHash] = useState<string>("");
@@ -309,8 +171,8 @@ export default function VaultTransactions({
 
   const filtered = useMemo<Transaction[]>(() => {
     let list = [...transactions];
-    if (filterType !== "All Types")
-      list = list.filter((t) => t.type === filterType);
+    if (selectedTypes.length < ALL_TYPES.length)
+      list = list.filter((t) => selectedTypes.includes(t.type));
     if (filterVault !== "All Vaults")
       list = list.filter((t) => t.vault === filterVault);
     if (filterStatus !== "all")
@@ -330,7 +192,7 @@ export default function VaultTransactions({
     );
     return list;
   }, [
-    filterType,
+    selectedTypes,
     filterVault,
     filterStatus,
     searchHash,
@@ -340,16 +202,16 @@ export default function VaultTransactions({
     transactions,
   ]);
 
-  const pending = filtered.filter((t) => t.status === "pending");
-  const failed = filtered.filter((t) => t.status === "failed");
-  const rest = filtered.filter((t) => t.status === "confirmed");
+  const pending = useMemo(() => filtered.filter((t) => t.status === "pending"), [filtered]);
+  const failed = useMemo(() => filtered.filter((t) => t.status === "failed"), [filtered]);
+  const rest = useMemo(() => filtered.filter((t) => t.status === "confirmed"), [filtered]);
 
   // Reset window anchor when filters change so the user always sees the top.
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
-  const pendingWindow = windowRange(pending, anchorIndex);
-  const failedWindow = windowRange(failed, anchorIndex);
-  const restWindow = windowRange(rest, anchorIndex);
+  const pendingWindow = useMemo(() => windowRange(pending, anchorIndex), [pending, anchorIndex]);
+  const failedWindow = useMemo(() => windowRange(failed, anchorIndex), [failed, anchorIndex]);
+  const restWindow = useMemo(() => windowRange(rest, anchorIndex), [rest, anchorIndex]);
 
   const stats = useMemo(
     () => ({
@@ -360,8 +222,30 @@ export default function VaultTransactions({
     [transactions],
   );
 
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tx of transactions) {
+      counts[tx.type] = (counts[tx.type] || 0) + 1;
+    }
+    return counts;
+  }, [transactions]);
+
+  // Live counts reflect the current filtered (visible) set
+  const filteredTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tx of filtered) {
+      counts[tx.type] = (counts[tx.type] || 0) + 1;
+    }
+    return counts;
+  }, [filtered]);
+
+  const filteredTotals = useMemo(
+    () => computeTxTotals(filtered),
+    [filtered],
+  );
+
   const clearFilters = () => {
-    setFilterType("All Types");
+    setSelectedTypes([...ALL_TYPES]);
     setFilterVault("All Vaults");
     setFilterStatus("all");
     setSearchHash("");
@@ -371,7 +255,7 @@ export default function VaultTransactions({
   };
 
   const hasFilters =
-    filterType !== "All Types" ||
+    selectedTypes.length < ALL_TYPES.length ||
     filterVault !== "All Vaults" ||
     filterStatus !== "all" ||
     !!searchHash ||
@@ -433,6 +317,70 @@ export default function VaultTransactions({
             ))}
           </div>
 
+          {/* Type Filter Toolbar */}
+          <div className="vt-type-toolbar" role="group" aria-label="Filter by transaction type">
+            <button
+              className={`vt-type-chip ${selectedTypes.length === ALL_TYPES.length ? "vt-type-chip--active-all" : ""}`}
+              onClick={() =>
+                setSelectedTypes(
+                  selectedTypes.length === ALL_TYPES.length ? [] : [...ALL_TYPES],
+                )
+              }
+              aria-pressed={selectedTypes.length === ALL_TYPES.length}
+            >
+              <span className="vt-type-chip-label">All</span>
+              <span className="vt-type-chip-count">{filtered.length}</span>
+            </button>
+            {TX_TYPES.map((type) => {
+              const meta = TYPE_META[type];
+              const active = selectedTypes.includes(type);
+              return (
+                <button
+                  key={type}
+                  className={`vt-type-chip ${active ? "vt-type-chip--active" : ""}`}
+                  style={
+                    active
+                      ? {
+                          background: meta.bg,
+                          borderColor: meta.border,
+                          color: meta.color,
+                        }
+                      : undefined
+                  }
+                  onClick={() =>
+                    setSelectedTypes((prev) =>
+                      prev.includes(type)
+                        ? prev.filter((t) => t !== type)
+                        : [...prev, type],
+                    )
+                  }
+                  aria-pressed={active}
+                >
+                  <meta.icon size={13} color={active ? meta.color : undefined} />
+                  <span className="vt-type-chip-label">{meta.label}</span>
+                  <span className="vt-type-chip-count">{filteredTypeCounts[type] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Visible Totals */}
+          {filtered.length > 0 && (
+            <div className="vt-totals-strip">
+              <span className="vt-totals-item">
+                {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
+              </span>
+              <span className="vt-totals-sep" aria-hidden="true" />
+              <span className="vt-totals-item">
+                Amount: {fmtAmount(filteredTotals.totalAmount)} XLM
+              </span>
+              <span className="vt-totals-sep" aria-hidden="true" />
+              <span className="vt-totals-item">
+                Fees: {filteredTotals.totalFees.toFixed(5)} XLM
+              </span>
+            </div>
+          )}
+
           {/* Filters */}
           <div className="vt-filters">
             <div className="vt-search-wrap">
@@ -445,11 +393,6 @@ export default function VaultTransactions({
               />
             </div>
             <div className="vt-filter-row">
-              <Select
-                value={filterType}
-                onChange={setFilterType}
-                options={TYPES}
-              />
               <Select
                 value={filterVault}
                 onChange={setFilterVault}
@@ -663,17 +606,19 @@ const TxRow = memo(function TxRow({ tx, onSelect, onCopy, copiedId, children }: 
           {tx.memo && <span className="vt-tx-memo">"{tx.memo}"</span>}
         </div>
         <div className="vt-tx-bottom">
-          <button
-            className="vt-tx-hash"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCopy(tx.hash, tx.id + "-hash");
-            }}
-            title="Copy hash"
-          >
-            {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
-            <CopyIcon small />
-          </button>
+          <Tooltip content={tx.hash} position="top">
+            <button
+              className="vt-tx-hash"
+              title="Copy hash"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy(tx.hash, tx.id + "-hash");
+              }}
+            >
+              {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
+              <CopyIcon small />
+            </button>
+          </Tooltip>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
             target="_blank"
@@ -1188,6 +1133,50 @@ const CSS = `
   .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; font-weight: 600; margin-bottom: 8px; }
   .vt-stat-value { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
   .vt-stat-sub   { font-size: 12px; color: #475569; }
+  .vt-type-toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;
+  }
+  .vt-type-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);
+    color: #64748b; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 6px 12px; border-radius: var(--radius-full); cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-in-out);
+    user-select: none;
+  }
+  .vt-type-chip:hover { color: #94a3b8; border-color: rgba(255,255,255,0.18); }
+  .vt-type-chip--active { color: #6ee7b7; }
+  .vt-type-chip--active-all {
+    background: rgba(110,231,183,0.1); border-color: rgba(110,231,183,0.25);
+    color: #6ee7b7;
+  }
+  .vt-type-chip--active-all:hover { background: rgba(110,231,183,0.15); }
+  .vt-type-chip-label { line-height: 1; }
+  .vt-type-chip-count {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: rgba(255,255,255,0.07); border-radius: var(--radius-full);
+    padding: 1px 6px; line-height: 1.4;
+  }
+  .vt-type-chip--active .vt-type-chip-count {
+    background: rgba(255,255,255,0.12);
+  }
+  .vt-type-chip--active-all .vt-type-chip-count {
+    background: rgba(110,231,183,0.15);
+  }
+  .vt-totals-strip {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 18px; padding: 10px 16px;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius-md);
+  }
+  .vt-totals-item {
+    font-size: 12px; color: #94a3b8; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .vt-totals-sep {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: #334155; flex-shrink: 0;
+  }
   .vt-filters {
     background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
     border-radius: 14px; padding: 16px 18px; margin-bottom: 32px;

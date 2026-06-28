@@ -93,6 +93,13 @@
   --font-weight-mono: 400;
   --font-family-mono:
     "JetBrains Mono", "SF Mono", Monaco, "Cascadia Code", monospace;
+
+  /* Z-index layering scale — mirrors design-system/tokens/z-index.json */
+  --z-index-base: 0;
+  --z-index-header: 100;
+  --z-index-drawer: 200;
+  --z-index-modal: 300;
+  --z-index-toast: 400;
 }
 
 /* Responsive breakpoints - update CSS variables */

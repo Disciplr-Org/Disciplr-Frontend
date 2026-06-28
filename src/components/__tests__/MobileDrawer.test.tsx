@@ -20,6 +20,10 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
+vi.mock('../TrustlineBanner', () => ({
+  TrustlineBanner: () => null,
+}));
+
 function renderOpenDrawer(onClose = vi.fn()) {
   render(
     <MemoryRouter>

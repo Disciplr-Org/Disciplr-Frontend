@@ -1,4 +1,6 @@
-export type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
+import type { VaultStatus } from '../types/vault';
+
+export type { VaultStatus };
 
 export interface VaultPreview {
   id: string;

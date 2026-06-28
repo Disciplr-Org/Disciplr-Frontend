@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
+import { getExplorerTxUrl } from '../utils/explorer';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -27,8 +28,7 @@ export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4
 }
 
 function explorerUrl(hash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
-  const segment = network === 'PUBLIC' ? 'public' : 'testnet';
-  return `https://stellar.expert/explorer/${segment}/tx/${hash}`;
+  return getExplorerTxUrl(hash, network);
 }
 
 function formatTimestamp(timestamp?: string): string {

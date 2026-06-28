@@ -1,3 +1,5 @@
+import type { TypographyRole } from '../utils/typography'
+
 export type AnalyticsChartTokens = {
   accent: string
   success: string
@@ -11,6 +13,9 @@ export type AnalyticsChartTokens = {
   border: string
   bg: string
   accentTransparent: string
+  legendGap: string
+  legendSwatchSize: string
+  legendLabelRole: TypographyRole
 }
 
 export type AnalyticsSeriesColors = ReturnType<typeof buildAnalyticsSeriesColors>
@@ -28,6 +33,9 @@ export const ANALYTICS_TOKEN_FALLBACKS: AnalyticsChartTokens = {
   border: '#E5E7EB',
   bg: '#F9FAFB',
   accentTransparent: 'rgba(10, 118, 104, 0.1)',
+  legendGap: '0.75rem',
+  legendSwatchSize: '0.625rem',
+  legendLabelRole: 'caption',
 }
 
 function readToken(root: HTMLElement, token: string, fallback: string) {
@@ -49,6 +57,9 @@ export function getAnalyticsChartTokens(root: HTMLElement = document.documentEle
     border: readToken(root, '--border', ANALYTICS_TOKEN_FALLBACKS.border),
     bg: readToken(root, '--bg', ANALYTICS_TOKEN_FALLBACKS.bg),
     accentTransparent: readToken(root, '--accent-transparent', ANALYTICS_TOKEN_FALLBACKS.accentTransparent),
+    legendGap: readToken(root, '--legend-gap', ANALYTICS_TOKEN_FALLBACKS.legendGap),
+    legendSwatchSize: readToken(root, '--legend-swatch-size', ANALYTICS_TOKEN_FALLBACKS.legendSwatchSize),
+    legendLabelRole: ANALYTICS_TOKEN_FALLBACKS.legendLabelRole,
   }
 }
 

@@ -3,13 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
+import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
+import { computeVerifierMetrics } from '../utils/verifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending, PendingTask } from '../utils/filterPending';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
-  const { pendingValidations, batchApprove, batchReject } = useVerifierStore();
+  const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+
+  // Queue-at-a-glance metrics for the strip above the table.
+  const metrics = useMemo(
+    () => computeVerifierMetrics(pendingValidations, validationHistory),
+    [pendingValidations, validationHistory],
+  );
 
   // Filter and sort state
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,17 +54,17 @@ export default function PendingValidations() {
     [filteredValidations, sortOrder],
   );
 
-  // Keep selection in sync with the queue: drop ids that are no longer pending or filtered out.
+  // Keep selection in sync with the queue and reset it when the active filters change.
   useEffect(() => {
     setSelectedIds((prev) => {
-      const next = prev.filter(
-        (id) =>
-          pendingValidations.some((t) => t.id === id) &&
-          sortedValidations.some((t) => t.id === id)
-      );
+      if (searchQuery || selectedMilestone) {
+        return [];
+      }
+
+      const next = prev.filter((id) => pendingValidations.some((t) => t.id === id));
       return next.length === prev.length ? prev : next;
     });
-  }, [pendingValidations, sortedValidations]);
+  }, [pendingValidations, searchQuery, selectedMilestone]);
 
   const allIds = sortedValidations.map((t) => t.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id));
@@ -123,55 +131,7 @@ export default function PendingValidations() {
         </button>
       </header>
 
-      {/* Search and filter controls */}
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <div className="flex-1">
-          <label htmlFor="search-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Search by Vault Name or Owner
-          </label>
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Enter vault name or owner address"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              background: 'var(--bg)',
-              color: 'var(--text)',
-            }}
-            aria-describedby="search-hint"
-          />
-          <Text role="body" as="p" className="text-xs mt-1" id="search-hint" style={{ color: 'var(--muted)' }}>
-            Search is case-insensitive and searches across vault names and owner addresses.
-          </Text>
-        </div>
-
-        <div className="flex-1">
-          <label htmlFor="milestone-filter" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Filter by Milestone
-          </label>
-          <select
-            id="milestone-filter"
-            value={selectedMilestone}
-            onChange={(e) => setSelectedMilestone(e.target.value)}
-            className="w-full px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              background: 'var(--bg)',
-              color: 'var(--text)',
-            }}
-          >
-            <option value="">All Milestones</option>
-            {availableMilestones.map((milestone) => (
-              <option key={milestone} value={milestone}>
-                {milestone}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <VerifierMetricsBar metrics={metrics} />
 
       <section className="border rounded-lg shadow-sm overflow-x-auto" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
         {sortedValidations.length === 0 ? (

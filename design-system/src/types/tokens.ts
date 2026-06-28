@@ -58,6 +58,12 @@ export interface MotionToken {
   $description?: string;
 }
 
+export interface ZIndexToken {
+  $type: 'number';
+  $value: number;
+  $description?: string;
+}
+
 export interface BorderToken {
   $type: 'dimension' | 'color';
   $value: string;
@@ -73,5 +79,6 @@ export interface DesignTokens {
   shadow?: Record<string, ShadowToken>;
   motion?: Record<string, MotionToken>;
   border?: Record<string, BorderToken>;
+  zIndex?: Record<string, ZIndexToken>;
 }
 

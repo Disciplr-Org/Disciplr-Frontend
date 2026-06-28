@@ -23,7 +23,7 @@ notification surfaces.
 - React Router for client-side routes
 - Vitest and Testing Library for frontend tests
 - Freighter wallet integration through `@stellar/freighter-api`
-- Zustand for notification state
+- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md))
 - Recharts and jsPDF for analytics/charting and export-related UI
 - Lucide React and React Icons for icons
 - A local `design-system/` package with Jest-tested token utilities
@@ -241,3 +241,8 @@ disciplr-frontend/
   `src/components/Wallet/`.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
+- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md) and [Store.ts](src/Zustand/Store.ts).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the dual Vitest + Jest test setup, branch naming, and PR conventions.

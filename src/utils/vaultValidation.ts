@@ -57,3 +57,16 @@ export function validateCreateVault(
 export function hasCreateVaultErrors(errors: CreateVaultErrors): boolean {
   return Object.keys(errors).length > 0;
 }
+
+/**
+ * Returns true when amount is a valid positive number that strictly exceeds the
+ * available balance. Returns false when either value is not a finite number so
+ * the caller can treat an unknown balance as non-blocking.
+ */
+export function exceedsBalance(amount: string, balance: string | null): boolean {
+  if (balance === null) return false;
+  const a = Number(amount);
+  const b = Number(balance);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return a > b;
+}

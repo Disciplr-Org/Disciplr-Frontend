@@ -1,32 +1,130 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '../../context/ThemeContext';
 import ThemeToggle from '../ThemeToggle';
 
-const toggleTheme = vi.fn();
+const THEME_KEY = 'disciplr-theme';
 
-vi.mock('../../context/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'light', toggleTheme }),
-}));
+function renderToggle() {
+  return render(
+    <ThemeProvider>
+      <ThemeToggle />
+    </ThemeProvider>,
+  );
+}
 
-describe('ThemeToggle accessibility', () => {
+describe('ThemeToggle', () => {
   beforeEach(() => {
-    toggleTheme.mockReset();
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(prefers-color-scheme: dark)' ? false : false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
   });
 
-  test('is reachable and activates on Enter and Space', () => {
-    render(<ThemeToggle />);
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('renders light theme by default', () => {
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('renders dark theme from localStorage', () => {
+    localStorage.setItem(THEME_KEY, 'dark');
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to light mode/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('click toggles theme', async () => {
+    const user = userEvent.setup();
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    await user.click(button);
+
+    expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+
+  test('double click returns original theme', async () => {
+    const user = userEvent.setup();
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    await user.click(button);
+    await user.click(button);
+
+    expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+
+  test('persists to localStorage', async () => {
+    const user = userEvent.setup();
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    await user.click(button);
+
+    expect(localStorage.getItem(THEME_KEY)).toBe('dark');
+  });
+
+  test('updates data-theme attribute on document root', async () => {
+    const user = userEvent.setup();
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    await user.click(button);
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+
+  test('keyboard activation with Enter toggles theme', async () => {
+    const user = userEvent.setup();
+    renderToggle();
 
     const button = screen.getByRole('button', { name: /switch to dark mode/i });
     button.focus();
+    await user.keyboard('{Enter}');
 
-    expect(button).toHaveFocus();
-    expect(button).toHaveClass('theme-toggle');
+    expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
+  });
 
-    fireEvent.keyDown(button, { key: 'Enter' });
+  test('keyboard activation with Space toggles theme', async () => {
+    const user = userEvent.setup();
+    renderToggle();
 
-    expect(toggleTheme).toHaveBeenCalledTimes(1);
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    button.focus();
+    await user.keyboard(' ');
 
-    fireEvent.keyDown(button, { key: ' ' });
+    expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
+  });
 
-    expect(toggleTheme).toHaveBeenCalledTimes(2);
+  test('renders a theme icon (SVG)', () => {
+    renderToggle();
+
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
+
+  test('unmount does not throw and cleans listeners', () => {
+    const { unmount } = renderToggle();
+    expect(() => unmount()).not.toThrow();
   });
 });

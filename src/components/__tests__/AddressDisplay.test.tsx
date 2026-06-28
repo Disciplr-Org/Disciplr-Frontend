@@ -2,14 +2,15 @@ import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AddressDisplay } from '../AddressDisplay';
 
-const LONG = 'GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L';
+const LONG = 'GA2C5RFPE6G6KXHEIRHZXSNBR3CJRBGUPTAOOVHRF4AFPS5YUMVSWH7B';
 const SHORT = 'GSHORT';
+const INVALID = 'GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L'; // 44 chars
 
 describe('AddressDisplay', () => {
     describe('truncation', () => {
         it('truncates a long address to head+tail chars', () => {
             render(<AddressDisplay address={LONG} />);
-            expect(screen.getByRole('text')).toHaveTextContent('GBVZ3K...QK7L');
+            expect(screen.getByRole('text')).toHaveTextContent('GA2C5R...WH7B');
         });
 
         it('does not truncate a short address', () => {
@@ -19,16 +20,25 @@ describe('AddressDisplay', () => {
 
         it('respects custom chars and tailChars', () => {
             render(<AddressDisplay address={LONG} chars={4} tailChars={6} />);
-            expect(screen.getByRole('text')).toHaveTextContent('GBVZ...LKQK7L');
+            expect(screen.getByRole('text')).toHaveTextContent('GA2C...VSWH7B');
         });
     });
 
-    describe('accessibility', () => {
-        it('exposes the full address in title and aria-label', () => {
+    describe('accessibility & invalid marking', () => {
+        it('exposes the full address in title and aria-label for valid addresses', () => {
             render(<AddressDisplay address={LONG} />);
             const el = screen.getByRole('text');
             expect(el).toHaveAttribute('title', LONG);
             expect(el).toHaveAttribute('aria-label', `Address ${LONG}`);
+            expect(el).not.toHaveStyle({ textDecoration: 'line-through' });
+        });
+
+        it('marks invalid addresses with warning labels and styles', () => {
+            render(<AddressDisplay address={INVALID} />);
+            const el = screen.getByRole('text');
+            expect(el).toHaveAttribute('title', `Invalid address: ${INVALID}`);
+            expect(el).toHaveAttribute('aria-label', `Invalid address ${INVALID}`);
+            expect(el).toHaveStyle({ textDecoration: 'line-through' });
         });
     });
 
@@ -100,6 +110,11 @@ describe('AddressDisplay', () => {
 
         it('hides the explorer link when network is null', () => {
             render(<AddressDisplay address={LONG} network={null} />);
+            expect(screen.queryByRole('link')).not.toBeInTheDocument();
+        });
+
+        it('hides the explorer link when address is invalid', () => {
+            render(<AddressDisplay address={INVALID} network="TESTNET" />);
             expect(screen.queryByRole('link')).not.toBeInTheDocument();
         });
     });
