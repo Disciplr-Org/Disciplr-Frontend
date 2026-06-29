@@ -596,22 +596,6 @@ describe('VaultTransactions with small list', () => {
     fireEvent.click(allBtn);
     expect(document.querySelector('.vt-totals-strip')).toBeNull();
   });
-
-  it('sorts visible rows by amount before windowing', () => {
-    const transactions = [
-      buildTransaction(0, 'confirmed'),
-      { ...buildTransaction(1, 'confirmed'), amount: 50, id: 'low' },
-      { ...buildTransaction(2, 'confirmed'), amount: 5000, id: 'high' },
-    ];
-
-    render(<VaultTransactions transactions={transactions} />);
-    fireEvent.click(screen.getAllByRole('button', { name: /Amount/i })[0]);
-
-    const amounts = Array.from(document.querySelectorAll('.vt-tx-amount-val')).map((el) =>
-      el.textContent,
-    );
-    expect(amounts[0]).toContain('50.00');
-  });
 });
 
 describe('VaultTransactions windowing threshold rendering', () => {

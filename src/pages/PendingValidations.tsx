@@ -148,9 +148,14 @@ export default function PendingValidations() {
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--muted)' }}>
-          Search by Vault Name or Owner
+      <VerifierMetricsBar metrics={metrics} />
+
+      {/* Search and filter controls */}
+      <div className="flex flex-col md:flex-row gap-3 mb-4">
+        <div className="flex-1">
+          <label htmlFor="search-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+            Search by Vault Name or Owner
+          </label>
           <input
             aria-label="Search by Vault Name or Owner"
             value={searchQuery}

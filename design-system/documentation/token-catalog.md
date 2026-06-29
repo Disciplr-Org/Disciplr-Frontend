@@ -16,7 +16,6 @@ components to the design system.
 | Shadows | `tokens/shadows.json` | Elevation references for raised surfaces and overlays | Modals, dropdowns, raised cards, dashboard surfaces |
 | Motion | `tokens/motion.json` | `src/utils/motion.ts` exports `duration`, `ease`, `transitionEnter`, `transitionExit`, and `transitionPage` | `Notification`, animated overlays, dropdowns, page transitions |
 | Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers |
-| CSS variable generation | `design-system/src/utils/css-variables.ts` | `generateCssVariables(tokens, mode)` returns `Record<string,string>`; `generateCssVariablesString(tokens, mode, opts)` returns a `:root { … }` CSS block | See **CSS Variable Generation** below |
 
 ## Component Notes
 

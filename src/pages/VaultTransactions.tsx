@@ -1,19 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
+import { windowRange, WINDOW_THRESHOLD } from "../utils/windowRange";
+import { toCsv, downloadCsv } from "../utils/csv";
+import { computeTxTotals } from "../utils/txTotals";
 import { AddressDisplay } from "../components/AddressDisplay";
 import { Tooltip } from "../components/Tooltip";
-import { MASTER_ACTIVITY } from "../fixtures/transactions";
-import type { VaultActivityRecord } from "../services/vaultService";
-import { getCachedActivity, listAllActivity } from "../services/vaultService";
-import type { TxStatus, TxType } from "../types/vault";
-import { downloadCsv, toCsv } from "../utils/csv";
-import { formatRelativeTime } from "../utils/relativeTime";
-import {
-  sortTransactions,
-  type TransactionSortDir,
-  type TransactionSortKey,
-} from "../utils/sortTransactions";
-import { computeTxTotals } from "../utils/txTotals";
-import { windowRange } from "../utils/windowRange";
+import type { TxType, TxStatus } from "../types/vault";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type Transaction = VaultActivityRecord;
@@ -145,41 +136,6 @@ const DEFAULT_SORT: SortState = { key: "timestamp", dir: "desc" };
 export default function VaultTransactions({
   transactions: providedTransactions,
 }: VaultTransactionsProps = {}) {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>(
-    () => providedTransactions ?? getCachedActivity(),
-  );
-
-  useEffect(() => {
-    if (providedTransactions !== undefined) {
-      setAllTransactions((current) =>
-        current === providedTransactions ? current : providedTransactions,
-      );
-      return;
-    }
-
-    if (allTransactions.length > 0) return;
-
-    let active = true;
-    listAllActivity().then((data) => {
-      if (active) setAllTransactions(data);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [allTransactions.length, providedTransactions]);
-
-  // Derive vault filter options from loaded transactions
-  const VAULTS = useMemo(
-    () => [
-      "All Vaults",
-      ...Array.from(new Set(allTransactions.map((t) => t.vault))),
-    ],
-    [allTransactions],
-  );
-
-  const transactions = allTransactions;
-
   const [selectedTypes, setSelectedTypes] = useState<TxType[]>([...ALL_TYPES]);
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -276,6 +232,13 @@ export default function VaultTransactions({
     [transactions],
   );
 
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tx of transactions) {
+      counts[tx.type] = (counts[tx.type] || 0) + 1;
+    }
+    return counts;
+  }, [transactions]);
 
   // Live counts reflect the current filtered (visible) set
   const filteredTypeCounts = useMemo(() => {
@@ -286,7 +249,10 @@ export default function VaultTransactions({
     return counts;
   }, [filtered]);
 
-  const filteredTotals = useMemo(() => computeTxTotals(filtered), [filtered]);
+  const filteredTotals = useMemo(
+    () => computeTxTotals(filtered),
+    [filtered],
+  );
 
   const clearFilters = () => {
     setSelectedTypes([...ALL_TYPES]);
@@ -367,18 +333,12 @@ export default function VaultTransactions({
           </div>
 
           {/* Type Filter Toolbar */}
-          <div
-            className="vt-type-toolbar"
-            role="group"
-            aria-label="Filter by transaction type"
-          >
+          <div className="vt-type-toolbar" role="group" aria-label="Filter by transaction type">
             <button
               className={`vt-type-chip ${selectedTypes.length === ALL_TYPES.length ? "vt-type-chip--active-all" : ""}`}
               onClick={() =>
                 setSelectedTypes(
-                  selectedTypes.length === ALL_TYPES.length
-                    ? []
-                    : [...ALL_TYPES],
+                  selectedTypes.length === ALL_TYPES.length ? [] : [...ALL_TYPES],
                 )
               }
               aria-pressed={selectedTypes.length === ALL_TYPES.length}
@@ -411,14 +371,9 @@ export default function VaultTransactions({
                   }
                   aria-pressed={active}
                 >
-                  <meta.icon
-                    size={13}
-                    color={active ? meta.color : undefined}
-                  />
+                  <meta.icon size={13} color={active ? meta.color : undefined} />
                   <span className="vt-type-chip-label">{meta.label}</span>
-                  <span className="vt-type-chip-count">
-                    {filteredTypeCounts[type] ?? 0}
-                  </span>
+                  <span className="vt-type-chip-count">{filteredTypeCounts[type] ?? 0}</span>
                 </button>
               );
             })}
@@ -786,7 +741,6 @@ const TxRow = memo(function TxRow({
           <Tooltip content={tx.hash} position="top">
             <button
               className="vt-tx-hash"
-              title="Copy hash"
               onClick={(e) => {
                 e.stopPropagation();
                 onCopy(tx.hash, tx.id + "-hash");

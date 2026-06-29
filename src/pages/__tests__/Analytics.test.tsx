@@ -1,11 +1,9 @@
-import { Suspense, lazy } from 'react'
+import React, { Suspense, lazy } from 'react'
 import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
 import Analytics, { analyticsPeriodData } from '../Analytics'
-
-// ── Browser API stubs (jsdom doesn't implement these) ───────────────────────
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -22,8 +20,6 @@ beforeAll(() => {
     }),
   })
 })
-
-// ── Heavy dep mocks ──────────────────────────────────────────────────────────
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -217,50 +213,5 @@ describe('Analytics lazy route', () => {
     } finally {
       analyticsPeriodData['90d'] = original90d
     }
-  })
-})
-
-describe('Analytics URL period sync', () => {
-  it('uses default period (30d) when no period param is present', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Analytics />
-      </MemoryRouter>,
-    )
-    
-    expect(screen.getByRole('button', { name: '30d' })).toHaveClass('active')
-  })
-
-  it('restores period from URL param when valid', () => {
-    render(
-      <MemoryRouter initialEntries={['/?period=7d']}>
-        <Analytics />
-      </MemoryRouter>,
-    )
-    
-    expect(screen.getByRole('button', { name: '7d' })).toHaveClass('active')
-  })
-
-  it('uses default period when URL param is invalid', () => {
-    render(
-      <MemoryRouter initialEntries={['/?period=invalid']}>
-        <Analytics />
-      </MemoryRouter>,
-    )
-    
-    expect(screen.getByRole('button', { name: '30d' })).toHaveClass('active')
-  })
-
-  it('updates URL when period is changed', () => {
-    const { container } = render(
-      <MemoryRouter initialEntries={['/']}>
-        <Analytics />
-      </MemoryRouter>,
-    )
-    
-    fireEvent.click(screen.getByRole('button', { name: '90d' }))
-    
-    expect(window.location.search).toContain('period=90d')
-    expect(screen.getByRole('button', { name: '90d' })).toHaveClass('active')
   })
 })

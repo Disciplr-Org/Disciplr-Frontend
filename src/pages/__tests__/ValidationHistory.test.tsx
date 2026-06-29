@@ -326,7 +326,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when from date changes', () => {
-      renderHistory(longHistory);
+      renderHistory();
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
@@ -363,7 +363,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when milestone changes', () => {
-      renderHistory(longHistory);
+      renderHistory();
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
@@ -372,7 +372,7 @@ describe('ValidationHistory', () => {
         target: { value: 'D' },
       });
 
-      // 'D' matches Delivery (v-003), Design (v-004), and Docs (v-005): 3 items, 1 page at default page size 10.
+      // 'D' matches Delivery (v-003) and Design (v-004) and Docs (v-005) — 3 items, 1 page at default page size 5
       expect(screen.queryByText('Page 2 of 2')).not.toBeInTheDocument();
     });
   });

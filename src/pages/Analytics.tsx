@@ -13,11 +13,9 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { ChartLegend, type ChartLegendEntry } from '../components/ChartLegend'
+import { ChartLegend } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
-import { toCsv, downloadCsv } from '../utils/csv'
-import { parsePeriod, serializePeriod, type Period } from '../utils/periodParam'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -213,6 +211,21 @@ function EmptyState({ message = 'No data yet. Create your first vault to see ana
   )
 }
 
+// ─── Export Helpers ───────────────────────────────────────────────────────────
+
+function exportCSV(data: typeof analyticsPeriodData['30d']) {
+  const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
+  const rows = data.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'disciplr-analytics.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // Note: `jsPDF` is lazy-loaded inside the component to keep the Analytics chunk small.
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -234,22 +247,6 @@ export default function Analytics() {
   const jsPDFRef = useRef<any>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
-
-  const setPeriod = (newPeriod: Period) => {
-    setPeriodInternal(newPeriod)
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev)
-      next.set('period', serializePeriod(newPeriod))
-      return next
-    })
-  }
-
-  useEffect(() => {
-    const urlPeriod = parsePeriod(searchParams.get('period'))
-    if (urlPeriod !== period) {
-      setPeriodInternal(urlPeriod)
-    }
-  }, [searchParams, period])
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
   const chartData = analyticsPeriodData[period]
@@ -292,14 +289,18 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries: ChartLegendEntry[] = [
-    { label: 'This Period %', colorKey: 'success', id: 'success' },
-    { label: 'Failed %', colorKey: 'failed', id: 'failed' },
-    ...(showComparison ? [{ label: 'Prev Period %', colorKey: 'comparison' as const, id: 'comparison' }] : []),
-    ...(showMovingAverage && chartData.length >= 2 ? [{ label: `${MA_WINDOW}-pt MA`, colorKey: 'warning' as const, id: 'successMA' }] : []),
-  ]
+  const successLegendEntries = showComparison
+    ? [
+        { label: 'This Period %', colorKey: 'success', id: 'success' },
+        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
+        { label: 'Prev Period %', colorKey: 'comparison', id: 'comparison' },
+      ]
+    : [
+        { label: 'This Period %', colorKey: 'success', id: 'success' },
+        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
+      ]
 
-  const capitalLegendEntries: ChartLegendEntry[] = showComparison
+  const capitalLegendEntries = showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
@@ -682,7 +683,7 @@ export default function Analytics() {
               {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
                 <>
                   <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={displayDataWithMA}>
+                    <LineChart data={displayData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
                       <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
                       <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
@@ -692,12 +693,9 @@ export default function Analytics() {
                       {showComparison && (
                         <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
                       )}
-                      {showMovingAverage && chartData.length >= 2 && (
-                        <Line type="monotone" dataKey="successMA" stroke={seriesColors.warning} strokeWidth={2} dot={false} name={`${MA_WINDOW}-pt Moving Avg`} strokeDasharray="5 2" isAnimationActive={chartAnimationEnabled} />
-                      )}
                     </LineChart>
                   </ResponsiveContainer>
-                  {(showComparison || showMovingAverage) && (
+                  {showComparison && (
                     <ChartLegend entries={successLegendEntries} colors={seriesColors} tokens={chartTokens} />
                   )}
                 </>

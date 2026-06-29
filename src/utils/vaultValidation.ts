@@ -101,58 +101,12 @@ export function hasCreateVaultErrors(errors: CreateVaultErrors): boolean {
   return Object.keys(errors).length > 0;
 }
 
-export function validateMilestones(
-  milestones: CreateVaultMilestoneInput[] | undefined,
-): CreateVaultMilestoneErrors | undefined {
-  if (!milestones || milestones.length === 0) {
-    return { form: "Add at least one milestone." };
-  }
-
-  const rows: CreateVaultMilestoneRowErrors[] = [];
-  const titleCounts = new Map<string, number>();
-
-  milestones.forEach((milestone) => {
-    const normalizedTitle = milestone.title.trim().toLowerCase();
-    if (normalizedTitle) {
-      titleCounts.set(
-        normalizedTitle,
-        (titleCounts.get(normalizedTitle) ?? 0) + 1,
-      );
-    }
-  });
-
-  milestones.forEach((milestone, index) => {
-    const row: CreateVaultMilestoneRowErrors = {};
-    const title = milestone.title.trim();
-    const criteria = milestone.criteria.trim();
-
-    if (!title) {
-      row.title = "Enter a milestone title.";
-    } else if ((titleCounts.get(title.toLowerCase()) ?? 0) > 1) {
-      row.title = "Milestone titles must be unique.";
-    }
-
-    if (!criteria) {
-      row.criteria = "Enter milestone criteria.";
-    }
-
-    if (row.title || row.criteria) {
-      rows[index] = row;
-    }
-  });
-
-  return rows.length > 0 ? { rows } : undefined;
-}
-
 /**
  * Returns true when amount is a valid positive number that strictly exceeds the
  * available balance. Returns false when either value is not a finite number so
  * the caller can treat an unknown balance as non-blocking.
  */
-export function exceedsBalance(
-  amount: string,
-  balance: string | null,
-): boolean {
+export function exceedsBalance(amount: string, balance: string | null): boolean {
   if (balance === null) return false;
   const a = Number(amount);
   const b = Number(balance);

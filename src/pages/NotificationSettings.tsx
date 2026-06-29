@@ -1,8 +1,32 @@
 import { useState } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
-import { Switch } from "@/components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
+
+
+type SettingsToggleProps = {
+  checked?: boolean;
+  label: string;
+  onChange?: (checked: boolean) => void;
+};
+
+function SettingsToggle({ checked, label, onChange }: SettingsToggleProps) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        checked={checked}
+        aria-label={label}
+        onChange={(event) => onChange?.(event.target.checked)}
+      />
+      <span
+        className="notification-settings-toggle peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-transparent)]"
+        aria-hidden="true"
+      />
+    </label>
+  );
+}
 
 export default function NotificationSettings() {
   const {
@@ -10,32 +34,19 @@ export default function NotificationSettings() {
     push: pushNotification,
     frequency,
     quietHours,
-    quietStart,
-    quietEnd,
     setEmail: setEmailNotification,
     setPush: setPushNotification,
     setFrequency,
     setQuietHours,
-    setQuietRange,
     reset,
   } = useNotificationPreferences();
-
-  // Local state for vault-specific notification toggles (uncontrolled by store)
-  const [vaultToggles, setVaultToggles] = useState<Record<string, boolean>>({});
-
-  function handleVaultToggle(name: string, checked: boolean) {
-    setVaultToggles((prev) => ({ ...prev, [name]: checked }));
-  }
-
   return (
     <>
-      <div
+      <div 
         className="w-full rounded-md px-3 py-3 notification-settings-panel"
-        style={{ zIndex: "var(--z-index-base)" }}
+        style={{ zIndex: 'var(--z-index-base)' }}
       >
-        <Text role="title" as="h2">
-          Notification Settings
-        </Text>
+        <Text role="title" as="h2">Notification Settings</Text>
         <div>
           <div className="grid grid-cols-2 justify-center items-center mt-5">
             <Text role="body" as="p">
@@ -150,16 +161,22 @@ export default function NotificationSettings() {
               Reset Preferences
             </button>
           </div>
+          <div className="flex justify-end items-center mt-5">
+            <button
+              className="px-4 py-2 font-medium rounded transition notification-settings-reset"
+              onClick={reset}
+            >
+              Reset Preferences
+            </button>
+          </div>
         </div>
       </div>
 
-      <div
+      <div 
         className="w-full rounded-md px-3 py-3 mt-5 notification-settings-panel"
-        style={{ zIndex: "var(--z-index-base)" }}
+        style={{ zIndex: 'var(--z-index-base)' }}
       >
-        <Text role="title" as="h2">
-          Vault Notifications
-        </Text>
+        <Text role="title" as="h2">Vault Notifications</Text>
         {vaults.map((v) => (
           <div
             className="grid grid-cols-2 justify-center items-center mt-5"
@@ -211,6 +228,19 @@ export default function NotificationSettings() {
         .notification-settings-reset:hover {
           background: var(--border);
         }
+
+        .notification-settings-reset {
+          background: var(--surface-raised);
+          color: var(--text);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          cursor: pointer;
+        }
+
+        .notification-settings-reset:hover {
+          background: var(--border);
+        }
+
       `}</style>
     </>
   );

@@ -4,11 +4,11 @@ import VaultCard from "../components/VaultCard";
 import UpcomingDeadlines from "../components/UpcomingDeadlines";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
 import type { VaultStatus } from "../types/vault";
-import { listVaults } from "../services/vaultService";
+
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 // Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
 // vaultService (see Dashboard component below).
@@ -162,16 +162,9 @@ export default function Dashboard({
 
   const hasVaults = vaults.length > 0;
 
-  // Derive summary totals from the loaded vault list; fall back to the prop
-  // (or fixture) while loading so the cards always have a value.
-  const computedSummary = useMemo(
-    () => (vaultsLoading ? summary : dashboardUtils.computeDashboardSummary(vaults)),
-    [vaults, vaultsLoading, summary],
-  );
-
   const memoizedSummary = useMemo(
-    () => dashboardUtils.formatSummary(computedSummary),
-    [computedSummary],
+    () => dashboardUtils.formatSummary(summary),
+    [summary],
   );
   const memoizedActivity = useMemo(
     () => dashboardUtils.processActivity(activity),
@@ -307,11 +300,7 @@ export default function Dashboard({
               action="View all →"
               to="/vaults"
             />
-            {vaultsLoading ? (
-              <div style={{ textAlign: "center", padding: "2rem", color: "var(--muted)" }}>
-                <Text role="caption" as="div">Loading vaults…</Text>
-              </div>
-            ) : hasVaults ? (
+            {hasVaults ? (
               <div
                 style={{
                   display: "flex",

@@ -19,8 +19,6 @@ describe("useNotificationPreferences store", () => {
     expect(state.push).toBe(false);
     expect(state.frequency).toBe("");
     expect(state.quietHours).toBe("12:00");
-    expect(state.quietStart).toBe("22:00");
-    expect(state.quietEnd).toBe("07:00");
   });
 
   it("should update email preference", () => {
@@ -47,22 +45,13 @@ describe("useNotificationPreferences store", () => {
   it("should update quietHours preference", () => {
     useNotificationPreferences.getState().setQuietHours("22:00");
     expect(useNotificationPreferences.getState().quietHours).toBe("22:00");
-    expect(useNotificationPreferences.getState().quietStart).toBe("22:00");
-  });
-
-  it("should update quiet-hours range preferences", () => {
-    useNotificationPreferences.getState().setQuietRange("21:30", "06:45");
-
-    expect(useNotificationPreferences.getState().quietStart).toBe("21:30");
-    expect(useNotificationPreferences.getState().quietEnd).toBe("06:45");
-    expect(useNotificationPreferences.getState().quietHours).toBe("21:30");
   });
 
   it("should reset to default state", () => {
     useNotificationPreferences.getState().setEmail(false);
     useNotificationPreferences.getState().setPush(true);
     useNotificationPreferences.getState().setFrequency("2");
-    useNotificationPreferences.getState().setQuietRange("09:00", "17:00");
+    useNotificationPreferences.getState().setQuietHours("09:00");
 
     useNotificationPreferences.getState().reset();
 
@@ -71,25 +60,21 @@ describe("useNotificationPreferences store", () => {
     expect(state.push).toBe(false);
     expect(state.frequency).toBe("");
     expect(state.quietHours).toBe("12:00");
-    expect(state.quietStart).toBe("22:00");
-    expect(state.quietEnd).toBe("07:00");
   });
 
   it("should persist state to localStorage", () => {
     useNotificationPreferences.getState().setEmail(false);
     useNotificationPreferences.getState().setPush(true);
     useNotificationPreferences.getState().setFrequency("3");
-    useNotificationPreferences.getState().setQuietRange("08:30", "18:45");
+    useNotificationPreferences.getState().setQuietHours("08:30");
 
     const stored = localStorage.getItem("notification-preferences");
     expect(stored).not.toBeNull();
-
+    
     const parsed = JSON.parse(stored!);
     expect(parsed.state.email).toBe(false);
     expect(parsed.state.push).toBe(true);
     expect(parsed.state.frequency).toBe("3");
     expect(parsed.state.quietHours).toBe("08:30");
-    expect(parsed.state.quietStart).toBe("08:30");
-    expect(parsed.state.quietEnd).toBe("18:45");
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
 import { isValidStellarAddress } from '../utils/stellarAddress';
@@ -10,6 +10,8 @@ interface AddressDisplayProps {
     tailChars?: number;
 }
 
+
+
 export function AddressDisplay({
     address,
     network,
@@ -17,7 +19,7 @@ export function AddressDisplay({
     tailChars = 4,
 }: AddressDisplayProps) {
     const [copied, setCopied] = useState(false);
-    const isValid = isValidStellarAddress(address);
+
     const display = truncateMiddle(address, chars, tailChars);
 
     const copy = () => {
@@ -58,7 +60,7 @@ export function AddressDisplay({
                     padding: '0 2px', fontSize: 13, lineHeight: 1,
                 }}
             >
-                {copied ? '✓' : '⏘'}
+                {copied ? 'âœ“' : 'âŽ˜'}
             </button>
             {network != null && isValid && (
                 <a
@@ -68,9 +70,10 @@ export function AddressDisplay({
                     aria-label={`View ${address} on Stellar Expert`}
                     style={{ color: 'var(--accent)', fontSize: 12, lineHeight: 1 }}
                 >
-                    ↗
+                    â†—
                 </a>
             )}
         </span>
     );
 }
+

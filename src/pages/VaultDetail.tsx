@@ -9,12 +9,10 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { Text } from "../components/Text";
-import { VaultMetaPanel } from "../components/VaultMetaPanel";
+import { AddressDisplay } from "../components/AddressDisplay";
 import { useWallet } from "../context/WalletContext";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import type { VaultStatus, Vault } from "../types/vault";
-import { getVault } from "../services/vaultService";
-import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import type { VaultStatus, MilestoneStatus, TxType } from "../types/vault";
 
 // ── Types imported from canonical source ─────────────────────────────────────
 // Vault and VaultStatus are imported from "../types/vault" above.
@@ -145,27 +143,8 @@ function Card({
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
+  const vault = id ? MOCK_VAULTS[id] : undefined;
   const { network } = useWallet();
-  const [vault, setVault] = useState<Vault | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    getVault(id ?? "").then((v) => {
-      setVault(v);
-      setLoading(false);
-    });
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-        <Text role="body" as="p" style={{ color: "var(--muted)" }}>
-          Loading vault…
-        </Text>
-      </div>
-    );
-  }
 
   if (!vault) {
     return (
@@ -543,16 +522,13 @@ interface NetworkFooterBannerProps {
   contractAddress: string;
 }
 
-function NetworkFooterBanner({
-  network,
-  contractAddress,
-}: NetworkFooterBannerProps) {
+function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerProps) {
   const label = networkLabel(network);
   const explorerUrl = contractAddress
-    ? contractExplorerUrl(contractAddress, network ?? "TESTNET")
-    : "";
+    ? contractExplorerUrl(contractAddress, network ?? 'TESTNET')
+    : '';
 
-  const isTestnet = network !== "PUBLIC";
+  const isTestnet = network !== 'PUBLIC';
 
   return (
     <footer
@@ -561,9 +537,7 @@ function NetworkFooterBanner({
         marginTop: "1.5rem",
         padding: "0.75rem 1rem",
         borderRadius: "var(--radius)",
-        border: `1px solid ${
-          isTestnet ? "var(--warning, #f59e0b)" : "var(--success, #10b981)"
-        }`,
+        border: `1px solid ${isTestnet ? "var(--warning, #f59e0b)" : "var(--success, #10b981)"}`,
         background: isTestnet
           ? "rgba(245,158,11,0.07)"
           : "rgba(16,185,129,0.07)",

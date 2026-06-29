@@ -65,7 +65,7 @@ describe('Verifier Flow Integration Tests', () => {
 
   describe('Approve flow', () => {
     it('approves a pending task and it appears in history with correct status and notes', async () => {
-      render(
+      const { container } = render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -92,7 +92,7 @@ describe('Verifier Flow Integration Tests', () => {
       // Check all criteria to enable approve button
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });
@@ -138,7 +138,7 @@ describe('Verifier Flow Integration Tests', () => {
     });
 
     it('pending count decrements after approval', async () => {
-      render(
+      const { container } = render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -164,7 +164,7 @@ describe('Verifier Flow Integration Tests', () => {
       // Actually, let's just check all criteria
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });
@@ -343,7 +343,7 @@ describe('Verifier Flow Integration Tests', () => {
 
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });

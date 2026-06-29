@@ -9,8 +9,6 @@ import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
-import { ShortcutsHelp } from "./ShortcutsHelp";
-import CommandPalette from "./CommandPalette";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -98,13 +96,9 @@ export default function Layout({ children }: LayoutProps) {
               Create Vault
             </Link>
             <NotificationBell />
-            <WalletBalanceChip />
             <WalletConnectButton />
           </div>
         </nav>
-        <div {...backgroundA11yProps}>
-          <CommandPalette />
-        </div>
         <div className="mobile-bell-wrapper" {...backgroundA11yProps}>
           <NotificationBell />
         </div>
@@ -124,7 +118,6 @@ export default function Layout({ children }: LayoutProps) {
         />
       </header>
       <TrustlineBanner />
-      <NetworkMismatchBanner />
 
       <main
         {...backgroundA11yProps}

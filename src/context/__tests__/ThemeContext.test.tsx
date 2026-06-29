@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ThemeProvider, useTheme } from '../ThemeContext';
-import { vi, type Mock } from 'vitest';
+import React from 'react';
 
 function TestComponent() {
   const { theme, toggleTheme, setTheme } = useTheme();
@@ -20,14 +20,14 @@ describe('ThemeContext safe storage', () => {
   const originalSetItem = window.localStorage.setItem;
 
   beforeEach(() => {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    window.matchMedia = jest.fn().mockImplementation((query) => ({
       matches: false,
       media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
     } as unknown as MediaQueryList));
-    window.localStorage.getItem = vi.fn();
-    window.localStorage.setItem = vi.fn();
+    window.localStorage.getItem = jest.fn();
+    window.localStorage.setItem = jest.fn();
   });
 
   afterEach(() => {
@@ -37,7 +37,7 @@ describe('ThemeContext safe storage', () => {
   });
 
   test('falls back to system theme when getItem throws', () => {
-    (window.localStorage.getItem as Mock).mockImplementation(() => {
+    (window.localStorage.getItem as jest.Mock).mockImplementation(() => {
       throw new Error('storage blocked');
     });
     render(
@@ -51,7 +51,7 @@ describe('ThemeContext safe storage', () => {
   });
 
   test('toggles theme even when setItem throws', () => {
-    (window.localStorage.setItem as Mock).mockImplementation(() => {
+    (window.localStorage.setItem as jest.Mock).mockImplementation(() => {
       throw new Error('quota exceeded');
     });
     render(

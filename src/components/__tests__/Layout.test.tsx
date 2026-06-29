@@ -7,16 +7,8 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
-vi.mock('../Wallet/WalletBalanceChip', () => ({
-  WalletBalanceChip: () => <span data-testid="balance-chip" />,
-}));
-
 vi.mock('../TrustlineBanner', () => ({
   TrustlineBanner: () => null,
-}));
-
-vi.mock('../NetworkMismatchBanner', () => ({
-  NetworkMismatchBanner: () => <div data-testid="network-mismatch-banner" />,
 }));
 
 // MobileDrawer uses FocusTrap only when open; mock it so any accidental open

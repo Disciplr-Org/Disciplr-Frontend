@@ -1,17 +1,8 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import UpcomingDeadlines from "../UpcomingDeadlines";
 import type { Deadline } from "../../utils/dashboard";
-import { downloadIcsEvent } from "../../utils/ics";
-
-vi.mock("../../utils/ics", async () => {
-  const actual = await vi.importActual<typeof import("../../utils/ics")>("../../utils/ics");
-  return {
-    ...actual,
-    downloadIcsEvent: vi.fn(),
-  };
-});
 
 const fixedNow = new Date("2026-06-18T12:00:00Z");
 
@@ -43,16 +34,12 @@ const deadlines: Deadline[] = [
 ];
 
 describe("UpcomingDeadlines", () => {
-  const mockDownloadIcsEvent = vi.mocked(downloadIcsEvent);
-
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(fixedNow);
-    mockDownloadIcsEvent.mockReturnValue(true);
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
     vi.useRealTimers();
   });
 
@@ -91,7 +78,7 @@ describe("UpcomingDeadlines", () => {
   it("renders CountdownDeadline output for each row", () => {
     render(<UpcomingDeadlines deadlines={deadlines} />);
 
-    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Deadline .* Expired/)).toBeInTheDocument();
     expect(screen.getByText("6h 0m remaining")).toBeInTheDocument();
     expect(screen.getByText("3d 0h remaining")).toBeInTheDocument();
     expect(screen.getByText("10d 0h remaining")).toBeInTheDocument();
@@ -122,28 +109,11 @@ describe("UpcomingDeadlines", () => {
     expect(
       within(items[items.length - 1]).getByText("Invalid deadline"),
     ).toBeInTheDocument();
-    expect(
-      within(items[items.length - 1]).getByRole("button", { name: /Add to calendar/i }),
-    ).toBeDisabled();
   });
 
   it("shows an empty state when there are no deadlines", () => {
     render(<UpcomingDeadlines deadlines={[]} />);
 
     expect(screen.getByText("No upcoming deadlines.")).toBeInTheDocument();
-  });
-
-  it("downloads a calendar event for a valid deadline", () => {
-    render(<UpcomingDeadlines deadlines={deadlines} />);
-
-    const safeRow = screen.getByTestId("upcoming-deadline-safe");
-    fireEvent.click(within(safeRow).getByRole("button", { name: /Add to calendar/i }));
-
-    expect(mockDownloadIcsEvent).toHaveBeenCalledWith({
-      title: "Safe Vault deadline",
-      deadline: "2026-06-28T12:00:00Z",
-      description: "Safe Vault vault deadline for 9,000 USDC.",
-      uid: "vault-deadline-safe",
-    });
   });
 });

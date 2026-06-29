@@ -206,7 +206,7 @@ export default function Notification() {
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={transitionEnter}
                   className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md"
-                  style={{ zIndex: "var(--z-index-drawer)" }}
+                  style={{ zIndex: 'var(--z-index-drawer)' }}
                 >
                   <h2>Filter By : </h2>
                   <div className="flex justify-between">
