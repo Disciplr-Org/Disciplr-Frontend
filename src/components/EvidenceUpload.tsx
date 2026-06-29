@@ -18,9 +18,6 @@ const ACCEPTED_FILE_TYPES = [
 
 const ACCEPTED_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt', '.mp4', '.webm']
 
-function isAcceptedFileType(file: File): boolean {
-  return ACCEPTED_FILE_TYPES.includes(file.type)
-}
 
 interface EvidenceUploadProps {
   id?: string

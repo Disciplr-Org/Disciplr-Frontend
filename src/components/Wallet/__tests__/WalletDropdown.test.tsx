@@ -1,4 +1,4 @@
-import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { vi, describe, beforeEach, expect } from 'vitest';
 import type { BalanceStatus, WalletNetwork } from '@/context/WalletContext';
 
 const walletState = vi.hoisted(() => ({

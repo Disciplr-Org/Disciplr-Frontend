@@ -16,12 +16,14 @@ export const SafeLink: React.FC<SafeLinkProps> = ({ href, children, ...props }) 
     return <span title={`Rejected URL: ${href}`}>[Invalid Link]</span>;
   }
 
+  // Spread caller props first so the enforced safety attributes below cannot
+  // be overridden (e.g. a caller passing rel="" or target="_self").
   return (
     <a
+      {...props}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      {...props}
     >
       {children}
     </a>

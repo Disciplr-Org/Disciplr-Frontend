@@ -3,6 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VaultTransactions, { Transaction } from '../VaultTransactions';
 import { toCsv, downloadCsv } from '../../utils/csv';
 import { WINDOW_SIZE, WINDOW_THRESHOLD } from '../../utils/windowRange';
+import * as windowRangeMod from '../../utils/windowRange';
+import * as txTotalsMod from '../../utils/txTotals';
+
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }),
+});
 
 vi.mock('../../utils/csv', () => ({
   toCsv: vi.fn((_data, _type) => 'mocked,csv,content'),
@@ -292,7 +308,8 @@ describe('VaultTransactions', () => {
       fireEvent.click(rows[0]);
       // tx8 full hash
       const fullHash = 'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3';
-      expect(screen.getByText(fullHash)).toBeInTheDocument();
+      const modal = document.querySelector('.vt-modal') as HTMLElement;
+      expect(within(modal).getByText(fullHash)).toBeInTheDocument();
     });
   });
 
@@ -623,6 +640,38 @@ describe('VaultTransactions large fixture integration', () => {
     render(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBe(10);
+  });
+
+  it('memoizes derivations so unrelated state changes do not re-run filter/total pipeline', () => {
+    const windowSpy = vi.spyOn(windowRangeMod, 'windowRange');
+    const totalsSpy = vi.spyOn(txTotalsMod, 'computeTxTotals');
+    
+    render(<VaultTransactions />);
+    
+    const initialWindowCalls = windowSpy.mock.calls.length;
+    const initialTotalsCalls = totalsSpy.mock.calls.length;
+    
+    expect(initialWindowCalls).toBeGreaterThan(0);
+    expect(initialTotalsCalls).toBeGreaterThan(0);
+    
+    // Click a row to set selectedTx (unrelated state)
+    const rows = document.querySelectorAll('.vt-tx-row');
+    fireEvent.click(rows[0]);
+    
+    expect(document.querySelector('.vt-modal')).toBeInTheDocument();
+    
+    expect(windowSpy.mock.calls.length).toBe(initialWindowCalls);
+    expect(totalsSpy.mock.calls.length).toBe(initialTotalsCalls);
+    
+    // Changing a filter should re-run derivations
+    const searchInput = screen.getByPlaceholderText(/search by transaction hash/i);
+    fireEvent.change(searchInput, { target: { value: 'a3f9' } });
+    
+    expect(windowSpy.mock.calls.length).toBeGreaterThan(initialWindowCalls);
+    expect(totalsSpy.mock.calls.length).toBeGreaterThan(initialTotalsCalls);
+    
+    windowSpy.mockRestore();
+    totalsSpy.mockRestore();
   });
 });
 

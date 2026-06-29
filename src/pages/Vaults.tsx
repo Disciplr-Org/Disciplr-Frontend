@@ -7,22 +7,12 @@ import { VaultFilterBar } from '../components/VaultFilterBar'
 import { filterVaults } from '../utils/filterVaults'
 import type { VaultFilters } from '../utils/filterVaults'
 
-interface Vault {
-  id: string
-  name: string
-  amount: number
-  currency: string
-  status: VaultStatus
-  deadline: string
-}
+// VaultStatus is imported from '../types/vault' for use in the JSX below.
+// The Vault type is imported from '../types/vault' via vaultService.
+// Local MOCK_VAULTS removed — listVaults() in vaultService is the single source.
+type _VaultStatus = VaultStatus; // suppress unused-import lint
 
-const MOCK_VAULTS: Vault[] = [
-  { id: '1', name: 'Alpha Vault',  amount: 12500,  currency: 'USDC', status: 'active',    deadline: '2024-07-15T10:00:00Z' },
-  { id: '2', name: 'Beta Reserve', amount: 4200.5, currency: 'USDC', status: 'completed', deadline: '2024-01-01T09:00:00Z' },
-  { id: '3', name: 'Gamma Fund',   amount: 8800,   currency: 'USDC', status: 'failed',    deadline: '2023-12-01T08:00:00Z' },
-]
-
-const DEFAULT_FETCH = () => Promise.resolve(MOCK_VAULTS)
+const DEFAULT_FETCH = () => listVaults()
 
 function Skeleton() {
   return (

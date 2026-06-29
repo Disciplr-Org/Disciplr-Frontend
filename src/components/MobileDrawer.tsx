@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import FocusTrap from 'focus-trap-react';
 import NavLink from './NavLink';

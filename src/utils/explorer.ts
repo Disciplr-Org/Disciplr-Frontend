@@ -1,4 +1,5 @@
 import type { WalletNetwork } from '../context/WalletContext';
+import { isValidStellarAddress } from './stellarAddress';
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer'
 
@@ -8,6 +9,7 @@ export function getExplorerTxUrl(txHash: string, network: 'TESTNET' | 'PUBLIC' |
 }
 
 export function getExplorerAccountUrl(address: string, network: 'TESTNET' | 'PUBLIC' | null): string {
+  if (!isValidStellarAddress(address)) return '';
   const segment = network === 'PUBLIC' ? 'public' : 'testnet'
   return `${EXPLORER_BASE}/${segment}/account/${address}`
 }
@@ -25,7 +27,7 @@ const EXPLORER_BASES: Record<WalletNetwork, string> = {
  * the link render without additional null checks.
  */
 export function contractExplorerUrl(address: string, network: string): string {
-  if (!address) return '';
+  if (!isValidStellarAddress(address)) return '';
   const base =
     EXPLORER_BASES[(network as WalletNetwork)] ??
     EXPLORER_BASES.TESTNET;

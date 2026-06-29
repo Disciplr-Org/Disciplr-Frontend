@@ -5,10 +5,14 @@ import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { Link } from "react-router-dom";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { X } from "lucide-react";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
   const setNotifications = useNotification((state) => state.setNotification);
+  const dismiss = useNotification((state) => state.dismiss);
+  const clearAll = useNotification((state) => state.clearAll);
   const [currentNotification, setCurrentNotification] = useState(notifications);
   const [currentFilterReadSeletion, setCurrentFilterReadSeletion] =
     useState("all");
@@ -17,6 +21,7 @@ export default function Notification() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const itemsPerPage = 5;
 
   // 1. Calculate the data for the current page
@@ -74,6 +79,24 @@ export default function Notification() {
 
   // 2. Calculate total pages
   const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
+
+  // Reset to page 1 when the underlying notification list changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [notifications.length]);
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+    setCurrentNotification((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setCurrentNotification([]);
+    setShowClearModal(false);
+    setCurrentPage(1);
+  };
+
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
@@ -164,6 +187,14 @@ export default function Notification() {
               )}
             </AnimatePresence>
           </div>
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearModal(true)}
+              className="bg-red-500 px-3 py-2 rounded-md text-white text-sm"
+            >
+              Clear all
+            </button>
+          )}
         </div>
       </div>
 
@@ -174,16 +205,27 @@ export default function Notification() {
               key={items.id}
               className="w-full px-2 border-[#00c389] border-1 rounded-md "
             >
-              <Message
-                id={items.id}
-                title={items.title}
-                message={items.message}
-                timeAgo={items.timeAgo}
-                type={items.type}
-                read={items.isRead}
-                isFullPage={true}
-                setRead={setRead}
-              />
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <Message
+                    id={items.id}
+                    title={items.title}
+                    message={items.message}
+                    timeAgo={items.timeAgo}
+                    type={items.type}
+                    read={items.isRead}
+                    isFullPage={true}
+                    setRead={setRead}
+                  />
+                </div>
+                <button
+                  onClick={() => handleDismiss(items.id)}
+                  className="mt-2 p-1 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100"
+                  aria-label={`Dismiss notification ${items.id}`}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           ))
         ) : (
@@ -215,6 +257,17 @@ export default function Notification() {
           </button>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearAll}
+        simpleConfirm={{
+          title: "Clear all notifications",
+          message: `Are you sure you want to clear all ${notifications.length} notifications? This action cannot be undone.`,
+          confirmLabel: "Clear all",
+        }}
+      />
     </>
   );
 }

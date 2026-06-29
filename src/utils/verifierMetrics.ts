@@ -1,66 +1,72 @@
-// Pure TypeScript utility — zero React imports.
-// Types mirror the real ValidationTask shape in src/Zustand/Store.ts.
-// The deadline countdown field in the store is `daysRemaining: number`.
-// The resolution status field is `status: 'pending' | 'approved' | 'rejected'`.
-
-export type PendingTask = {
-  id: string;
-  vaultName: string;
-  owner: string;
-  amount: string;
-  deadline: string;       // ISO date string — not used for metrics
-  daysRemaining: number;  // numeric countdown used for overdue/urgent logic
-  status: 'pending' | 'approved' | 'rejected';
-  milestone: string;
-  evidenceUrl?: string;
-  notes?: string;
-};
-
-export type HistoryRecord = {
-  id: string;
-  vaultName: string;
-  owner: string;
-  amount: string;
-  deadline: string;
-  daysRemaining: number;
-  status: 'pending' | 'approved' | 'rejected';
-  milestone: string;
-  evidenceUrl?: string;
-  notes?: string;
-};
-
-export type VerifierMetricsResult = {
-  /** Percentage (0-100) of history records with status === 'approved'. */
-  approvalRate: number;
-  /** Count of pending tasks where daysRemaining <= 0. */
-  overdueCount: number;
-  /** Count of pending tasks where 0 < daysRemaining <= 3 (mutually exclusive with overdue). */
-  urgentCount: number;
-  /** Total number of history records. */
-  totalResolved: number;
-};
+import type { ValidationTask } from '../Zustand/Store';
 
 /**
- * Computes summary metrics from the verifier store's pending and history arrays.
+ * Pending validations whose remaining deadline is less than or equal to this
+ * many days are considered "critical" — i.e. they need attention soon and
+ * include anything that is already overdue. This mirrors the urgent-red
+ * threshold used in the PendingValidations row markup.
+ */
+export const CRITICAL_DAYS_THRESHOLD = 3;
+
+export interface VerifierMetrics {
+  /** Number of tasks still awaiting a decision. */
+  pendingCount: number;
+  /** Pending tasks whose deadline has passed (daysRemaining <= 0). */
+  overdueCount: number;
+  /** Pending tasks whose deadline is at or below CRITICAL_DAYS_THRESHOLD. */
+  criticalCount: number;
+  /**
+   * Approved decisions divided by all decided (approved + rejected) history
+   * entries. Always a finite number in [0, 1] — empty history returns 0 so
+   * the rendered percentage never reads "NaN%" or "Infinity%".
+   */
+  approvalRate: number;
+}
+
+/**
+ * Compute the queue-at-a-glance metrics for the verifier dashboard.
  *
- * Rules:
- * - `overdueCount`: daysRemaining <= 0  (includes exactly 0)
- * - `urgentCount`:  0 < daysRemaining <= 3  (mutually exclusive with overdue)
- * - `approvalRate`: 0 when history is empty (zero-division guard)
+ * Pure / presentational: no React, no store reads, no logging. Both inputs
+ * are read-only — useful for unit tests, server-side rendering, and any
+ * location that wants the numbers without mounting the chart component.
+ *
+ * Accepts `undefined` / `null` inputs as equivalent to an empty list so
+ * callers that only hydrate part of the store (e.g. test mocks, server-side
+ * partial renders) can still invoke the function safely.
  */
 export function computeVerifierMetrics(
-  pending: PendingTask[],
-  history: HistoryRecord[],
-): VerifierMetricsResult {
-  const totalResolved = history.length;
+  pending: ValidationTask[] | undefined | null,
+  history: ValidationTask[] | undefined | null,
+): VerifierMetrics {
+  const safePending = pending ?? [];
+  const safeHistory = history ?? [];
 
-  const approvedCount = history.filter((r) => r.status === 'approved').length;
-  const approvalRate = totalResolved === 0 ? 0 : (approvedCount / totalResolved) * 100;
+  let overdueCount = 0;
+  let criticalCount = 0;
 
-  const overdueCount = pending.filter((t) => t.daysRemaining <= 0).length;
-  const urgentCount = pending.filter(
-    (t) => t.daysRemaining > 0 && t.daysRemaining <= 3,
-  ).length;
+  for (const task of safePending) {
+    if (task.daysRemaining <= 0) overdueCount++;
+    if (task.daysRemaining <= CRITICAL_DAYS_THRESHOLD) criticalCount++;
+  }
 
-  return { approvalRate, overdueCount, urgentCount, totalResolved };
+  let approved = 0;
+  let decided = 0;
+  for (const task of safeHistory) {
+    if (task.status === 'approved') {
+      approved++;
+      decided++;
+    } else if (task.status === 'rejected') {
+      decided++;
+    }
+  }
+
+  // Division guard: empty history returns 0% rather than NaN.
+  const approvalRate = decided === 0 ? 0 : approved / decided;
+
+  return {
+    pendingCount: safePending.length,
+    overdueCount,
+    criticalCount,
+    approvalRate,
+  };
 }

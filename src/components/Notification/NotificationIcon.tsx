@@ -3,11 +3,13 @@ import Message from "./Messages";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../../utils/motion";
+import { usePrefersReducedMotion } from "../../utils/usePrefersReducedMotion";
 import { Link } from "react-router-dom";
 import { useNotification } from "@/Zustand/Store";
 
 export default function NotificationIcon() {
   const [isOpen, setIsOpen] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const notifications = useNotification((state) => state.notification);
   const setNotifications = useNotification((state) => state.setNotification);
   const [unread, setUnread] = useState(0);
@@ -58,15 +60,36 @@ export default function NotificationIcon() {
     };
   }, []);
 
+  const dropdownMotion = prefersReducedMotion
+    ? {
+        initial: { opacity: 1, y: 0, scale: 1 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 1, y: 0, scale: 1 },
+        transition: { duration: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: -10, scale: 0.95 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: -10, scale: 0.95 },
+        transition: transitionEnter,
+      };
+
   return (
     <>
       <div ref={containerRef} className="relative inline-block">
-        <div
-          onClick={() => setIsOpen((prev) => !prev)}
-          aria-label={unread > 0 ? `${unread} unread notifications` : "No unread notifications"}
-          role="button"
+        <button
+          type="button"
+          aria-label={
+            unread > 0
+              ? `Toggle notifications, ${unread} unread`
+              : "Toggle notifications"
+          }
           aria-haspopup="true"
           aria-expanded={isOpen}
+          onClick={() => {
+            setIsOpen((prev) => !prev);
+          }}
+          className="cursor-pointer bg-transparent border-0 p-0"
         >
           {unread > 0 ? (
             <CiBellOn size="2rem" />
@@ -82,17 +105,17 @@ export default function NotificationIcon() {
               {unread}
             </div>
           )}
-        </div>
+        </button>
 
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={transitionEnter}
+              initial={dropdownMotion.initial}
+              animate={dropdownMotion.animate}
+              exit={dropdownMotion.exit}
+              transition={dropdownMotion.transition}
               className="absolute w-[300px] h-[500px] bg-white shadow-2xl mt-2 -translate-x-[90%]"
-              style={{ zIndex: 'var(--z-index-drawer)' }}
+              style={{ zIndex: "var(--z-index-drawer)" }}
             >
               <div className="w-full h-full flex flex-col items-center justify-between pb-5">
                 <div className="w-full flex flex-col justify-center items-center">

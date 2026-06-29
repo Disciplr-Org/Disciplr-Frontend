@@ -29,7 +29,7 @@ describe('VaultDetail', () => {
     expect(screen.getByText('Status Timeline')).toBeInTheDocument();
     expect(screen.getByText(/Deadline Jul 15, 2024/)).toBeInTheDocument();
     // CountdownDeadline active vault should show time remaining or expired
-    expect(screen.getByText(/Expired|remaining/)).toBeInTheDocument();
+    expect(screen.getByText(/Overdue|remaining/)).toBeInTheDocument();
 
     const addresses = screen.getByText('Addresses').closest('div')?.parentElement;
     expect(addresses).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('VaultDetail', () => {
     expect(screen.queryByText('Verifier')).not.toBeInTheDocument();
 
     // Verify Countdown is replaced by status text
-    expect(screen.queryByText(/Expired|remaining/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
     expect(screen.getByText('Deadline Jan 1, 2024')).toBeInTheDocument();
 
     expect(screen.getByText('Project Delivery')).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
 
     // Verify Countdown is replaced by status text
-    expect(screen.queryByText(/Expired|remaining/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
 
     expect(screen.getByText('Milestone 1')).toBeInTheDocument();
     expect(screen.getByText('Criteria not met')).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
 
     // Verify Countdown is replaced by status text
-    expect(screen.queryByText(/Expired|remaining/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
 
     // Mixed milestones
     expect(screen.getByText('Milestone 1')).toBeInTheDocument();

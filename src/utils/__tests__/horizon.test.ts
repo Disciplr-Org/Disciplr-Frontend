@@ -1,4 +1,4 @@
-import { fetchUsdcBalance, horizonUrl, HorizonBalanceError, USDC_ISSUERS } from '../horizon';
+import { fetchUsdcBalance, horizonUrl, HorizonBalanceError, MAX_HORIZON_BALANCES, USDC_ISSUERS } from '../horizon';
 
 function mockResponse(status: number, body: unknown) {
     return {
@@ -60,6 +60,26 @@ describe('horizon wallet balance helpers', () => {
         });
     });
 
+    test('throws an invalid-response error when the matching USDC balance is malformed', async () => {
+        const fetcher = vi.fn().mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.PUBLIC,
+                        balance: 'NaN',
+                    },
+                ],
+            }),
+        );
+
+        await expect(fetchUsdcBalance('GPUBLIC', 'PUBLIC', fetcher)).rejects.toMatchObject({
+            code: 'INVALID_RESPONSE',
+            message: 'Horizon USDC balance was missing or not a finite numeric string.',
+        });
+    });
+
     test('throws an account-not-found error for Horizon 404 responses', async () => {
         const fetcher = vi.fn().mockResolvedValue(mockResponse(404, {}));
 
@@ -75,6 +95,38 @@ describe('horizon wallet balance helpers', () => {
         await expect(fetchUsdcBalance('GFAIL', 'PUBLIC', fetcher)).rejects.toMatchObject({
             code: 'REQUEST_FAILED',
             message: 'Horizon balance request failed with status 500.',
+        });
+    });
+
+    test('rejects oversized balance arrays before scanning for the USDC trustline', async () => {
+        const oversizedBalances = Array.from({ length: MAX_HORIZON_BALANCES + 1 }, (_, index) => ({
+            asset_type: 'credit_alphanum4',
+            asset_code: 'USDC',
+            asset_issuer: index === MAX_HORIZON_BALANCES ? USDC_ISSUERS.TESTNET : 'GOTHER',
+            balance: `${index}`,
+        }));
+        const fetcher = vi.fn().mockResolvedValue(mockResponse(200, { balances: oversizedBalances }));
+
+        await expect(fetchUsdcBalance('GOVERSIZED', 'TESTNET', fetcher)).rejects.toMatchObject({
+            code: 'INVALID_RESPONSE',
+            message: 'Horizon account response included too many balances.',
+        });
+    });
+
+    test('allows balance arrays at the documented maximum size', async () => {
+        const balances = Array.from({ length: MAX_HORIZON_BALANCES }, (_, index) => ({
+            asset_type: 'credit_alphanum4',
+            asset_code: 'USDC',
+            asset_issuer: index === MAX_HORIZON_BALANCES - 1 ? USDC_ISSUERS.TESTNET : 'GOTHER',
+            balance: `${index}`,
+        }));
+        const fetcher = vi.fn().mockResolvedValue(mockResponse(200, { balances }));
+
+        await expect(fetchUsdcBalance('GAT_CAP', 'TESTNET', fetcher)).resolves.toMatchObject({
+            balance: `${MAX_HORIZON_BALANCES - 1}`,
+            hasTrustline: true,
+            issuer: USDC_ISSUERS.TESTNET,
+            network: 'TESTNET',
         });
     });
 

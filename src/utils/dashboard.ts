@@ -1,4 +1,7 @@
-export type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
+import type { VaultStatus } from "../types/vault";
+import { formatRelativeTime } from "./relativeTime";
+
+export type { VaultStatus };
 
 export interface VaultPreview {
   id: string;
@@ -45,10 +48,13 @@ export interface FormattedActivity extends Activity {
   relativeTime: string;
 }
 
-export function daysRemaining(deadline: string, now: number = Date.now()): number {
+export function daysRemaining(
+  deadline: string,
+  now: number = Date.now(),
+): number {
   return Math.max(
     0,
-    Math.ceil((new Date(deadline).getTime() - now) / 86400000)
+    Math.ceil((new Date(deadline).getTime() - now) / 86400000),
   );
 }
 
@@ -59,11 +65,7 @@ export function urgencyColor(days: number): string {
 }
 
 export function relativeTime(iso: string, now: number = Date.now()): string {
-  const diff = now - new Date(iso).getTime();
-  const h = Math.floor(diff / 3600000);
-  if (h < 1) return "just now";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  return formatRelativeTime(iso, now);
 }
 
 export function formatSummary(summary: DashboardSummary) {
@@ -75,9 +77,14 @@ export function formatSummary(summary: DashboardSummary) {
   };
 }
 
-export function processDeadlines(deadlines: Deadline[], now: number = Date.now()): FormattedDeadline[] {
+export function processDeadlines(
+  deadlines: Deadline[],
+  now: number = Date.now(),
+): FormattedDeadline[] {
   return [...deadlines]
-    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+    .sort(
+      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime(),
+    )
     .map((d) => {
       const days = daysRemaining(d.deadline, now);
       const color = urgencyColor(days);
@@ -95,13 +102,20 @@ export function processDeadlines(deadlines: Deadline[], now: number = Date.now()
     });
 }
 
-export function processActivity(activities: Activity[], now: number = Date.now()): FormattedActivity[] {
+export function processActivity(
+  activities: Activity[],
+  now: number = Date.now(),
+): FormattedActivity[] {
   return [...activities]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )
     .map((a) => {
       return {
         ...a,
-        formattedAmount: a.amount != null ? `${a.amount.toLocaleString()} USDC` : undefined,
+        formattedAmount:
+          a.amount != null ? `${a.amount.toLocaleString()} USDC` : undefined,
         relativeTime: relativeTime(a.timestamp, now),
       };
     });
