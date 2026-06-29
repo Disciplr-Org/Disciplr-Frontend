@@ -3,14 +3,31 @@ export interface CreateVaultFormValues {
   deadline: string;
   successAddress: string;
   failureAddress: string;
-  milestoneTitle: string;
-  milestoneCriteria: string;
+  milestones?: CreateVaultMilestoneInput[];
 }
 
-const MILESTONE_TITLE_MAX = 100;
-const MILESTONE_CRITERIA_MAX = 500;
+export interface CreateVaultMilestoneInput {
+  title: string;
+  criteria: string;
+}
 
-export type CreateVaultErrors = Partial<Record<keyof CreateVaultFormValues, string>>;
+export interface CreateVaultMilestoneRowErrors {
+  title?: string;
+  criteria?: string;
+}
+
+export interface CreateVaultMilestoneErrors {
+  form?: string;
+  rows?: CreateVaultMilestoneRowErrors[];
+}
+
+type CreateVaultFieldName = Exclude<keyof CreateVaultFormValues, "milestones">;
+
+export type CreateVaultErrors = Partial<
+  Record<CreateVaultFieldName, string>
+> & {
+  milestones?: CreateVaultMilestoneErrors;
+};
 
 const STELLAR_PUBLIC_KEY = /^G[A-Z2-7]{55}$/;
 const USDC_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
@@ -40,21 +57,27 @@ export function validateCreateVault(
   const verifierAddress = values.verifierAddress.trim();
 
   if (!isValidUsdcAmount(values.amount)) {
-    errors.amount = 'Enter a positive USDC amount with up to 7 decimal places.';
+    errors.amount = "Enter a positive USDC amount with up to 7 decimal places.";
   }
 
   if (!isFutureDeadline(values.deadline, now)) {
-    errors.deadline = 'Choose a future deadline.';
+    errors.deadline = "Choose a future deadline.";
   }
 
   if (!isValidStellarAddress(successAddress)) {
-    errors.successAddress = 'Enter a valid Stellar public key starting with G.';
+    errors.successAddress = "Enter a valid Stellar public key starting with G.";
   }
 
   if (!isValidStellarAddress(failureAddress)) {
-    errors.failureAddress = 'Enter a valid Stellar public key starting with G.';
+    errors.failureAddress = "Enter a valid Stellar public key starting with G.";
   } else if (successAddress === failureAddress) {
-    errors.failureAddress = 'Failure destination must be different from success destination.';
+    errors.failureAddress =
+      "Failure destination must be different from success destination.";
+  }
+
+  const milestoneErrors = validateMilestones(values.milestones);
+  if (milestoneErrors) {
+    errors.milestones = milestoneErrors;
   }
 
   const title = values.milestoneTitle.trim();
@@ -78,12 +101,58 @@ export function hasCreateVaultErrors(errors: CreateVaultErrors): boolean {
   return Object.keys(errors).length > 0;
 }
 
+export function validateMilestones(
+  milestones: CreateVaultMilestoneInput[] | undefined,
+): CreateVaultMilestoneErrors | undefined {
+  if (!milestones || milestones.length === 0) {
+    return { form: "Add at least one milestone." };
+  }
+
+  const rows: CreateVaultMilestoneRowErrors[] = [];
+  const titleCounts = new Map<string, number>();
+
+  milestones.forEach((milestone) => {
+    const normalizedTitle = milestone.title.trim().toLowerCase();
+    if (normalizedTitle) {
+      titleCounts.set(
+        normalizedTitle,
+        (titleCounts.get(normalizedTitle) ?? 0) + 1,
+      );
+    }
+  });
+
+  milestones.forEach((milestone, index) => {
+    const row: CreateVaultMilestoneRowErrors = {};
+    const title = milestone.title.trim();
+    const criteria = milestone.criteria.trim();
+
+    if (!title) {
+      row.title = "Enter a milestone title.";
+    } else if ((titleCounts.get(title.toLowerCase()) ?? 0) > 1) {
+      row.title = "Milestone titles must be unique.";
+    }
+
+    if (!criteria) {
+      row.criteria = "Enter milestone criteria.";
+    }
+
+    if (row.title || row.criteria) {
+      rows[index] = row;
+    }
+  });
+
+  return rows.length > 0 ? { rows } : undefined;
+}
+
 /**
  * Returns true when amount is a valid positive number that strictly exceeds the
  * available balance. Returns false when either value is not a finite number so
  * the caller can treat an unknown balance as non-blocking.
  */
-export function exceedsBalance(amount: string, balance: string | null): boolean {
+export function exceedsBalance(
+  amount: string,
+  balance: string | null,
+): boolean {
   if (balance === null) return false;
   const a = Number(amount);
   const b = Number(balance);
