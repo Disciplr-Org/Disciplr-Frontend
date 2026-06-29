@@ -1,4 +1,5 @@
 import Message from "@/components/Notification/Messages";
+import { groupNotificationsByDate } from "../utils/groupNotifications";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
@@ -199,36 +200,47 @@ export default function Notification() {
       </div>
 
       <div className="flex w-full flex-col gap-5 mt-5">
-        {currentData.length > 0 ? (
-          currentData.map((items) => (
-            <div
-              key={items.id}
-              className="w-full px-2 border-[#00c389] border-1 rounded-md "
-            >
-              <div className="flex items-start gap-2">
-                <div className="flex-1">
-                  <Message
-                    id={items.id}
-                    title={items.title}
-                    message={items.message}
-                    timeAgo={items.timeAgo}
-                    type={items.type}
-                    read={items.isRead}
-                    isFullPage={true}
-                    setRead={setRead}
-                  />
-                </div>
-                <button
-                  onClick={() => handleDismiss(items.id)}
-                  className="mt-2 p-1 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100"
-                  aria-label={`Dismiss notification ${items.id}`}
-                >
-                  <X size={16} />
-                </button>
+        {currentData.length > 0 ? (() => {
+          const groups = groupNotificationsByDate(currentData);
+          return groups.map((group) => (
+            <div key={group.bucket}>
+              <div
+                className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2 mt-1"
+                style={{ letterSpacing: '0.08em' }}
+              >
+                {group.bucket}
               </div>
+              {group.items.map((items) => (
+                <div
+                  key={items.id}
+                  className="w-full px-2 border-[#00c389] border-1 rounded-md mb-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <Message
+                        id={items.id}
+                        title={items.title}
+                        message={items.message}
+                        timeAgo={items.timeAgo}
+                        type={items.type}
+                        read={items.isRead}
+                        isFullPage={true}
+                        setRead={setRead}
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleDismiss(items.id)}
+                      className="mt-2 p-1 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100"
+                      aria-label={`Dismiss notification ${items.id}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))
-        ) : (
+          ));
+        })() : (
           <p>No notifications found.</p>
         )}
       </div>
