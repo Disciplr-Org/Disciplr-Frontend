@@ -2,6 +2,7 @@ import { CountdownDeadline, timeRemaining } from './CountdownDeadline';
 import { Text } from './Text';
 import { deadlineUrgency, type UrgencyTier } from './VaultCard';
 import type { Deadline } from '../utils/dashboard';
+import { downloadIcsEvent, isValidIcsDeadline } from '../utils/ics';
 
 interface UpcomingDeadlinesProps {
   deadlines: Deadline[];
@@ -93,6 +94,15 @@ export default function UpcomingDeadlines({ deadlines }: UpcomingDeadlinesProps)
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {sortedDeadlines.map((item) => {
             const styles = urgencyStyles(item.deadline);
+            const canExport = isValidIcsDeadline(item.deadline);
+            const handleCalendarExport = () => {
+              downloadIcsEvent({
+                title: `${item.name} deadline`,
+                deadline: item.deadline,
+                description: `${item.name} vault deadline for ${item.amount.toLocaleString()} USDC.`,
+                uid: `vault-deadline-${item.id}`,
+              });
+            };
 
             return (
               <div
@@ -136,7 +146,36 @@ export default function UpcomingDeadlines({ deadlines }: UpcomingDeadlinesProps)
                 <Text role="caption" as="div" style={{ color: 'var(--muted)', marginBottom: 2 }}>
                   {item.amount.toLocaleString()} USDC
                 </Text>
-                <CountdownDeadline deadline={item.deadline} />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <CountdownDeadline deadline={item.deadline} />
+                  <button
+                    type="button"
+                    onClick={handleCalendarExport}
+                    disabled={!canExport}
+                    aria-disabled={!canExport}
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${canExport ? 'var(--accent)' : 'var(--border)'}`,
+                      color: canExport ? 'var(--accent)' : 'var(--muted)',
+                      borderRadius: 'var(--radius)',
+                      cursor: canExport ? 'pointer' : 'not-allowed',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: '0.3rem 0.65rem',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Add to calendar
+                  </button>
+                </div>
               </div>
             );
           })}

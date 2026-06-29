@@ -11,17 +11,9 @@ import { Text } from "../components/Text";
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { useWallet } from "../context/WalletContext";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import type { VaultStatus, MilestoneStatus, TxType, Vault, Milestone, VaultTransaction } from "../types/vault";
+import { downloadIcsEvent, isValidIcsDeadline } from "../utils/ics";
+import type { VaultStatus, Vault } from "../types/vault";
 import { getVault } from "../services/vaultService";
-
-// ── Types imported from canonical source ─────────────────────────────────────
-// Milestone, VaultTransaction, Vault, VaultStatus, MilestoneStatus, TxType
-// are all imported from "../types/vault" above.
-// MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
-
-// Suppress unused-import warnings for type-only imports used in JSX props
-type _Milestone = Milestone;
-type _VaultTransaction = VaultTransaction;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -195,6 +187,15 @@ export default function VaultDetail() {
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
   const settlement = settlementForVault(vault);
+  const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const handleCalendarExport = () => {
+    downloadIcsEvent({
+      title: `${vault.name} deadline`,
+      deadline: vault.deadline,
+      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      uid: `vault-${vault.id}-deadline`,
+    });
+  };
 
   return (
     <div
@@ -287,6 +288,15 @@ export default function VaultDetail() {
               <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
             </div>
           )}
+          <button
+            type="button"
+            onClick={handleCalendarExport}
+            disabled={!canExportDeadline}
+            aria-disabled={!canExportDeadline}
+            style={actionBtn(canExportDeadline ? "var(--accent)" : "var(--muted)")}
+          >
+            Add to calendar
+          </button>
         </div>
       </Card>
 

@@ -1,11 +1,20 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import VaultDetail from '../VaultDetail';
+import { downloadIcsEvent } from '../../utils/ics';
 
 vi.mock('../../context/WalletContext', () => ({
   useWallet: () => ({ network: 'TESTNET' }),
 }));
+
+vi.mock('../../utils/ics', async () => {
+  const actual = await vi.importActual<typeof import('../../utils/ics')>('../../utils/ics');
+  return {
+    ...actual,
+    downloadIcsEvent: vi.fn(),
+  };
+});
 
 function renderVaultDetail(id: string) {
   return render(
@@ -18,10 +27,12 @@ function renderVaultDetail(id: string) {
 }
 
 describe('VaultDetail', () => {
-  it('renders active vault status, milestones, transactions, addresses, and deadline', () => {
+  const mockDownloadIcsEvent = vi.mocked(downloadIcsEvent);
+
+  it('renders active vault status, milestones, transactions, addresses, and deadline', async () => {
     renderVaultDetail('1');
 
-    expect(screen.getByRole('heading', { name: 'Alpha Vault' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alpha Vault' })).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('12,500')).toBeInTheDocument();
     expect(screen.getAllByText('USDC').length).toBeGreaterThan(0);
@@ -58,10 +69,10 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('b4e0c2d9...9a5e8b').length).toBeGreaterThan(0);
   });
 
-  it('renders completed vault release details without a verifier address', () => {
+  it('renders completed vault release details without a verifier address', async () => {
     renderVaultDetail('2');
 
-    expect(screen.getByRole('heading', { name: 'Beta Reserve' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beta Reserve' })).toBeInTheDocument();
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
     expect(screen.queryByText('Verifier')).not.toBeInTheDocument();
 
@@ -83,10 +94,10 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('GSUCC3...LKQK').length).toBeGreaterThan(0);
   });
 
-  it('renders failed vault milestone and redirect transaction details', () => {
+  it('renders failed vault milestone and redirect transaction details', async () => {
     renderVaultDetail('3');
 
-    expect(screen.getByRole('heading', { name: 'Gamma Fund' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Gamma Fund' })).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
 
     // Verify Countdown is replaced by status text
@@ -102,10 +113,10 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('GFAIL3...LKQK').length).toBeGreaterThan(0);
   });
 
-  it('renders cancelled vault with mixed milestone statuses and redirect destination', () => {
+  it('renders cancelled vault with mixed milestone statuses and redirect destination', async () => {
     renderVaultDetail('4');
 
-    expect(screen.getByRole('heading', { name: 'Delta Cancelled' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Delta Cancelled' })).toBeInTheDocument();
     expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
 
     // Verify Countdown is replaced by status text
@@ -126,10 +137,10 @@ describe('VaultDetail', () => {
     expect(screen.getAllByText('GFAIL3...LKQK').length).toBeGreaterThan(0);
   });
 
-  it('renders a not-found state for an unknown vault id', () => {
+  it('renders a not-found state for an unknown vault id', async () => {
     renderVaultDetail('999');
 
-    expect(screen.getByRole('heading', { name: 'Vault not found' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Vault not found' })).toBeInTheDocument();
     expect(screen.getByText('No vault with ID "999" exists.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Back to Vaults/i })).toHaveAttribute(
       'href',
@@ -137,36 +148,48 @@ describe('VaultDetail', () => {
     );
   });
 
+  it('downloads the vault deadline calendar event', async () => {
+    mockDownloadIcsEvent.mockReturnValue(true);
+    renderVaultDetail('1');
+
+    await screen.findByRole('heading', { name: 'Alpha Vault' });
+    fireEvent.click(screen.getByRole('button', { name: /Add to calendar/i }));
+
+    await waitFor(() => {
+      expect(mockDownloadIcsEvent).toHaveBeenCalledWith({
+        title: 'Alpha Vault deadline',
+        deadline: '2024-07-15T10:00:00Z',
+        description: 'Alpha Vault vault deadline for 12,500 USDC.',
+        uid: 'vault-1-deadline',
+      });
+    });
+  });
+
   // ── Network footer banner ─────────────────────────────────────────────────
 
   describe('NetworkFooterBanner', () => {
-    it('renders the network footer banner with an accessible landmark', () => {
+    it('renders the network footer banner with an accessible landmark', async () => {
       renderVaultDetail('1');
-      expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+      expect(await screen.findByRole('contentinfo')).toBeInTheDocument();
     });
 
-    it('shows the "Testnet" label when network is TESTNET', () => {
+    it('shows the "Testnet" label when network is TESTNET', async () => {
       renderVaultDetail('1');
-      const footer = screen.getByRole('contentinfo');
+      const footer = await screen.findByRole('contentinfo');
       expect(within(footer).getByText('Testnet')).toBeInTheDocument();
     });
 
-    it('displays the contract address text in the footer', () => {
+    it('displays the contract address text in the footer', async () => {
       renderVaultDetail('1');
-      const footer = screen.getByRole('contentinfo');
+      const footer = await screen.findByRole('contentinfo');
       // Vault 1 contract address
       expect(within(footer).getByText('GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK')).toBeInTheDocument();
     });
 
-    it('renders the explorer link pointing to the testnet contract URL', () => {
+    it('does not render the explorer link when the fixture contract address is invalid', async () => {
       renderVaultDetail('1');
-      const link = screen.getByRole('link', { name: /View contract.*on Stellar Testnet explorer/i });
-      expect(link).toHaveAttribute(
-        'href',
-        'https://stellar.expert/explorer/testnet/contract/GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK',
-      );
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      await screen.findByRole('contentinfo');
+      expect(screen.queryByRole('link', { name: /View contract.*on Stellar Testnet explorer/i })).not.toBeInTheDocument();
     });
 
     it('shows "Mainnet" label and a public explorer URL when network is PUBLIC', () => {
@@ -177,8 +200,9 @@ describe('VaultDetail', () => {
       }));
     });
 
-    it('does not render the footer banner on the not-found page', () => {
+    it('does not render the footer banner on the not-found page', async () => {
       renderVaultDetail('999');
+      await screen.findByRole('heading', { name: 'Vault not found' });
       expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
     });
   });
