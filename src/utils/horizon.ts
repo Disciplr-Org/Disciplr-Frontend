@@ -98,32 +98,19 @@ export async function fetchUsdcBalance(
             balanceLine.asset_issuer === issuer,
     );
 
+    if (usdcBalance && !isFiniteNumericString(usdcBalance.balance)) {
+        throw new HorizonBalanceError(
+            'INVALID_RESPONSE',
+            'Horizon USDC balance was missing or not a finite numeric string.',
+        );
+    }
+
     return {
         balance: usdcBalance?.balance ?? '0.00',
         hasTrustline: Boolean(usdcBalance),
         issuer,
         network,
     };
-        const usdcBalance = account.balances.find(
-            (balanceLine) =>
-                balanceLine.asset_type !== 'native' &&
-                balanceLine.asset_code === 'USDC' &&
-                balanceLine.asset_issuer === issuer,
-        );
-
-        if (usdcBalance && !isFiniteNumericString(usdcBalance.balance)) {
-            throw new HorizonBalanceError(
-                'INVALID_RESPONSE',
-                'Horizon USDC balance was missing or not a finite numeric string.',
-            );
-        }
-
-        return {
-            balance: usdcBalance?.balance ?? '0.00',
-            hasTrustline: Boolean(usdcBalance),
-            issuer,
-            network,
-        };
     } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
             throw new HorizonBalanceError('REQUEST_FAILED', 'Horizon balance request was aborted or timed out.');
