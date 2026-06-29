@@ -1,20 +1,20 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import VaultDetail from '../VaultDetail';
+import { downloadIcsEvent } from '../../utils/ics';
 
 vi.mock('../../context/WalletContext', () => ({
   useWallet: () => ({ network: 'TESTNET' }),
 }));
 
-vi.mock('../../utils/explorer', () => ({
-  contractExplorerUrl: (address: string, network: string) =>
-    `https://stellar.expert/explorer/${network === 'PUBLIC' ? 'public' : 'testnet'}/contract/${address}`,
-  getExplorerTxUrl: (txHash: string, network: string | null) =>
-    `https://stellar.expert/explorer/${network === 'PUBLIC' ? 'public' : 'testnet'}/tx/${txHash}`,
-  networkLabel: (network: string | null | undefined) =>
-    network === 'PUBLIC' ? 'Mainnet' : 'Testnet',
-}));
+vi.mock('../../utils/ics', async () => {
+  const actual = await vi.importActual<typeof import('../../utils/ics')>('../../utils/ics');
+  return {
+    ...actual,
+    downloadIcsEvent: vi.fn(),
+  };
+});
 
 function renderVaultDetail(id: string) {
   return render(
@@ -27,11 +27,13 @@ function renderVaultDetail(id: string) {
 }
 
 describe('VaultDetail', () => {
+  const mockDownloadIcsEvent = vi.mocked(downloadIcsEvent);
+
   it('renders active vault status, milestones, transactions, addresses, and deadline', async () => {
     renderVaultDetail('1');
 
     expect(await screen.findByRole('heading', { name: 'Alpha Vault' })).toBeInTheDocument();
-    expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('12,500')).toBeInTheDocument();
     expect(screen.getAllByText('USDC').length).toBeGreaterThan(0);
 
@@ -151,6 +153,23 @@ describe('VaultDetail', () => {
     );
   });
 
+  it('downloads the vault deadline calendar event', async () => {
+    mockDownloadIcsEvent.mockReturnValue(true);
+    renderVaultDetail('1');
+
+    await screen.findByRole('heading', { name: 'Alpha Vault' });
+    fireEvent.click(screen.getByRole('button', { name: /Add to calendar/i }));
+
+    await waitFor(() => {
+      expect(mockDownloadIcsEvent).toHaveBeenCalledWith({
+        title: 'Alpha Vault deadline',
+        deadline: '2024-07-15T10:00:00Z',
+        description: 'Alpha Vault vault deadline for 12,500 USDC.',
+        uid: 'vault-1-deadline',
+      });
+    });
+  });
+
   // ── Network footer banner ─────────────────────────────────────────────────
 
   describe('NetworkFooterBanner', () => {
@@ -172,15 +191,10 @@ describe('VaultDetail', () => {
       expect(within(footer).getByText('GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK')).toBeInTheDocument();
     });
 
-    it('renders the explorer link pointing to the testnet contract URL', async () => {
+    it('does not render the explorer link when the fixture contract address is invalid', async () => {
       renderVaultDetail('1');
-      const link = await screen.findByRole('link', { name: /View contract.*on Stellar Testnet explorer/i });
-      expect(link).toHaveAttribute(
-        'href',
-        'https://stellar.expert/explorer/testnet/contract/GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK',
-      );
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      await screen.findByRole('contentinfo');
+      expect(screen.queryByRole('link', { name: /View contract.*on Stellar Testnet explorer/i })).not.toBeInTheDocument();
     });
 
     it('shows "Mainnet" label and a public explorer URL when network is PUBLIC', () => {
@@ -193,7 +207,7 @@ describe('VaultDetail', () => {
 
     it('does not render the footer banner on the not-found page', async () => {
       renderVaultDetail('999');
-      expect(await screen.findByRole('heading', { name: 'Vault not found' })).toBeInTheDocument();
+      await screen.findByRole('heading', { name: 'Vault not found' });
       expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
     });
   });

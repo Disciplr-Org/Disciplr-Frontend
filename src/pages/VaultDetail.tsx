@@ -12,12 +12,9 @@ import { Text } from "../components/Text";
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { useWallet } from "../context/WalletContext";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
+import { downloadIcsEvent, isValidIcsDeadline } from "../utils/ics";
 import type { VaultStatus, Vault } from "../types/vault";
 import { getVault } from "../services/vaultService";
-
-// ── Types imported from canonical source ─────────────────────────────────────
-// Vault and VaultStatus are imported from "../types/vault" above.
-// MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -191,6 +188,15 @@ export default function VaultDetail() {
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
   const settlement = settlementForVault(vault);
+  const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const handleCalendarExport = () => {
+    downloadIcsEvent({
+      title: `${vault.name} deadline`,
+      deadline: vault.deadline,
+      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      uid: `vault-${vault.id}-deadline`,
+    });
+  };
 
   return (
     <div
@@ -283,6 +289,15 @@ export default function VaultDetail() {
               <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
             </div>
           )}
+          <button
+            type="button"
+            onClick={handleCalendarExport}
+            disabled={!canExportDeadline}
+            aria-disabled={!canExportDeadline}
+            style={actionBtn(canExportDeadline ? "var(--accent)" : "var(--muted)")}
+          >
+            Add to calendar
+          </button>
         </div>
       </Card>
 
