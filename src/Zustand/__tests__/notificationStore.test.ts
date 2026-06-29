@@ -198,5 +198,26 @@ describe("useNotification store", () => {
       useNotification.getState().setNotification(allUnread);
       expect(useNotification.getState().unreadCount).toBe(allUnread.length);
     });
+
+    it("unreadCount never drops below 0 after markRead on all-read list", () => {
+      useNotification.getState().markAllRead();
+      const readId = useNotification.getState().notification[0]?.id;
+      if (readId) useNotification.getState().markRead(readId);
+      expect(useNotification.getState().unreadCount).toBeGreaterThanOrEqual(0);
+    });
+
+    it("unreadCount always equals notification.filter(!isRead).length after any operation", () => {
+      const ops = [
+        () => useNotification.getState().markRead(initialNotifications[0]?.id ?? ""),
+        () => useNotification.getState().markAllRead(),
+        () => useNotification.getState().dismiss(initialNotifications[1]?.id ?? ""),
+      ];
+      for (const op of ops) {
+        op();
+        const state = useNotification.getState();
+        const computed = state.notification.filter((n) => !n.isRead).length;
+        expect(state.unreadCount).toBe(computed);
+      }
+    });
   });
 });
