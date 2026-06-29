@@ -16,6 +16,7 @@ components to the design system.
 | Shadows | `tokens/shadows.json` | Elevation references for raised surfaces and overlays | Modals, dropdowns, raised cards, dashboard surfaces |
 | Motion | `tokens/motion.json` | `src/utils/motion.ts` exports `duration`, `ease`, `transitionEnter`, `transitionExit`, and `transitionPage` | `Notification`, animated overlays, dropdowns, page transitions |
 | Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers |
+| CSS variable generation | `design-system/src/utils/css-variables.ts` | `generateCssVariables(tokens, mode)` returns `Record<string,string>`; `generateCssVariablesString(tokens, mode, opts)` returns a `:root { … }` CSS block | See **CSS Variable Generation** below |
 
 ## Component Notes
 
@@ -62,6 +63,50 @@ Token shape validation lives in `design-system/src/utils/validators.ts`:
   metadata.
 - `isValidChartTokens` validates chart surface, categorical, and sequential
   ramps.
+
+## CSS Variable Generation
+
+The `generateCssVariables` utility in `design-system/src/utils/css-variables.ts`
+converts the design token tree into a flat `Record<string, string>` of CSS
+custom property declarations. It is a pure function with no DOM access.
+
+### Usage
+
+```ts
+import { generateCssVariables, generateCssVariablesString } from '@disciplr/design-system';
+import colors from '../tokens/colors.json';
+
+// Get a flat map of variable names to values (light mode by default)
+const vars = generateCssVariables(colors);
+// → { 'color-primary': '#1E40AF', 'color-neutral-50': '#F9FAFB', … }
+
+// Get dark mode values
+const darkVars = generateCssVariables(colors, 'dark');
+// → { 'color-primary': '#3B82F6', … }
+
+// Get a CSS :root block string
+const css = generateCssVariablesString(colors, 'dark', { prefix: 'ds' });
+// → ":root {\n  --ds-color-primary: #3B82F6;\n  …\n}"
+```
+
+### Features
+
+- **Light/dark variants** — color tokens with `light`/`dark` sub-keys are
+  resolved to the requested mode. Falls back to `light` when the requested
+  mode is missing.
+- **Reference resolution** — `{path.to.token}` references are resolved against
+  already-emitted variables.
+- **Deterministic ordering** — output keys are sorted alphabetically.
+- **All token types** — handles `color`, `dimension`, `number`, `duration`,
+  `cubicBezier`, `shadow`, and `typography` tokens.
+- **Options** — `prefix` and `separator` control the output naming convention.
+
+### Options
+
+| Option      | Default | Description |
+|-------------|---------|-------------|
+| `prefix`    | `''`    | Prefix added to every variable name (e.g. `"ds"` → `--ds-color-…`) |
+| `separator` | `'-'`   | Separator between nesting levels (e.g. `"__"` → `color__primary`) |
 
 When a token group changes, update the token file, runtime CSS or utility
 mapping, this catalog, and the relevant focused docs in `documentation/`.
