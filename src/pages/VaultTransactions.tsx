@@ -2,10 +2,15 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AddressDisplay } from "../components/AddressDisplay";
 import { Tooltip } from "../components/Tooltip";
 import type { VaultActivityRecord } from "../services/vaultService";
-import { listAllActivity } from "../services/vaultService";
+import { getCachedActivity, listAllActivity } from "../services/vaultService";
 import type { TxStatus, TxType } from "../types/vault";
 import { downloadCsv, toCsv } from "../utils/csv";
 import { formatRelativeTime } from "../utils/relativeTime";
+import {
+  sortTransactions,
+  type TransactionSortDir,
+  type TransactionSortKey,
+} from "../utils/sortTransactions";
 import { computeTxTotals } from "../utils/txTotals";
 import { windowRange } from "../utils/windowRange";
 
@@ -90,10 +95,6 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-const VAULTS = [
-  "All Vaults",
-  ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function truncHash(hash: string, head = 8, tail = 6): string {
@@ -125,16 +126,43 @@ function fmtAmount(n: number): string {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────────
-export default function VaultTransactions() {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+interface VaultTransactionsProps {
+  transactions?: Transaction[];
+}
+
+interface SortState {
+  key: TransactionSortKey;
+  dir: TransactionSortDir;
+}
+
+const DEFAULT_SORT: SortState = { key: "timestamp", dir: "desc" };
+
+export default function VaultTransactions({
+  transactions: providedTransactions,
+}: VaultTransactionsProps = {}) {
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>(
+    () => providedTransactions ?? getCachedActivity(),
+  );
 
   useEffect(() => {
+    if (providedTransactions !== undefined) {
+      setAllTransactions((current) =>
+        current === providedTransactions ? current : providedTransactions,
+      );
+      return;
+    }
+
+    if (allTransactions.length > 0) return;
+
+    let active = true;
     listAllActivity().then((data) => {
-      setAllTransactions(data);
-      setLoading(false);
+      if (active) setAllTransactions(data);
     });
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [allTransactions.length, providedTransactions]);
 
   // Derive vault filter options from loaded transactions
   const VAULTS = useMemo(
@@ -155,13 +183,26 @@ export default function VaultTransactions() {
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
   const [anchorIndex, setAnchorIndex] = useState(0);
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1800);
+  }, []);
+
+  const updateSort = useCallback((key: TransactionSortKey) => {
+    setSortState((current) => ({
+      key,
+      dir:
+        current.key === key
+          ? current.dir === "desc"
+            ? "asc"
+            : "desc"
+          : "asc",
+    }));
+    setAnchorIndex(0);
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
@@ -180,12 +221,7 @@ export default function VaultTransactions() {
       list = list.filter((t) => t.amount >= parseFloat(amountMin));
     if (amountMax !== "")
       list = list.filter((t) => t.amount <= parseFloat(amountMax));
-    list.sort((a, b) =>
-      sortDir === "desc"
-        ? b.timestamp.getTime() - a.timestamp.getTime()
-        : a.timestamp.getTime() - b.timestamp.getTime(),
-    );
-    return list;
+    return sortTransactions(list, sortState.key, sortState.dir);
   }, [
     selectedTypes,
     filterVault,
@@ -193,7 +229,7 @@ export default function VaultTransactions() {
     searchHash,
     amountMin,
     amountMax,
-    sortDir,
+    sortState,
     transactions,
   ]);
 
@@ -446,12 +482,16 @@ export default function VaultTransactions() {
               </div>
               <button
                 className="vt-sort-btn"
-                onClick={() =>
-                  setSortDir((d) => (d === "desc" ? "asc" : "desc"))
-                }
+                onClick={() => updateSort("timestamp")}
               >
-                <SortIcon dir={sortDir} />
-                {sortDir === "desc" ? "Newest" : "Oldest"}
+                <SortIcon
+                  dir={
+                    sortState.key === "timestamp" ? sortState.dir : "desc"
+                  }
+                />
+                {sortState.key === "timestamp" && sortState.dir === "asc"
+                  ? "Oldest"
+                  : "Newest"}
               </button>
               {hasFilters && (
                 <button className="vt-clear-btn" onClick={clearFilters}>
@@ -463,7 +503,13 @@ export default function VaultTransactions() {
 
           {/* Pending */}
           {pending.length > 0 && (
-            <Section title="Pending" accent="#fcd34d" count={pending.length}>
+            <Section
+              title="Pending"
+              accent="#fcd34d"
+              count={pending.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {pendingWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -489,7 +535,13 @@ export default function VaultTransactions() {
 
           {/* Failed */}
           {failed.length > 0 && (
-            <Section title="Failed" accent="#fca5a5" count={failed.length}>
+            <Section
+              title="Failed"
+              accent="#fca5a5"
+              count={failed.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {failedWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -516,7 +568,13 @@ export default function VaultTransactions() {
           )}
 
           {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+          <Section
+            title="Confirmed"
+            accent="#6ee7b7"
+            count={rest.length}
+            sortState={sortState}
+            onSort={updateSort}
+          >
             {rest.length === 0 ? (
               <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
             ) : (
@@ -564,10 +622,27 @@ interface SectionProps {
   title: string;
   accent: string;
   count: number;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
   children: React.ReactNode;
 }
 
-function Section({ title, accent, count, children }: SectionProps) {
+function ariaSortFor(
+  sortState: SortState,
+  key: TransactionSortKey,
+): "ascending" | "descending" | "none" {
+  if (sortState.key !== key) return "none";
+  return sortState.dir === "asc" ? "ascending" : "descending";
+}
+
+function Section({
+  title,
+  accent,
+  count,
+  sortState,
+  onSort,
+  children,
+}: SectionProps) {
   const hasRows = count > 0;
   return (
     <section className="vt-section">
@@ -587,17 +662,81 @@ function Section({ title, accent, count, children }: SectionProps) {
       >
         {hasRows && (
           <div role="rowgroup">
-            <div role="row" className="vt-sr-only">
-              <span role="columnheader">Transaction Type</span>
-              <span role="columnheader">Vault &amp; Details</span>
-              <span role="columnheader">Amount</span>
-              <span role="columnheader">Status</span>
+            <div role="row" className="vt-tx-header-row">
+              <SortableColumnHeader
+                label="Transaction Type"
+                sortKey="type"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Vault &amp; Details
+              </span>
+              <SortableColumnHeader
+                label="Amount"
+                sortKey="amount"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <SortableColumnHeader
+                label="Fee"
+                sortKey="fee"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Status
+              </span>
+              <SortableColumnHeader
+                label="Timestamp"
+                sortKey="timestamp"
+                sortState={sortState}
+                onSort={onSort}
+              />
             </div>
           </div>
         )}
         <div role={hasRows ? "rowgroup" : undefined}>{children}</div>
       </div>
     </section>
+  );
+}
+
+interface SortableColumnHeaderProps {
+  label: string;
+  sortKey: TransactionSortKey;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
+}
+
+function SortableColumnHeader({
+  label,
+  sortKey,
+  sortState,
+  onSort,
+}: SortableColumnHeaderProps) {
+  const active = sortState.key === sortKey;
+  const nextDirection =
+    active && sortState.dir === "desc"
+      ? "ascending"
+      : active
+        ? "descending"
+        : "ascending";
+
+  return (
+    <span role="columnheader" aria-sort={ariaSortFor(sortState, sortKey)}>
+      <button
+        type="button"
+        className="vt-column-sort-btn"
+        onClick={() => onSort(sortKey)}
+        aria-label={`Sort by ${label} ${nextDirection}`}
+      >
+        {label}
+        <span aria-hidden="true" className="vt-column-sort-indicator">
+          {active ? (sortState.dir === "asc" ? "ASC" : "DESC") : "SORT"}
+        </span>
+      </button>
+    </span>
   );
 }
 
@@ -1285,6 +1424,25 @@ const CSS = `
     padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
   }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
+  .vt-tx-header-row {
+    display: grid; grid-template-columns: 120px minmax(160px, 1fr) 120px 90px 100px 110px;
+    gap: 12px; align-items: center;
+    padding: 0 16px 8px; color: #475569;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .vt-column-sort-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: transparent; border: 0; padding: 0;
+    color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit;
+    cursor: pointer;
+  }
+  .vt-column-sort-btn:hover, .vt-column-sort-btn:focus-visible {
+    color: #94a3b8; outline: none;
+  }
+  .vt-column-sort-indicator {
+    color: #6ee7b7; font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  }
   .vt-tx-row {
     display: flex; align-items: center; gap: 14px;
     background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
@@ -1409,6 +1567,7 @@ const CSS = `
     .vt-wrap { padding: 28px 16px 60px; }
     .vt-stats { grid-template-columns: 1fr 1fr; }
     .vt-stats > :last-child { grid-column: span 2; }
+    .vt-tx-header-row { display: none; }
     .vt-tx-memo { display: none; }
     .vt-tx-amount { display: none; }
     .vt-modal-row2 { grid-template-columns: 1fr 1fr; }

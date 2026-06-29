@@ -75,6 +75,16 @@ export async function getTransactions(id: string): Promise<VaultTransaction[]> {
 }
 
 /**
+ * Return the current in-memory activity snapshot synchronously.
+ *
+ * This keeps the mock-backed UI populated on first render while the Promise
+ * seam remains the long-term replacement point for live Horizon/Soroban data.
+ */
+export function getCachedActivity(): VaultActivityRecord[] {
+  return [...MASTER_ACTIVITY];
+}
+
+/**
  * Return the rich activity feed used by the VaultTransactions explorer page.
  *
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
