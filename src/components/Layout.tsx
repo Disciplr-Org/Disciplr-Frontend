@@ -5,6 +5,7 @@ import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import { WalletBalanceChip } from "./Wallet/WalletBalanceChip";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
+import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
@@ -123,6 +124,7 @@ export default function Layout({ children }: LayoutProps) {
         />
       </header>
       <TrustlineBanner />
+      <NetworkMismatchBanner />
 
       <main
         {...backgroundA11yProps}

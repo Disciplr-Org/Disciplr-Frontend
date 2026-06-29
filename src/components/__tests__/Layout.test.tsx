@@ -15,6 +15,10 @@ vi.mock('../TrustlineBanner', () => ({
   TrustlineBanner: () => null,
 }));
 
+vi.mock('../NetworkMismatchBanner', () => ({
+  NetworkMismatchBanner: () => <div data-testid="network-mismatch-banner" />,
+}));
+
 // MobileDrawer uses FocusTrap only when open; mock it so any accidental open
 // in these tests doesn't break due to missing DOM focus targets.
 vi.mock('focus-trap-react', () => ({
@@ -148,6 +152,11 @@ describe('Layout header landmarks', () => {
   test('page has a main landmark', () => {
     renderLayout('/');
     expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
+  test('mounts the global network mismatch banner', () => {
+    renderLayout('/');
+    expect(screen.getByTestId('network-mismatch-banner')).toBeInTheDocument();
   });
 });
 
