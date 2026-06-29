@@ -1,19 +1,25 @@
 # Pagination
 
-`src/components/Pagination.tsx` is the shared pagination control for list pages.
-It renders from the existing `paginate` utility result so item slicing remains
-owned by `src/utils/paginate.ts`.
+Use `Pagination` when a view shows a bounded list and already has a
+`paginate(...)` result from `src/utils/paginate.ts`.
 
-## Contract
+```tsx
+const pagination = paginate(items, currentPage, pageSize);
 
-- Previous and next controls are disabled at the first and last page.
-- Numbered page buttons call `onPageChange(page)`.
+<Pagination
+  pagination={pagination}
+  onPageChange={setCurrentPage}
+  ariaLabel="Notifications pagination"
+/>
+```
+
+## Accessibility
+
+- The wrapper is a `nav` landmark with a configurable `aria-label`.
+- Previous and next controls expose action-specific labels.
+- Numbered page buttons expose `aria-label="Go to page N"`.
 - The active page uses `aria-current="page"`.
-- Every control has an `aria-label`.
-- Empty lists still render as page `1 of 1` with a `0 items` status.
+- Boundary controls are disabled on the first and last pages.
 
-## Notification Page
-
-`src/pages/Notification.tsx` keeps the existing `itemsPerPage = 5` behavior and
-uses `Pagination` for navigation. Filtering, dismissing, and clearing
-notifications continue to reset the current page to `1`.
+`paginate` clamps empty lists and out-of-range page requests to page `1`, so
+consumers can safely reuse stale page state after filters or deletions.

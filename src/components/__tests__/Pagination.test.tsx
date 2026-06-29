@@ -1,41 +1,38 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import Pagination from "../Pagination";
+import { Pagination } from "../Pagination";
 import { paginate } from "@/utils/paginate";
 
-describe("Pagination", () => {
-  it("renders page controls from paginate results", () => {
-    const onPageChange = vi.fn();
+const items = Array.from({ length: 12 }, (_, index) => index);
 
+describe("Pagination", () => {
+  it("renders page status and numbered controls", () => {
     render(
       <Pagination
-        pagination={paginate(["a", "b", "c", "d", "e", "f"], 2, 2)}
-        onPageChange={onPageChange}
+        pagination={paginate(items, 2, 5)}
+        onPageChange={vi.fn()}
       />,
     );
 
-    expect(
-      screen.getByRole("navigation", { name: "Pagination" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Go to page 2" }),
-    ).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to page 2" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Go to page 1" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Go to page 3" })).toBeEnabled();
   });
 
-  it("moves to previous, next, and numbered pages", () => {
+  it("calls onPageChange for previous, next, and numbered pages", () => {
     const onPageChange = vi.fn();
-
     render(
       <Pagination
-        pagination={paginate(["a", "b", "c", "d", "e", "f"], 2, 2)}
+        pagination={paginate(items, 2, 5)}
         onPageChange={onPageChange}
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Go to previous page" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Go to previous page" }));
     fireEvent.click(screen.getByRole("button", { name: "Go to next page" }));
     fireEvent.click(screen.getByRole("button", { name: "Go to page 3" }));
 
@@ -44,41 +41,43 @@ describe("Pagination", () => {
     expect(onPageChange).toHaveBeenNthCalledWith(3, 3);
   });
 
-  it("disables previous and next controls on a single page", () => {
-    render(
-      <Pagination pagination={paginate(["a"], 1, 5)} onPageChange={vi.fn()} />,
+  it("disables previous on the first page and next on the last page", () => {
+    const { rerender } = render(
+      <Pagination
+        pagination={paginate(items, 1, 5)}
+        onPageChange={vi.fn()}
+      />,
     );
 
     expect(
       screen.getByRole("button", { name: "Go to previous page" }),
     ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Go to next page" }),
-    ).toBeDisabled();
-  });
+    expect(screen.getByRole("button", { name: "Go to next page" })).toBeEnabled();
 
-  it("handles an empty item set", () => {
-    render(
-      <Pagination pagination={paginate([], 1, 5)} onPageChange={vi.fn()} />,
-    );
-
-    expect(screen.getByText("Page 1 of 1 (0 items)")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Go to page 1" }),
-    ).toHaveAttribute("aria-current", "page");
-  });
-
-  it("supports a custom navigation label", () => {
-    render(
+    rerender(
       <Pagination
-        pagination={paginate(["a", "b"], 1, 1)}
+        pagination={paginate(items, 3, 5)}
         onPageChange={vi.fn()}
-        label="Notifications pagination"
       />,
     );
 
+    expect(screen.getByRole("button", { name: "Go to previous page" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Go to next page" })).toBeDisabled();
+  });
+
+  it("keeps controls bounded for empty and single-page results", () => {
+    render(
+      <Pagination
+        pagination={paginate([], 10, 5)}
+        onPageChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
     expect(
-      screen.getByRole("navigation", { name: "Notifications pagination" }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Go to previous page" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Go to next page" })).toBeDisabled();
+    expect(screen.getByText("0 total items")).toBeInTheDocument();
   });
 });

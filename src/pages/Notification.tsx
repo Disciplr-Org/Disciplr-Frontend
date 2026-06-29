@@ -7,7 +7,7 @@ import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { Link } from "react-router-dom";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { X } from "lucide-react";
-import Pagination from "@/components/Pagination";
+import { Pagination } from "@/components/Pagination";
 import { paginate } from "@/utils/paginate";
 
 export default function Notification() {
@@ -25,12 +25,9 @@ export default function Notification() {
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const itemsPerPage = 5;
-  const paginatedNotifications = paginate(
-    currentNotification,
-    currentPage,
-    itemsPerPage,
-  );
-  const currentData = paginatedNotifications.items;
+
+  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+  const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
 
@@ -55,7 +52,7 @@ export default function Notification() {
     };
   }, []);
 
-  const filterNotification = () => {
+  useEffect(() => {
     let filtered = notifications;
 
     if (!filtered) return;
@@ -73,9 +70,6 @@ export default function Notification() {
     }
     setCurrentNotification(filtered);
     setCurrentPage(1);
-  };
-  useEffect(() => {
-    filterNotification();
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
   // Reset to page 1 when the underlying notification list changes
@@ -231,14 +225,12 @@ export default function Notification() {
         )}
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col justify-end">
-        <Pagination
-          pagination={paginatedNotifications}
-          onPageChange={setCurrentPage}
-          label="Notifications pagination"
-        />
-      </div>
+      <Pagination
+        pagination={pagination}
+        onPageChange={setCurrentPage}
+        ariaLabel="Notifications pagination"
+        className="mt-8"
+      />
 
       <ConfirmationModal
         isOpen={showClearModal}
