@@ -9,8 +9,15 @@ import {
 import type { ValidationHistoryStatusFilter } from '../utils/paginate';
 import { downloadCsv, toCsv } from '../utils/csv';
 import { StatusChip } from '../components/StatusChip';
+import {
+  coerceValidationHistoryPageSize,
+  readValidationHistoryPageSize,
+  VALIDATION_HISTORY_PAGE_SIZES,
+  writeValidationHistoryPageSize,
+} from '../utils/pageSizePref';
 
-const PAGE_SIZE_OPTIONS = [5, 10, 25];
+const toChipStatus = (status: 'pending' | 'approved' | 'rejected') =>
+  status === 'pending' ? 'pending_validation' : status;
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
@@ -20,7 +27,7 @@ export default function ValidationHistory() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('');
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(readValidationHistoryPageSize);
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
@@ -49,7 +56,9 @@ export default function ValidationHistory() {
   const updateMilestoneFilter = (value: string) => { setMilestoneFilter(value); setPage(1); };
 
   const updatePageSize = (size: number) => {
-    setPageSize(size);
+    const nextSize = coerceValidationHistoryPageSize(size);
+    setPageSize(nextSize);
+    writeValidationHistoryPageSize(nextSize);
     setPage(1);
   };
 
@@ -199,7 +208,7 @@ export default function ValidationHistory() {
               padding: '0.65rem 0.75rem',
             }}
           >
-            {PAGE_SIZE_OPTIONS.map((size) => (
+            {VALIDATION_HISTORY_PAGE_SIZES.map((size) => (
               <option key={size} value={size}>{size} per page</option>
             ))}
           </select>
@@ -252,7 +261,7 @@ export default function ValidationHistory() {
               >
                 <div className="flex flex-col gap-2 md:w-1/3">
                   <div className="flex items-center gap-3">
-                    <StatusChip status={task.status as any} className="uppercase" size="sm" />
+                    <StatusChip status={toChipStatus(task.status)} className="uppercase" size="sm" />
                     <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
                       ID: {task.id}
                     </Text>

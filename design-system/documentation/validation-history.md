@@ -10,11 +10,14 @@ pagination for completed milestone decisions.
 - From date: filters to records with a `deadline` on or after the given ISO date (inclusive, open-ended when blank).
 - To date: filters to records with a `deadline` on or before the given ISO date (inclusive, open-ended when blank).
 - Milestone: case-insensitive substring match against each record's `milestone` field (blank = no filter).
-- Page size: verifier-selectable page size values of 5, 10, or 25.
+- Page size: verifier-selectable page size values of 10, 25, or 50. The selected
+  value is persisted in `localStorage` under `validation-history-page-size` and
+  safely falls back to 10 when storage is unavailable or contains an invalid
+  value.
 - Pagination: Previous and Next buttons expose explicit `aria-label` text and
   disabled states at the first and last pages.
 
-All filter changes reset pagination to page 1.
+All filter changes and page-size changes reset pagination to page 1.
 
 ## Empty States
 
