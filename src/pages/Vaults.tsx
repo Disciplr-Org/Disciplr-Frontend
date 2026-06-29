@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, MemoryRouter } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { StatusChip } from '../components/StatusChip'
-import type { VaultStatus, Vault } from '../types/vault'
-import { listVaults } from '../services/vaultService'
+import type { VaultStatus } from '../types/vault'
+import { VaultFilterBar } from '../components/VaultFilterBar'
+import { filterVaults } from '../utils/filterVaults'
+import type { VaultFilters } from '../utils/filterVaults'
 
 // VaultStatus is imported from '../types/vault' for use in the JSX below.
 // The Vault type is imported from '../types/vault' via vaultService.
@@ -35,6 +37,7 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   const [vaults, setVaults] = useState<Vault[]>([])
   const [status, setStatus] = useState<'loading' | 'empty' | 'data' | 'error'>('loading')
   const [retryCount, setRetryCount] = useState(0)
+  const [filters, setFilters] = useState<VaultFilters>({ status: 'all', query: '' })
   // Use a ref so changing the fetchVaults prop identity doesn't re-trigger the effect
   const fetchRef = useRef(fetchVaults)
   fetchRef.current = fetchVaults
@@ -99,34 +102,37 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
       )}
 
       {status === 'data' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {vaults.map((vault) => (
-            <Link
-              key={vault.id}
-              to={`/vaults/${vault.id}`}
-              style={{ textDecoration: 'none', color: 'inherit' }}
-            >
-              <div style={{
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)', padding: '1rem 1.25rem',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                flexWrap: 'wrap', gap: '0.75rem',
-              }}>
-                <div>
-                  <Text role="body" as="div" style={{ fontWeight: 600, marginBottom: 4 }}>{vault.name}</Text>
-                  <Text role="caption" as="div" style={{ color: 'var(--muted)' }}>
-                    Deadline: {new Date(vault.deadline).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </Text>
+        <div>
+          <VaultFilterBar value={filters} onChange={setFilters} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+            {filterVaults(vaults, filters).map((vault) => (
+              <Link
+                key={vault.id}
+                to={`/vaults/${vault.id}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <div style={{
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)', padding: '1rem 1.25rem',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  flexWrap: 'wrap', gap: '0.75rem',
+                }}>
+                  <div>
+                    <Text role="body" as="div" style={{ fontWeight: 600, marginBottom: 4 }}>{vault.name}</Text>
+                    <Text role="caption" as="div" style={{ color: 'var(--muted)' }}>
+                      Deadline: {new Date(vault.deadline).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </Text>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <Text role="body" as="span" style={{ fontWeight: 700, color: 'var(--accent)' }}>
+                      {vault.amount.toLocaleString()} {vault.currency}
+                    </Text>
+                    <StatusChip status={vault.status} />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <Text role="body" as="span" style={{ fontWeight: 700, color: 'var(--accent)' }}>
-                    {vault.amount.toLocaleString()} {vault.currency}
-                  </Text>
-                  <StatusChip status={vault.status} />
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>

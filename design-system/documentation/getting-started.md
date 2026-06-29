@@ -65,6 +65,42 @@ The site-wide navigation is defined in `src/components/Layout.tsx` for desktop h
 3. **Accessibility**: `NavLink` sets `aria-current="page"` when active to assist screen readers and keyboard navigation (consistent with WCAG 2.1 AA).
 4. **Token-Based Styling**: Nav links use CSS variables for theme colors. Active states receive `color: var(--accent)`, and inactive states default to `color: var(--muted)` (header) or `color: var(--text)` (mobile drawer).
 
+## VaultFilterBar Component
+
+`src/components/VaultFilterBar.tsx` is a controlled filter bar for vault lists.
+It combines a status `<select>` and a name search `<input type="search">` in a
+single composable component backed by the pure `filterVaults` utility in
+`src/utils/filterVaults.ts`.
+
+```tsx
+import { useState } from 'react';
+import { VaultFilterBar } from '../components/VaultFilterBar';
+import { filterVaults } from '../utils/filterVaults';
+import type { VaultFilters } from '../utils/filterVaults';
+
+const [filters, setFilters] = useState<VaultFilters>({ status: 'all', query: '' });
+const visible = filterVaults(vaults, filters);
+
+<VaultFilterBar value={filters} onChange={setFilters} />
+```
+
+### Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `value` | `VaultFilters` | Current filter state `{ status, query }`. |
+| `onChange` | `(filters: VaultFilters) => void` | Called with the full updated filter object on any change. |
+
+`VaultFilters.status` is `VaultStatus | 'all'`. Status options are derived from
+`VAULT_STATUS_ORDER` in `src/types/vault.ts` so they stay in sync with the
+canonical status union.
+
+### Accessibility
+
+- The outer `<div>` carries `role="search"` and `aria-label="Filter vaults"`.
+- The status `<select>` has `aria-label="Filter by status"`.
+- The search `<input>` has `aria-label="Search vaults by name"`.
+
 ## Related Documentation
 
 - `documentation/token-catalog.md` maps token groups to consumers.
