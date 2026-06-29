@@ -11,6 +11,39 @@ import { downloadCsv, toCsv } from '../utils/csv';
 import { StatusChip } from '../components/StatusChip';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25];
+const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
+const PAGE_SIZE_STORAGE_KEY = 'validation-history-page-size';
+
+function isPageSizeOption(value: number): value is (typeof PAGE_SIZE_OPTIONS)[number] {
+  return PAGE_SIZE_OPTIONS.includes(value);
+}
+
+function readStoredPageSize(): number {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PAGE_SIZE;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : DEFAULT_PAGE_SIZE;
+
+    return isPageSizeOption(parsed) ? parsed : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+}
+
+function persistPageSize(size: number): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+  } catch {
+    // A blocked storage write should not break pagination.
+  }
+}
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
@@ -20,7 +53,7 @@ export default function ValidationHistory() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('');
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(readStoredPageSize);
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
@@ -49,7 +82,9 @@ export default function ValidationHistory() {
   const updateMilestoneFilter = (value: string) => { setMilestoneFilter(value); setPage(1); };
 
   const updatePageSize = (size: number) => {
-    setPageSize(size);
+    const nextSize = isPageSizeOption(size) ? size : DEFAULT_PAGE_SIZE;
+    setPageSize(nextSize);
+    persistPageSize(nextSize);
     setPage(1);
   };
 
@@ -252,7 +287,11 @@ export default function ValidationHistory() {
               >
                 <div className="flex flex-col gap-2 md:w-1/3">
                   <div className="flex items-center gap-3">
-                    <StatusChip status={task.status as any} className="uppercase" size="sm" />
+                    <StatusChip
+                      status={task.status === 'pending' ? 'pending_validation' : task.status}
+                      className="uppercase"
+                      size="sm"
+                    />
                     <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
                       ID: {task.id}
                     </Text>

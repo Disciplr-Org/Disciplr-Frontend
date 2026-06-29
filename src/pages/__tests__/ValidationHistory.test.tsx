@@ -102,6 +102,7 @@ function renderHistory(history = baseHistory) {
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it('renders summary stats and first page of validation history', () => {
@@ -185,6 +186,31 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('No matching validations')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
+  });
+
+  it('persists the selected page size for the next visit', () => {
+    const { unmount } = renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Validation history page size'), {
+      target: { value: '10' },
+    });
+
+    expect(window.localStorage.getItem('validation-history-page-size')).toBe('10');
+
+    unmount();
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+  });
+
+  it('ignores invalid stored page sizes', () => {
+    window.localStorage.setItem('validation-history-page-size', '999');
+
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('5');
+    expect(screen.queryByText('Zeta Treasury')).not.toBeInTheDocument();
   });
 
   it('navigates back to the verifier dashboard', () => {
