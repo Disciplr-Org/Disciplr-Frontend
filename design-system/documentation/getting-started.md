@@ -56,6 +56,59 @@ git diff --check
 For documentation-only changes, verify every referenced file, CSS variable, and
 component path exists before opening the PR.
 
+## Theme System
+
+The app uses a tri-state theme system exposed by `src/context/ThemeContext.tsx`
+and controlled through `src/components/ThemeToggle.tsx`.
+
+### Modes
+
+| Preference | Resolved `data-theme` | Behavior |
+| ---------- | --------------------- | -------- |
+| `light`    | `light`               | Manual light mode; ignores OS preference. |
+| `dark`     | `dark`                | Manual dark mode; ignores OS preference. |
+| `system`   | Follows OS            | Tracks `prefers-color-scheme` live; the default when no stored preference exists. |
+
+The `data-theme` attribute on `<html>` is always concrete (`light` or
+`dark`), ensuring CSS selectors such as `:root[data-theme="dark"]` and
+`:root[data-theme="light"]` in `src/index.css` resolve predictably.
+
+### ThemeContext API
+
+```tsx
+import { useTheme } from '../context/ThemeContext';
+
+const { theme, preference, toggleTheme, setTheme } = useTheme();
+```
+
+- `theme` — the resolved concrete value (`'light'` | `'dark'`) applied to
+  `data-theme`. Use this when you only care about the current visual mode.
+- `preference` — the user's stored choice (`'light'` | `'dark'` | `'system'`).
+  Use this to inspect or display the tri-state selection.
+- `toggleTheme()` — cycles through the three states in order:
+  `light` → `dark` → `system` → `light`.
+- `setTheme(pref)` — sets the preference directly, e.g.
+  `setTheme('system')`.
+
+### ThemeToggle Component
+
+The `ThemeToggle` button in `src/components/ThemeToggle.tsx` renders an
+icon for the current preference:
+
+- ☀️ Sun — light mode is active.
+- 🌙 Moon — dark mode is active.
+- 🖥️ Monitor — system mode is active (following OS).
+
+Clicking the button cycles to the next state. The `aria-label` announces the
+next state (e.g., "Switch to dark mode"). For `system` preference,
+`aria-pressed` is set to `"mixed"` since the resolved theme depends on the OS.
+
+### Persistence
+
+The user preference is persisted in `localStorage` under the key
+`disciplr-theme`. When `localStorage` is unavailable (e.g., privacy mode
+blocking), an in-memory fallback preserves the preference for the session.
+
 ## Navigation Structure
 
 The site-wide navigation is defined in `src/components/Layout.tsx` for desktop headers and `src/components/MobileDrawer.tsx` for mobile viewports.
