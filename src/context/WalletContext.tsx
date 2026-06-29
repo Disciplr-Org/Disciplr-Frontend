@@ -30,6 +30,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const lastKnownAddressRef = useRef<string | null>(null);
+    const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -89,6 +91,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
+    // Watch for Freighter network/account changes and refresh state accordingly.
+    // Only runs while connected; stops when disconnected.
+    useEffect(() => {
+        if (!address) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const { address: currentAddress, error: addrError } = await getAddress();
+                if (addrError || !currentAddress) return;
+
+                const netDetails = await getNetworkDetails();
+                const currentNetwork = normalizeNetwork(netDetails.network);
+
+                // Detect changes in address or network
+                if (currentAddress !== lastKnownAddressRef.current || currentNetwork !== lastKnownNetworkRef.current) {
+                    lastKnownAddressRef.current = currentAddress;
+                    lastKnownNetworkRef.current = currentNetwork;
+                    setAddress(currentAddress);
+                    await fetchNetworkAndBalance(currentAddress);
+                }
+            } catch (err) {
+                logger.error('Network/address change check failed', err);
+            }
+        }, 2000);
+
+        return () => clearInterval(intervalId);
+    }, [address]);
+
     const connect = async () => {
         setIsConnecting(true);
         setError(null);
@@ -125,6 +155,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setBalance(null);
         setBalanceStatus('idle');
         setBalanceError(null);
+        lastKnownAddressRef.current = null;
+        lastKnownNetworkRef.current = null;
     };
 
     return (

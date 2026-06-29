@@ -87,23 +87,10 @@ export async function fetchUsdcBalance(
             throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response did not include balances.');
         }
 
-    if (account.balances.length > MAX_HORIZON_BALANCES) {
-        throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response included too many balances.');
-    }
+        if (account.balances.length > MAX_HORIZON_BALANCES) {
+            throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response included too many balances.');
+        }
 
-    const usdcBalance = account.balances.find(
-        (balanceLine) =>
-            balanceLine.asset_type !== 'native' &&
-            balanceLine.asset_code === 'USDC' &&
-            balanceLine.asset_issuer === issuer,
-    );
-
-    return {
-        balance: usdcBalance?.balance ?? '0.00',
-        hasTrustline: Boolean(usdcBalance),
-        issuer,
-        network,
-    };
         const usdcBalance = account.balances.find(
             (balanceLine) =>
                 balanceLine.asset_type !== 'native' &&
