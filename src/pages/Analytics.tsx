@@ -16,6 +16,7 @@ import { ChartLegend, type ChartLegendEntry } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { toCsv, downloadCsv } from '../utils/csv'
+import { movingAverage } from '../utils/movingAverage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,8 @@ export default function Analytics() {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [period, setPeriod] = useState<Period>('30d')
   const [showComparison, setShowComparison] = useState(false)
+  const [showMovingAverage, setShowMovingAverage] = useState(false)
+  const MA_WINDOW = 3
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
@@ -244,6 +247,22 @@ export default function Analytics() {
   }))
 
   const displayData = showComparison ? comparisonData : chartData
+
+  // Compute moving-average values for the success series (min 2 points required)
+  const maValues = useMemo(() => {
+    const successValues = chartData.map((d) => d.success)
+    return movingAverage(successValues, MA_WINDOW)
+  }, [chartData])
+
+  // Merge MA values into displayData for the chart
+  const displayDataWithMA = useMemo(
+    () =>
+      displayData.map((d, i) => ({
+        ...d,
+        successMA: showMovingAverage && chartData.length >= 2 ? maValues[i] : undefined,
+      })),
+    [displayData, maValues, showMovingAverage, chartData.length],
+  )
   const chartAnimationEnabled = !prefersReducedMotion
   const tooltipStyle = useMemo(() => ({
     contentStyle: {
@@ -257,16 +276,12 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries: ChartLegendEntry[] = showComparison
-    ? [
-        { label: 'This Period %', colorKey: 'success', id: 'success' },
-        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
-        { label: 'Prev Period %', colorKey: 'comparison', id: 'comparison' },
-      ]
-    : [
-        { label: 'This Period %', colorKey: 'success', id: 'success' },
-        { label: 'Failed %', colorKey: 'failed', id: 'failed' },
-      ]
+  const successLegendEntries: ChartLegendEntry[] = [
+    { label: 'This Period %', colorKey: 'success', id: 'success' },
+    { label: 'Failed %', colorKey: 'failed', id: 'failed' },
+    ...(showComparison ? [{ label: 'Prev Period %', colorKey: 'comparison' as const, id: 'comparison' }] : []),
+    ...(showMovingAverage && chartData.length >= 2 ? [{ label: `${MA_WINDOW}-pt MA`, colorKey: 'warning' as const, id: 'successMA' }] : []),
+  ]
 
   const capitalLegendEntries: ChartLegendEntry[] = showComparison
     ? [
@@ -440,6 +455,14 @@ export default function Analytics() {
             onClick={() => setShowComparison(v => !v)}
           >
             {showComparison ? '✓' : ''} Compare Periods
+          </button>
+          <button
+            className={`toggle-btn${showMovingAverage ? ' active' : ''}`}
+            onClick={() => setShowMovingAverage((v) => !v)}
+            aria-pressed={showMovingAverage}
+            title={`Toggle ${MA_WINDOW}-point moving average overlay on Success Rate chart`}
+          >
+            {showMovingAverage ? '✓' : ''} Moving Avg
           </button>
 
 {/* Spacer */}
@@ -643,7 +666,7 @@ export default function Analytics() {
               {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
                 <>
                   <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={displayData}>
+                    <LineChart data={displayDataWithMA}>
                       <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
                       <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
                       <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
@@ -653,9 +676,12 @@ export default function Analytics() {
                       {showComparison && (
                         <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
                       )}
+                      {showMovingAverage && chartData.length >= 2 && (
+                        <Line type="monotone" dataKey="successMA" stroke={seriesColors.warning} strokeWidth={2} dot={false} name={`${MA_WINDOW}-pt Moving Avg`} strokeDasharray="5 2" isAnimationActive={chartAnimationEnabled} />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
-                  {showComparison && (
+                  {(showComparison || showMovingAverage) && (
                     <ChartLegend entries={successLegendEntries} colors={seriesColors} tokens={chartTokens} />
                   )}
                 </>
