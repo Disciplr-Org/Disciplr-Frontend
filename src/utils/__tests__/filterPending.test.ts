@@ -249,4 +249,117 @@ describe('filterPending', () => {
       expect(result).toHaveLength(1);
     });
   });
+
+  describe('no-match scenarios', () => {
+    it('returns empty array when query does not match any vault name or owner', () => {
+      const result = filterPending(mockTasks, { query: 'zzznomatch' });
+      expect(result).toHaveLength(0);
+    });
+
+    it('returns empty array when milestone does not match any task', () => {
+      const result = filterPending(mockTasks, { milestone: 'Phase 99' });
+      expect(result).toHaveLength(0);
+    });
+
+    it('returns empty array when both filters narrow to nothing', () => {
+      const result = filterPending(mockTasks, { query: 'alpha', milestone: 'Phase 3' });
+      expect(result).toHaveLength(0);
+    });
+
+    it('returns empty array when tasks list is empty and milestone is provided', () => {
+      const result = filterPending([], { milestone: 'Phase 1' });
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('owner-only match assertions', () => {
+    it('returns task matched by owner alone when vault name does not match', () => {
+      const tasks = [
+        createTask({ id: 'v-1', vaultName: 'Unrelated Name', owner: '0xUNIQUEOWNER' }),
+      ];
+      const result = filterPending(tasks, { query: 'uniqueowner' });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('v-1');
+    });
+
+    it('does not return task when only vault name would match but query is owner-specific', () => {
+      const tasks = [
+        createTask({ id: 'v-1', vaultName: 'SomeVault', owner: '0xAAAA' }),
+        createTask({ id: 'v-2', vaultName: 'OtherVault', owner: '0xSPECIAL' }),
+      ];
+      const result = filterPending(tasks, { query: '0xspecial' });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('v-2');
+    });
+
+    it('matches owner case-insensitively with mixed-case query', () => {
+      const tasks = [
+        createTask({ id: 'v-1', owner: '0xAbCdEf' }),
+      ];
+      const resultLower = filterPending(tasks, { query: '0xabcdef' });
+      const resultUpper = filterPending(tasks, { query: '0XABCDEF' });
+      const resultMixed = filterPending(tasks, { query: '0xAbCdEf' });
+      expect(resultLower).toHaveLength(1);
+      expect(resultUpper).toHaveLength(1);
+      expect(resultMixed).toHaveLength(1);
+    });
+  });
+
+  describe('milestone partial match and edge cases', () => {
+    it('does not perform partial milestone matching (exact match only)', () => {
+      // milestone filter uses strict equality, not substring
+      const result = filterPending(mockTasks, { milestone: 'Phase' });
+      expect(result).toHaveLength(0);
+    });
+
+    it('milestone filter with empty string returns all tasks', () => {
+      const result = filterPending(mockTasks, { milestone: '' });
+      expect(result).toHaveLength(mockTasks.length);
+    });
+
+    it('milestone filter is case-sensitive — uppercase mismatch returns empty', () => {
+      const result = filterPending(mockTasks, { milestone: 'PHASE 1' });
+      expect(result).toHaveLength(0);
+    });
+
+    it('milestone filter is case-sensitive — exact case returns correct tasks', () => {
+      const result = filterPending(mockTasks, { milestone: 'Phase 1' });
+      expect(result.every((t) => t.milestone === 'Phase 1')).toBe(true);
+    });
+  });
+
+  describe('combined filter narrowing', () => {
+    it('combined query+milestone narrows more than either alone', () => {
+      const phase1Results = filterPending(mockTasks, { milestone: 'Phase 1' });
+      const queryResults = filterPending(mockTasks, { query: 'vault' });
+      const combined = filterPending(mockTasks, { query: 'alpha', milestone: 'Phase 1' });
+
+      expect(combined.length).toBeLessThanOrEqual(phase1Results.length);
+      expect(combined.length).toBeLessThanOrEqual(queryResults.length);
+      expect(combined).toHaveLength(1);
+      expect(combined[0].id).toBe('v-1');
+    });
+
+    it('combined owner query + milestone returns only matching task', () => {
+      const result = filterPending(mockTasks, { query: '0xCCCC', milestone: 'Phase 1' });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('v-3');
+      expect(result[0].owner).toBe('0xCCCC');
+      expect(result[0].milestone).toBe('Phase 1');
+    });
+
+    it('combined case-insensitive query with milestone narrows correctly', () => {
+      const resultLower = filterPending(mockTasks, { query: 'gamma', milestone: 'Phase 1' });
+      const resultUpper = filterPending(mockTasks, { query: 'GAMMA', milestone: 'Phase 1' });
+      expect(resultLower).toHaveLength(1);
+      expect(resultUpper).toHaveLength(1);
+      expect(resultLower[0].id).toBe('v-3');
+      expect(resultUpper[0].id).toBe('v-3');
+    });
+
+    it('whitespace-only query with milestone returns empty (not all milestone tasks)', () => {
+      const result = filterPending(mockTasks, { query: '   ', milestone: 'Phase 1' });
+      expect(result).toHaveLength(0);
+    });
+  });
 });
