@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
+import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
@@ -106,6 +107,7 @@ export default function Layout({ children }: LayoutProps) {
         <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
       </header>
       <TrustlineBanner />
+      <NetworkMismatchBanner />
 
       <main
         {...backgroundA11yProps}
