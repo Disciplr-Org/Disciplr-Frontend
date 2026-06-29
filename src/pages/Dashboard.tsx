@@ -162,9 +162,16 @@ export default function Dashboard({
 
   const hasVaults = vaults.length > 0;
 
+  // Derive summary totals from the loaded vault list; fall back to the prop
+  // (or fixture) while loading so the cards always have a value.
+  const computedSummary = useMemo(
+    () => (vaultsLoading ? summary : dashboardUtils.computeDashboardSummary(vaults)),
+    [vaults, vaultsLoading, summary],
+  );
+
   const memoizedSummary = useMemo(
-    () => dashboardUtils.formatSummary(summary),
-    [summary],
+    () => dashboardUtils.formatSummary(computedSummary),
+    [computedSummary],
   );
   const memoizedActivity = useMemo(
     () => dashboardUtils.processActivity(activity),
