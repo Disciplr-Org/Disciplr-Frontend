@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
 import { CountdownDeadline } from './CountdownDeadline';
+import { Badge } from './Badge';
 import type { VaultStatus } from '../types/vault';
 
 export type { VaultStatus };
@@ -56,56 +57,26 @@ const URGENCY_BADGE_CONFIG = {
 function UrgencyBadge({ tier }: { tier: UrgencyTier }) {
   if (tier === 'safe') return null;
   const config = URGENCY_BADGE_CONFIG[tier];
+  const tone = tier === 'critical' ? 'danger' : 'warning';
+
   return (
-    <span
-      aria-label={config.ariaLabel}
-      style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-      }}
-    >
+    <Badge tone={tone} size="sm" ariaLabel={config.ariaLabel}>
       {config.label}
-    </span>
+    </Badge>
   );
 }
 
 function StatusBadge({ status }: { status: VaultStatus }) {
-  const config: Record<VaultStatus, { label: string; bg: string; fg: string }> = {
-    active: { label: 'Active', bg: 'var(--accent-transparent)', fg: 'var(--accent)' },
-    pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
-    completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
-    failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
-    cancelled: { label: 'Cancelled', bg: 'rgba(156,163,175,0.1)', fg: 'var(--muted)' },
+  const config: Record<VaultStatus, { label: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'danger' }> = {
+    active: { label: 'Active', tone: 'info' },
+    pending_validation: { label: 'Pending', tone: 'warning' },
+    completed: { label: 'Completed', tone: 'success' },
+    failed: { label: 'Failed', tone: 'danger' },
+    cancelled: { label: 'Cancelled', tone: 'neutral' },
   };
   const badge = config[status];
 
-  return (
-    <span
-      style={{
-        background: badge.bg,
-        color: badge.fg,
-        border: `1px solid ${badge.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-      }}
-    >
-      {badge.label}
-    </span>
-  );
+  return <Badge tone={badge.tone} size="sm">{badge.label}</Badge>;
 }
 
 export default function VaultCard({

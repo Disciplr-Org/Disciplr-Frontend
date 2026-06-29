@@ -67,6 +67,24 @@ import these unions instead of declaring their own. When adding a new
 `VaultStatus`, add it here and to `STATUS_CONFIG` in `StatusChip.tsx` so the
 chip can render it.
 
+## Badge primitive
+
+A generic `Badge` primitive is now available for count and tier indicators. It accepts `tone` (`neutral | info | success | warning | danger`), `size` (`sm | md | lg`), and an optional numeric `count` prop.
+
+```tsx
+import { Badge } from '../components/Badge';
+
+<Badge tone="warning" size="sm">
+  Due soon
+</Badge>
+
+<Badge count={3} tone="info" size="sm">
+  3
+</Badge>
+```
+
+Numeric badges automatically expose an accessible `aria-label` of the form `Count: N`, which makes count-based indicators suitable for screen readers without requiring extra wiring.
+
 ## Accessibility
 
 - The component exposes its status using an implicit `role="status"` and includes an accessible `aria-label` covering the underlying meaning, regardless of whether a custom `label` string is passed in or not.
