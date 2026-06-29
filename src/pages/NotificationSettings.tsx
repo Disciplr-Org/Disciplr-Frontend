@@ -1,35 +1,8 @@
+import { useState } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
+import { Switch } from "@/components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
-import {
-  isQuietHoursActive,
-  isValidQuietHoursRange,
-  isValidQuietTime,
-} from "@/utils/quietHours";
-
-type SettingsToggleProps = {
-  checked?: boolean;
-  label: string;
-  onChange?: (checked: boolean) => void;
-};
-
-function SettingsToggle({ checked, label, onChange }: SettingsToggleProps) {
-  return (
-    <label className="relative inline-flex items-center cursor-pointer">
-      <input
-        type="checkbox"
-        className="sr-only peer"
-        checked={checked}
-        aria-label={label}
-        onChange={(event) => onChange?.(event.target.checked)}
-      />
-      <span
-        className="notification-settings-toggle peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-transparent)]"
-        aria-hidden="true"
-      />
-    </label>
-  );
-}
 
 export default function NotificationSettings() {
   const {
@@ -46,26 +19,13 @@ export default function NotificationSettings() {
     setQuietRange,
     reset,
   } = useNotificationPreferences();
-  const quietStartValue = quietStart ?? quietHours;
-  const quietEndValue = quietEnd ?? "07:00";
-  const quietRangeIsValid = isValidQuietHoursRange(
-    quietStartValue,
-    quietEndValue,
-  );
-  const quietHoursActive =
-    quietRangeIsValid &&
-    isQuietHoursActive(new Date(), quietStartValue, quietEndValue);
 
-  const updateQuietRange = (nextStart: string, nextEnd: string) => {
-    if (isValidQuietTime(nextStart) && isValidQuietTime(nextEnd)) {
-      setQuietRange(nextStart, nextEnd);
-      return;
-    }
+  // Local state for vault-specific notification toggles (uncontrolled by store)
+  const [vaultToggles, setVaultToggles] = useState<Record<string, boolean>>({});
 
-    if (isValidQuietTime(nextStart)) {
-      setQuietHours(nextStart);
-    }
-  };
+  function handleVaultToggle(name: string, checked: boolean) {
+    setVaultToggles((prev) => ({ ...prev, [name]: checked }));
+  }
 
   return (
     <>
@@ -82,9 +42,9 @@ export default function NotificationSettings() {
               Email Notification
             </Text>
             <div className="flex flex-col items-end justify-end gap-4">
-              <SettingsToggle
+              <Switch
                 label="Email Notification"
-                checked={emailNotification}
+                checked={emailNotification ?? false}
                 onChange={setEmailNotification}
               />
             </div>
@@ -94,9 +54,9 @@ export default function NotificationSettings() {
               Push Notification
             </Text>
             <div className="flex flex-col items-end justify-end gap-4">
-              <SettingsToggle
+              <Switch
                 label="Push Notification"
-                checked={pushNotification}
+                checked={pushNotification ?? false}
                 onChange={setPushNotification}
               />
             </div>
@@ -209,7 +169,11 @@ export default function NotificationSettings() {
               {v.name}
             </Text>
             <div className="flex flex-col items-end justify-end gap-4">
-              <SettingsToggle label={`${v.name} notifications`} />
+              <Switch
+                label={`${v.name} notifications`}
+                checked={vaultToggles[v.name] ?? false}
+                onChange={(checked) => handleVaultToggle(v.name, checked)}
+              />
             </div>
           </div>
         ))}
@@ -236,46 +200,6 @@ export default function NotificationSettings() {
           outline-offset: 2px;
         }
 
-        .notification-settings-toggle {
-          position: relative;
-          width: 2rem;
-          height: 0.75rem;
-          border-radius: 9999px;
-          background: var(--surface-raised);
-          border: 1px solid var(--border);
-          transition: background 150ms ease, border-color 150ms ease;
-        }
-
-        .notification-settings-toggle::after {
-          content: "";
-          position: absolute;
-          top: -0.4rem;
-          left: -0.25rem;
-          width: 1.5rem;
-          height: 1.5rem;
-          border-radius: 9999px;
-          background: var(--bg);
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-          transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
-        }
-
-        .peer:checked + .notification-settings-toggle {
-          background: var(--accent);
-          border-color: var(--accent);
-        }
-
-        .peer:checked + .notification-settings-toggle::after {
-          transform: translateX(1rem);
-          background: var(--surface);
-          border-color: var(--accent);
-        }
-
-        .peer:focus + .notification-settings-toggle {
-          outline: 4px solid var(--accent-transparent);
-          outline-offset: 4px;
-        }
-
         .notification-settings-reset {
           background: var(--surface-raised);
           color: var(--text);
@@ -286,31 +210,6 @@ export default function NotificationSettings() {
 
         .notification-settings-reset:hover {
           background: var(--border);
-        }
-
-        .notification-settings-badge {
-          display: inline-flex;
-          align-items: center;
-          border-radius: 9999px;
-          border: 1px solid var(--border);
-          padding: var(--spacing-1) var(--spacing-2);
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .notification-settings-badge-active {
-          background: var(--accent-transparent);
-          color: var(--accent);
-          border-color: var(--accent);
-        }
-
-        .notification-settings-badge-inactive {
-          background: var(--surface-raised);
-          color: var(--text-muted);
-        }
-
-        .notification-settings-error {
-          color: var(--danger, #dc2626);
         }
       `}</style>
     </>

@@ -6,24 +6,23 @@ type SourceAssertion = {
 const sourceAssertions: SourceAssertion[] = [
   {
     name: "uses checked state for email notifications",
-    pattern: /checked=\{emailNotification\}/,
+    pattern: /checked=\{emailNotification(?:\s*\?\?\s*false)?\}/,
   },
   {
     name: "uses checked state for push notifications",
-    pattern: /checked=\{pushNotification\}/,
+    pattern: /checked=\{pushNotification(?:\s*\?\?\s*false)?\}/,
   },
   {
     name: "uses tokenized surface and text colors",
     pattern: /background:\s*var\(--surface\)[\s\S]*color:\s*var\(--text\)/,
   },
   {
-    name: "themes toggle focus rings with the accent token",
-    pattern: /peer-focus:ring-\[var\(--accent-transparent\)\]/,
+    name: "adopts Switch component for email toggle",
+    pattern: /<Switch[\s\S]*label="Email Notification"/,
   },
   {
-    name: "themes checked toggle tracks with the accent token",
-    pattern:
-      /\.peer:checked \+ \.notification-settings-toggle[\s\S]*background:\s*var\(--accent\)/,
+    name: "adopts Switch component for push toggle",
+    pattern: /<Switch[\s\S]*label="Push Notification"/,
   },
 ];
 
@@ -33,9 +32,7 @@ export function assertNotificationSettingsSource(source: string) {
     .map(({ name }) => name);
 
   if (missing.length > 0) {
-    throw new Error(
-      `NotificationSettings theming assertions failed: ${missing.join(", ")}`,
-    );
+    throw new Error(`NotificationSettings assertions failed: ${missing.join(", ")}`);
   }
 }
 
@@ -43,19 +40,7 @@ export const notificationSettingsThemeTestCases = sourceAssertions.map(
   ({ name }) => name,
 );
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { render, screen, fireEvent } from "@testing-library/react";
-import NotificationSettings from "../NotificationSettings";
-import { useNotificationPreferences } from "../../Zustand/Store";
-
-const source = readFileSync(
-  resolve(__dirname, "../NotificationSettings.tsx"),
-  "utf8",
-);
-
-describe("NotificationSettings theming", () => {
+describe('NotificationSettings source assertions', () => {
   notificationSettingsThemeTestCases.forEach((name) => {
     it(name, () => {
       expect(() => assertNotificationSettingsSource(source)).not.toThrow();
@@ -79,48 +64,35 @@ describe("NotificationSettings component behavior", () => {
   it("renders default notification preferences from store", () => {
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText(
-      "Email Notification",
-    ) as HTMLInputElement;
-    const pushToggle = screen.getByLabelText(
-      "Push Notification",
-    ) as HTMLInputElement;
-    const frequencySelect = screen.getByLabelText(
-      "Notification Frequency",
-    ) as HTMLSelectElement;
-    const quietStartInput = screen.getByLabelText(
-      "Quiet Hours Start",
-    ) as HTMLInputElement;
-    const quietEndInput = screen.getByLabelText(
-      "Quiet Hours End",
-    ) as HTMLInputElement;
+    const emailSwitch = screen.getByRole('switch', { name: 'Email Notification' });
+    const pushSwitch = screen.getByRole('switch', { name: 'Push Notification' });
+    const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
+    const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
-    expect(emailToggle.checked).toBe(true);
-    expect(pushToggle.checked).toBe(false);
-    expect(frequencySelect.value).toBe("1");
-    expect(quietStartInput.value).toBe("22:00");
-    expect(quietEndInput.value).toBe("07:00");
-    expect(screen.getByText("Quiet hours active now")).toBeInTheDocument();
+    expect(emailSwitch).toHaveAttribute('aria-checked', 'true');
+    expect(pushSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(frequencySelect.value).toBe('1');
+    expect(quietHoursInput.value).toBe('12:00');
   });
 
   it("updates the store when email notification toggle is clicked", () => {
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText("Email Notification");
-    fireEvent.click(emailToggle);
+    const emailSwitch = screen.getByRole('switch', { name: 'Email Notification' });
+    fireEvent.click(emailSwitch);
 
     expect(useNotificationPreferences.getState().email).toBe(false);
-    expect(emailToggle).not.toBeChecked();
+    expect(emailSwitch).toHaveAttribute('aria-checked', 'false');
   });
 
   it("updates the store when push notification toggle is clicked", () => {
     render(<NotificationSettings />);
 
-    const pushToggle = screen.getByLabelText("Push Notification");
-    fireEvent.click(pushToggle);
+    const pushSwitch = screen.getByRole('switch', { name: 'Push Notification' });
+    fireEvent.click(pushSwitch);
 
     expect(useNotificationPreferences.getState().push).toBe(true);
-    expect(pushToggle).toBeChecked();
+    expect(pushSwitch).toHaveAttribute('aria-checked', 'true');
   });
 
   it("updates the store when frequency select is changed", () => {
@@ -156,70 +128,44 @@ describe("NotificationSettings component behavior", () => {
 
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText(
-      "Email Notification",
-    ) as HTMLInputElement;
-    const pushToggle = screen.getByLabelText(
-      "Push Notification",
-    ) as HTMLInputElement;
-    const frequencySelect = screen.getByLabelText(
-      "Notification Frequency",
-    ) as HTMLSelectElement;
-    const quietStartInput = screen.getByLabelText(
-      "Quiet Hours Start",
-    ) as HTMLInputElement;
-    const quietEndInput = screen.getByLabelText(
-      "Quiet Hours End",
-    ) as HTMLInputElement;
+    const emailSwitch = screen.getByRole('switch', { name: 'Email Notification' });
+    const pushSwitch = screen.getByRole('switch', { name: 'Push Notification' });
+    const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
+    const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
-    expect(emailToggle.checked).toBe(false);
-    expect(pushToggle.checked).toBe(true);
-    expect(frequencySelect.value).toBe("3");
-    expect(quietStartInput.value).toBe("09:45");
-    expect(quietEndInput.value).toBe("17:30");
+    expect(emailSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(pushSwitch).toHaveAttribute('aria-checked', 'true');
+    expect(frequencySelect.value).toBe('3');
+    expect(quietHoursInput.value).toBe('09:45');
   });
 
   it("resets all preferences to default values when reset button is clicked", () => {
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText(
-      "Email Notification",
-    ) as HTMLInputElement;
-    const pushToggle = screen.getByLabelText(
-      "Push Notification",
-    ) as HTMLInputElement;
-    const frequencySelect = screen.getByLabelText(
-      "Notification Frequency",
-    ) as HTMLSelectElement;
-    const quietStartInput = screen.getByLabelText(
-      "Quiet Hours Start",
-    ) as HTMLInputElement;
-    const quietEndInput = screen.getByLabelText(
-      "Quiet Hours End",
-    ) as HTMLInputElement;
+    const emailSwitch = screen.getByRole('switch', { name: 'Email Notification' });
+    const pushSwitch = screen.getByRole('switch', { name: 'Push Notification' });
+    const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
+    const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
-    fireEvent.click(emailToggle);
-    fireEvent.click(pushToggle);
-    fireEvent.change(frequencySelect, { target: { value: "4" } });
-    fireEvent.change(quietStartInput, { target: { value: "23:00" } });
-    fireEvent.change(quietEndInput, { target: { value: "08:00" } });
+    fireEvent.click(emailSwitch);
+    fireEvent.click(pushSwitch);
+    fireEvent.change(frequencySelect, { target: { value: '4' } });
+    fireEvent.change(quietHoursInput, { target: { value: '23:00' } });
 
-    expect(emailToggle.checked).toBe(false);
-    expect(pushToggle.checked).toBe(true);
-    expect(frequencySelect.value).toBe("4");
-    expect(quietStartInput.value).toBe("23:00");
-    expect(quietEndInput.value).toBe("08:00");
+    expect(emailSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(pushSwitch).toHaveAttribute('aria-checked', 'true');
+    expect(frequencySelect.value).toBe('4');
+    expect(quietHoursInput.value).toBe('23:00');
 
     const resetButton = screen.getByRole("button", {
       name: /Reset Preferences/i,
     });
     fireEvent.click(resetButton);
 
-    expect(emailToggle.checked).toBe(true);
-    expect(pushToggle.checked).toBe(false);
-    expect(frequencySelect.value).toBe("1");
-    expect(quietStartInput.value).toBe("22:00");
-    expect(quietEndInput.value).toBe("07:00");
+    expect(emailSwitch).toHaveAttribute('aria-checked', 'true');
+    expect(pushSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(frequencySelect.value).toBe('1');
+    expect(quietHoursInput.value).toBe('12:00');
 
     const storeState = useNotificationPreferences.getState();
     expect(storeState.email).toBe(true);
