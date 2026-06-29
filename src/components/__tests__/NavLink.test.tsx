@@ -75,4 +75,20 @@ describe('NavLink', () => {
     renderNav('/vaults', '/vault');
     expect(screen.getByRole('link')).not.toHaveClass('active');
   });
+
+  it('is inactive when to has a trailing slash the current path lacks', () => {
+    // path "/vaults" does not start with "/vaults/"
+    renderNav('/vaults/', '/vaults');
+    const link = screen.getByRole('link');
+    expect(link).not.toHaveClass('active');
+    expect(link).not.toHaveAttribute('aria-current');
+  });
+
+  it('is active when the current path adds a trailing slash to to', () => {
+    // path "/vaults/" starts with "/vaults"
+    renderNav('/vaults', '/vaults/');
+    const link = screen.getByRole('link');
+    expect(link).toHaveClass('active');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
 });

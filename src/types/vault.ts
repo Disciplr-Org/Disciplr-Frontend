@@ -37,3 +37,41 @@ export const VAULT_STATUS_ORDER: readonly VaultStatus[] = [
   'failed',
   'cancelled',
 ] as const;
+
+/** A single milestone within a vault. */
+export interface Milestone {
+  id: string;
+  title: string;
+  description: string;
+  criteria: string;
+  status: MilestoneStatus;
+  validatedAt?: string;
+  evidenceUrl?: string;
+}
+
+/** A lightweight on-chain transaction record stored on the Vault itself. */
+export interface VaultTransaction {
+  id: string;
+  type: TxType;
+  hash: string;
+  timestamp: string;
+  amount?: number;
+}
+
+/** Full vault record — canonical shape used across all pages. */
+export interface Vault {
+  id: string;
+  name: string;
+  status: VaultStatus;
+  amount: number;
+  currency: string;
+  createdAt: string;
+  deadline: string;
+  creatorAddress: string;
+  verifierAddress?: string;
+  successAddress: string;
+  failureAddress: string;
+  contractAddress: string;
+  milestones: Milestone[];
+  transactions: VaultTransaction[];
+}

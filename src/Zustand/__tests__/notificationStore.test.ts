@@ -118,6 +118,62 @@ describe("useNotification store", () => {
     });
   });
 
+  describe("dismiss", () => {
+    it("removes a notification by id", () => {
+      const target = initialNotifications[0];
+      useNotification.getState().dismiss(target.id);
+      const state = useNotification.getState();
+      expect(state.notification.find((n) => n.id === target.id)).toBeUndefined();
+      expect(state.notification.length).toBe(initialNotifications.length - 1);
+    });
+
+    it("recomputes unreadCount after dismissing an unread notification", () => {
+      const unread = initialNotifications.find((n) => !n.isRead)!;
+      const prevUnread = useNotification.getState().unreadCount;
+      useNotification.getState().dismiss(unread.id);
+      expect(useNotification.getState().unreadCount).toBe(prevUnread - 1);
+    });
+
+    it("does not change unreadCount when dismissing a read notification", () => {
+      const read = initialNotifications.find((n) => n.isRead)!;
+      const prevUnread = useNotification.getState().unreadCount;
+      useNotification.getState().dismiss(read.id);
+      expect(useNotification.getState().unreadCount).toBe(prevUnread);
+    });
+
+    it("does nothing for a non-existent id", () => {
+      const prevState = useNotification.getState();
+      useNotification.getState().dismiss("non_existent_id");
+      const state = useNotification.getState();
+      expect(state.notification.length).toBe(prevState.notification.length);
+      expect(state.unreadCount).toBe(prevState.unreadCount);
+    });
+
+    it("produces immutable state", () => {
+      const before = useNotification.getState().notification;
+      useNotification.getState().dismiss(before[0].id);
+      const after = useNotification.getState().notification;
+      expect(before).not.toBe(after);
+    });
+  });
+
+  describe("clearAll", () => {
+    it("removes all notifications", () => {
+      useNotification.getState().clearAll();
+      const state = useNotification.getState();
+      expect(state.notification).toEqual([]);
+      expect(state.unreadCount).toBe(0);
+    });
+
+    it("is idempotent — calling on empty list stays empty", () => {
+      useNotification.getState().clearAll();
+      useNotification.getState().clearAll();
+      const state = useNotification.getState();
+      expect(state.notification).toEqual([]);
+      expect(state.unreadCount).toBe(0);
+    });
+  });
+
   describe("unreadCount consistency", () => {
     it("stays in sync after mixed operations", () => {
       const unreadIds = initialNotifications

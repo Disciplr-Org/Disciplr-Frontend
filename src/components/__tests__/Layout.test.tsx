@@ -7,6 +7,10 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
+vi.mock('../Wallet/WalletBalanceChip', () => ({
+  WalletBalanceChip: () => <span data-testid="balance-chip" />,
+}));
+
 vi.mock('../TrustlineBanner', () => ({
   TrustlineBanner: () => null,
 }));

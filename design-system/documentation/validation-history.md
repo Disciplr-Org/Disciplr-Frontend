@@ -55,3 +55,12 @@ To prevent spreadsheet formula injection vulnerabilities, the exported CSV utili
 - `\r` (carriage return character)
 
 Before applying standard quotes and formatting, any cell starting with one of these characters is prefixed with a single quote (`'`), in accordance with OWASP CSV Injection guidelines. This ensures spreadsheet software (like Microsoft Excel or Google Sheets) treats the value as literal text rather than executing it as a formula.
+
+### Numeric Cell Contract (Transaction Exports)
+
+Transaction CSV exports normalize **Amount (XLM)** and **Fee (XLM)** through `normalizeNumericCell()` in `src/utils/csv.ts` **before** formula escaping:
+
+- Finite numbers are rendered as canonical, dot-decimal, ungrouped strings (e.g. `12500.5`, `0.00012`).
+- Locale-style grouping commas in string input are stripped before parsing (e.g. `"1,234.56"` → `1234.56`).
+- Non-finite values (`NaN`, `±Infinity`) and unparseable input are replaced with an empty placeholder so they cannot smuggle formula-triggering leading characters into the sheet.
+- Text columns (vault names, memos, validation task amounts like `"1,000 USDC"`) still pass through `escapeCell()` only — no numeric normalization is applied to those fields.

@@ -97,3 +97,13 @@ The reporter has minimal performance impact:
 - Observers are passive and don't block rendering
 - Callback execution is asynchronous
 - No network calls unless explicitly added by the callback
+
+## Component Rendering Optimization
+
+### VaultTransactions
+The `VaultTransactions` component manages heavy data processing including filtering, sorting, pagination (windowing), and aggregate computations. To ensure fluid interaction and prevent unnecessary layout or computation cycles:
+- **Filter derivations** (`pending`, `failed`, `confirmed`) are memoized and only recompute when the underlying dataset or filter criteria changes.
+- **Window slices** (`windowRange`) are independently memoized per status section to avoid recalculating the slice for one section when another is modified.
+- **Totals and aggregations** (`computeTxTotals`, `stats`) are memoized to skip intensive reduction loops on unrelated state changes (e.g. copying a hash or opening a modal).
+
+Integration tests in `src/pages/__tests__/VaultTransactions.test.tsx` assert that these derivation pipelines do not fire during unrelated re-renders.

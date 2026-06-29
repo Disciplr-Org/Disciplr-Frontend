@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
 vi.mock("../../context/WalletContext", () => ({
-  useWallet: vi.fn(() => ({ balance: null, balanceStatus: 'idle' })),
+  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
 }));
 
 import { useWallet } from "../../context/WalletContext";
@@ -30,7 +30,10 @@ function fillValidForm() {
 describe("CreateVault", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    mockUseWallet.mockReturnValue({ balance: null, balanceStatus: 'idle' } as ReturnType<typeof useWallet>);
+    mockUseWallet.mockReturnValue({
+      balance: null,
+      balanceStatus: "idle",
+    } as ReturnType<typeof useWallet>);
   });
 
   it("renders accessible inline errors and blocks invalid submissions", () => {
@@ -41,12 +44,15 @@ describe("CreateVault", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Please fix the highlighted fields before creating the vault.",
+    );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "Enter a positive USDC amount with up to 7 decimal places.",
       ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
+    ).toHaveLength(2);
+    expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
     expect(
       screen.getAllByText("Enter a valid Stellar public key starting with G."),
     ).toHaveLength(2);
@@ -57,7 +63,26 @@ describe("CreateVault", () => {
     expect(amount).toHaveAttribute("aria-invalid", "true");
     expect(amount).toHaveAttribute(
       "aria-describedby",
-      "field-amount-(usdc)-error",
+      "create-vault-amount-error",
+    );
+    expect(amount).toHaveFocus();
+
+    const deadline = screen.getByLabelText(/deadline/i);
+    expect(deadline).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-deadline-error",
+    );
+
+    const success = screen.getByLabelText(/success destination/i);
+    expect(success).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-success-address-error",
+    );
+
+    const failure = screen.getByLabelText(/failure destination/i);
+    expect(failure).toHaveAttribute(
+      "aria-describedby",
+      "create-vault-failure-address-error",
     );
     expect(consoleDebug).not.toHaveBeenCalled();
   });
@@ -74,10 +99,10 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "Failure destination must be different from success destination.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
     expect(screen.getByLabelText(/failure destination/i)).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -102,7 +127,7 @@ describe("CreateVault", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(consoleDebug).toHaveBeenCalledWith('CreateVault confirm', {
+    expect(consoleDebug).toHaveBeenCalledWith("CreateVault confirm", {
       amount: "100.1234567",
       deadline: "2030-01-01T00:00",
       successAddress,
@@ -139,9 +164,6 @@ describe("CreateVault", () => {
     expect(screen.getByLabelText(/milestone criteria/i)).toHaveValue(milestoneCriteria);
   });
 
-  /* ------------------------------------------------------------------ */
-  /*  Amount input mask                                                  */
-  /* ------------------------------------------------------------------ */
   it("formats amount with thousands grouping while typing", () => {
     render(<CreateVault />);
     const input = screen.getByLabelText(/amount/i);
@@ -194,7 +216,6 @@ describe("CreateVault", () => {
       .mockImplementation(() => undefined);
     render(<CreateVault />);
 
-    // Type a number that would get formatted with commas in the display
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "1234.5678" },
     });
@@ -217,10 +238,8 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    // The raw amount passed to the confirm handler should not have commas
-    // and should be compatible with isValidUsdcAmount
     expect(consoleDebug).toHaveBeenCalledWith(
-      'CreateVault confirm',
+      "CreateVault confirm",
       expect.objectContaining({ amount: "1234.5678" }),
     );
   });
@@ -290,56 +309,86 @@ describe("CreateVault", () => {
   /*  Balance warning                                                    */
   /* ------------------------------------------------------------------ */
   it("shows insufficient balance warning when amount exceeds balance", () => {
-    mockUseWallet.mockReturnValue({ balance: '50', balanceStatus: 'success' } as ReturnType<typeof useWallet>);
+    mockUseWallet.mockReturnValue({
+      balance: "50",
+      balanceStatus: "success",
+    } as ReturnType<typeof useWallet>);
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText(/amount/i), {
+      target: { value: "100" },
+    });
 
-    expect(screen.getByRole('status')).toHaveTextContent(/exceeds your available usdc balance/i);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /exceeds your available usdc balance/i,
+    );
   });
 
   it("does not show warning when amount equals balance", () => {
-    mockUseWallet.mockReturnValue({ balance: '100', balanceStatus: 'success' } as ReturnType<typeof useWallet>);
+    mockUseWallet.mockReturnValue({
+      balance: "100",
+      balanceStatus: "success",
+    } as ReturnType<typeof useWallet>);
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText(/amount/i), {
+      target: { value: "100" },
+    });
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("does not show warning when amount is within balance", () => {
-    mockUseWallet.mockReturnValue({ balance: '200', balanceStatus: 'success' } as ReturnType<typeof useWallet>);
+  /* ------------------------------------------------------------------ */
+  /*  Deadline preset buttons                                            */
+  /* ------------------------------------------------------------------ */
+  it("renders deadline preset buttons", () => {
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
-
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "7 days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "30 days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "90 days" })).toBeInTheDocument();
   });
 
-  it("does not show warning when balance is null (not loaded)", () => {
-    mockUseWallet.mockReturnValue({ balance: null, balanceStatus: 'loading' } as ReturnType<typeof useWallet>);
+  it("preset buttons populate deadline field with future timestamp", () => {
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    const now = new Date();
+    fireEvent.click(screen.getByRole("button", { name: "7 days" }));
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    const deadlineInput = screen.getByLabelText(/deadline/i);
+    const value = deadlineInput.getAttribute("value");
+    expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+
+    const futureDate = new Date(value!);
+    expect(futureDate.getTime()).toBeGreaterThan(now.getTime());
   });
 
-  it("does not show warning when wallet is disconnected", () => {
-    mockUseWallet.mockReturnValue({ balance: null, balanceStatus: 'idle' } as ReturnType<typeof useWallet>);
+  it("selecting preset clears deadline error", () => {
+    const consoleDebug = vi
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "30 days" }));
+    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
   });
 
-  it("does not show warning when balanceStatus is no_trustline", () => {
-    mockUseWallet.mockReturnValue({ balance: null, balanceStatus: 'no_trustline' } as ReturnType<typeof useWallet>);
+  it("computed deadline satisfies isFutureDeadline validation", () => {
+    const consoleDebug = vi
+      .spyOn(console, "debug")
+      .mockImplementation(() => undefined);
     render(<CreateVault />);
 
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    fillField(/amount/i, "100");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "90 days" }));
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
   });
 });

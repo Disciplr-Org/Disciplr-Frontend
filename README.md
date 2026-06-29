@@ -4,6 +4,10 @@ Frontend for Disciplr, a Stellar-oriented vault application for programmable,
 time-locked capital, verifier workflows, wallet connection, analytics, and
 notification surfaces.
 
+> Architecture overview: see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for
+> routing, provider/context nesting, stores, the utility layer, and the data
+> seam.
+
 ## What It Does
 
 - Create and inspect USDC vaults with deadlines, success destinations, failure
@@ -23,10 +27,11 @@ notification surfaces.
 - React Router for client-side routes
 - Vitest and Testing Library for frontend tests
 - Freighter wallet integration through `@stellar/freighter-api`
-- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md))
+- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md) and [docs/VERIFIER_FLOW.md](docs/VERIFIER_FLOW.md))
 - Recharts and jsPDF for analytics/charting and export-related UI
 - Lucide React and React Icons for icons
 - A local `design-system/` package with Jest-tested token utilities
+- `src/utils/windowRange.ts` for list virtualization (see [docs/WINDOW_RANGE.md](docs/WINDOW_RANGE.md))
 
 ## Route And Page Map
 
@@ -37,7 +42,7 @@ Routes mounted in `src/App.tsx`:
 | `/` | `Home` | Landing overview and vault entry points |
 | `/dashboard` | `Dashboard` | Vault and activity dashboard |
 | `/vaults` | `Vaults` | Vault listing and state handling |
-| `/vaults/create` | `CreateVault` | Vault creation form |
+| `/vaults/create` | `CreateVault` | Vault creation form — see [`docs/CREATE_VAULT_VALIDATION.md`](docs/CREATE_VAULT_VALIDATION.md) for the full validation contract |
 | `/vaults/:id` | `VaultDetail` | Milestones, addresses, status, and transactions for one vault |
 | `/vaults/:id/transactions` | `VaultTransactions` | Transaction filters, summaries, and export actions |
 | `/verifier` | `VerifierDashboard` | Verifier overview |
@@ -68,6 +73,11 @@ wallet UI in `src/components/Wallet/`.
 - Supported wallet network labels come from `WalletNetwork`: `TESTNET` and
   `PUBLIC`.
 
+**For detailed documentation on the wallet connection flow, balance state machine, USDC issuer selection, and error codes, see [docs/WALLET_INTEGRATION.md](docs/WALLET_INTEGRATION.md).**
+
+For Horizon endpoint URLs, USDC issuer addresses per network, explorer base
+URLs, the Testnet fallback behaviour, and a step-by-step checklist for adding
+or changing a network, see [`docs/NETWORK_CONFIG.md`](docs/NETWORK_CONFIG.md).
 ## Design System
 
 The `design-system/` package contains Disciplr's token source and validation
@@ -207,6 +217,12 @@ disciplr-frontend/
 |   |-- context/
 |   |   |-- ThemeContext.tsx
 |   |   `-- WalletContext.tsx
+|   |-- fixtures/
+|   |   |-- dashboard.ts
+|   |   |-- transactions.ts
+|   |   |-- validations.ts
+|   |   |-- vaults.ts
+|   |   `-- index.ts
 |   |-- pages/
 |   |   |-- __tests__/
 |   |   |-- Analytics.tsx
@@ -234,15 +250,48 @@ disciplr-frontend/
 `-- README.md
 ```
 
+## Mock Fixtures Seam
+
+All page mock/seed data is centralized under `src/fixtures/` behind a typed
+seam, so swapping in real backends touches only the data layer:
+
+- `src/fixtures/vaults.ts` — the master vault dataset (`MASTER_VAULTS`).
+- `src/fixtures/transactions.ts` — the all-vaults activity feed
+  (`MASTER_ACTIVITY`).
+- `src/fixtures/dashboard.ts` — Dashboard seed data (`SUMMARY`, `ACTIVITY`,
+  `DEADLINES`, `CHART_DATA`).
+- `src/fixtures/validations.ts` — verifier-store seed data (`initialPending`,
+  `initialHistory`).
+- `src/fixtures/index.ts` — barrel re-export for all of the above.
+
+Fixture types reuse the canonical definitions in `src/types/` and
+`src/services/vaultService.ts` rather than redefining them. The vault and
+transaction fixtures feed the Promise-based service in
+`src/services/vaultService.ts`; see
+[docs/VAULT_DATA_LAYER.md](docs/VAULT_DATA_LAYER.md) for that seam and the
+backend migration plan.
+
 ## Contributor Notes
 
 - Keep route documentation aligned with `src/App.tsx`.
+- Keep mock/seed data in `src/fixtures/` and cross-reference
+  [docs/VAULT_DATA_LAYER.md](docs/VAULT_DATA_LAYER.md).
 - Keep wallet documentation aligned with `src/context/WalletContext.tsx` and
   `src/components/Wallet/`.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
-- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md) and [Store.ts](src/Zustand/Store.ts).
+- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md), [docs/VERIFIER_FLOW.md](docs/VERIFIER_FLOW.md), and [Store.ts](src/Zustand/Store.ts).
+- Keep vault validation rules aligned with
+  [docs/CREATE_VAULT_VALIDATION.md](docs/CREATE_VAULT_VALIDATION.md).
+- Keep network configuration (Horizon URLs, USDC issuers, explorer bases)
+  aligned with [docs/NETWORK_CONFIG.md](docs/NETWORK_CONFIG.md).
+- Keep `windowRange` constants and threshold guidance aligned with
+  [docs/WINDOW_RANGE.md](docs/WINDOW_RANGE.md).
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the dual Vitest + Jest test setup, branch naming, and PR conventions.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a summary of notable changes to this project.

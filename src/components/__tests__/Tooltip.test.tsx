@@ -1,6 +1,13 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, act, configure } from "@testing-library/react";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { Tooltip } from "../Tooltip";
+
+// The tooltip keeps its role="tooltip" node mounted but hidden (aria-hidden +
+// visibility:hidden) for aria linkage, and these tests assert on it via
+// getByRole while hidden. Scope defaultHidden to this file so *ByRole queries
+// include the hidden node without affecting other suites.
+beforeAll(() => configure({ defaultHidden: true }));
+afterAll(() => configure({ defaultHidden: false }));
 
 // ---------------------------------------------------------------------------
 // Helpers

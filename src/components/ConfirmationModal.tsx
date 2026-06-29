@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { X, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { Text } from './Text';
@@ -13,6 +13,13 @@ interface ConfirmationModalProps {
   evidenceUrl?: string;
   /** When set, the modal confirms a batch action affecting this many tasks. */
   affectedCount?: number;
+
+  /** Simple confirmation mode — shows a generic title/message with Confirm/Cancel. */
+  simpleConfirm?: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+  };
 }
 
 /**
@@ -34,6 +41,7 @@ export function ConfirmationModal({
   initialNotes = '',
   evidenceUrl,
   affectedCount,
+  simpleConfirm,
 }: ConfirmationModalProps) {
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(initialDecision || null);
   const [notes, setNotes] = useState(initialNotes);
@@ -62,7 +70,7 @@ export function ConfirmationModal({
       {/* Header */}
               <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
                 <Text role="title" as="h2" id="modal-title" className="text-gray-900 dark:text-white">
-                  Confirm Validation
+                  {simpleConfirm ? simpleConfirm.title : 'Confirm Validation'}
                 </Text>
                 <button
                   onClick={onClose}
@@ -75,6 +83,12 @@ export function ConfirmationModal({
 
               {/* Content */}
               <div className="px-6 py-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
+                {simpleConfirm ? (
+                  <Text role="body" as="p" className="text-gray-700 dark:text-gray-300">
+                    {simpleConfirm.message}
+                  </Text>
+                ) : (
+                  <>
                 {/* Batch summary */}
                 {typeof affectedCount === 'number' && affectedCount > 0 && (
                   <div
@@ -175,6 +189,8 @@ export function ConfirmationModal({
                     </Text>
                   )}
                 </div>
+                  </>
+                )}
               </div>
 
               {/* Footer */}
@@ -186,17 +202,19 @@ export function ConfirmationModal({
                   Cancel
                 </button>
                 <button
-                  onClick={handleConfirm}
-                  disabled={isConfirmDisabled}
+                  onClick={simpleConfirm ? () => onConfirm('approve', '') : handleConfirm}
+                  disabled={simpleConfirm ? false : isConfirmDisabled}
                   className={`px-6 py-2 text-sm font-bold text-white rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${
-                    decision === 'approve'
+                    simpleConfirm
+                      ? 'bg-red-600 hover:bg-red-700 shadow-red-200 dark:shadow-none'
+                      : decision === 'approve'
                       ? 'bg-green-600 hover:bg-green-700 shadow-green-200 dark:shadow-none'
                       : decision === 'reject'
                       ? 'bg-red-600 hover:bg-red-700 shadow-red-200 dark:shadow-none'
                       : 'bg-blue-600 hover:bg-blue-700'
                   }`}
                 >
-                  Confirm {decision ? (decision.charAt(0).toUpperCase() + decision.slice(1)) : ''}
+                  {simpleConfirm ? (simpleConfirm.confirmLabel || 'Confirm') : `Confirm ${decision ? (decision.charAt(0).toUpperCase() + decision.slice(1)) : ''}`}
                 </button>
               </div>
     </Modal>

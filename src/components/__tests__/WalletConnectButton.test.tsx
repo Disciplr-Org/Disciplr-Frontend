@@ -49,12 +49,13 @@ function getConnectedButton() {
 describe('WalletConnectButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsAllowed.mockResolvedValue(false);
-    mockSetAllowed.mockResolvedValue(undefined);
-    mockRequestAccess.mockResolvedValue(true);
+    mockIsAllowed.mockResolvedValue({ isAllowed: false });
+    mockSetAllowed.mockResolvedValue({ isAllowed: false });
+    mockRequestAccess.mockResolvedValue({ address: walletAddress });
     mockGetAddress.mockResolvedValue({ address: walletAddress, error: undefined });
     mockGetNetworkDetails.mockResolvedValue({
       network: 'TESTNET',
+      networkUrl: 'https://horizon-testnet.stellar.org',
       networkPassphrase: 'Test SDF Network ; September 2015',
     });
   });
@@ -95,7 +96,7 @@ describe('WalletConnectButton', () => {
   });
 
   it('closes the connected dropdown when clicking outside', async () => {
-    mockIsAllowed.mockResolvedValue(true);
+    mockIsAllowed.mockResolvedValue({ isAllowed: true });
     renderWalletButton();
 
     await waitFor(() => {

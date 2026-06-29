@@ -158,7 +158,7 @@ describe('token-loader', () => {
         const allTokens = getAllTokens();
 
         expect(allTokens).toEqual({});
-        expect(console.warn).toHaveBeenCalledTimes(6);
+        expect(console.warn).toHaveBeenCalledTimes(7);
     });
   });
 });

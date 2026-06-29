@@ -2,11 +2,13 @@ import React, { useState, type HTMLAttributes } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
+import { WalletBalanceChip } from "./Wallet/WalletBalanceChip";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
+import { ShortcutsHelp } from "./ShortcutsHelp";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -87,6 +89,7 @@ export default function Layout({ children }: LayoutProps) {
               Create Vault
             </Link>
             <NotificationBell />
+            <WalletBalanceChip />
             <WalletConnectButton />
           </div>
         </nav>
@@ -119,6 +122,7 @@ export default function Layout({ children }: LayoutProps) {
       >
         {children}
       </main>
+      <ShortcutsHelp />
     </div>
   );
 }

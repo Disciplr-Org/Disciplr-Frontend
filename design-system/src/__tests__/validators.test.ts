@@ -90,6 +90,94 @@ describe('token name validators', () => {
   });
 });
 
+describe('isValidHexColor boundary table', () => {
+  it('accepts canonical six-digit hex colors', () => {
+    expect(isValidHexColor('#0A7668')).toBe(true);
+    expect(isValidHexColor('#000000')).toBe(true);
+    expect(isValidHexColor('#FFFFFF')).toBe(true);
+    expect(isValidHexColor('#0a7668')).toBe(true);
+  });
+
+  it('rejects malformed hex colors', () => {
+    expect(isValidHexColor('#abc')).toBe(false); // 3-digit
+    expect(isValidHexColor('#0A7668FF')).toBe(false); // 8-digit
+    expect(isValidHexColor('0A7668')).toBe(false); // missing #
+    expect(isValidHexColor('#12345g')).toBe(false); // non-hex char
+    expect(isValidHexColor('')).toBe(false); // empty
+    expect(isValidHexColor(' ')).toBe(false); // whitespace
+    expect(isValidHexColor(' #0A7668 ')).toBe(false); // surrounding whitespace
+  });
+});
+
+describe('isValidRgbColor boundary table', () => {
+  it('accepts canonical rgb colors', () => {
+    expect(isValidRgbColor('rgb(0,0,0)')).toBe(true);
+    expect(isValidRgbColor('rgb(255, 255, 255)')).toBe(true);
+  });
+
+  it('rejects malformed rgb colors', () => {
+    expect(isValidRgbColor('rgb( 0, 0, 0 )')).toBe(false); // extra spaces
+    expect(isValidRgbColor('rgb(0,, 0, 0)')).toBe(false); // extra comma
+    expect(isValidRgbColor('rgb(0, 0)')).toBe(false); // missing channel
+    expect(isValidRgbColor('rgba(0, 0, 0, 1)')).toBe(false); // alpha variant
+    expect(isValidRgbColor('')).toBe(false); // empty
+    expect(isValidRgbColor('  ')).toBe(false); // whitespace
+  });
+});
+
+describe('isValidHslColor boundary table', () => {
+  it('accepts canonical hsl colors', () => {
+    expect(isValidHslColor('hsl(0, 0%, 0%)')).toBe(true);
+    expect(isValidHslColor('hsl(210, 50%, 40%)')).toBe(true);
+    expect(isValidHslColor('hsl(210,50%,40%)')).toBe(true);
+  });
+
+  it('rejects malformed hsl colors', () => {
+    expect(isValidHslColor('hsl(210, 50, 40)')).toBe(false); // missing %
+    expect(isValidHslColor('hsla(210, 50%, 40%, 1)')).toBe(false); // alpha variant
+    expect(isValidHslColor('hsl( 210, 50%, 40% )')).toBe(false); // extra spaces
+    expect(isValidHslColor('')).toBe(false); // empty
+    expect(isValidHslColor('  ')).toBe(false); // whitespace
+  });
+});
+
+describe('isKebabCase boundary table', () => {
+  it('accepts kebab-case names', () => {
+    expect(isKebabCase('chart-grid')).toBe(true);
+    expect(isKebabCase('chart')).toBe(true);
+    expect(isKebabCase('chart-grid-1')).toBe(true);
+  });
+
+  it('rejects non-kebab-case names', () => {
+    expect(isKebabCase('Chart-Grid')).toBe(false); // mixed case
+    expect(isKebabCase('chart_grid')).toBe(false); // underscore
+    expect(isKebabCase('1chart')).toBe(false); // leading digit
+    expect(isKebabCase('chart-')).toBe(false); // trailing hyphen
+    expect(isKebabCase('')).toBe(false); // empty
+    expect(isKebabCase(' ')).toBe(false); // whitespace
+  });
+});
+
+describe('hasValidTokenPrefix boundary table', () => {
+  it('accepts each documented prefix', () => {
+    expect(hasValidTokenPrefix('color-accent')).toBe(true);
+    expect(hasValidTokenPrefix('spacing-4')).toBe(true);
+    expect(hasValidTokenPrefix('typography-title')).toBe(true);
+    expect(hasValidTokenPrefix('shadow-card')).toBe(true);
+    expect(hasValidTokenPrefix('radius-md')).toBe(true);
+    expect(hasValidTokenPrefix('border-default')).toBe(true);
+    expect(hasValidTokenPrefix('motion-fast')).toBe(true);
+  });
+
+  it('rejects unknown prefixes and prefixes without a hyphen', () => {
+    expect(hasValidTokenPrefix('chart-foo')).toBe(false); // unknown prefix
+    expect(hasValidTokenPrefix('color')).toBe(false); // prefix without hyphen
+    expect(hasValidTokenPrefix('colorfoo')).toBe(false); // prefix without hyphen
+    expect(hasValidTokenPrefix('')).toBe(false); // empty
+    expect(hasValidTokenPrefix(' ')).toBe(false); // whitespace
+  });
+});
+
 describe('isValidColorToken', () => {
   it('accepts a valid color token with optional accessibility metadata', () => {
     expect(

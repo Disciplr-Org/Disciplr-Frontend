@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationTask } from '../../Zustand/Store';
-import { downloadCsv, toCsv } from '../csv';
+import type { Transaction } from '../../pages/VaultTransactions';
+import {
+  NON_FINITE_NUMERIC_PLACEHOLDER,
+  downloadCsv,
+  normalizeNumericCell,
+  toCsv,
+} from '../csv';
 
 const baseTask = (overrides: Partial<ValidationTask> = {}): ValidationTask => ({
   id: 'v-001',
@@ -183,6 +189,104 @@ describe('toCsv', () => {
       const result = toCsv([task]);
       expect(result).toContain('v-001,approved,Alpha Vault,GOWNER...ALPHA,"1,000 USDC",2026-01-01,Launch,');
     });
+  });
+});
+
+const baseTx = (overrides: Partial<Transaction> = {}): Transaction => ({
+  id: 'tx-001',
+  type: 'create',
+  vault: 'Alpha Vault',
+  amount: 100,
+  fee: 0.0001,
+  status: 'confirmed',
+  timestamp: new Date('2026-01-01T00:00:00.000Z'),
+  hash: 'hash123',
+  block: 12345,
+  from: 'G1',
+  to: 'G2',
+  memo: '',
+  ...overrides,
+});
+
+describe('normalizeNumericCell', () => {
+  it('formats finite numbers as dot-decimal without grouping', () => {
+    expect(normalizeNumericCell(12500.5)).toBe('12500.5');
+    expect(normalizeNumericCell(0.00012)).toBe('0.00012');
+    expect(normalizeNumericCell(0)).toBe('0');
+  });
+
+  it('strips locale grouping commas from string input', () => {
+    expect(normalizeNumericCell('1,234.56')).toBe('1234.56');
+    expect(normalizeNumericCell('12,345,678.9')).toBe('12345678.9');
+  });
+
+  it('replaces non-finite numbers with the safe placeholder', () => {
+    expect(normalizeNumericCell(NaN)).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+    expect(normalizeNumericCell(Infinity)).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+    expect(normalizeNumericCell(-Infinity)).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+  });
+
+  it('replaces unparseable strings with the safe placeholder', () => {
+    expect(normalizeNumericCell('not-a-number')).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+    expect(normalizeNumericCell('')).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+    expect(normalizeNumericCell('   ')).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+    expect(normalizeNumericCell(null as unknown as string)).toBe(NON_FINITE_NUMERIC_PLACEHOLDER);
+  });
+
+  it('formats very large numbers without scientific notation', () => {
+    expect(normalizeNumericCell(1e21)).toBe('1000000000000000000000');
+  });
+
+  it('preserves negative finite numbers', () => {
+    expect(normalizeNumericCell(-42.5)).toBe('-42.5');
+  });
+});
+
+describe('toCsv transaction numeric normalization', () => {
+  const TX_HEADER =
+    'ID,Type,Vault,Amount (XLM),Fee (XLM),Status,Timestamp,Hash,Block,From,To,Memo';
+
+  it('normalizes amount and fee before formula escaping', () => {
+    const tx = baseTx({ amount: 12500.5, fee: 0.00012 });
+    const result = toCsv([tx], 'transactions');
+    const lines = result.split('\r\n');
+    expect(lines[0]).toBe(TX_HEADER);
+    expect(lines[1]).toContain(',12500.5,0.00012,');
+  });
+
+  it('replaces NaN amount and Infinity fee with the safe placeholder', () => {
+    const tx = baseTx({ amount: NaN, fee: Infinity });
+    const result = toCsv([tx], 'transactions');
+    expect(result).toContain(
+      `tx-001,create,Alpha Vault,,,confirmed,2026-01-01T00:00:00.000Z,hash123,12345,G1,G2,`,
+    );
+  });
+
+  it('escapes normalized negative amounts that start with minus', () => {
+    const tx = baseTx({ amount: -100, fee: 0 });
+    const result = toCsv([tx], 'transactions');
+    expect(result).toContain("tx-001,create,Alpha Vault,'-100,0,");
+  });
+
+  it('parses grouped string amounts at runtime before escaping', () => {
+    const tx = baseTx({ amount: '1,234.56' as unknown as number, fee: 0.0001 });
+    const result = toCsv([tx], 'transactions');
+    expect(result).toContain(',1234.56,0.0001,');
+    expect(result).not.toContain('"1,234.56"');
+  });
+
+  it('does not treat formula-like string amounts as injectable after normalization', () => {
+    const tx = baseTx({ amount: '=1+1' as unknown as number, fee: '+100' as unknown as number });
+    const result = toCsv([tx], 'transactions');
+    expect(result).toContain('tx-001,create,Alpha Vault,,100,');
+    expect(result).not.toContain("'=1+1");
+    expect(result).not.toContain("'+100");
+  });
+
+  it('does not alter text-cell escaping for validation task amounts', () => {
+    const task = baseTask({ amount: '1,000 USDC' });
+    const result = toCsv([task]);
+    expect(result).toContain('"1,000 USDC"');
   });
 });
 
