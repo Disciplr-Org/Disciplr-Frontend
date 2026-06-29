@@ -184,4 +184,159 @@ describe("Tooltip", () => {
     act(() => vi.runAllTimers());
     expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
   });
+
+  // ── Escape-dismiss explicit coverage ─────────────────────────────────────
+
+  it("Escape dismisses tooltip shown via focus without waiting for timer", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
+    expect(trigger).toHaveAttribute("aria-describedby");
+
+    // Escape should dismiss synchronously (no timer needed)
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("Escape dismisses tooltip shown via hover without waiting for timer", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.mouseEnter(trigger);
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+  });
+
+  it("aria-describedby is removed after Escape dismissal", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+    const tooltipId = screen.getByRole("tooltip").getAttribute("id");
+    expect(trigger).toHaveAttribute("aria-describedby", tooltipId);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("tooltip can be shown again after Escape dismissal", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+
+    // Show again via focus
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
+    expect(trigger).toHaveAttribute("aria-describedby");
+  });
+
+  // ── aria-describedby explicit coverage ───────────────────────────────────
+
+  it("aria-describedby is absent before tooltip is shown", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("aria-describedby matches tooltip id when shown via focus", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+
+    const tooltipId = screen.getByRole("tooltip").getAttribute("id");
+    expect(tooltipId).toBeTruthy();
+    expect(trigger).toHaveAttribute("aria-describedby", tooltipId as string);
+  });
+
+  it("aria-describedby is removed after blur timer fires", () => {
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+    expect(trigger).toHaveAttribute("aria-describedby");
+
+    fireEvent.blur(trigger);
+    act(() => vi.runAllTimers());
+
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+  });
+
+  // ── Reduced-motion branch ─────────────────────────────────────────────────
+
+  it("hides tooltip immediately on blur when prefers-reduced-motion is set", () => {
+    // Mock matchMedia to report reduced motion
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    renderTooltip();
+    const trigger = screen.getByRole("button");
+
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
+
+    fireEvent.blur(trigger);
+    // With reduced motion, hide timer fires with 0 delay — advance timers
+    act(() => vi.runAllTimers());
+
+    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+
+    // Restore original matchMedia
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  it("tooltip element has no transition style when prefers-reduced-motion is set", () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    renderTooltip();
+    fireEvent.mouseEnter(screen.getByRole("button"));
+
+    const tooltip = screen.getByRole("tooltip");
+    // When reduced-motion, transitionStyle is {} so no transition property is set
+    expect(tooltip).not.toHaveStyle({ transition: expect.stringContaining("opacity") });
+
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
 });
