@@ -32,6 +32,9 @@ Design tokens live in `design-system/tokens/`:
    dropdowns, pages, and tooltips aligned with `motion.json`.
 5. Use `src/utils/csv.ts` for standardized CSV exports. The `toCsv()` utility supports both `ValidationTask[]` (for verification history) and `Transaction[]` (for vault activity logs). Pair it with `downloadCsv()` to trigger browser file downloads with stable, human-readable headers and proper comma-escaping.
 6. Use `src/utils/relativeTime.ts` for consistent, localized relative time formatting. The `formatRelativeTime()` utility handles seconds, minutes, hours, days, and weeks for both past and future dates using `Intl.RelativeTimeFormat`.
+7. Use `src/utils/sortTransactions.ts` for VaultTransactions column sorting.
+   The sortable header behavior and `aria-sort` contract are documented in
+   `documentation/transaction-sorting.md`.
 
 ## Adding A Token
 
