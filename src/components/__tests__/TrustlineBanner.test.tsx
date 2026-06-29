@@ -89,6 +89,18 @@ describe('TrustlineBanner', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('does not show the banner when balanceStatus is loading', () => {
+    mockUseWallet.mockReturnValue({
+      address: 'GABC',
+      network: 'TESTNET',
+      balanceStatus: 'loading',
+    } as ReturnType<typeof useWallet>);
+
+    render(<TrustlineBanner />);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('does not show the banner when balanceStatus is error', () => {
     mockUseWallet.mockReturnValue({
       address: 'GABC',
@@ -99,5 +111,55 @@ describe('TrustlineBanner', () => {
     render(<TrustlineBanner />);
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  describe('CTA accessibility and content', () => {
+    it('dismiss CTA has an accessible name', () => {
+      mockUseWallet.mockReturnValue({
+        address: 'GABC',
+        network: 'TESTNET',
+        balanceStatus: 'no_trustline',
+      } as ReturnType<typeof useWallet>);
+
+      render(<TrustlineBanner />);
+
+      const dismissButton = screen.getByRole('button', { name: /dismiss trustline banner/i });
+      expect(dismissButton).toBeInTheDocument();
+      expect(dismissButton).toHaveAttribute('aria-label', 'Dismiss trustline banner');
+    });
+
+    it('banner body contains instructions that reference the issuer address', () => {
+      mockUseWallet.mockReturnValue({
+        address: 'GABC',
+        network: 'TESTNET',
+        balanceStatus: 'no_trustline',
+      } as ReturnType<typeof useWallet>);
+
+      render(<TrustlineBanner />);
+
+      expect(
+        screen.getByText(/your wallet has no usdc trustline/i),
+      ).toBeInTheDocument();
+      expect(screen.getByText(TESTNET_ISSUER)).toBeInTheDocument();
+    });
+
+    it('only shows the banner for no_trustline and hides for all other statuses', () => {
+      const statuses = ['idle', 'loading', 'success', 'error'] as const;
+
+      for (const balanceStatus of statuses) {
+        mockUseWallet.mockReturnValue({
+          address: 'GABC',
+          network: 'TESTNET',
+          balanceStatus,
+        } as ReturnType<typeof useWallet>);
+
+        const { unmount } = render(<TrustlineBanner />);
+        expect(
+          screen.queryByRole('alert'),
+          `expected no alert for status "${balanceStatus}"`,
+        ).not.toBeInTheDocument();
+        unmount();
+      }
+    });
   });
 });
