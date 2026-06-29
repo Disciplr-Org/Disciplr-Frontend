@@ -9,6 +9,7 @@ import {
 
 const successAddress = `G${'A'.repeat(55)}`;
 const failureAddress = `G${'B'.repeat(55)}`;
+const verifierAddress = `G${'C'.repeat(55)}`;
 const now = new Date('2026-06-18T00:00:00Z');
 
 describe('vaultValidation', () => {
@@ -42,6 +43,7 @@ describe('vaultValidation', () => {
         deadline: '2020-01-01T00:00:00Z',
         successAddress: 'bad',
         failureAddress: 'bad',
+        verifierAddress: '',
       },
       now,
     );
@@ -61,6 +63,7 @@ describe('vaultValidation', () => {
         deadline: '2026-06-19T00:00:00Z',
         successAddress,
         failureAddress: successAddress,
+        verifierAddress: '',
       },
       now,
     );
@@ -78,10 +81,81 @@ describe('vaultValidation', () => {
           deadline: '2026-06-19T00:00:00Z',
           successAddress,
           failureAddress,
+          verifierAddress: '',
         },
         now,
       ),
     ).toEqual({});
+  });
+
+  it('allows empty verifier address', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        verifierAddress: '',
+      },
+      now,
+    );
+    expect(errors.verifierAddress).toBeUndefined();
+  });
+
+  it('rejects invalid verifier address', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        verifierAddress: 'bad',
+      },
+      now,
+    );
+    expect(errors.verifierAddress).toBe('Enter a valid Stellar public key starting with G.');
+  });
+
+  it('rejects verifier identical to success address', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        verifierAddress: successAddress,
+      },
+      now,
+    );
+    expect(errors.verifierAddress).toBe('Verifier must be different from the success destination.');
+  });
+
+  it('rejects verifier identical to failure address', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        verifierAddress: failureAddress,
+      },
+      now,
+    );
+    expect(errors.verifierAddress).toBe('Verifier must be different from the failure destination.');
+  });
+
+  it('accepts valid distinct verifier address', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        verifierAddress,
+      },
+      now,
+    );
+    expect(errors.verifierAddress).toBeUndefined();
   });
 });
 
