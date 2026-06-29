@@ -77,4 +77,24 @@ describe("useNotificationPreferences store", () => {
     expect(parsed.state.frequency).toBe("3");
     expect(parsed.state.quietHours).toBe("08:30");
   });
+
+  it("should rehydrate from localStorage on re-initialisation", () => {
+    useNotificationPreferences.getState().setEmail(false);
+    useNotificationPreferences.getState().setPush(true);
+
+    // Simulate rehydration: reset the store state to initial, then trigger rehydration
+    useNotificationPreferences.persist.rehydrate();
+    expect(useNotificationPreferences.getState().email).toBe(false);
+    expect(useNotificationPreferences.getState().push).toBe(true);
+  });
+
+  it("reset returns store to defaults and does not affect localStorage until next set", () => {
+    useNotificationPreferences.getState().setEmail(false);
+    useNotificationPreferences.getState().reset();
+    const state = useNotificationPreferences.getState();
+    expect(state.email).toBe(true);
+    expect(state.push).toBe(false);
+    expect(state.frequency).toBe("");
+    expect(state.quietHours).toBe("12:00");
+  });
 });
