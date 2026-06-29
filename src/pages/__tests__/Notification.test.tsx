@@ -15,6 +15,7 @@ vi.mock("framer-motion", () => ({
     ),
   },
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  useReducedMotion: () => false,
 }));
 
 vi.mock("focus-trap-react", () => ({
@@ -55,11 +56,14 @@ describe("Notification page", () => {
     expect(
       screen.getByText(`Page 1 of ${totalPages}`),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Notifications pagination" }),
+    ).toBeInTheDocument();
   });
 
   it("navigates to the next page", () => {
     renderNotification();
-    const nextButton = screen.getByText("Next");
+    const nextButton = screen.getByRole("button", { name: "Go to next page" });
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
     expect(
@@ -69,8 +73,19 @@ describe("Notification page", () => {
 
   it("disables previous button on first page", () => {
     renderNotification();
-    const prevButton = screen.getByText("Previous");
+    const prevButton = screen.getByRole("button", {
+      name: "Go to previous page",
+    });
     expect(prevButton).toBeDisabled();
+  });
+
+  it("supports numbered page navigation", () => {
+    renderNotification();
+    fireEvent.click(screen.getByRole("button", { name: "Go to page 3" }));
+    const totalPages = Math.ceil(initialNotifications.length / 5);
+    expect(
+      screen.getByText(`Page 3 of ${totalPages}`),
+    ).toBeInTheDocument();
   });
 
   it("filters by unread via the read filter dropdown", () => {
@@ -126,7 +141,7 @@ describe("Notification page", () => {
   it("resets to page 1 when filter changes", () => {
     renderNotification();
 
-    const nextButton = screen.getByText("Next");
+    const nextButton = screen.getByRole("button", { name: "Go to next page" });
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
     expect(
@@ -146,7 +161,7 @@ describe("Notification page", () => {
   it("resets to page 1 when filter changes", () => {
     renderNotification();
 
-    const nextButton = screen.getByText("Next");
+    const nextButton = screen.getByRole("button", { name: "Go to next page" });
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
     expect(
@@ -232,7 +247,7 @@ describe("Notification page", () => {
     renderNotification();
 
     // Go to page 2
-    const nextButton = screen.getByText("Next");
+    const nextButton = screen.getByRole("button", { name: "Go to next page" });
     fireEvent.click(nextButton);
     expect(screen.getByText(/Page 2 of 2/)).toBeInTheDocument();
 

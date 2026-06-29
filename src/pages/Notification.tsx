@@ -7,6 +7,8 @@ import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { Link } from "react-router-dom";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { X } from "lucide-react";
+import { Pagination } from "@/components/Pagination";
+import { paginate } from "@/utils/paginate";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
@@ -24,12 +26,8 @@ export default function Notification() {
   const [showClearModal, setShowClearModal] = useState(false);
   const itemsPerPage = 5;
 
-  // 1. Calculate the data for the current page
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentData = currentNotification.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+  const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
 
@@ -54,7 +52,7 @@ export default function Notification() {
     };
   }, []);
 
-  const filterNotification = () => {
+  useEffect(() => {
     let filtered = notifications;
 
     if (!filtered) return;
@@ -72,13 +70,7 @@ export default function Notification() {
     }
     setCurrentNotification(filtered);
     setCurrentPage(1);
-  };
-  useEffect(() => {
-    filterNotification();
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
-
-  // 2. Calculate total pages
-  const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
 
   // Reset to page 1 when the underlying notification list changes
   useEffect(() => {
@@ -233,30 +225,12 @@ export default function Notification() {
         )}
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col justify-end">
-        <div className="flex justify-center gap-4 mt-8">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((prev) => prev - 1)}
-            className="px-4 py-2 bg-[#121a2a] rounded disabled:opacity-50 text-white"
-          >
-            Previous
-          </button>
-
-          <span className="flex items-center">
-            Page {currentPage} of {totalPages}
-          </span>
-
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((prev) => prev + 1)}
-            className="px-4 py-2 bg-[#00c389] rounded disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <Pagination
+        pagination={pagination}
+        onPageChange={setCurrentPage}
+        ariaLabel="Notifications pagination"
+        className="mt-8"
+      />
 
       <ConfirmationModal
         isOpen={showClearModal}
