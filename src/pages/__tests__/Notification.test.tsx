@@ -15,6 +15,7 @@ vi.mock("framer-motion", () => ({
     ),
   },
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  useReducedMotion: vi.fn(() => false),
 }));
 
 vi.mock("focus-trap-react", () => ({
@@ -53,8 +54,12 @@ describe("Notification page", () => {
     renderNotification();
     const totalPages = Math.ceil(initialNotifications.length / 5);
     expect(
-      screen.getByText(`Page 1 of ${totalPages}`),
+      screen.getByRole("navigation", { name: "Notifications pagination" }),
     ).toBeInTheDocument();
+    expect(screen.getByText(`Page 1 of ${totalPages}`)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Go to page 1" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("navigates to the next page", () => {
@@ -62,9 +67,7 @@ describe("Notification page", () => {
     const nextButton = screen.getByText("Next");
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
-    expect(
-      screen.getByText(`Page 2 of ${totalPages}`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(`Page 2 of ${totalPages}`)).toBeInTheDocument();
   });
 
   it("disables previous button on first page", () => {
@@ -129,9 +132,7 @@ describe("Notification page", () => {
     const nextButton = screen.getByText("Next");
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
-    expect(
-      screen.getByText(`Page 2 of ${totalPages}`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(`Page 2 of ${totalPages}`)).toBeInTheDocument();
 
     const filterButton = screen.getByText("Filter");
     fireEvent.click(filterButton);
@@ -149,9 +150,7 @@ describe("Notification page", () => {
     const nextButton = screen.getByText("Next");
     fireEvent.click(nextButton);
     const totalPages = Math.ceil(initialNotifications.length / 5);
-    expect(
-      screen.getByText(`Page 2 of ${totalPages}`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(`Page 2 of ${totalPages}`)).toBeInTheDocument();
 
     const filterButton = screen.getByText("Filter");
     fireEvent.click(filterButton);
@@ -185,9 +184,7 @@ describe("Notification page", () => {
     renderNotification();
     const clearButton = screen.getByText("Clear all");
     fireEvent.click(clearButton);
-    expect(
-      screen.getByText("Clear all notifications"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Clear all notifications")).toBeInTheDocument();
     expect(
       screen.getByText(
         `Are you sure you want to clear all ${initialNotifications.length} notifications? This action cannot be undone.`,
@@ -245,5 +242,20 @@ describe("Notification page", () => {
 
     // Should reset to page 1
     expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument();
+  });
+
+  it("navigates with numbered page buttons", () => {
+    renderNotification();
+    const totalPages = Math.ceil(initialNotifications.length / 5);
+    if (totalPages < 2) {
+      return;
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to page 2" }));
+
+    expect(screen.getByText(`Page 2 of ${totalPages}`)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Go to page 2" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 });
