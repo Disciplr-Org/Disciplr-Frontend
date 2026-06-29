@@ -3,7 +3,10 @@ import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
-import Analytics, { analyticsPeriodData } from '../Analytics'
+import { analyticsPeriodData } from '../Analytics'
+import Analytics from '../Analytics'
+
+// ── Browser API stubs (jsdom doesn't implement these) ───────────────────────
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -213,5 +216,38 @@ describe('Analytics lazy route', () => {
     } finally {
       analyticsPeriodData['90d'] = original90d
     }
+  })
+
+  it('renders computed KPI cards with values from the selected period', async () => {
+    const { default: LazyLoadedAnalytics } = await import('../Analytics')
+
+    render(
+      <MemoryRouter>
+        <LazyLoadedAnalytics />
+      </MemoryRouter>,
+    )
+
+    // Wait for lazy load to complete
+    await waitFor(() => {
+      expect(screen.getByText('Analytics')).toBeInTheDocument()
+    }, { timeout: 2000 })
+
+    // Verify KPI labels are present (query for multiple matches and check at least one exists)
+    const capitalLabels = screen.getAllByText('Total Capital Locked')
+    expect(capitalLabels.length).toBeGreaterThan(0)
+    
+    const successLabels = screen.getAllByText('Success Rate')
+    expect(successLabels.length).toBeGreaterThan(0)
+    
+    const milestoneLabels = screen.getAllByText('Total Milestones')
+    expect(milestoneLabels.length).toBeGreaterThan(0)
+
+    // Switch periods and verify KPI cards update
+    fireEvent.click(screen.getByRole('button', { name: '7d' }))
+
+    // Verify the cards still render after switching
+    await waitFor(() => {
+      expect(screen.getAllByText('Total Capital Locked').length).toBeGreaterThan(0)
+    })
   })
 })

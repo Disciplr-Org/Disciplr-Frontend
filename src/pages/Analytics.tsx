@@ -16,6 +16,8 @@ import { useTheme } from '../context/ThemeContext'
 import { ChartLegend } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
+import { toCsv, downloadCsv } from '../utils/csv'
+import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,45 +84,45 @@ export const analyticsPeriodData: Record<Period, { name: string; success: number
 }
 
 // Previous period data for comparison
-const prevPeriodData: Record<Period, { name: string; success: number; capital: number }[]> = {
+const prevPeriodData: Record<Period, AnalyticsDataPoint[]> = {
   '7d': [
-    { name: 'Mon', success: 60, capital: 2000 },
-    { name: 'Tue', success: 65, capital: 2100 },
-    { name: 'Wed', success: 70, capital: 2200 },
-    { name: 'Thu', success: 72, capital: 2300 },
-    { name: 'Fri', success: 68, capital: 2150 },
-    { name: 'Sat', success: 75, capital: 2400 },
-    { name: 'Sun', success: 71, capital: 2350 },
+    { name: 'Mon', success: 60, failed: 40, capital: 2000, milestones: 1 },
+    { name: 'Tue', success: 65, failed: 35, capital: 2100, milestones: 2 },
+    { name: 'Wed', success: 70, failed: 30, capital: 2200, milestones: 2 },
+    { name: 'Thu', success: 72, failed: 28, capital: 2300, milestones: 2 },
+    { name: 'Fri', success: 68, failed: 32, capital: 2150, milestones: 1 },
+    { name: 'Sat', success: 75, failed: 25, capital: 2400, milestones: 3 },
+    { name: 'Sun', success: 71, failed: 29, capital: 2350, milestones: 2 },
   ],
   '30d': [
-    { name: 'Wk1', success: 50, capital: 500 },
-    { name: 'Wk2', success: 58, capital: 750 },
-    { name: 'Wk3', success: 62, capital: 1100 },
-    { name: 'Wk4', success: 70, capital: 1800 },
+    { name: 'Wk1', success: 50, failed: 50, capital: 500, milestones: 1 },
+    { name: 'Wk2', success: 58, failed: 42, capital: 750, milestones: 2 },
+    { name: 'Wk3', success: 62, failed: 38, capital: 1100, milestones: 3 },
+    { name: 'Wk4', success: 70, failed: 30, capital: 1800, milestones: 5 },
   ],
   '90d': [
-    { name: 'Oct', success: 55, capital: 600 },
-    { name: 'Nov', success: 60, capital: 800 },
-    { name: 'Dec', success: 63, capital: 700 },
+    { name: 'Oct', success: 55, failed: 45, capital: 600, milestones: 2 },
+    { name: 'Nov', success: 60, failed: 40, capital: 800, milestones: 2 },
+    { name: 'Dec', success: 63, failed: 37, capital: 700, milestones: 2 },
   ],
   '1y': [
-    { name: 'Jan', success: 45, capital: 400 },
-    { name: 'Feb', success: 50, capital: 600 },
-    { name: 'Mar', success: 48, capital: 500 },
-    { name: 'Apr', success: 65, capital: 900 },
-    { name: 'May', success: 68, capital: 1200 },
-    { name: 'Jun', success: 72, capital: 1800 },
-    { name: 'Jul', success: 70, capital: 1600 },
-    { name: 'Aug', success: 74, capital: 2000 },
-    { name: 'Sep', success: 69, capital: 1700 },
-    { name: 'Oct', success: 78, capital: 2200 },
-    { name: 'Nov', success: 75, capital: 2000 },
-    { name: 'Dec', success: 80, capital: 2500 },
+    { name: 'Jan', success: 45, failed: 55, capital: 400, milestones: 1 },
+    { name: 'Feb', success: 50, failed: 50, capital: 600, milestones: 1 },
+    { name: 'Mar', success: 48, failed: 52, capital: 500, milestones: 1 },
+    { name: 'Apr', success: 65, failed: 35, capital: 900, milestones: 3 },
+    { name: 'May', success: 68, failed: 32, capital: 1200, milestones: 3 },
+    { name: 'Jun', success: 72, failed: 28, capital: 1800, milestones: 5 },
+    { name: 'Jul', success: 70, failed: 30, capital: 1600, milestones: 4 },
+    { name: 'Aug', success: 74, failed: 26, capital: 2000, milestones: 6 },
+    { name: 'Sep', success: 69, failed: 31, capital: 1700, milestones: 4 },
+    { name: 'Oct', success: 78, failed: 22, capital: 2200, milestones: 7 },
+    { name: 'Nov', success: 75, failed: 25, capital: 2000, milestones: 6 },
+    { name: 'Dec', success: 80, failed: 20, capital: 2500, milestones: 8 },
   ],
   'All': [
-    { name: '2021', success: 40, capital: 200 },
-    { name: '2022', success: 52, capital: 800 },
-    { name: '2023', success: 60, capital: 1200 },
+    { name: '2021', success: 40, failed: 60, capital: 200, milestones: 1 },
+    { name: '2022', success: 52, failed: 48, capital: 800, milestones: 2 },
+    { name: '2023', success: 60, failed: 40, capital: 1200, milestones: 3 },
   ],
 }
 
@@ -260,22 +262,13 @@ export default function Analytics() {
   }))
 
   const displayData = showComparison ? comparisonData : chartData
-
-  // Compute moving-average values for the success series (min 2 points required)
-  const maValues = useMemo(() => {
-    const successValues = chartData.map((d) => d.success)
-    return movingAverage(successValues, MA_WINDOW)
-  }, [chartData])
-
-  // Merge MA values into displayData for the chart
-  const displayDataWithMA = useMemo(
-    () =>
-      displayData.map((d, i) => ({
-        ...d,
-        successMA: showMovingAverage && chartData.length >= 2 ? maValues[i] : undefined,
-      })),
-    [displayData, maValues, showMovingAverage, chartData.length],
+  
+  // Compute KPIs from the selected period
+  const kpis = useMemo(
+    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevPeriodData[period] as AnalyticsDataPoint[]),
+    [chartData, period]
   )
+
   const chartAnimationEnabled = !prefersReducedMotion
   const tooltipStyle = useMemo(() => ({
     contentStyle: {
@@ -647,11 +640,27 @@ export default function Analytics() {
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}
           >
             {[
-              { label: 'Total Capital Locked', value: '$12,450', sub: 'USDC · All time', icon: <Target size={17} color={seriesColors.success} />, up: true },
-              { label: 'Active Capital', value: '$3,200', sub: 'USDC · Right now', icon: <TrendingUp size={17} color={seriesColors.active} />, up: true },
-              { label: 'Success Rate', value: '85%', sub: '+7% vs last period', icon: <CheckCircle size={17} color={seriesColors.success} />, up: true },
-              { label: 'Total Vaults', value: '21', sub: 'Created all time', icon: <Zap size={17} color={seriesColors.success} />, up: true },
-              { label: 'Completed / Failed', value: '14 / 4', sub: '3 currently active', icon: <AlertTriangle size={17} color={seriesColors.failed} />, up: false },
+              { 
+                label: 'Total Capital Locked', 
+                value: formatCurrency(kpis.totalCapital), 
+                sub: kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)} vs prev` : 'USDC',
+                icon: <Target size={17} color={seriesColors.success} />, 
+                up: kpis.capitalTrend 
+              },
+              { 
+                label: 'Success Rate', 
+                value: formatPercentage(kpis.averageSuccessRate),
+                sub: kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)} vs prev` : 'Average',
+                icon: <CheckCircle size={17} color={seriesColors.success} />, 
+                up: kpis.successTrend 
+              },
+              { 
+                label: 'Total Milestones', 
+                value: `${kpis.totalMilestones}`,
+                sub: kpis.milestoneDelta !== 0 ? `${kpis.milestoneDelta > 0 ? '+' : ''}${kpis.milestoneDelta} vs prev` : 'All time',
+                icon: <Award size={17} color={seriesColors.success} />, 
+                up: kpis.milestoneTrend 
+              },
             ].map((stat, i) => (
               <Card key={i}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
