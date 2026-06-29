@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
@@ -6,6 +6,43 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
 import { classifyEvidenceUrl } from '../utils/evidenceKind';
+import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
+
+const NOTES_DRAFT_DEBOUNCE_MS = 300;
+
+function useNotesDraft(taskId: string | undefined) {
+  const [notes, setNotes] = useState('');
+  const clearedTaskIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    clearedTaskIdRef.current = undefined;
+    setNotes(readNotesDraft(taskId));
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) return;
+
+    const timeout = window.setTimeout(() => {
+      if (clearedTaskIdRef.current === taskId) return;
+      writeNotesDraft(taskId, notes);
+    }, NOTES_DRAFT_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [notes, taskId]);
+
+  const setDraftNotes = useCallback((nextNotes: string) => {
+    clearedTaskIdRef.current = undefined;
+    setNotes(nextNotes);
+  }, []);
+
+  const clearDraft = useCallback(() => {
+    clearedTaskIdRef.current = taskId;
+    clearNotesDraft(taskId);
+    setNotes('');
+  }, [taskId]);
+
+  return { notes, setNotes: setDraftNotes, clearDraft };
+}
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
@@ -13,12 +50,12 @@ export default function ValidationDetail() {
   
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
   
-  const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
+  const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
 
   if (!task) {
     return (
@@ -46,7 +83,11 @@ export default function ValidationDetail() {
   const toggleCriterion = (index: number) => {
     setCheckedCriteria((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   };
@@ -59,6 +100,7 @@ export default function ValidationDetail() {
     } else if (decision === 'reject') {
       rejectValidation(task.id, modalNotes);
     }
+    clearDraft();
     setIsModalOpen(false);
     navigate('/verifier/queue');
   };
