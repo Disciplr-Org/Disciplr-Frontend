@@ -9,41 +9,11 @@ import {
 import type { ValidationHistoryStatusFilter } from '../utils/paginate';
 import { downloadCsv, toCsv } from '../utils/csv';
 import { StatusChip } from '../components/StatusChip';
-
-const PAGE_SIZE_OPTIONS = [5, 10, 25];
-const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
-const PAGE_SIZE_STORAGE_KEY = 'validation-history-page-size';
-
-function isPageSizeOption(value: number): value is (typeof PAGE_SIZE_OPTIONS)[number] {
-  return PAGE_SIZE_OPTIONS.includes(value);
-}
-
-function readStoredPageSize(): number {
-  if (typeof window === 'undefined') {
-    return DEFAULT_PAGE_SIZE;
-  }
-
-  try {
-    const stored = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
-    const parsed = stored ? Number(stored) : DEFAULT_PAGE_SIZE;
-
-    return isPageSizeOption(parsed) ? parsed : DEFAULT_PAGE_SIZE;
-  } catch {
-    return DEFAULT_PAGE_SIZE;
-  }
-}
-
-function persistPageSize(size: number): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
-  } catch {
-    // A blocked storage write should not break pagination.
-  }
-}
+import {
+  VALIDATION_HISTORY_PAGE_SIZE_OPTIONS,
+  persistValidationHistoryPageSize,
+  readValidationHistoryPageSize,
+} from '../utils/pageSizePref';
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
@@ -53,7 +23,7 @@ export default function ValidationHistory() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('');
-  const [pageSize, setPageSize] = useState(readStoredPageSize);
+  const [pageSize, setPageSize] = useState(readValidationHistoryPageSize);
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
@@ -82,9 +52,8 @@ export default function ValidationHistory() {
   const updateMilestoneFilter = (value: string) => { setMilestoneFilter(value); setPage(1); };
 
   const updatePageSize = (size: number) => {
-    const nextSize = isPageSizeOption(size) ? size : DEFAULT_PAGE_SIZE;
+    const nextSize = persistValidationHistoryPageSize(size);
     setPageSize(nextSize);
-    persistPageSize(nextSize);
     setPage(1);
   };
 
@@ -234,7 +203,7 @@ export default function ValidationHistory() {
               padding: '0.65rem 0.75rem',
             }}
           >
-            {PAGE_SIZE_OPTIONS.map((size) => (
+            {VALIDATION_HISTORY_PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>{size} per page</option>
             ))}
           </select>
