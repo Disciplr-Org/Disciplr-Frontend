@@ -21,6 +21,9 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+/** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
+export const BALANCE_REFRESH_INTERVAL = 30_000;
+
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [network, setNetwork] = useState<WalletNetwork | null>(null);
@@ -91,32 +94,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    // Watch for Freighter network/account changes and refresh state accordingly.
-    // Only runs while connected; stops when disconnected.
+    // ── Balance auto-refresh ──────────────────────────────────────────────────
+    // Polls the balance at a configurable interval; pauses when the tab is
+    // hidden to avoid wasted Horizon calls. Never overlaps in-flight requests
+    // (fetchNetworkAndBalance already cancels the previous one via AbortController).
+    // No polling when disconnected (address is null).
     useEffect(() => {
         if (!address) return;
 
-        const intervalId = setInterval(async () => {
-            try {
-                const { address: currentAddress, error: addrError } = await getAddress();
-                if (addrError || !currentAddress) return;
-
-                const netDetails = await getNetworkDetails();
-                const currentNetwork = normalizeNetwork(netDetails.network);
-
-                // Detect changes in address or network
-                if (currentAddress !== lastKnownAddressRef.current || currentNetwork !== lastKnownNetworkRef.current) {
-                    lastKnownAddressRef.current = currentAddress;
-                    lastKnownNetworkRef.current = currentNetwork;
-                    setAddress(currentAddress);
-                    await fetchNetworkAndBalance(currentAddress);
-                }
-            } catch (err) {
-                logger.error('Network/address change check failed', err);
+        const tick = () => {
+            if (!document.hidden) {
+                fetchNetworkAndBalance(address);
             }
-        }, 2000);
+        };
 
-        return () => clearInterval(intervalId);
+        const id = setInterval(tick, BALANCE_REFRESH_INTERVAL);
+
+        const onVisibilityChange = () => {
+            if (!document.hidden && address) {
+                fetchNetworkAndBalance(address);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            clearInterval(id);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
     }, [address]);
 
     const connect = async () => {
