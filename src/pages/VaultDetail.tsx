@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
+import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
 import {
   FundReleaseStatus,
@@ -11,17 +12,12 @@ import { Text } from "../components/Text";
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { useWallet } from "../context/WalletContext";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import type { VaultStatus, MilestoneStatus, TxType, Vault, Milestone, VaultTransaction } from "../types/vault";
+import type { VaultStatus, Vault } from "../types/vault";
 import { getVault } from "../services/vaultService";
 
 // ── Types imported from canonical source ─────────────────────────────────────
-// Milestone, VaultTransaction, Vault, VaultStatus, MilestoneStatus, TxType
-// are all imported from "../types/vault" above.
+// Vault and VaultStatus are imported from "../types/vault" above.
 // MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
-
-// Suppress unused-import warnings for type-only imports used in JSX props
-type _Milestone = Milestone;
-type _VaultTransaction = VaultTransaction;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -309,6 +305,7 @@ export default function VaultDetail() {
           label={`${vault.name} timeline progress`}
           showValue={false}
         />
+        <VaultLifecycle status={vault.status} />
         <div
           style={{
             display: "flex",
