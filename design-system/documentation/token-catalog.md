@@ -14,7 +14,7 @@ components to the design system.
 | Borders and radius | `tokens/borders.json` | `--radius-*`, `--border-width-*`, `--border-default`, `--border-subtle`, `--border-emphasis`, `--border-interactive`, `--border-error`, `--border-success` | `Field`, `VaultCard`, `ConfirmationModal`, wallet dropdowns, pills, avatars, focus states |
 | Shadows | `tokens/shadows.json` | Elevation references for raised surfaces and overlays | Modals, dropdowns, raised cards, dashboard surfaces |
 | Motion | `tokens/motion.json` | `src/utils/motion.ts` exports `duration`, `ease`, `transitionEnter`, `transitionExit`, and `transitionPage` | `Notification`, animated overlays, dropdowns, page transitions |
-| Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers |
+| Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers |`n| Opacity | `tokens/opacity.json` | `--opacity-disabled`, `--opacity-backdrop`, `--opacity-hover`, `--opacity-muted` | `Field`, `Modal`, disabled controls, overlays |
 
 ## Component Notes
 
