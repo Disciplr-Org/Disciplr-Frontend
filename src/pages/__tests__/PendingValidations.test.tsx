@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import { useVerifierStore } from '../../Zustand/Store';
@@ -50,13 +51,7 @@ const makeTasks = () => [
   },
 ];
 
-const verifierState = (pendingValidations = makeTasks()) => ({
-  pendingValidations,
-  validationHistory: [],
-  batchApprove: vi.fn(),
-  batchReject: vi.fn(),
-});
-const mockUseVerifierStore = useVerifierStore as unknown as Mock;
+const mockedUseVerifierStore = useVerifierStore as unknown as Mock;
 
 function renderPage() {
   return render(
@@ -71,7 +66,7 @@ describe('PendingValidations', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
-    mockUseVerifierStore.mockReturnValue(verifierState());
+    mockedUseVerifierStore.mockReturnValue({ pendingValidations: makeTasks() });
   });
 
   afterEach(() => {
@@ -84,14 +79,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    mockUseVerifierStore.mockReturnValue(verifierState([]));
+    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    mockUseVerifierStore.mockReturnValue(verifierState([]));
+    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -103,9 +98,9 @@ describe('PendingValidations', () => {
     expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
   });
 
-  it('default sort is by deadline ascending and direction button shows "Ascending"', () => {
+  it('default sort is deadline ascending and direction shows ascending', () => {
     renderPage();
-    expect(screen.getByLabelText(/Sort pending validations/i)).toHaveValue('deadline');
+    expect(screen.getByLabelText(/Sort by/i)).toHaveValue('deadline');
     expect(screen.getByRole('button', { name: /Ascending/i })).toBeInTheDocument();
 
     // ascending: v-2 (2 days) → v-1 (10 days) → v-3 (20 days)
@@ -115,7 +110,7 @@ describe('PendingValidations', () => {
     expect(vaultCells[2].textContent).toBe('Gamma Vault');
   });
 
-  it('toggling sort direction reverses the order and button shows "Descending"', () => {
+  it('toggling sort direction reverses the order and shows descending', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
 
@@ -128,7 +123,7 @@ describe('PendingValidations', () => {
     expect(vaultCells[2].textContent).toBe('Beta Vault');
   });
 
-  it('toggling twice returns to original ascending order', () => {
+  it('toggling direction twice returns to original ascending order', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
     fireEvent.click(screen.getByRole('button', { name: /Descending/i }));
@@ -142,10 +137,35 @@ describe('PendingValidations', () => {
     expect(vaultCells[2].textContent).toBe('Gamma Vault');
   });
 
+  it('sorts by amount when the sort selector changes', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/Sort by/i), {
+      target: { value: 'amount' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
+
+    const vaultCells = screen.getAllByText(/Vault$/);
+    expect(vaultCells[0].textContent).toBe('Gamma Vault');
+    expect(vaultCells[1].textContent).toBe('Alpha Vault');
+    expect(vaultCells[2].textContent).toBe('Beta Vault');
+  });
+
+  it('sorts by vault name from the sort selector', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/Sort by/i), {
+      target: { value: 'vaultName' },
+    });
+
+    const vaultCells = screen.getAllByText(/Vault$/);
+    expect(vaultCells[0].textContent).toBe('Alpha Vault');
+    expect(vaultCells[1].textContent).toBe('Beta Vault');
+    expect(vaultCells[2].textContent).toBe('Gamma Vault');
+  });
+
   it('clicking Review navigates to the correct ValidationDetail route', () => {
     renderPage();
     const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-    // first row after asc sort is v-2 (daysRemaining: 2)
+    // first row after deadline ascending sort is v-2.
     fireEvent.click(reviewButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue/v-2');
   });
@@ -157,15 +177,17 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    mockUseVerifierStore.mockReturnValue(verifierState([makeTasks()[0]]));
+    mockedUseVerifierStore.mockReturnValue({
+      pendingValidations: [makeTasks()[0]],
+    });
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + 1 row
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    mockUseVerifierStore.mockReturnValue(
-      verifierState([
+    mockedUseVerifierStore.mockReturnValue({
+      pendingValidations: [
         { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
         { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
       ]),
@@ -223,13 +245,13 @@ describe('PendingValidations', () => {
       expect(deadlineHeader).toHaveAttribute('aria-sort', 'ascending');
     });
 
-    it('moves aria-sort to the selected sort column', () => {
+    it('moves aria-sort to the active sort column', () => {
       renderPage();
-      fireEvent.change(screen.getByLabelText(/Sort pending validations/i), {
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
         target: { value: 'amount' },
       });
 
-      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'none');
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
       expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
     });
 
@@ -248,7 +270,7 @@ describe('PendingValidations', () => {
     });
 
     it('empty table state renders no table role', () => {
-      mockUseVerifierStore.mockReturnValue(verifierState([]));
+      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
       renderPage();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
@@ -517,7 +539,7 @@ describe('PendingValidations', () => {
 
   describe('empty state messaging', () => {
     it('shows "All caught up!" when there are no pending validations', () => {
-      mockUseVerifierStore.mockReturnValue(verifierState([]));
+      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
       renderPage();
 
       expect(screen.getByText('All caught up!')).toBeInTheDocument();

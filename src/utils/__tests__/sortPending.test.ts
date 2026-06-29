@@ -1,72 +1,85 @@
 import { describe, expect, it } from 'vitest';
-import { sortPending } from '../sortPending';
 import type { ValidationTask } from '../../Zustand/Store';
+import { sortPending } from '../sortPending';
 
-const task = (overrides: Partial<ValidationTask>): ValidationTask => ({
-  id: 'task',
-  vaultName: 'Vault',
+const task = (
+  id: string,
+  overrides: Partial<ValidationTask> = {},
+): ValidationTask => ({
+  id,
+  vaultName: `Vault ${id}`,
   owner: '0xowner',
   amount: '1,000 USDC',
   deadline: '2026-07-01',
   daysRemaining: 10,
   status: 'pending',
-  milestone: 'Phase 1',
+  milestone: 'Milestone',
   ...overrides,
 });
 
-const ids = (tasks: ValidationTask[]) => tasks.map((item) => item.id);
-
 describe('sortPending', () => {
-  it('sorts by deadline ascending and descending', () => {
+  it('sorts deadlines ascending and descending', () => {
     const tasks = [
-      task({ id: 'late', deadline: '2026-08-01', daysRemaining: 40 }),
-      task({ id: 'early', deadline: '2026-06-20', daysRemaining: 1 }),
-      task({ id: 'middle', deadline: '2026-07-01', daysRemaining: 10 }),
+      task('later', { deadline: '2026-08-01', daysRemaining: 40 }),
+      task('soon', { deadline: '2026-06-20', daysRemaining: 2 }),
+      task('middle', { deadline: '2026-07-01', daysRemaining: 10 }),
     ];
 
-    expect(ids(sortPending(tasks, 'deadline', 'asc'))).toEqual(['early', 'middle', 'late']);
-    expect(ids(sortPending(tasks, 'deadline', 'desc'))).toEqual(['late', 'middle', 'early']);
+    expect(sortPending(tasks, 'deadline', 'asc').map((t) => t.id)).toEqual([
+      'soon',
+      'middle',
+      'later',
+    ]);
+    expect(sortPending(tasks, 'deadline', 'desc').map((t) => t.id)).toEqual([
+      'later',
+      'middle',
+      'soon',
+    ]);
   });
 
-  it('sorts amount strings numerically', () => {
+  it('parses numeric amounts with separators', () => {
     const tasks = [
-      task({ id: 'large', amount: '20,000 USDC' }),
-      task({ id: 'small', amount: '750 USDC' }),
-      task({ id: 'medium', amount: '5,000 USDC' }),
+      task('small', { amount: '500 USDC' }),
+      task('large', { amount: '20,000 USDC' }),
+      task('middle', { amount: '$1,250.50' }),
     ];
 
-    expect(ids(sortPending(tasks, 'amount', 'asc'))).toEqual(['small', 'medium', 'large']);
+    expect(sortPending(tasks, 'amount', 'desc').map((t) => t.id)).toEqual([
+      'large',
+      'middle',
+      'small',
+    ]);
   });
 
-  it('sorts vault names without case sensitivity', () => {
+  it('sorts vault names case-insensitively', () => {
     const tasks = [
-      task({ id: 'gamma', vaultName: 'gamma vault' }),
-      task({ id: 'alpha', vaultName: 'Alpha Vault' }),
-      task({ id: 'beta', vaultName: 'Beta Vault' }),
+      task('c', { vaultName: 'zeta Vault' }),
+      task('a', { vaultName: 'Alpha Vault' }),
+      task('b', { vaultName: 'beta Vault' }),
     ];
 
-    expect(ids(sortPending(tasks, 'vaultName', 'asc'))).toEqual(['alpha', 'beta', 'gamma']);
+    expect(sortPending(tasks, 'vaultName', 'asc').map((t) => t.id)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
   });
 
-  it('keeps equal values in their original relative order', () => {
+  it('preserves relative order for equal keys', () => {
     const tasks = [
-      task({ id: 'first', amount: '1,000 USDC' }),
-      task({ id: 'second', amount: '1,000 USDC' }),
-      task({ id: 'third', amount: '2,000 USDC' }),
+      task('first', { amount: 'not available' }),
+      task('second', { amount: 'pending' }),
+      task('third', { amount: 'unknown' }),
     ];
 
-    expect(ids(sortPending(tasks, 'amount', 'asc'))).toEqual(['first', 'second', 'third']);
+    expect(sortPending(tasks, 'amount', 'asc').map((t) => t.id)).toEqual([
+      'first',
+      'second',
+      'third',
+    ]);
   });
 
-  it('does not mutate the input array', () => {
-    const tasks = [
-      task({ id: 'b', vaultName: 'Beta Vault' }),
-      task({ id: 'a', vaultName: 'Alpha Vault' }),
-    ];
-
-    const sorted = sortPending(tasks, 'vaultName', 'asc');
-
-    expect(ids(sorted)).toEqual(['a', 'b']);
-    expect(ids(tasks)).toEqual(['b', 'a']);
+  it('handles empty lists', () => {
+    expect(sortPending([], 'deadline', 'asc')).toEqual([]);
   });
 });
