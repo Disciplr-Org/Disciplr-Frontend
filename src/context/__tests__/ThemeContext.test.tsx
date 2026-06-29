@@ -23,8 +23,8 @@ describe('ThemeContext safe storage', () => {
     vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
       matches: false,
       media: query,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
     } as unknown as MediaQueryList));
     vi.spyOn(Storage.prototype, 'getItem');
     vi.spyOn(Storage.prototype, 'setItem');
@@ -311,5 +311,21 @@ describe('ThemeContext OS preference following', () => {
     // OS change back to light
     fireOsDarkChange(false);
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
+  });
+
+  test('removes listener on unmount', () => {
+    const { unmount } = render(
+      <ThemeProvider>
+        <TestComponent />
+      </ThemeProvider>
+    );
+
+    // The listener should be added on mount
+    expect(mediaEventHandlers.has('(prefers-color-scheme: dark)')).toBe(true);
+
+    unmount();
+
+    // The listener should be removed on unmount
+    expect(mediaEventHandlers.has('(prefers-color-scheme: dark)')).toBe(false);
   });
 });
