@@ -12,9 +12,13 @@ import { Text } from "../components/Text";
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { useWallet } from "../context/WalletContext";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import { downloadIcsEvent, isValidIcsDeadline } from "../utils/ics";
 import type { VaultStatus, Vault } from "../types/vault";
 import { getVault } from "../services/vaultService";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+
+// ── Types imported from canonical source ─────────────────────────────────────
+// Vault and VaultStatus are imported from "../types/vault" above.
+// MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -276,28 +280,33 @@ export default function VaultDetail() {
           </div>
 
           {/* Quick Actions */}
-          {isActive && (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {vault.status === "pending_validation" && (
-                <button style={actionBtn("var(--accent)")}>
-                  Validate Milestone
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link
+              to="/vaults/create"
+              state={createVaultPrefillFromVault(vault)}
+              style={{
+                ...actionBtn("var(--accent)"),
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Duplicate Vault
+            </Link>
+            {isActive && (
+              <>
+                {vault.status === "pending_validation" && (
+                  <button style={actionBtn("var(--accent)")}>
+                    Validate Milestone
+                  </button>
+                )}
+                <button style={actionBtn("var(--warning)")}>
+                  Extend Deadline
                 </button>
-              )}
-              <button style={actionBtn("var(--warning)")}>
-                Extend Deadline
-              </button>
-              <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={handleCalendarExport}
-            disabled={!canExportDeadline}
-            aria-disabled={!canExportDeadline}
-            style={actionBtn(canExportDeadline ? "var(--accent)" : "var(--muted)")}
-          >
-            Add to calendar
-          </button>
+                <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
+              </>
+            )}
+          </div>
         </div>
       </Card>
 

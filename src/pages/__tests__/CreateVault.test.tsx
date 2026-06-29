@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
@@ -18,13 +19,19 @@ function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
-function fillValidForm() {
-  fillField(/amount/i, "100.1234567");
-  fillField(/deadline/i, "2030-01-01T00:00");
-  fillField(/success destination/i, successAddress);
-  fillField(/failure destination/i, failureAddress);
-  fillField(/milestone title/i, milestoneTitle);
-  fillField(/milestone criteria/i, milestoneCriteria);
+function renderCreateVault(state?: unknown) {
+  return render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: "/vaults/create",
+          state,
+        },
+      ]}
+    >
+      <CreateVault />
+    </MemoryRouter>,
+  );
 }
 
 describe("CreateVault", () => {
@@ -40,7 +47,7 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
@@ -88,7 +95,7 @@ describe("CreateVault", () => {
   });
 
   it("rejects identical destination addresses", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillField(/amount/i, "100");
     fillField(/deadline/i, "2030-01-01T00:00");
@@ -113,7 +120,7 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillValidForm();
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
@@ -140,7 +147,7 @@ describe("CreateVault", () => {
   });
 
   it("returns to edit mode without losing entered values", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillField(/amount/i, "55");
     fillField(/deadline/i, "2030-02-02T00:00");
@@ -164,8 +171,65 @@ describe("CreateVault", () => {
     expect(screen.getByLabelText(/milestone criteria/i)).toHaveValue(milestoneCriteria);
   });
 
+  it("keeps the blank form unchanged when no duplicate prefill is present", () => {
+    renderCreateVault();
+
+    expect(screen.getByLabelText(/amount/i)).toHaveValue("");
+    expect(screen.getByLabelText(/deadline/i)).toHaveValue("");
+    expect(screen.getByLabelText(/success destination/i)).toHaveValue("");
+    expect(screen.getByLabelText(/failure destination/i)).toHaveValue("");
+    expect(screen.queryByText(/duplicating/i)).not.toBeInTheDocument();
+  });
+
+  it("prefills duplicated vault amount and destinations while clearing deadline", () => {
+    renderCreateVault({
+      createVaultPrefill: {
+        sourceVaultName: "Alpha Vault",
+        amount: "12500",
+        successAddress,
+        failureAddress,
+        milestones: [{ title: "Phase 1", criteria: "Ship it" }],
+      },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /duplicating alpha vault/i,
+    );
+    expect(screen.getByLabelText(/amount/i)).toHaveValue("12,500");
+    expect(screen.getByLabelText(/deadline/i)).toHaveValue("");
+    expect(screen.getByLabelText(/success destination/i)).toHaveValue(
+      successAddress,
+    );
+    expect(screen.getByLabelText(/failure destination/i)).toHaveValue(
+      failureAddress,
+    );
+  });
+
+  it("surfaces validation errors for invalid duplicated values", () => {
+    renderCreateVault({
+      createVaultPrefill: {
+        sourceVaultName: "Broken Vault",
+        amount: "0",
+        successAddress: "not-a-stellar-address",
+        failureAddress: failureAddress,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(
+      screen.getAllByText(
+        "Enter a positive USDC amount with up to 7 decimal places.",
+      ),
+    ).toHaveLength(2);
+    expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
+    expect(
+      screen.getAllByText("Enter a valid Stellar public key starting with G."),
+    ).toHaveLength(2);
+  });
+
   it("formats amount with thousands grouping while typing", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "1234" } });
@@ -179,7 +243,7 @@ describe("CreateVault", () => {
   });
 
   it("caps decimal places at 7 while typing", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "1.123456789" } });
@@ -187,7 +251,7 @@ describe("CreateVault", () => {
   });
 
   it("strips non-numeric paste content", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "abc1.5def" } });
@@ -195,7 +259,7 @@ describe("CreateVault", () => {
   });
 
   it("normalises leading zeros", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "001" } });
@@ -203,7 +267,7 @@ describe("CreateVault", () => {
   });
 
   it("handles empty input gracefully", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "" } });
@@ -214,7 +278,7 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "1234.5678" },
@@ -313,7 +377,7 @@ describe("CreateVault", () => {
       balance: "50",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
@@ -329,7 +393,7 @@ describe("CreateVault", () => {
       balance: "100",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
@@ -342,7 +406,7 @@ describe("CreateVault", () => {
   /*  Deadline preset buttons                                            */
   /* ------------------------------------------------------------------ */
   it("renders deadline preset buttons", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     expect(screen.getByRole("button", { name: "7 days" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30 days" })).toBeInTheDocument();
@@ -350,7 +414,7 @@ describe("CreateVault", () => {
   });
 
   it("preset buttons populate deadline field with future timestamp", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     const now = new Date();
     fireEvent.click(screen.getByRole("button", { name: "7 days" }));
@@ -364,23 +428,23 @@ describe("CreateVault", () => {
   });
 
   it("selecting preset clears deadline error", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    renderCreateVault();
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Choose a future deadline.").length,
+    ).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "30 days" }));
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a future deadline."),
+    ).not.toBeInTheDocument();
   });
 
   it("computed deadline satisfies isFutureDeadline validation", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    renderCreateVault();
 
     fillField(/amount/i, "100");
     fillField(/success destination/i, successAddress);
@@ -389,7 +453,9 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: "90 days" }));
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a future deadline."),
+    ).not.toBeInTheDocument();
   });
 
   it('accepts valid optional verifier address', () => {
