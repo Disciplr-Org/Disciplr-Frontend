@@ -92,20 +92,68 @@ const baseHistory: ValidationTask[] = [
   },
 ];
 
-const makeExtraHistoryItem = (index: number): ValidationTask => ({
-  id: `v-${String(index).padStart(3, '0')}`,
-  vaultName: `History Vault ${index}`,
-  owner: `GOWNER${index}`,
-  amount: `${index},000 USDC`,
-  deadline: `2026-01-${String(index).padStart(2, '0')}`,
-  daysRemaining: 0,
-  status: index % 2 === 0 ? 'approved' : 'rejected',
-  milestone: `Milestone ${index}`,
-});
-
-const longHistory = [
+const longHistory: ValidationTask[] = [
   ...baseHistory,
-  ...Array.from({ length: 6 }, (_, index) => makeExtraHistoryItem(index + 7)),
+  {
+    id: 'v-007',
+    vaultName: 'Eta Reserve',
+    owner: 'GOWNERETA',
+    amount: '7,000 USDC',
+    deadline: '2026-01-07',
+    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Review',
+  },
+  {
+    id: 'v-008',
+    vaultName: 'Theta Trust',
+    owner: 'GOWNERTHETA',
+    amount: '8,000 USDC',
+    deadline: '2026-01-08',
+    daysRemaining: 0,
+    status: 'rejected',
+    milestone: 'Scale',
+  },
+  {
+    id: 'v-009',
+    vaultName: 'Iota Vault',
+    owner: 'GOWNERIOTA',
+    amount: '9,000 USDC',
+    deadline: '2026-01-09',
+    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Launch',
+  },
+  {
+    id: 'v-010',
+    vaultName: 'Kappa Fund',
+    owner: 'GOWNERKAPPA',
+    amount: '10,000 USDC',
+    deadline: '2026-01-10',
+    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Ops',
+  },
+  {
+    id: 'v-011',
+    vaultName: 'Lambda Pool',
+    owner: 'GOWNERLAMBDA',
+    amount: '11,000 USDC',
+    deadline: '2026-01-11',
+    daysRemaining: 0,
+    status: 'rejected',
+    milestone: 'Quality',
+  },
+  {
+    id: 'v-012',
+    vaultName: 'Mu Treasury',
+    owner: 'GOWNERMU',
+    amount: '12,000 USDC',
+    deadline: '2026-01-12',
+    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Payout',
+  },
 ];
 
 function renderHistory(history = baseHistory) {
@@ -119,7 +167,7 @@ function renderHistory(history = baseHistory) {
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
+    window.localStorage.clear();
   });
 
   it('renders summary stats and first page of validation history', () => {
@@ -135,7 +183,6 @@ describe('ValidationHistory', () => {
     expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
     expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
-    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
   });
 
   it('filters by rejected status', () => {
@@ -181,7 +228,8 @@ describe('ValidationHistory', () => {
 
     fireEvent.click(next);
 
-    expect(screen.getByText('History Vault 11')).toBeInTheDocument();
+    expect(screen.getByText('Lambda Pool')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
     expect(next).toBeDisabled();
@@ -190,6 +238,9 @@ describe('ValidationHistory', () => {
 
   it('updates page size and shows no-match empty state', () => {
     renderHistory(longHistory);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Validation history page size'), {
       target: { value: '25' },
@@ -206,48 +257,29 @@ describe('ValidationHistory', () => {
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
   });
 
-  it('persists the selected page size', () => {
-    renderHistory();
-
-    fireEvent.change(screen.getByLabelText('Validation history page size'), {
-      target: { value: '50' },
-    });
-
-    expect(localStorage.getItem(VALIDATION_HISTORY_PAGE_SIZE_KEY)).toBe('50');
-  });
-
-  it('loads a valid stored page size', () => {
-    localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_KEY, '25');
-
-    renderHistory(longHistory);
-
-    expect(screen.getByLabelText('Validation history page size')).toHaveValue('25');
-    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
-  });
-
-  it('falls back to 10 rows when the stored page size is invalid', () => {
-    localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_KEY, '5');
-
-    renderHistory(longHistory);
-
-    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
-    expect(screen.queryByText('History Vault 11')).not.toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
-  });
-
-  it('resets to page 1 when page size changes', () => {
-    renderHistory(longHistory);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+  it('persists the selected page size for the next visit', () => {
+    const { unmount } = renderHistory();
 
     fireEvent.change(screen.getByLabelText('Validation history page size'), {
       target: { value: '25' },
     });
 
-    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+    expect(window.localStorage.getItem('validation-history-page-size')).toBe('25');
+
+    unmount();
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('25');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+  });
+
+  it('ignores invalid stored page sizes', () => {
+    window.localStorage.setItem('validation-history-page-size', '999');
+
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
   });
 
   it('navigates back to the verifier dashboard', () => {
@@ -340,7 +372,7 @@ describe('ValidationHistory', () => {
         target: { value: 'D' },
       });
 
-      // 'D' matches Delivery (v-003) and Design (v-004) and Docs (v-005) — 3 items, 1 page at default page size 5
+      // 'D' matches Delivery (v-003), Design (v-004), and Docs (v-005): 3 items, 1 page at default page size 10.
       expect(screen.queryByText('Page 2 of 2')).not.toBeInTheDocument();
     });
   });

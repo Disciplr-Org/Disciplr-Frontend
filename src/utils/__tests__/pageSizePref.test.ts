@@ -1,65 +1,68 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  coerceValidationHistoryPageSize,
   DEFAULT_VALIDATION_HISTORY_PAGE_SIZE,
+  VALIDATION_HISTORY_PAGE_SIZE_OPTIONS,
+  VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY,
+  isValidationHistoryPageSize,
+  persistValidationHistoryPageSize,
   readValidationHistoryPageSize,
-  VALIDATION_HISTORY_PAGE_SIZE_KEY,
-  VALIDATION_HISTORY_PAGE_SIZES,
-  writeValidationHistoryPageSize,
 } from '../pageSizePref';
 
-const storage = (initialValue: string | null = null) => ({
-  getItem: vi.fn(() => initialValue),
-  setItem: vi.fn(),
-});
-
 describe('pageSizePref', () => {
-  it('exports the supported validation history page sizes', () => {
-    expect(VALIDATION_HISTORY_PAGE_SIZES).toEqual([10, 25, 50]);
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
-  it('coerces invalid values to the default page size', () => {
-    expect(coerceValidationHistoryPageSize(10)).toBe(10);
-    expect(coerceValidationHistoryPageSize('25')).toBe(25);
-    expect(coerceValidationHistoryPageSize(5)).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
-    expect(coerceValidationHistoryPageSize('not-a-size')).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+  it('accepts only supported validation history page sizes', () => {
+    expect(VALIDATION_HISTORY_PAGE_SIZE_OPTIONS).toEqual([10, 25, 50]);
+    expect(isValidationHistoryPageSize(10)).toBe(true);
+    expect(isValidationHistoryPageSize(25)).toBe(true);
+    expect(isValidationHistoryPageSize(50)).toBe(true);
+    expect(isValidationHistoryPageSize(5)).toBe(false);
+  });
+
+  it('reads the default size when storage is empty', () => {
+    expect(readValidationHistoryPageSize()).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
   });
 
   it('reads a valid stored page size', () => {
-    expect(readValidationHistoryPageSize(storage('50'))).toBe(50);
+    window.localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY, '25');
+
+    expect(readValidationHistoryPageSize()).toBe(25);
   });
 
-  it('falls back when storage has an invalid value', () => {
-    expect(readValidationHistoryPageSize(storage('5'))).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+  it('falls back to the default for invalid stored values', () => {
+    window.localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY, '999');
+
+    expect(readValidationHistoryPageSize()).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
   });
 
-  it('falls back when storage reads throw', () => {
-    const blockedStorage = {
-      getItem: vi.fn(() => {
-        throw new Error('storage blocked');
-      }),
-      setItem: vi.fn(),
-    };
-
-    expect(readValidationHistoryPageSize(blockedStorage)).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+  it('persists valid page sizes', () => {
+    expect(persistValidationHistoryPageSize(50)).toBe(50);
+    expect(window.localStorage.getItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY)).toBe('50');
   });
 
-  it('writes a supported page size', () => {
-    const writableStorage = storage();
-
-    writeValidationHistoryPageSize(25, writableStorage);
-
-    expect(writableStorage.setItem).toHaveBeenCalledWith(VALIDATION_HISTORY_PAGE_SIZE_KEY, '25');
+  it('normalizes invalid persisted values to the default', () => {
+    expect(persistValidationHistoryPageSize(7)).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+    expect(window.localStorage.getItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY)).toBe('10');
   });
 
-  it('ignores storage write failures', () => {
-    const blockedStorage = {
-      getItem: vi.fn(),
-      setItem: vi.fn(() => {
-        throw new Error('storage blocked');
-      }),
-    };
+  it('handles storage read failures', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
 
-    expect(() => writeValidationHistoryPageSize(50, blockedStorage)).not.toThrow();
+    expect(readValidationHistoryPageSize()).toBe(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+  });
+
+  it('handles storage write failures', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+
+    expect(persistValidationHistoryPageSize(25)).toBe(25);
   });
 });

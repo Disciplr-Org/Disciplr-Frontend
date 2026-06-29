@@ -1,53 +1,62 @@
-export const VALIDATION_HISTORY_PAGE_SIZE_KEY = 'validation-history-page-size';
-export const VALIDATION_HISTORY_PAGE_SIZES = [10, 25, 50] as const;
-export const DEFAULT_VALIDATION_HISTORY_PAGE_SIZE = 10;
+export const VALIDATION_HISTORY_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
-export type ValidationHistoryPageSize = (typeof VALIDATION_HISTORY_PAGE_SIZES)[number];
+export type ValidationHistoryPageSize = (typeof VALIDATION_HISTORY_PAGE_SIZE_OPTIONS)[number];
 
-type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+export const DEFAULT_VALIDATION_HISTORY_PAGE_SIZE: ValidationHistoryPageSize =
+  VALIDATION_HISTORY_PAGE_SIZE_OPTIONS[0];
 
-const getStorage = (): StorageLike | undefined => {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
+export const VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY = 'validation-history-page-size';
+
+export function isValidationHistoryPageSize(value: number): value is ValidationHistoryPageSize {
+  return VALIDATION_HISTORY_PAGE_SIZE_OPTIONS.includes(value as ValidationHistoryPageSize);
+}
+
+function getLocalStorage(): Storage | null {
+  if (typeof window === 'undefined') {
+    return null;
   }
-};
-
-export function isValidationHistoryPageSize(
-  value: number,
-): value is ValidationHistoryPageSize {
-  return VALIDATION_HISTORY_PAGE_SIZES.includes(value as ValidationHistoryPageSize);
-}
-
-export function coerceValidationHistoryPageSize(value: unknown): ValidationHistoryPageSize {
-  const numericValue = Number(value);
-  return isValidationHistoryPageSize(numericValue)
-    ? numericValue
-    : DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
-}
-
-export function readValidationHistoryPageSize(
-  storage: StorageLike | undefined = getStorage(),
-): ValidationHistoryPageSize {
-  if (!storage) return DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
 
   try {
-    return coerceValidationHistoryPageSize(storage.getItem(VALIDATION_HISTORY_PAGE_SIZE_KEY));
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readValidationHistoryPageSize(): ValidationHistoryPageSize {
+  const storage = getLocalStorage();
+
+  if (!storage) {
+    return DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
+  }
+
+  try {
+    const stored = storage.getItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
+
+    return isValidationHistoryPageSize(parsed)
+      ? parsed
+      : DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
   } catch {
     return DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
   }
 }
 
-export function writeValidationHistoryPageSize(
-  pageSize: ValidationHistoryPageSize,
-  storage: StorageLike | undefined = getStorage(),
-): void {
-  if (!storage) return;
+export function persistValidationHistoryPageSize(size: number): ValidationHistoryPageSize {
+  const nextSize = isValidationHistoryPageSize(size)
+    ? size
+    : DEFAULT_VALIDATION_HISTORY_PAGE_SIZE;
+  const storage = getLocalStorage();
+
+  if (!storage) {
+    return nextSize;
+  }
 
   try {
-    storage.setItem(VALIDATION_HISTORY_PAGE_SIZE_KEY, String(pageSize));
+    storage.setItem(VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY, String(nextSize));
   } catch {
-    // Storage can fail in private browsing or locked-down environments.
+    // A blocked storage write should not break pagination.
   }
+
+  return nextSize;
 }
