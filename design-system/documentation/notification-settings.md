@@ -15,20 +15,37 @@ These tokens are backed by `design-system/tokens/colors.json` neutral and second
 Notification preferences are stored globally and persisted across page reloads using the `useNotificationPreferences` Zustand store (defined in `src/Zustand/notificationPreferences.ts` and exported from `src/Zustand/Store.ts`).
 
 ### Fields
+
 - `email`: boolean (default: `true`)
 - `push`: boolean (default: `false`)
 - `frequency`: string (default: `""`)
 - `quietHours`: string (default: `"12:00"`)
+- `quietStart`: string (default: `"22:00"`)
+- `quietEnd`: string (default: `"07:00"`)
 
 ### Actions
+
 - `setEmail(value: boolean)`: Update email preference.
 - `setPush(value: boolean)`: Update push notification preference.
 - `setFrequency(value: string)`: Update notification frequency.
 - `setQuietHours(value: string)`: Update quiet hours timing.
+- `setQuietRange(start: string, end: string)`: Update the quiet-hours start/end range while keeping `quietHours` backward compatible with the start time.
 - `reset()`: Reset preferences back to their default values.
 
 ### Persistence Details
+
 Preferences are stored in `localStorage` under the key `"notification-preferences"`. Any component in the app can read from or write to this store to coordinate user notification preferences across surfaces (e.g., the notification settings page, header notification bell, etc.).
+
+## Quiet Hours Validation
+
+NotificationSettings now stores quiet hours as a start/end range:
+
+- Times must use valid `HH:MM` 24-hour values.
+- Start and end cannot be equal.
+- Ranges can wrap around midnight, such as `22:00` to `07:00`.
+- The active badge uses `isQuietHoursActive(now, start, end)` from `src/utils/quietHours.ts`.
+- The start minute is inclusive and the end minute is exclusive, so a `22:00` to `07:00` window is inactive at exactly `07:00`.
+
 ## Header Notification Bell
 
 The `NotificationBell` component is integrated into the Layout header to provide an interactive and accessible entry point to notifications:
@@ -41,4 +58,3 @@ The `NotificationBell` component is integrated into the Layout header to provide
   - Mounted inside `desktop-nav` for screen resolutions >= 768px.
   - Mounted inside `.mobile-bell-wrapper` next to the mobile menu hamburger button for resolutions < 768px.
 - **Accessibility**: Includes a dynamic `aria-label` containing the unread count (e.g. `aria-label="Notifications, 3 unread"` or `aria-label="Notifications, 0 unread"`), ensuring screen readers can announce the notification status.
-
