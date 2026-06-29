@@ -16,6 +16,14 @@ function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
+function fillFirstMilestone(
+  title = "Design approved",
+  criteria = "Verifier signs off",
+) {
+  fillField(/milestone 1 title/i, title);
+  fillField(/milestone 1 criteria/i, criteria);
+}
+
 describe("CreateVault", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -45,6 +53,8 @@ describe("CreateVault", () => {
     expect(
       screen.getAllByText("Enter a valid Stellar public key starting with G."),
     ).toHaveLength(4);
+    expect(screen.getAllByText("Enter a milestone title.")).toHaveLength(2);
+    expect(screen.getAllByText("Enter milestone criteria.")).toHaveLength(2);
 
     const amount = screen.getByLabelText(/amount/i);
     expect(amount).toHaveAttribute("aria-invalid", "true");
@@ -81,6 +91,7 @@ describe("CreateVault", () => {
     fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, successAddress);
+    fillFirstMilestone();
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -104,6 +115,7 @@ describe("CreateVault", () => {
     fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Prototype", "Prototype approved by verifier");
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -112,6 +124,10 @@ describe("CreateVault", () => {
     expect(
       screen.queryByText(/Enter a positive USDC amount/),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("Prototype")).toBeInTheDocument();
+    expect(
+      screen.getByText("Prototype approved by verifier"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
@@ -120,6 +136,12 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
       successAddress,
       failureAddress,
+      milestones: [
+        {
+          title: "Prototype",
+          criteria: "Prototype approved by verifier",
+        },
+      ],
       evidenceUrl: undefined,
     });
     expect(consoleDebug).toHaveBeenCalledTimes(1);
@@ -132,6 +154,7 @@ describe("CreateVault", () => {
     fillField(/deadline/i, "2030-02-02T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Launch", "Launch evidence uploaded");
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /back to edit/i }));
@@ -143,6 +166,10 @@ describe("CreateVault", () => {
     );
     expect(screen.getByLabelText(/failure destination/i)).toHaveValue(
       failureAddress,
+    );
+    expect(screen.getByLabelText(/milestone 1 title/i)).toHaveValue("Launch");
+    expect(screen.getByLabelText(/milestone 1 criteria/i)).toHaveValue(
+      "Launch evidence uploaded",
     );
   });
 
@@ -210,6 +237,7 @@ describe("CreateVault", () => {
     fireEvent.change(screen.getByLabelText(/failure destination/i), {
       target: { value: failureAddress },
     });
+    fillFirstMilestone();
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
@@ -276,31 +304,88 @@ describe("CreateVault", () => {
   });
 
   it("selecting preset clears deadline error", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
     render(<CreateVault />);
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
+    expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "30 days" }));
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a future deadline."),
+    ).not.toBeInTheDocument();
   });
 
   it("computed deadline satisfies isFutureDeadline validation", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
     render(<CreateVault />);
 
     fillField(/amount/i, "100");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
 
     fireEvent.click(screen.getByRole("button", { name: "90 days" }));
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a future deadline."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("adds, reorders, and removes milestone rows before review", () => {
+    render(<CreateVault />);
+
+    fillFirstMilestone("First", "First criteria");
+    fireEvent.click(screen.getByRole("button", { name: /add milestone/i }));
+    fillField(/milestone 2 title/i, "Second");
+    fillField(/milestone 2 criteria/i, "Second criteria");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /move milestone 2 up/i }),
+    );
+
+    expect(screen.getByLabelText(/milestone 1 title/i)).toHaveValue("Second");
+    expect(screen.getByLabelText(/milestone 2 title/i)).toHaveValue("First");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /remove milestone 2/i }),
+    );
+
+    expect(screen.getByLabelText(/milestone 1 title/i)).toHaveValue("Second");
+    expect(
+      screen.queryByLabelText(/milestone 2 title/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("blocks duplicate milestone titles", () => {
+    render(<CreateVault />);
+
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Launch", "First criteria");
+    fireEvent.click(screen.getByRole("button", { name: /add milestone/i }));
+    fillField(/milestone 2 title/i, "launch");
+    fillField(/milestone 2 criteria/i, "Second criteria");
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(
+      screen.getAllByText("Milestone titles must be unique."),
+    ).toHaveLength(4);
+    expect(screen.getByLabelText(/milestone 1 title/i)).toHaveFocus();
+  });
+
+  it("requires at least one milestone after removing the last row", () => {
+    render(<CreateVault />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /remove milestone 1/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(screen.getAllByText("Add at least one milestone.")).toHaveLength(2);
   });
 });
