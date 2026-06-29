@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Text } from "../components/Text";
 import { Field } from "../components/Field";
 import type { CreateVaultErrors } from "../utils/vaultValidation";
@@ -12,18 +13,29 @@ import { CreateVaultReview } from "../components/CreateVaultReview";
 import { formatUsdcInput, parseUsdcInput } from "../utils/usdcInput";
 import { logger } from "../utils/logger";
 import { useWallet } from "../context/WalletContext";
-import { DEADLINE_PRESETS, computeFutureDeadline, getPresetLabel } from "../utils/deadlinePresets";
+import {
+  DEADLINE_PRESETS,
+  computeFutureDeadline,
+  getPresetLabel,
+} from "../utils/deadlinePresets";
+import { getCreateVaultPrefill } from "../utils/vaultPrefill";
 
 export default function CreateVault() {
+  const location = useLocation();
+  const prefill = getCreateVaultPrefill(location.state);
   const { balance, balanceStatus } = useWallet();
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
   const successAddressRef = useRef<HTMLInputElement>(null);
   const failureAddressRef = useRef<HTMLInputElement>(null);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(prefill?.amount ?? "");
   const [deadline, setDeadline] = useState("");
-  const [successAddress, setSuccessAddress] = useState("");
-  const [failureAddress, setFailureAddress] = useState("");
+  const [successAddress, setSuccessAddress] = useState(
+    prefill?.successAddress ?? "",
+  );
+  const [failureAddress, setFailureAddress] = useState(
+    prefill?.failureAddress ?? "",
+  );
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
@@ -57,7 +69,9 @@ export default function CreateVault() {
     setErrors(nextErrors);
 
     if (hasCreateVaultErrors(nextErrors)) {
-      const firstInvalidField = errorFieldOrder.find((field) => nextErrors[field]);
+      const firstInvalidField = errorFieldOrder.find(
+        (field) => nextErrors[field],
+      );
       if (firstInvalidField) {
         fieldRefs[firstInvalidField].current?.focus();
       }
@@ -114,7 +128,8 @@ export default function CreateVault() {
                 border: "1px solid var(--danger)",
                 borderRadius: "var(--radius)",
                 padding: "0.75rem",
-                background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
+                background:
+                  "color-mix(in srgb, var(--danger) 10%, var(--surface))",
                 marginBottom: "1rem",
                 maxWidth: 400,
               }}
@@ -126,11 +141,37 @@ export default function CreateVault() {
               >
                 Please fix the highlighted fields before creating the vault.
               </Text>
-              <ul style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--danger)" }}>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: "1.25rem",
+                  color: "var(--danger)",
+                }}
+              >
                 {errorEntries.map(({ field, message }, index) => (
                   <li key={`${field}-${index}`}>{message}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {prefill && (
+            <div
+              role="status"
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "0.75rem",
+                background: "var(--surface)",
+                marginBottom: "1rem",
+                maxWidth: 400,
+              }}
+            >
+              <Text role="caption" as="p" style={{ margin: 0 }}>
+                Duplicating {prefill.sourceVaultName ?? "an existing vault"}.
+                Amount and destination addresses are prefilled; choose a fresh
+                deadline for this new vault.
+              </Text>
             </div>
           )}
 
@@ -162,7 +203,11 @@ export default function CreateVault() {
             {balanceStatus === "success" && exceedsBalance(amount, balance) && (
               <p
                 role="status"
-                style={{ color: "var(--warning)", margin: 0, fontSize: "0.875rem" }}
+                style={{
+                  color: "var(--warning)",
+                  margin: 0,
+                  fontSize: "0.875rem",
+                }}
               >
                 Amount exceeds your available USDC balance ({balance}).
               </p>
@@ -175,7 +220,10 @@ export default function CreateVault() {
                   onClick={() => {
                     const days = parseInt(preset, 10);
                     setDeadline(computeFutureDeadline(days));
-                    setErrors((current) => ({ ...current, deadline: undefined }));
+                    setErrors((current) => ({
+                      ...current,
+                      deadline: undefined,
+                    }));
                   }}
                   style={{
                     padding: "0.4rem 0.875rem",
