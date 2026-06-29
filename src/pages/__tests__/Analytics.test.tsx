@@ -1,10 +1,9 @@
 import React, { Suspense, lazy } from 'react'
 import { describe, expect, it, vi, beforeAll } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { MemoryRouter, useSearchParams } from 'react-router-dom'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
-import { analyticsPeriodData } from '../Analytics'
-import Analytics from '../Analytics'
+import Analytics, { analyticsPeriodData } from '../Analytics'
 
 // ── Browser API stubs (jsdom doesn't implement these) ───────────────────────
 
@@ -191,7 +190,7 @@ describe('Analytics lazy route', () => {
     expect(screen.getByText('Prev Period')).toBeInTheDocument()
   })
 
-  it('shows a no-data placeholder for empty periods and restores charts when switching to populated periods', () => {
+  it('shows a no-data placeholder for empty periods and restores charts when switching to populated periods', async () => {
     const original90d = analyticsPeriodData['90d']
     analyticsPeriodData['90d'] = []
 
@@ -202,17 +201,26 @@ describe('Analytics lazy route', () => {
         </MemoryRouter>,
       )
 
-      fireEvent.click(screen.getByRole('button', { name: '90d' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '90d' }))
+      })
 
-      expect(screen.getAllByTestId('analytics-empty-state')).toHaveLength(3)
+      await waitFor(() =>
+        expect(screen.getAllByTestId('analytics-empty-state')).toHaveLength(3),
+        { timeout: 2000 },
+      )
       expect(screen.getAllByText('No data for this period (90d).')).toHaveLength(3)
 
-      fireEvent.click(screen.getByRole('button', { name: '30d' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '30d' }))
+      })
 
-      expect(screen.queryByTestId('analytics-empty-state')).not.toBeInTheDocument()
-      expect(screen.getByText('Success Rate Over Time')).toBeInTheDocument()
-      expect(screen.getByText('Capital Locked Over Time')).toBeInTheDocument()
-      expect(screen.getByText('Milestone Completion Trend')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.queryByTestId('analytics-empty-state')).not.toBeInTheDocument()
+        expect(screen.getByText('Success Rate Over Time')).toBeInTheDocument()
+        expect(screen.getByText('Capital Locked Over Time')).toBeInTheDocument()
+        expect(screen.getByText('Milestone Completion Trend')).toBeInTheDocument()
+      }, { timeout: 2000 })
     } finally {
       analyticsPeriodData['90d'] = original90d
     }

@@ -1,10 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar,
-  PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   Target, TrendingUp, CheckCircle, AlertTriangle,
   Download, Flame, Award, Clock, DollarSign,
@@ -13,11 +7,13 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { ChartLegend } from '../components/ChartLegend'
+import { type ChartLegendEntry } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { toCsv, downloadCsv } from '../utils/csv'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
+
+const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -147,6 +143,13 @@ const benchmarkData = [
   { metric: 'Milestones/mo', you: 9, platform: 5 },
 ]
 
+const TEAM_CHART_DATA = [
+  { name: 'Alice', rate: 94 },
+  { name: 'Bob', rate: 78 },
+  { name: 'Carol', rate: 88 },
+  { name: 'Dave', rate: 65 },
+]
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -252,7 +255,6 @@ export default function Analytics() {
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
   const chartData = analyticsPeriodData[period]
-  const hasChartData = chartData.length > 0
 
   // Merge current + previous period for comparison charts
   const comparisonData = chartData.map((d, i) => ({
@@ -680,95 +682,24 @@ export default function Analytics() {
         {/* ── SECTION 2: Performance Charts ── */}
         <div style={{ marginBottom: '2rem' }}>
           <SectionTitle>Performance Charts {showComparison && <span style={{ color: seriesColors.comparison, fontSize: '0.75rem', fontWeight: 400, marginLeft: '0.5rem' }}>Comparing with previous period</span>}</SectionTitle>
-          <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
-
-            {/* Success Rate */}
-            <Card>
-              <ChartTitle>Success Rate Over Time</ChartTitle>
-              <ChartSummary>
-                Line chart summarizing success and failure percentages for the selected {period} period.
-                {showComparison ? ' Previous period success rate is included for comparison.' : ''}
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={displayData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
-                      <Tooltip {...tooltipStyle} />
-                      <Line type="monotone" dataKey="success" stroke={seriesColors.success} strokeWidth={2.5} dot={{ r: 3, fill: seriesColors.success }} name="This Period %" isAnimationActive={chartAnimationEnabled} />
-                      <Line type="monotone" dataKey="failed" stroke={seriesColors.failed} strokeWidth={2} dot={{ r: 2, fill: seriesColors.failed }} name="Failed %" strokeDasharray="4 2" isAnimationActive={chartAnimationEnabled} />
-                      {showComparison && (
-                        <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
-                      )}
-                    </LineChart>
-                  </ResponsiveContainer>
-                  {showComparison && (
-                    <ChartLegend entries={successLegendEntries} colors={seriesColors} tokens={chartTokens} />
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* Capital Locked */}
-            <Card>
-              <ChartTitle>Capital Locked Over Time</ChartTitle>
-              <ChartSummary>
-                Area chart showing USDC capital locked over the selected {period} period.
-                {showComparison ? ' Previous period capital is shown as a comparison area.' : ''}
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={displayData}>
-                      <defs>
-                        <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={seriesColors.success} stopOpacity={0.25} />
-                          <stop offset="95%" stopColor={seriesColors.success} stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="prevCapGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={seriesColors.comparison} stopOpacity={0.15} />
-                          <stop offset="95%" stopColor={seriesColors.comparison} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <Tooltip {...tooltipStyle} />
-                      <Area type="monotone" dataKey="capital" stroke={seriesColors.success} strokeWidth={2.5} fill="url(#capGrad)" name="USDC Locked" isAnimationActive={chartAnimationEnabled} />
-                      {showComparison && (
-                        <Area type="monotone" dataKey="prevCapital" stroke={seriesColors.comparison} strokeWidth={1.5} fill="url(#prevCapGrad)" name="Prev Period" strokeDasharray="5 3" isAnimationActive={chartAnimationEnabled} />
-                      )}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  {showComparison && (
-                    <ChartLegend entries={capitalLegendEntries} colors={seriesColors} tokens={chartTokens} />
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* Milestone Trend */}
-            <Card>
-              <ChartTitle>Milestone Completion Trend</ChartTitle>
-              <ChartSummary>
-                Bar chart showing completed milestone counts for each point in the selected {period} period.
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                    <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <Tooltip {...tooltipStyle} />
-                    <Bar dataKey="milestones" fill={seriesColors.milestone} radius={[4, 4, 0, 0]} name="Milestones Completed" isAnimationActive={chartAnimationEnabled} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </Card>
-
-          </div>
+          <Suspense fallback={<SkeletonBox height={300} />}>
+            <AnalyticsCharts
+              section="performance"
+              displayData={displayData}
+              chartData={chartData}
+              period={period}
+              vaultStatusData={vaultStatusData}
+              teamChartData={TEAM_CHART_DATA}
+              showComparison={showComparison}
+              chartAnimationEnabled={chartAnimationEnabled}
+              tooltipStyle={tooltipStyle}
+              seriesColors={seriesColors}
+              chartTokens={chartTokens}
+              successLegendEntries={successLegendEntries}
+              capitalLegendEntries={capitalLegendEntries}
+              isLoading={isLoading}
+            />
+          </Suspense>
         </div>
 
         {/* ── SECTION 3: Vault Analytics ── */}
@@ -782,28 +713,24 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              {isLoading ? <SkeletonBox height={180} /> : vaultStatusData.length === 0 ? <EmptyState message="No data for this period." /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={vaultStatusData} innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value" isAnimationActive={chartAnimationEnabled}>
-                        {vaultStatusData.map((_, i) => (
-                          <Cell key={i} fill={seriesColors.pie[i % seriesColors.pie.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip {...tooltipStyle} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem', marginTop: '0.5rem' }}>
-                    {vaultStatusData.map((entry, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: seriesColors.pie[i], display: 'inline-block' }} />
-                        {entry.name} ({entry.value})
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+              <Suspense fallback={<SkeletonBox height={180} />}>
+                <AnalyticsCharts
+                  section="donut"
+                  displayData={displayData}
+                  chartData={chartData}
+                  period={period}
+                  vaultStatusData={vaultStatusData}
+                  teamChartData={TEAM_CHART_DATA}
+                  showComparison={showComparison}
+                  chartAnimationEnabled={chartAnimationEnabled}
+                  tooltipStyle={tooltipStyle}
+                  seriesColors={seriesColors}
+                  chartTokens={chartTokens}
+                  successLegendEntries={successLegendEntries}
+                  capitalLegendEntries={capitalLegendEntries}
+                  isLoading={isLoading}
+                />
+              </Suspense>
             </Card>
 
             {/* Vault Stats */}
@@ -1141,18 +1068,24 @@ export default function Analytics() {
               <ChartSummary>
                 Locked enterprise preview bar chart showing example team member success rates.
               </ChartSummary>
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={[
-                  { name: 'Alice', rate: 94 },
-                  { name: 'Bob', rate: 78 },
-                  { name: 'Carol', rate: 88 },
-                  { name: 'Dave', rate: 65 },
-                ]}>
-                  <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                  <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
-                  <Bar dataKey="rate" fill={seriesColors.success} radius={[4, 4, 0, 0]} isAnimationActive={chartAnimationEnabled} />
-                </BarChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<SkeletonBox height={160} />}>
+                <AnalyticsCharts
+                  section="team"
+                  displayData={displayData}
+                  chartData={chartData}
+                  period={period}
+                  vaultStatusData={vaultStatusData}
+                  teamChartData={TEAM_CHART_DATA}
+                  showComparison={showComparison}
+                  chartAnimationEnabled={chartAnimationEnabled}
+                  tooltipStyle={tooltipStyle}
+                  seriesColors={seriesColors}
+                  chartTokens={chartTokens}
+                  successLegendEntries={successLegendEntries}
+                  capitalLegendEntries={capitalLegendEntries}
+                  isLoading={isLoading}
+                />
+              </Suspense>
             </Card>
 
             {/* Org Summary */}
