@@ -43,7 +43,8 @@ describe('vaultValidation', () => {
         deadline: '2020-01-01T00:00:00Z',
         successAddress: 'bad',
         failureAddress: 'bad',
-        verifierAddress: '',
+        milestoneTitle: '',
+        milestoneCriteria: '',
       },
       now,
     );
@@ -53,6 +54,8 @@ describe('vaultValidation', () => {
       deadline: 'Choose a future deadline.',
       successAddress: 'Enter a valid Stellar public key starting with G.',
       failureAddress: 'Enter a valid Stellar public key starting with G.',
+      milestoneTitle: 'Enter a milestone title.',
+      milestoneCriteria: 'Enter the milestone criteria.',
     });
   });
 
@@ -63,7 +66,8 @@ describe('vaultValidation', () => {
         deadline: '2026-06-19T00:00:00Z',
         successAddress,
         failureAddress: successAddress,
-        verifierAddress: '',
+        milestoneTitle: 'My Milestone',
+        milestoneCriteria: 'Some criteria',
       },
       now,
     );
@@ -81,7 +85,100 @@ describe('vaultValidation', () => {
           deadline: '2026-06-19T00:00:00Z',
           successAddress,
           failureAddress,
-          verifierAddress: '',
+          milestoneTitle: 'My Milestone',
+          milestoneCriteria: 'Some criteria',
+        },
+        now,
+      ),
+    ).toEqual({});
+  });
+
+  it('rejects whitespace-only milestone title', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        milestoneTitle: '   ',
+        milestoneCriteria: 'Some criteria',
+      },
+      now,
+    );
+    expect(errors).toEqual({ milestoneTitle: 'Enter a milestone title.' });
+  });
+
+  it('rejects milestone title over 100 characters', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        milestoneTitle: 'a'.repeat(101),
+        milestoneCriteria: 'Some criteria',
+      },
+      now,
+    );
+    expect(errors).toEqual({ milestoneTitle: 'Milestone title must be 100 characters or fewer.' });
+  });
+
+  it('accepts milestone title at exactly 100 characters', () => {
+    expect(
+      validateCreateVault(
+        {
+          amount: '100',
+          deadline: '2026-06-19T00:00:00Z',
+          successAddress,
+          failureAddress,
+          milestoneTitle: 'a'.repeat(100),
+          milestoneCriteria: 'Some criteria',
+        },
+        now,
+      ),
+    ).toEqual({});
+  });
+
+  it('rejects whitespace-only milestone criteria', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        milestoneTitle: 'My Milestone',
+        milestoneCriteria: '   ',
+      },
+      now,
+    );
+    expect(errors).toEqual({ milestoneCriteria: 'Enter the milestone criteria.' });
+  });
+
+  it('rejects milestone criteria over 500 characters', () => {
+    const errors = validateCreateVault(
+      {
+        amount: '100',
+        deadline: '2026-06-19T00:00:00Z',
+        successAddress,
+        failureAddress,
+        milestoneTitle: 'My Milestone',
+        milestoneCriteria: 'a'.repeat(501),
+      },
+      now,
+    );
+    expect(errors).toEqual({ milestoneCriteria: 'Milestone criteria must be 500 characters or fewer.' });
+  });
+
+  it('accepts milestone criteria at exactly 500 characters', () => {
+    expect(
+      validateCreateVault(
+        {
+          amount: '100',
+          deadline: '2026-06-19T00:00:00Z',
+          successAddress,
+          failureAddress,
+          milestoneTitle: 'My Milestone',
+          milestoneCriteria: 'a'.repeat(500),
         },
         now,
       ),

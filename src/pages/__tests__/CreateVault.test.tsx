@@ -2,12 +2,29 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
-const successAddress = `G${'A'.repeat(55)}`;
-const failureAddress = `G${'B'.repeat(55)}`;
-const verifierAddress = `G${'C'.repeat(55)}`;
+vi.mock("../../context/WalletContext", () => ({
+  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
+}));
+
+import { useWallet } from "../../context/WalletContext";
+const mockUseWallet = vi.mocked(useWallet);
+
+const successAddress = `G${"A".repeat(55)}`;
+const failureAddress = `G${"B".repeat(55)}`;
+const milestoneTitle = "Launch MVP";
+const milestoneCriteria = "All core features shipped and tested.";
 
 function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
+
+function fillValidForm() {
+  fillField(/amount/i, "100.1234567");
+  fillField(/deadline/i, "2030-01-01T00:00");
+  fillField(/success destination/i, successAddress);
+  fillField(/failure destination/i, failureAddress);
+  fillField(/milestone title/i, milestoneTitle);
+  fillField(/milestone criteria/i, milestoneCriteria);
 }
 
 describe("CreateVault", () => {
@@ -38,7 +55,9 @@ describe("CreateVault", () => {
     expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
     expect(
       screen.getAllByText("Enter a valid Stellar public key starting with G."),
-    ).toHaveLength(4);
+    ).toHaveLength(2);
+    expect(screen.getByText("Enter a milestone title.")).toBeInTheDocument();
+    expect(screen.getByText("Enter the milestone criteria.")).toBeInTheDocument();
 
     const amount = screen.getByLabelText(/amount/i);
     expect(amount).toHaveAttribute("aria-invalid", "true");
@@ -75,6 +94,8 @@ describe("CreateVault", () => {
     fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, successAddress);
+    fillField(/milestone title/i, milestoneTitle);
+    fillField(/milestone criteria/i, milestoneCriteria);
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -94,10 +115,7 @@ describe("CreateVault", () => {
       .mockImplementation(() => undefined);
     render(<CreateVault />);
 
-    fillField(/amount/i, "100.1234567");
-    fillField(/deadline/i, "2030-01-01T00:00");
-    fillField(/success destination/i, successAddress);
-    fillField(/failure destination/i, failureAddress);
+    fillValidForm();
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -114,7 +132,9 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
       successAddress,
       failureAddress,
-      verifierAddress: '',
+      milestoneTitle,
+      milestoneCriteria,
+      evidenceUrl: undefined,
     });
     expect(consoleDebug).toHaveBeenCalledTimes(1);
   });
@@ -126,6 +146,8 @@ describe("CreateVault", () => {
     fillField(/deadline/i, "2030-02-02T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillField(/milestone title/i, milestoneTitle);
+    fillField(/milestone criteria/i, milestoneCriteria);
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /back to edit/i }));
@@ -138,6 +160,8 @@ describe("CreateVault", () => {
     expect(screen.getByLabelText(/failure destination/i)).toHaveValue(
       failureAddress,
     );
+    expect(screen.getByLabelText(/milestone title/i)).toHaveValue(milestoneTitle);
+    expect(screen.getByLabelText(/milestone criteria/i)).toHaveValue(milestoneCriteria);
   });
 
   it("formats amount with thousands grouping while typing", () => {
@@ -204,6 +228,12 @@ describe("CreateVault", () => {
     fireEvent.change(screen.getByLabelText(/failure destination/i), {
       target: { value: failureAddress },
     });
+    fireEvent.change(screen.getByLabelText(/milestone title/i), {
+      target: { value: milestoneTitle },
+    });
+    fireEvent.change(screen.getByLabelText(/milestone criteria/i), {
+      target: { value: milestoneCriteria },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
@@ -214,6 +244,70 @@ describe("CreateVault", () => {
     );
   });
 
+  /* ------------------------------------------------------------------ */
+  /*  Milestone fields                                                   */
+  /* ------------------------------------------------------------------ */
+  it("shows milestone title error when title is empty", () => {
+    render(<CreateVault />);
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/milestone criteria/i, milestoneCriteria);
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(screen.getByText("Enter a milestone title.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/milestone title/i)).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("shows milestone criteria error when criteria is empty", () => {
+    render(<CreateVault />);
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillField(/milestone title/i, milestoneTitle);
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(screen.getByText("Enter the milestone criteria.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/milestone criteria/i)).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears milestone title error on change", () => {
+    render(<CreateVault />);
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    expect(screen.getByText("Enter a milestone title.")).toBeInTheDocument();
+
+    fillField(/milestone title/i, "Fixed");
+    expect(screen.queryByText("Enter a milestone title.")).not.toBeInTheDocument();
+  });
+
+  it("clears milestone criteria error on change", () => {
+    render(<CreateVault />);
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    expect(screen.getByText("Enter the milestone criteria.")).toBeInTheDocument();
+
+    fillField(/milestone criteria/i, "Fixed criteria");
+    expect(screen.queryByText("Enter the milestone criteria.")).not.toBeInTheDocument();
+  });
+
+  it("includes milestoneTitle and milestoneCriteria in confirm payload", () => {
+    const consoleDebug = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    render(<CreateVault />);
+
+    fillValidForm();
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+
+    expect(consoleDebug).toHaveBeenCalledWith(
+      'CreateVault confirm',
+      expect.objectContaining({ milestoneTitle, milestoneCriteria }),
+    );
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  Balance warning                                                    */
+  /* ------------------------------------------------------------------ */
   it("shows insufficient balance warning when amount exceeds balance", () => {
     mockUseWallet.mockReturnValue({
       balance: "50",

@@ -3,8 +3,12 @@ export interface CreateVaultFormValues {
   deadline: string;
   successAddress: string;
   failureAddress: string;
-  verifierAddress: string;
+  milestoneTitle: string;
+  milestoneCriteria: string;
 }
+
+const MILESTONE_TITLE_MAX = 100;
+const MILESTONE_CRITERIA_MAX = 500;
 
 export type CreateVaultErrors = Partial<Record<keyof CreateVaultFormValues, string>>;
 
@@ -53,14 +57,18 @@ export function validateCreateVault(
     errors.failureAddress = 'Failure destination must be different from success destination.';
   }
 
-  if (verifierAddress) {
-    if (!isValidStellarAddress(verifierAddress)) {
-      errors.verifierAddress = 'Enter a valid Stellar public key starting with G.';
-    } else if (verifierAddress === successAddress) {
-      errors.verifierAddress = 'Verifier must be different from the success destination.';
-    } else if (verifierAddress === failureAddress) {
-      errors.verifierAddress = 'Verifier must be different from the failure destination.';
-    }
+  const title = values.milestoneTitle.trim();
+  if (!title) {
+    errors.milestoneTitle = 'Enter a milestone title.';
+  } else if (title.length > MILESTONE_TITLE_MAX) {
+    errors.milestoneTitle = `Milestone title must be ${MILESTONE_TITLE_MAX} characters or fewer.`;
+  }
+
+  const criteria = values.milestoneCriteria.trim();
+  if (!criteria) {
+    errors.milestoneCriteria = 'Enter the milestone criteria.';
+  } else if (criteria.length > MILESTONE_CRITERIA_MAX) {
+    errors.milestoneCriteria = `Milestone criteria must be ${MILESTONE_CRITERIA_MAX} characters or fewer.`;
   }
 
   return errors;
