@@ -1,26 +1,23 @@
 # Transaction Sorting
 
-`src/pages/VaultTransactions.tsx` exposes sortable table headers for the
-activity explorer.
+`VaultTransactions` exposes clickable column headers for transaction type,
+amount, fee, and timestamp. Sorting happens after the current filters are
+applied and before section windowing, so pending, failed, and confirmed sections
+all reflect the same active sort.
 
-## Behavior
+The page uses `sortTransactions(rows, key, dir)` from
+`src/utils/sortTransactions.ts` for local reasoning and testability.
 
-- Sortable columns: type, timestamp, amount, and fee.
-- The default order is timestamp descending so the newest activity appears first.
-- Clicking the active header toggles ascending and descending order.
-- Clicking a different header activates that column in ascending order.
-- Sorting is applied after filters and before windowing, so CSV export,
-visible totals, and window banners reflect the same ordered result.
+Accessibility rules:
 
-## Accessibility
+- The active sortable header sets `aria-sort` to `ascending` or `descending`.
+- Inactive sortable headers set `aria-sort` to `none`.
+- Header buttons announce the next sort direction.
 
-- Header controls are real buttons inside `role="columnheader"` cells.
-- The active header exposes `aria-sort="ascending"` or
-  `aria-sort="descending"`.
-- Inactive sortable headers expose `aria-sort="none"`.
+Data rules:
 
-## Utility
-
-The pure `sortTransactions(rows, key, dir)` helper lives in
-`src/utils/sortTransactions.ts` and is covered by focused unit tests in
-`src/utils/__tests__/sortTransactions.test.ts`.
+- Timestamp values are compared by parsed date value.
+- Amount and fee values are compared numerically.
+- Transaction type values are compared case-insensitively.
+- Missing numeric or timestamp values sort after defined values.
+- Equal values preserve input order.

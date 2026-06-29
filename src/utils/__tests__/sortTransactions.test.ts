@@ -1,76 +1,97 @@
 import { describe, expect, it } from "vitest";
 import { sortTransactions } from "../sortTransactions";
 
-const baseRows = [
+const rows = [
   {
-    id: "a",
-    timestamp: new Date("2026-06-29T12:00:00Z"),
-    amount: 25,
-    fee: 0.0004,
+    id: "older",
     type: "release",
+    amount: 25,
+    fee: 0.03,
+    timestamp: new Date("2026-01-01T00:00:00Z"),
   },
   {
-    id: "b",
-    timestamp: new Date("2026-06-29T09:00:00Z"),
-    amount: 5,
-    fee: 0.0001,
+    id: "newer",
     type: "create",
+    amount: 10,
+    fee: 0.01,
+    timestamp: new Date("2026-01-03T00:00:00Z"),
   },
   {
-    id: "c",
-    timestamp: new Date("2026-06-29T15:00:00Z"),
-    amount: 100,
-    fee: 0.0009,
+    id: "middle",
     type: "validate",
+    amount: 50,
+    fee: 0.02,
+    timestamp: new Date("2026-01-02T00:00:00Z"),
   },
 ];
 
 describe("sortTransactions", () => {
-  it("sorts timestamps newest first when requested", () => {
-    const sorted = sortTransactions(baseRows, "timestamp", "desc");
-    expect(sorted.map((row) => row.id)).toEqual(["c", "a", "b"]);
+  it("sorts timestamps descending without mutating the source array", () => {
+    const result = sortTransactions(rows, "timestamp", "desc");
+
+    expect(result.map((row) => row.id)).toEqual(["newer", "middle", "older"]);
+    expect(rows.map((row) => row.id)).toEqual(["older", "newer", "middle"]);
   });
 
-  it("sorts numeric amount and fee values numerically", () => {
-    expect(sortTransactions(baseRows, "amount", "asc").map((row) => row.id)).toEqual([
-      "b",
-      "a",
-      "c",
-    ]);
-    expect(sortTransactions(baseRows, "fee", "desc").map((row) => row.id)).toEqual([
-      "c",
-      "a",
-      "b",
+  it("sorts numeric amount values ascending", () => {
+    expect(sortTransactions(rows, "amount", "asc").map((row) => row.id)).toEqual([
+      "newer",
+      "older",
+      "middle",
     ]);
   });
 
-  it("sorts type labels alphabetically", () => {
-    const sorted = sortTransactions(baseRows, "type", "asc");
-    expect(sorted.map((row) => row.type)).toEqual(["create", "release", "validate"]);
+  it("sorts fee values descending", () => {
+    expect(sortTransactions(rows, "fee", "desc").map((row) => row.id)).toEqual([
+      "older",
+      "middle",
+      "newer",
+    ]);
   });
 
-  it("handles undefined numeric values as zero", () => {
-    const sorted = sortTransactions(
-      [
-        { id: "defined", amount: 10 },
-        { id: "missing" },
-        { id: "string", amount: "2.5" },
-      ],
-      "amount",
-      "asc",
-    );
-
-    expect(sorted.map((row) => row.id)).toEqual(["missing", "string", "defined"]);
+  it("sorts transaction types alphabetically", () => {
+    expect(sortTransactions(rows, "type", "asc").map((row) => row.id)).toEqual([
+      "newer",
+      "older",
+      "middle",
+    ]);
   });
 
-  it("keeps equal values in their original order", () => {
-    const rows = [
-      { id: "first", fee: 1 },
-      { id: "second", fee: 1 },
-      { id: "third", fee: 2 },
+  it("keeps missing numeric values at the end", () => {
+    const withMissing = [
+      { id: "missing", amount: undefined, timestamp: new Date() },
+      { id: "defined", amount: 1, timestamp: new Date() },
     ];
 
-    const sorted = sortTransactions(rows, "fee", "asc");
-    expect(sorted.map((row) => row.id)).toEqual(["first", "second", "third"]);
+    expect(sortTransactions(withMissing, "amount", "asc").map((row) => row.id)).toEqual([
+      "defined",
+      "missing",
+    ]);
+  });
+
+  it("keeps missing numeric values at the end when sorting descending", () => {
+    const withMissing = [
+      { id: "missing", amount: undefined, timestamp: new Date() },
+      { id: "low", amount: 1, timestamp: new Date() },
+      { id: "high", amount: 2, timestamp: new Date() },
+    ];
+
+    expect(sortTransactions(withMissing, "amount", "desc").map((row) => row.id)).toEqual([
+      "high",
+      "low",
+      "missing",
+    ]);
+  });
+
+  it("preserves input order when compared values are equal", () => {
+    const tied = [
+      { id: "first", type: "create", timestamp: new Date() },
+      { id: "second", type: "create", timestamp: new Date() },
+    ];
+
+    expect(sortTransactions(tied, "type", "asc").map((row) => row.id)).toEqual([
+      "first",
+      "second",
+    ]);
   });
 });

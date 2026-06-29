@@ -244,6 +244,58 @@ describe('VaultTransactions', () => {
         'none',
       );
     });
+
+    it('exposes timestamp as the default sorted column', () => {
+      renderPage();
+
+      expect(screen.getAllByRole('columnheader', { name: /Timestamp/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'descending',
+      );
+      expect(screen.getAllByRole('columnheader', { name: /Amount/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'none',
+      );
+    });
+
+    it('sorts visible rows by amount when the amount header is clicked', () => {
+      const transactions = [
+        { ...buildTransaction(0), id: 'high-amount', amount: 30 },
+        { ...buildTransaction(1), id: 'low-amount', amount: 10 },
+        { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
+      ];
+
+      render(<VaultTransactions transactions={transactions} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
+
+      expect(screen.getByRole('columnheader', { name: /Amount/i })).toHaveAttribute(
+        'aria-sort',
+        'ascending',
+      );
+      const amountCells = Array.from(document.querySelectorAll('.vt-tx-amount-val'));
+      expect(amountCells[0].textContent).toContain('10.00');
+    });
+
+    it('toggles amount sorting to descending on the second click', () => {
+      const transactions = [
+        { ...buildTransaction(0), id: 'high-amount', amount: 30 },
+        { ...buildTransaction(1), id: 'low-amount', amount: 10 },
+        { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
+      ];
+
+      render(<VaultTransactions transactions={transactions} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount descending/i }));
+
+      expect(screen.getByRole('columnheader', { name: /Amount/i })).toHaveAttribute(
+        'aria-sort',
+        'descending',
+      );
+      const amountCells = Array.from(document.querySelectorAll('.vt-tx-amount-val'));
+      expect(amountCells[0].textContent).toContain('30.00');
+    });
   });
 
   describe('filters', () => {
@@ -269,14 +321,14 @@ describe('VaultTransactions', () => {
   describe('relative timestamp display', () => {
     it('renders "Xm ago" labels for transactions within the last hour', () => {
       render(<VaultTransactions />);
-      // MASTER_ACTIVITY offsets include 5, 10, 20, and 45 minute entries.
+      // MOCK_TRANSACTIONS offsets include 2m, 5m, 10m, 20m, 45m
       const minuteLabels = screen.getAllByText(/^\d+ minutes? ago$/);
       expect(minuteLabels.length).toBeGreaterThan(0);
     });
 
     it('renders "Xh ago" labels for transactions older than 60 minutes', () => {
       render(<VaultTransactions />);
-      // MASTER_ACTIVITY offsets include 1.5h, 2h, 3.5h, 5h, and 8h entries.
+      // MOCK_TRANSACTIONS offsets include 1.5h (→1h), 2h, 3.5h (→3h), 5h, 8h
       const hourLabels = screen.getAllByText(/^\d+ hours? ago$/);
       expect(hourLabels.length).toBeGreaterThan(0);
     });
