@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationTask } from '../../Zustand/Store';
 import { useVerifierStore } from '../../Zustand/Store';
+import { VALIDATION_HISTORY_PAGE_SIZE_KEY } from '../../utils/pageSizePref';
 import ValidationHistory from '../ValidationHistory';
 
 const { mockDownloadCsv } = vi.hoisted(() => ({
@@ -91,6 +92,22 @@ const baseHistory: ValidationTask[] = [
   },
 ];
 
+const makeExtraHistoryItem = (index: number): ValidationTask => ({
+  id: `v-${String(index).padStart(3, '0')}`,
+  vaultName: `History Vault ${index}`,
+  owner: `GOWNER${index}`,
+  amount: `${index},000 USDC`,
+  deadline: `2026-01-${String(index).padStart(2, '0')}`,
+  daysRemaining: 0,
+  status: index % 2 === 0 ? 'approved' : 'rejected',
+  milestone: `Milestone ${index}`,
+});
+
+const longHistory = [
+  ...baseHistory,
+  ...Array.from({ length: 6 }, (_, index) => makeExtraHistoryItem(index + 7)),
+];
+
 function renderHistory(history = baseHistory) {
   vi.mocked(useVerifierStore).mockReturnValue({
     validationHistory: history,
@@ -102,6 +119,7 @@ function renderHistory(history = baseHistory) {
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it('renders summary stats and first page of validation history', () => {
@@ -115,8 +133,9 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
-    expect(screen.queryByText('Zeta Treasury')).not.toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
   });
 
   it('filters by rejected status', () => {
@@ -151,7 +170,7 @@ describe('ValidationHistory', () => {
   });
 
   it('paginates results with accessible controls', () => {
-    renderHistory();
+    renderHistory(longHistory);
 
     const nav = screen.getByRole('navigation', { name: 'Validation history pagination' });
     const previous = within(nav).getByRole('button', { name: 'Go to previous validation history page' });
@@ -162,7 +181,7 @@ describe('ValidationHistory', () => {
 
     fireEvent.click(next);
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('History Vault 11')).toBeInTheDocument();
     expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
     expect(next).toBeDisabled();
@@ -170,13 +189,13 @@ describe('ValidationHistory', () => {
   });
 
   it('updates page size and shows no-match empty state', () => {
-    renderHistory();
+    renderHistory(longHistory);
 
     fireEvent.change(screen.getByLabelText('Validation history page size'), {
-      target: { value: '10' },
+      target: { value: '25' },
     });
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
@@ -185,6 +204,50 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('No matching validations')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
+  });
+
+  it('persists the selected page size', () => {
+    renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Validation history page size'), {
+      target: { value: '50' },
+    });
+
+    expect(localStorage.getItem(VALIDATION_HISTORY_PAGE_SIZE_KEY)).toBe('50');
+  });
+
+  it('loads a valid stored page size', () => {
+    localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_KEY, '25');
+
+    renderHistory(longHistory);
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('25');
+    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+  });
+
+  it('falls back to 10 rows when the stored page size is invalid', () => {
+    localStorage.setItem(VALIDATION_HISTORY_PAGE_SIZE_KEY, '5');
+
+    renderHistory(longHistory);
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
+    expect(screen.queryByText('History Vault 11')).not.toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+  });
+
+  it('resets to page 1 when page size changes', () => {
+    renderHistory(longHistory);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Validation history page size'), {
+      target: { value: '25' },
+    });
+
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
   });
 
   it('navigates back to the verifier dashboard', () => {
@@ -231,7 +294,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when from date changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
@@ -268,7 +331,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when milestone changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
