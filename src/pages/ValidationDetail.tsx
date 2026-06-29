@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
@@ -6,19 +6,52 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
 import { classifyEvidenceUrl } from '../utils/evidenceKind';
+import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
+
+const NOTES_DRAFT_WRITE_DELAY_MS = 300;
+
+function useNotesDraft(taskId: string | undefined) {
+  const [notes, setNotes] = useState(() => readNotesDraft(taskId));
+
+  useEffect(() => {
+    setNotes(readNotesDraft(taskId));
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (notes.length > 0) {
+        writeNotesDraft(taskId, notes);
+      } else {
+        clearNotesDraft(taskId);
+      }
+    }, NOTES_DRAFT_WRITE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notes, taskId]);
+
+  const clearDraft = () => {
+    clearNotesDraft(taskId);
+    setNotes('');
+  };
+
+  return { notes, setNotes, clearDraft };
+}
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
   const navigate = useNavigate();
   
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
-  
-  const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
+  const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
 
   if (!task) {
     return (
@@ -46,7 +79,11 @@ export default function ValidationDetail() {
   const toggleCriterion = (index: number) => {
     setCheckedCriteria((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   };
@@ -59,6 +96,7 @@ export default function ValidationDetail() {
     } else if (decision === 'reject') {
       rejectValidation(task.id, modalNotes);
     }
+    clearDraft();
     setIsModalOpen(false);
     navigate('/verifier/queue');
   };
