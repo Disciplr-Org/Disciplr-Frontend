@@ -1,95 +1,51 @@
-import { describe, expect, it, vi } from 'vitest';
-import {
-  clearNotesDraft,
-  getNotesDraftKey,
-  NOTES_DRAFT_STORAGE_PREFIX,
-  readNotesDraft,
-  type NotesDraftStorage,
-  writeNotesDraft,
-} from '../notesDraft';
+// @vitest-environment jsdom
 
-function createStorage(seed: Record<string, string> = {}): NotesDraftStorage & {
-  data: Record<string, string>;
-  getItem: ReturnType<typeof vi.fn>;
-  setItem: ReturnType<typeof vi.fn>;
-  removeItem: ReturnType<typeof vi.fn>;
-} {
-  const data = { ...seed };
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../notesDraft';
 
-  return {
-    data,
-    getItem: vi.fn((key: string) => data[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => {
-      data[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete data[key];
-    }),
-  };
-}
-
-describe('notesDraft', () => {
-  it('builds namespaced keys per validation task', () => {
-    expect(getNotesDraftKey('v-101')).toBe(`${NOTES_DRAFT_STORAGE_PREFIX}v-101`);
+describe('notesDraft storage helpers', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
   });
 
-  it('reads saved notes for a task', () => {
-    const key = getNotesDraftKey('v-101');
-    const storage = createStorage({ [key]: 'Looks valid so far.' });
+  it('reads and writes a draft per task id', () => {
+    writeNotesDraft('v-101', 'Check audit evidence');
+    writeNotesDraft('v-202', 'Different draft');
 
-    expect(readNotesDraft('v-101', storage)).toBe('Looks valid so far.');
+    expect(readNotesDraft('v-101')).toBe('Check audit evidence');
+    expect(readNotesDraft('v-202')).toBe('Different draft');
   });
 
-  it('returns an empty draft when taskId is missing', () => {
-    const storage = createStorage();
+  it('clears a task draft', () => {
+    writeNotesDraft('v-101', 'temporary notes');
 
-    expect(readNotesDraft(undefined, storage)).toBe('');
-    writeNotesDraft(undefined, 'draft', storage);
-    clearNotesDraft(undefined, storage);
+    clearNotesDraft('v-101');
 
-    expect(storage.getItem).not.toHaveBeenCalled();
-    expect(storage.setItem).not.toHaveBeenCalled();
-    expect(storage.removeItem).not.toHaveBeenCalled();
+    expect(readNotesDraft('v-101')).toBe('');
   });
 
-  it('does not persist empty notes', () => {
-    const key = getNotesDraftKey('v-101');
-    const storage = createStorage({ [key]: 'Previous draft' });
+  it('does nothing when task id is missing', () => {
+    writeNotesDraft(undefined, 'ignored');
+    clearNotesDraft(undefined);
 
-    writeNotesDraft('v-101', '   ', storage);
-
-    expect(storage.setItem).not.toHaveBeenCalled();
-    expect(storage.removeItem).toHaveBeenCalledWith(key);
-    expect(storage.data[key]).toBeUndefined();
+    expect(readNotesDraft(undefined)).toBe('');
+    expect(window.localStorage.length).toBe(0);
   });
 
-  it('writes and clears notes for a task', () => {
-    const key = getNotesDraftKey('v-101');
-    const storage = createStorage();
+  it('falls back safely when storage throws', () => {
+    vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(window.localStorage.__proto__, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(window.localStorage.__proto__, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
 
-    writeNotesDraft('v-101', 'Needs another proof link.', storage);
-    expect(storage.data[key]).toBe('Needs another proof link.');
-
-    clearNotesDraft('v-101', storage);
-    expect(storage.data[key]).toBeUndefined();
-  });
-
-  it('ignores storage read, write, and remove failures', () => {
-    const storage: NotesDraftStorage = {
-      getItem: vi.fn(() => {
-        throw new Error('storage unavailable');
-      }),
-      setItem: vi.fn(() => {
-        throw new Error('quota exceeded');
-      }),
-      removeItem: vi.fn(() => {
-        throw new Error('private mode');
-      }),
-    };
-
-    expect(readNotesDraft('v-101', storage)).toBe('');
-    expect(() => writeNotesDraft('v-101', 'draft', storage)).not.toThrow();
-    expect(() => writeNotesDraft('v-101', '', storage)).not.toThrow();
-    expect(() => clearNotesDraft('v-101', storage)).not.toThrow();
+    expect(() => writeNotesDraft('v-101', 'notes')).not.toThrow();
+    expect(() => clearNotesDraft('v-101')).not.toThrow();
+    expect(readNotesDraft('v-101')).toBe('');
   });
 });

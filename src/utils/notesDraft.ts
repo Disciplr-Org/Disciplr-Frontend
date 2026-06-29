@@ -1,67 +1,53 @@
-export const NOTES_DRAFT_STORAGE_PREFIX = 'disciplr:validation-notes-draft:';
+const NOTES_DRAFT_PREFIX = 'validation-notes-draft:';
 
-export interface NotesDraftStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
+function draftKey(taskId: string): string {
+  return `${NOTES_DRAFT_PREFIX}${taskId}`;
 }
 
-function getLocalStorage(): NotesDraftStorage | undefined {
-  if (typeof window === 'undefined') return undefined;
+function storageAvailable(): Storage | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
 
   try {
     return window.localStorage;
   } catch {
-    return undefined;
+    return null;
   }
 }
 
-export function getNotesDraftKey(taskId: string): string {
-  return `${NOTES_DRAFT_STORAGE_PREFIX}${taskId}`;
-}
-
-export function readNotesDraft(
-  taskId: string | undefined,
-  storage: NotesDraftStorage | undefined = getLocalStorage()
-): string {
-  if (!taskId || !storage) return '';
+export function readNotesDraft(taskId: string | undefined): string {
+  if (!taskId) {
+    return '';
+  }
 
   try {
-    return storage.getItem(getNotesDraftKey(taskId)) ?? '';
+    return storageAvailable()?.getItem(draftKey(taskId)) ?? '';
   } catch {
     return '';
   }
 }
 
-export function writeNotesDraft(
-  taskId: string | undefined,
-  notes: string,
-  storage: NotesDraftStorage | undefined = getLocalStorage()
-): void {
-  if (!taskId || !storage) return;
+export function writeNotesDraft(taskId: string | undefined, notes: string): void {
+  if (!taskId) {
+    return;
+  }
 
   try {
-    const key = getNotesDraftKey(taskId);
-    if (notes.trim().length === 0) {
-      storage.removeItem(key);
-      return;
-    }
-
-    storage.setItem(key, notes);
+    storageAvailable()?.setItem(draftKey(taskId), notes);
   } catch {
-    // Ignore localStorage errors from private mode, quota limits, or disabled storage.
+    // Draft persistence is best-effort; verification must keep working.
   }
 }
 
-export function clearNotesDraft(
-  taskId: string | undefined,
-  storage: NotesDraftStorage | undefined = getLocalStorage()
-): void {
-  if (!taskId || !storage) return;
+export function clearNotesDraft(taskId: string | undefined): void {
+  if (!taskId) {
+    return;
+  }
 
   try {
-    storage.removeItem(getNotesDraftKey(taskId));
+    storageAvailable()?.removeItem(draftKey(taskId));
   } catch {
-    // Ignore storage errors.
+    // Draft cleanup is best-effort.
   }
 }

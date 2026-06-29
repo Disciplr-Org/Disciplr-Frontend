@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
@@ -8,40 +8,37 @@ import { isCriteriaGateOpen } from '../utils/criteriaGate';
 import { classifyEvidenceUrl } from '../utils/evidenceKind';
 import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
 
-const NOTES_DRAFT_DEBOUNCE_MS = 300;
+const NOTES_DRAFT_WRITE_DELAY_MS = 300;
 
 function useNotesDraft(taskId: string | undefined) {
-  const [notes, setNotes] = useState('');
-  const clearedTaskIdRef = useRef<string | undefined>(undefined);
+  const [notes, setNotes] = useState(() => readNotesDraft(taskId));
 
   useEffect(() => {
-    clearedTaskIdRef.current = undefined;
     setNotes(readNotesDraft(taskId));
   }, [taskId]);
 
   useEffect(() => {
-    if (!taskId) return;
+    if (!taskId) {
+      return undefined;
+    }
 
-    const timeout = window.setTimeout(() => {
-      if (clearedTaskIdRef.current === taskId) return;
-      writeNotesDraft(taskId, notes);
-    }, NOTES_DRAFT_DEBOUNCE_MS);
+    const timeoutId = window.setTimeout(() => {
+      if (notes.length > 0) {
+        writeNotesDraft(taskId, notes);
+      } else {
+        clearNotesDraft(taskId);
+      }
+    }, NOTES_DRAFT_WRITE_DELAY_MS);
 
-    return () => window.clearTimeout(timeout);
+    return () => window.clearTimeout(timeoutId);
   }, [notes, taskId]);
 
-  const setDraftNotes = useCallback((nextNotes: string) => {
-    clearedTaskIdRef.current = undefined;
-    setNotes(nextNotes);
-  }, []);
-
-  const clearDraft = useCallback(() => {
-    clearedTaskIdRef.current = taskId;
+  const clearDraft = () => {
     clearNotesDraft(taskId);
     setNotes('');
-  }, [taskId]);
+  };
 
-  return { notes, setNotes: setDraftNotes, clearDraft };
+  return { notes, setNotes, clearDraft };
 }
 
 export default function ValidationDetail() {
@@ -49,7 +46,6 @@ export default function ValidationDetail() {
   const navigate = useNavigate();
   
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
-  
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
