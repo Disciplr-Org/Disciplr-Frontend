@@ -30,6 +30,9 @@ export default function Notification() {
   const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   useEffect(() => {
     // 2. Function to handle clicks
@@ -39,16 +42,42 @@ export default function Notification() {
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
       ) {
-        setIsFilterOpen(false);
+        setIsFilterOpen((open) => {
+          if (open) {
+            // Restore focus to filter button if focus is currently inside the filter panel
+            if (filterPanelRef.current?.contains(document.activeElement)) {
+              filterButtonRef.current?.focus();
+            }
+            return false;
+          }
+          return open;
+        });
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFilterOpen((open) => {
+          if (open) {
+            // Restore focus to filter button if focus is currently inside the filter panel
+            if (filterPanelRef.current?.contains(document.activeElement)) {
+              filterButtonRef.current?.focus();
+            }
+            return false;
+          }
+          return open;
+        });
       }
     };
 
     // 3. Attach listener to the whole document
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
 
     // 4. Cleanup listener when component unmounts
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
@@ -76,6 +105,32 @@ export default function Notification() {
   useEffect(() => {
     setCurrentPage(1);
   }, [notifications.length]);
+
+  useEffect(() => {
+    const readLabel =
+      currentFilterReadSeletion === "all"
+        ? "all"
+        : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+    const typeLabel =
+      currentFilterTypeSeletion === "all"
+        ? "all categories"
+        : currentFilterTypeSeletion;
+
+    const count = currentNotification.length;
+    const countText = count === 1 ? "1 notification" : `${count} notifications`;
+
+    if (count === 0) {
+      setLiveAnnouncement(
+        `No notifications found. Active filters: status ${readLabel}, category ${typeLabel}.`
+      );
+    } else {
+      setLiveAnnouncement(
+        `Showing ${countText}. Active filters: status ${readLabel}, category ${typeLabel}.`
+      );
+    }
+  }, [currentFilterReadSeletion, currentFilterTypeSeletion, currentNotification.length]);
 
   const handleDismiss = (id: string) => {
     dismiss(id);
@@ -111,6 +166,7 @@ export default function Notification() {
           <div className="relative">
             <Link
               to="/notification/settings"
+              aria-label="Notification Preferences"
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "var(--radius-full)",
@@ -125,6 +181,10 @@ export default function Notification() {
 
           <div className="relative">
             <button
+              ref={filterButtonRef}
+              aria-label="Filter notifications"
+              aria-expanded={isFilterOpen}
+              aria-controls="notification-filter-panel"
               onClick={() => {
                 if (isPreferenceOpen) {
                   setIsPreferenceOpen(false);
@@ -138,6 +198,8 @@ export default function Notification() {
             <AnimatePresence>
               {isFilterOpen && (
                 <motion.div
+                  ref={filterPanelRef}
+                  id="notification-filter-panel"
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -242,6 +304,11 @@ export default function Notification() {
           confirmLabel: "Clear all",
         }}
       />
+
+      {/* Screen Reader Announcements for filter updates and notification counts */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {liveAnnouncement}
+      </div>
     </>
   );
 }

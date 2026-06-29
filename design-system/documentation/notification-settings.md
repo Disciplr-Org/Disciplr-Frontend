@@ -58,3 +58,18 @@ The `NotificationBell` component is integrated into the Layout header to provide
   - Mounted inside `desktop-nav` for screen resolutions >= 768px.
   - Mounted inside `.mobile-bell-wrapper` next to the mobile menu hamburger button for resolutions < 768px.
 - **Accessibility**: Includes a dynamic `aria-label` containing the unread count (e.g. `aria-label="Notifications, 3 unread"` or `aria-label="Notifications, 0 unread"`), ensuring screen readers can announce the notification status.
+
+## Notification Page Filters Accessibility
+
+The filter controls on the Notification page (`src/pages/Notification.tsx`) follow a strict accessibility contract:
+
+- **Icon Controls & Target Labels**:
+  - The settings gear icon link uses `aria-label="Notification Preferences"` so screen readers announce its destination.
+  - The Filter button features an explicit `aria-label="Filter notifications"`, `aria-expanded` reflecting the open state, and `aria-controls` referencing the filter panel element.
+- **Focus Preservation**:
+  - Closing the filter panel via the `Escape` key or by clicking outside will automatically check if the focus was currently inside the panel. If it was, focus is gracefully restored to the Filter toggle button to prevent focus from being stranded.
+- **Live Announcements**:
+  - A role="status" / `aria-live="polite"` region monitors the active filters and the filtered notification result counts.
+  - Changes to the filter selections are automatically announced to assistive technologies in the format: `Showing X notifications. Active filters: status STATUS, category CATEGORY.`
+  - If a filter combination results in no matches, the region announces: `No notifications found. Active filters: status STATUS, category CATEGORY.`
+
