@@ -87,30 +87,30 @@ export async function fetchUsdcBalance(
             throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response did not include balances.');
         }
 
-    if (account.balances.length > MAX_HORIZON_BALANCES) {
-        throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response included too many balances.');
-    }
+        if (account.balances.length > MAX_HORIZON_BALANCES) {
+            throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response included too many balances.');
+        }
 
-    const usdcBalance = account.balances.find(
-        (balanceLine) =>
-            balanceLine.asset_type !== 'native' &&
-            balanceLine.asset_code === 'USDC' &&
-            balanceLine.asset_issuer === issuer,
-    );
-
-    if (usdcBalance && !isFiniteNumericString(usdcBalance.balance)) {
-        throw new HorizonBalanceError(
-            'INVALID_RESPONSE',
-            'Horizon USDC balance was missing or not a finite numeric string.',
+        const usdcBalance = account.balances.find(
+            (balanceLine) =>
+                balanceLine.asset_type !== 'native' &&
+                balanceLine.asset_code === 'USDC' &&
+                balanceLine.asset_issuer === issuer,
         );
-    }
 
-    return {
-        balance: usdcBalance?.balance ?? '0.00',
-        hasTrustline: Boolean(usdcBalance),
-        issuer,
-        network,
-    };
+        if (usdcBalance && !isFiniteNumericString(usdcBalance.balance)) {
+            throw new HorizonBalanceError(
+                'INVALID_RESPONSE',
+                'Horizon USDC balance was missing or not a finite numeric string.',
+            );
+        }
+
+        return {
+            balance: usdcBalance?.balance ?? '0.00',
+            hasTrustline: Boolean(usdcBalance),
+            issuer,
+            network,
+        };
     } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
             throw new HorizonBalanceError('REQUEST_FAILED', 'Horizon balance request was aborted or timed out.');
