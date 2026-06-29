@@ -26,7 +26,7 @@ export function loadTokens(tokenFile: string): DesignTokens {
 }
 
 export function getAllTokens(): DesignTokens {
-  const tokenFiles = ['colors.json', 'typography.json', 'spacing.json', 'shadows.json', 'motion.json', 'borders.json', 'z-index.json'];
+  const tokenFiles = ['colors.json', 'typography.json', 'spacing.json', 'shadows.json', 'motion.json', 'borders.json', 'z-index.json', 'breakpoints.json'];
   const allTokens: DesignTokens = {};
   
   tokenFiles.forEach(file => {
