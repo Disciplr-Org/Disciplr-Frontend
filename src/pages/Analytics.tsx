@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   PieChart, Pie, Cell,
@@ -16,10 +17,9 @@ import { ChartLegend, type ChartLegendEntry } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { toCsv, downloadCsv } from '../utils/csv'
+import { parsePeriod, serializePeriod, type Period } from '../utils/periodParam'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type Period = '7d' | '30d' | '90d' | '1y' | 'All'
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -221,7 +221,8 @@ export default function Analytics() {
   const chartTokens = useAnalyticsChartTokens()
   const seriesColors = useMemo(() => buildAnalyticsSeriesColors(chartTokens), [chartTokens])
   const prefersReducedMotion = usePrefersReducedMotion()
-  const [period, setPeriod] = useState<Period>('30d')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [period, setPeriodInternal] = useState<Period>(() => parsePeriod(searchParams.get('period')))
   const [showComparison, setShowComparison] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -231,6 +232,22 @@ export default function Analytics() {
   const jsPDFRef = useRef<any>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+
+  const setPeriod = (newPeriod: Period) => {
+    setPeriodInternal(newPeriod)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('period', serializePeriod(newPeriod))
+      return next
+    })
+  }
+
+  useEffect(() => {
+    const urlPeriod = parsePeriod(searchParams.get('period'))
+    if (urlPeriod !== period) {
+      setPeriodInternal(urlPeriod)
+    }
+  }, [searchParams, period])
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
   const chartData = analyticsPeriodData[period]
