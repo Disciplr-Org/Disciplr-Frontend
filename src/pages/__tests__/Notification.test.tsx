@@ -5,17 +5,20 @@ import Notification from "../Notification";
 import { useNotification } from "@/Zustand/Store";
 import { getNotifications } from "@/components/Notification/exampleNotification/example";
 
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      ...props
-    }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <div {...props}>{children}</div>
-    ),
-  },
-  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
-}));
+vi.mock("framer-motion", () => {
+  const React = require("react");
+  return {
+    motion: {
+      div: React.forwardRef(({ children, ...props }, ref) => (
+        <div ref={ref} {...props}>
+          {children}
+        </div>
+      )),
+    },
+    AnimatePresence: ({ children }) => children,
+    useReducedMotion: () => false,
+  };
+});
 
 vi.mock("focus-trap-react", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -245,5 +248,140 @@ describe("Notification page", () => {
 
     // Should reset to page 1
     expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument();
+  });
+
+  describe("Accessibility", () => {
+    it("has correct accessible name and aria-expanded attribute on the Filter button", () => {
+      renderNotification();
+      const filterButton = screen.getByRole("button", { name: /filter notifications/i });
+      expect(filterButton).toBeInTheDocument();
+      expect(filterButton).toHaveAttribute("aria-expanded", "false");
+      expect(filterButton).toHaveAttribute("aria-controls", "notification-filter-panel");
+
+      fireEvent.click(filterButton);
+      expect(filterButton).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(filterButton);
+      expect(filterButton).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("has correct accessible name on the settings link", () => {
+      renderNotification();
+      const settingsLink = screen.getByRole("link", { name: /notification preferences/i });
+      expect(settingsLink).toBeInTheDocument();
+    });
+
+    it("announces filtered result counts and active filters in the live region", () => {
+      renderNotification();
+      const liveRegion = screen.getByRole("status");
+      expect(liveRegion).toBeInTheDocument();
+      
+      const expectedInitialCount = initialNotifications.length;
+      expect(liveRegion.textContent).toBe(
+        `Showing ${expectedInitialCount} notifications. Active filters: status all, category all categories.`
+      );
+
+      // Open filter panel
+      const filterButton = screen.getByRole("button", { name: /filter notifications/i });
+      fireEvent.click(filterButton);
+
+      // Select Unread status filter
+      const readSelect = document.querySelector('select[name="filter_by_read"]') as HTMLSelectElement;
+      fireEvent.change(readSelect, { target: { value: "0" } });
+
+      const unreadCount = initialNotifications.filter((n) => !n.isRead).length;
+      expect(liveRegion.textContent).toBe(
+        `Showing ${unreadCount} notifications. Active filters: status unread, category all categories.`
+      );
+
+      // Select system category filter
+      const typeSelect = document.querySelector('select[name="filter_by_type"]') as HTMLSelectElement;
+      fireEvent.change(typeSelect, { target: { value: "system" } });
+
+      const filteredCount = initialNotifications.filter((n) => !n.isRead && n.category === "system").length;
+      if (filteredCount === 0) {
+        expect(liveRegion.textContent).toBe(
+          "No notifications found. Active filters: status unread, category system."
+        );
+      } else {
+        const countText = filteredCount === 1 ? "1 notification" : `${filteredCount} notifications`;
+        expect(liveRegion.textContent).toBe(
+          `Showing ${countText}. Active filters: status unread, category system.`
+        );
+      }
+    });
+
+    it("announces 'No notifications found' when filter matches nothing", () => {
+      useNotification.setState({
+        notification: initialNotifications.map((n) => ({
+          ...n,
+          isRead: true,
+        })),
+        unreadCount: 0,
+      });
+      renderNotification();
+      const liveRegion = screen.getByRole("status");
+
+      // Open filter panel
+      const filterButton = screen.getByRole("button", { name: /filter notifications/i });
+      fireEvent.click(filterButton);
+
+      // Select Unread status filter
+      const readSelect = document.querySelector('select[name="filter_by_read"]') as HTMLSelectElement;
+      fireEvent.change(readSelect, { target: { value: "0" } });
+
+      expect(liveRegion.textContent).toBe(
+        `No notifications found. Active filters: status unread, category all categories.`
+      );
+    });
+
+    it("closes the filter panel and restores focus when Escape key is pressed", () => {
+      renderNotification();
+      const filterButton = screen.getByRole("button", { name: /filter notifications/i });
+      
+      // Open panel
+      fireEvent.click(filterButton);
+      expect(filterButton).toHaveAttribute("aria-expanded", "true");
+
+      const readSelect = document.querySelector('select[name="filter_by_read"]') as HTMLSelectElement;
+      readSelect.focus();
+      expect(document.activeElement).toBe(readSelect);
+
+      // Press Escape
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(filterButton).toHaveAttribute("aria-expanded", "false");
+      expect(document.activeElement).toBe(filterButton);
+    });
+
+    it("restores focus when click outside closes the filter panel", () => {
+      renderNotification();
+      const filterButton = screen.getByRole("button", { name: /filter notifications/i });
+      
+      // Open panel
+      fireEvent.click(filterButton);
+      expect(filterButton).toHaveAttribute("aria-expanded", "true");
+
+      const readSelect = document.querySelector('select[name="filter_by_read"]') as HTMLSelectElement;
+      readSelect.focus();
+      expect(document.activeElement).toBe(readSelect);
+
+      // Click outside (on the body or some other element outside containerRef)
+      fireEvent.mouseDown(document.body);
+      expect(filterButton).toHaveAttribute("aria-expanded", "false");
+      expect(document.activeElement).toBe(filterButton);
+    });
+
+    it("marks a notification as read when clicking on the message content", () => {
+      renderNotification();
+      const firstUnread = initialNotifications.find((n) => !n.isRead)!;
+      
+      // The message title is rendered
+      const titleElement = screen.getByText(firstUnread.title);
+      fireEvent.click(titleElement);
+
+      const state = useNotification.getState();
+      const updated = state.notification.find((n) => n.id === firstUnread.id);
+      expect(updated!.isRead).toBe(true);
+    });
   });
 });
