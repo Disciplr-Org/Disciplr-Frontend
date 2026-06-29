@@ -2,15 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, MemoryRouter } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { StatusChip } from '../components/StatusChip'
-import type { VaultStatus } from '../types/vault'
-import { VaultFilterBar } from '../components/VaultFilterBar'
-import { filterVaults } from '../utils/filterVaults'
-import type { VaultFilters } from '../utils/filterVaults'
-
-// VaultStatus is imported from '../types/vault' for use in the JSX below.
-// The Vault type is imported from '../types/vault' via vaultService.
-// Local MOCK_VAULTS removed — listVaults() in vaultService is the single source.
-type _VaultStatus = VaultStatus; // suppress unused-import lint
+import type { VaultStatus, Vault } from '../types/vault'
+import { listVaults } from '../services/vaultService'
+import { filterVaults, sortVaults } from '../utils/vaultFilter'
 
 const DEFAULT_FETCH = () => listVaults()
 
@@ -37,7 +31,13 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   const [vaults, setVaults] = useState<Vault[]>([])
   const [status, setStatus] = useState<'loading' | 'empty' | 'data' | 'error'>('loading')
   const [retryCount, setRetryCount] = useState(0)
-  const [filters, setFilters] = useState<VaultFilters>({ status: 'all', query: '' })
+  
+  // Filter and sort state
+  const [statusFilter, setStatusFilter] = useState<VaultStatus | 'all'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<'deadline' | 'amount'>('deadline')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
   // Use a ref so changing the fetchVaults prop identity doesn't re-trigger the effect
   const fetchRef = useRef(fetchVaults)
   fetchRef.current = fetchVaults
@@ -58,6 +58,13 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   }, [retryCount])  // only re-run on explicit retry
 
   const retry = useCallback(() => setRetryCount((c) => c + 1), [])
+
+  // Apply filters and sorting
+  const filteredVaults = filterVaults(vaults, { status: statusFilter, query: searchQuery })
+  const sortedVaults = sortVaults(filteredVaults, { by: sortBy, dir: sortDir })
+  
+  const hasResults = sortedVaults.length > 0
+  const hasFilters = statusFilter !== 'all' || searchQuery.trim() !== ''
 
   return (
     <div>
@@ -81,6 +88,116 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
         </Link>
       </div>
 
+      {/* Filter and Sort Toolbar */}
+      {status === 'data' && (
+        <div style={{ 
+          background: 'var(--surface)', 
+          border: '1px solid var(--border)', 
+          borderRadius: 'var(--radius)', 
+          padding: '1rem', 
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}>
+          {/* Status Filter Chips */}
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '0.5rem',
+            alignItems: 'center',
+          }}>
+            <Text role="caption" as="span" style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>
+              Status:
+            </Text>
+            {(['all', 'active', 'pending_validation', 'completed', 'failed'] as const).map((filterStatus) => (
+              <button
+                key={filterStatus}
+                onClick={() => setStatusFilter(filterStatus)}
+                aria-pressed={statusFilter === filterStatus}
+                style={{
+                  background: statusFilter === filterStatus 
+                    ? 'var(--accent)' 
+                    : 'var(--bg)',
+                  color: statusFilter === filterStatus 
+                    ? 'var(--bg)' 
+                    : 'var(--muted)',
+                  border: statusFilter === filterStatus
+                    ? '1px solid var(--accent)'
+                    : '1px solid var(--border)',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '0.4rem 0.8rem',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {filterStatus === 'all' 
+                  ? 'All' 
+                  : filterStatus === 'pending_validation' 
+                    ? 'Pending' 
+                    : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Search and Sort */}
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '1rem', 
+            alignItems: 'center',
+          }}>
+            <input
+              type="text"
+              placeholder="Search vaults by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="vault-search-input"
+              style={{
+                flex: 1,
+                minWidth: '200px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '0.5rem 0.75rem',
+                fontSize: '14px',
+                color: 'inherit',
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>
+                Sort by:
+              </Text>
+              <select
+                value={`${sortBy}-${sortDir}`}
+                onChange={(e) => {
+                  const [by, dir] = e.target.value.split('-') as [typeof sortBy, typeof sortDir]
+                  setSortBy(by)
+                  setSortDir(dir)
+                }}
+                data-testid="vault-sort-select"
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  padding: '0.5rem 0.75rem',
+                  fontSize: '14px',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="deadline-asc">Deadline (nearest first)</option>
+                <option value="deadline-desc">Deadline (farthest first)</option>
+                <option value="amount-desc">Amount (highest first)</option>
+                <option value="amount-asc">Amount (lowest first)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {status === 'loading' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <Skeleton /><Skeleton /><Skeleton />
@@ -102,10 +219,9 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
       )}
 
       {status === 'data' && (
-        <div>
-          <VaultFilterBar value={filters} onChange={setFilters} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-            {filterVaults(vaults, filters).map((vault) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {hasResults ? (
+            sortedVaults.map((vault) => (
               <Link
                 key={vault.id}
                 to={`/vaults/${vault.id}`}
@@ -131,8 +247,40 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
                   </div>
                 </div>
               </Link>
-            ))}
-          </div>
+            ))
+          ) : (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '3rem 1rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+            }}>
+              <Text role="body" as="p" style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>
+                {hasFilters ? 'No vaults match your filters.' : 'No vaults found.'}
+              </Text>
+              {hasFilters && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setSearchQuery('')
+                  }}
+                  style={{
+                    background: 'var(--accent)',
+                    color: 'var(--bg)',
+                    border: 'none',
+                    borderRadius: 'var(--radius)',
+                    padding: '0.5rem 1rem',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
