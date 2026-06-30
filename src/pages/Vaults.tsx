@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, MemoryRouter } from "react-router-dom";
+import { Link, MemoryRouter, useInRouterContext } from "react-router-dom";
 import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
 import VaultCard from "../components/VaultCard";
@@ -310,12 +310,21 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
 
 // Default export wraps with MemoryRouter for standalone usage;
 // tests that need router control can wrap themselves.
-export default function Vaults({ fetchVaults }: VaultsInnerProps = {}) {
-  // If we're already inside a Router (detected by trying), use VaultsInner directly.
-  // We always wrap in MemoryRouter here so the component is self-contained.
+// Default export checks for router context to avoid nested router issues in production
+export default function Vaults(props: VaultsInnerProps) {
   return (
-    <MemoryRouter>
-      <VaultsInner fetchVaults={fetchVaults} />
-    </MemoryRouter>
+    <RouterSafeWrapper>
+      <VaultsInner {...props} />
+    </RouterSafeWrapper>
   );
+}
+
+function RouterSafeWrapper({ children }: { children: React.ReactNode }) {
+  try {
+    const inRouter = useInRouterContext();
+    if (inRouter) return <>{children}</>;
+  } catch {
+    // If hook throws outside of context
+  }
+  return <MemoryRouter>{children}</MemoryRouter>;
 }
