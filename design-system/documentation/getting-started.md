@@ -7,14 +7,14 @@ tokens and where contributors should add or validate new tokens.
 
 Design tokens live in `design-system/tokens/`:
 
-| Token file | Runtime surface | Notes |
-| --- | --- | --- |
-| `colors.json` | CSS variables in `src/index.css` such as `--bg`, `--surface`, `--text`, `--muted`, `--accent`, `--success`, `--warning`, and chart variables used by analytics views. | Use semantic names in components instead of hard-coded colors. |
-| `typography.json` | Typography CSS variables and classes in `src/index.css`, plus `src/utils/typography.ts`. | Components should use the `Text` component or `classifyTypography()` roles where possible. |
-| `spacing.json` | Spacing, container, touch-target, and breakpoint CSS variables in `src/index.css`; breakpoint details are documented in `documentation/breakpoints.md`. | Prefer `--spacing-*`, `--container-*`, and breakpoint tokens over one-off values. |
-| `borders.json` | Radius, border-width, and semantic border CSS variables in `src/index.css`. | Use `--radius-*`, `--border-width-*`, and semantic border variables for cards, fields, buttons, and modals. |
-| `shadows.json` | Elevation language for raised surfaces and overlays. | Match existing component surfaces before adding a new shadow. |
-| `motion.json` | JS motion constants in `src/utils/motion.ts` and reduced-motion guidance in `documentation/breakpoints.md`. | Use the exported `duration`, `ease`, and standard transitions for Framer Motion flows. |
+| Token file        | Runtime surface                                                                                                                                                       | Notes                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `colors.json`     | CSS variables in `src/index.css` such as `--bg`, `--surface`, `--text`, `--muted`, `--accent`, `--success`, `--warning`, and chart variables used by analytics views. | Use semantic names in components instead of hard-coded colors.                                              |
+| `typography.json` | Typography CSS variables and classes in `src/index.css`, plus `src/utils/typography.ts`.                                                                              | Components should use the `Text` component or `classifyTypography()` roles where possible.                  |
+| `spacing.json`    | Spacing, container, touch-target, and breakpoint CSS variables in `src/index.css`; breakpoint details are documented in `documentation/breakpoints.md`.               | Prefer `--spacing-*`, `--container-*`, and breakpoint tokens over one-off values.                           |
+| `borders.json`    | Radius, border-width, and semantic border CSS variables in `src/index.css`.                                                                                           | Use `--radius-*`, `--border-width-*`, and semantic border variables for cards, fields, buttons, and modals. |
+| `shadows.json`    | Elevation language for raised surfaces and overlays.                                                                                                                  | Match existing component surfaces before adding a new shadow.                                               |
+| `motion.json`     | JS motion constants in `src/utils/motion.ts` and reduced-motion guidance in `documentation/breakpoints.md`.                                                           | Use the exported `duration`, `ease`, and standard transitions for Framer Motion flows.                      |
 
 ## Consuming Tokens In Components
 
@@ -97,12 +97,12 @@ import { AddressDisplay } from '../components/AddressDisplay';
 
 ### Props
 
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `address` | `string` | — | Full Stellar address to display. |
-| `network` | `'TESTNET' \| 'PUBLIC' \| null` | `undefined` | When provided, renders an explorer link to `stellar.expert`. Omit or pass `null` to hide. |
-| `chars` | `number` | `6` | Characters to keep at the start of the truncated display. |
-| `tailChars` | `number` | `4` | Characters to keep at the end of the truncated display. |
+| Prop        | Type                            | Default     | Description                                                                               |
+| ----------- | ------------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `address`   | `string`                        | —           | Full Stellar address to display.                                                          |
+| `network`   | `'TESTNET' \| 'PUBLIC' \| null` | `undefined` | When provided, renders an explorer link to `stellar.expert`. Omit or pass `null` to hide. |
+| `chars`     | `number`                        | `6`         | Characters to keep at the start of the truncated display.                                 |
+| `tailChars` | `number`                        | `4`         | Characters to keep at the end of the truncated display.                                   |
 
 ### Accessibility
 
@@ -121,3 +121,33 @@ import { AddressDisplay } from '../components/AddressDisplay';
   so the explorer link points to the correct network.
 - The component uses `var(--success)`, `var(--muted)`, and `var(--accent)` CSS
   variables; it inherits correctly in both light and dark themes.
+
+## Vaults Page View Toggle
+
+The Vaults page (`src/pages/Vaults.tsx`) includes a list/grid view toggle that allows users to switch between a compact row-based list view and a rich card-based grid view.
+
+### Implementation
+
+- **Toggle Component**: An accessible radio group with `role="radiogroup"` and individual buttons with `role="radio"` and `aria-checked` attributes
+- **Persistence**: View preference is stored in `localStorage` under the key `vaults-view-preference` and survives page reloads
+- **Default View**: Defaults to list view when no preference exists
+- **Grid Layout**: Uses CSS Grid with `gridTemplateColumns: repeat(auto-fill, minmax(280px, 1fr))` for responsive card layout
+- **Card Component**: Grid view reuses the existing `VaultCard` component (`src/components/VaultCard.tsx`) which displays progress bars, countdown timers, and status badges
+
+### Token Usage
+
+The toggle buttons use design system tokens for consistent styling:
+
+- `var(--surface)` for the toggle container background
+- `var(--border)` for borders
+- `var(--radius)` for rounded corners
+- `var(--accent)` for the active button background
+- `var(--bg)` for active button text
+- `var(--muted)` for inactive button text
+
+### Accessibility
+
+- Toggle buttons are keyboard-accessible via the radio group
+- Active state is announced via `aria-checked` and `aria-pressed` attributes
+- The radio group has an `aria-label="View mode"` for screen readers
+- View preference persists across sessions, respecting user choices
