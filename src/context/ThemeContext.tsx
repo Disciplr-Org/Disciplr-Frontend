@@ -1,13 +1,14 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 
 // In‑memory fallback when localStorage fails
-let memoryTheme: Theme | null = null;
+let memoryPreference: UserPreference | null = null;
 
 function safeGetItem(key: string): string | null {
   try {
-    return localStorage.getItem(key);
+    return localStorage.getItem(key) ?? null;
   } catch (_) {
-    return null;
+    // fallback to in-memory preference when storage is unavailable
+    return memoryPreference;
   }
 }
 
@@ -15,73 +16,101 @@ function safeSetItem(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch (_) {
-    // ignore storage errors
+    // persist in-memory when storage is unavailable
+    memoryPreference = value as UserPreference;
   }
-  memoryTheme = value as Theme;
 }
 
 
 type Theme = 'light' | 'dark';
+type UserPreference = Theme | 'system';
 
 interface ThemeContextType {
+  /** The resolved concrete theme applied to data-theme ('light' | 'dark') */
   theme: Theme;
+  /** The user's stored preference ('light' | 'dark' | 'system') */
+  preference: UserPreference;
+  /** Cycle through light → dark → system → light */
   toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
+  /** Set a specific user preference */
+  setTheme: (preference: UserPreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'disciplr-theme';
 
+const NEXT_PREFERENCE: Record<UserPreference, UserPreference> = {
+  light: 'dark',
+  dark: 'system',
+  system: 'light',
+};
+
 function getSystemTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function getStoredTheme(): Theme | null {
+function isValidPreference(value: string | null | undefined): value is UserPreference {
+  return value === 'light' || value === 'dark' || value === 'system';
+}
+
+function getStoredPreference(): UserPreference | null {
   if (typeof window === 'undefined') return null;
   const stored = safeGetItem(THEME_STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark') return stored as Theme;
-  // fallback to in-memory theme if storage unavailable
-  return memoryTheme;
+  if (isValidPreference(stored)) return stored;
+  return null;
+}
+
+function resolveTheme(preference: UserPreference): Theme {
+  if (preference === 'system') return getSystemTheme();
+  return preference;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = getStoredTheme();
+  const [preference, setPreferenceState] = useState<UserPreference>(() => {
+    const stored = getStoredPreference();
     if (stored) return stored;
-    return getSystemTheme();
+    // Default to system when no stored preference exists
+    return 'system';
   });
 
-  useEffect(() => {
-  const root = document.documentElement;
-  root.setAttribute('data-theme', theme);
-  safeSetItem(THEME_STORAGE_KEY, theme);
-}, [theme]);
+  // Counter bumped on every OS change to force re-computation of resolved theme
+  const [osTick, setOsTick] = useState(0);
 
+  const theme = useMemo(() => resolveTheme(preference), [preference, osTick]);
+
+  // Apply data-theme and persist preference whenever it changes
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    safeSetItem(THEME_STORAGE_KEY, preference);
+  }, [theme, preference]);
+
+  // Listen for OS preference changes when in system mode
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only auto‑switch if user hasn't manually selected a theme
-      if (!getStoredTheme()) {
-        setThemeState(e.matches ? 'dark' : 'light');
+    const handleChange = () => {
+      if (preference === 'system') {
+        // Bump osTick to force re-computation of resolved theme
+        setOsTick((t) => t + 1);
       }
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [preference]);
+
+  const toggleTheme = useCallback(() => {
+    setPreferenceState((prev) => NEXT_PREFERENCE[prev]);
   }, []);
 
-  const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  const setTheme = (newTheme: Theme) => {
-  setThemeState(newTheme);
-  safeSetItem(THEME_STORAGE_KEY, newTheme);
-};
+  const setTheme = useCallback((newPreference: UserPreference) => {
+    setPreferenceState(newPreference);
+    safeSetItem(THEME_STORAGE_KEY, newPreference);
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, preference, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

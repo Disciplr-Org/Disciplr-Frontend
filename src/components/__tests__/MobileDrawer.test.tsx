@@ -126,7 +126,7 @@ describe('MobileDrawer accessibility', () => {
     if (activeElementDescriptor) {
       Object.defineProperty(document, 'activeElement', activeElementDescriptor);
     } else {
-      delete (document as Document & { activeElement?: Element | null }).activeElement;
+      delete (document as any).activeElement;
     }
   });
 

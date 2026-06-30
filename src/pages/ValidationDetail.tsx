@@ -1,23 +1,57 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
+import { classifyEvidenceUrl } from '../utils/evidenceKind';
+import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
+
+const NOTES_DRAFT_WRITE_DELAY_MS = 300;
+
+function useNotesDraft(taskId: string | undefined) {
+  const [notes, setNotes] = useState(() => readNotesDraft(taskId));
+
+  useEffect(() => {
+    setNotes(readNotesDraft(taskId));
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (notes.length > 0) {
+        writeNotesDraft(taskId, notes);
+      } else {
+        clearNotesDraft(taskId);
+      }
+    }, NOTES_DRAFT_WRITE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notes, taskId]);
+
+  const clearDraft = () => {
+    clearNotesDraft(taskId);
+    setNotes('');
+  };
+
+  return { notes, setNotes, clearDraft };
+}
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
   const navigate = useNavigate();
   
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
-  
-  const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
+  const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
 
   if (!task) {
     return (
@@ -45,7 +79,11 @@ export default function ValidationDetail() {
   const toggleCriterion = (index: number) => {
     setCheckedCriteria((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   };
@@ -58,6 +96,7 @@ export default function ValidationDetail() {
     } else if (decision === 'reject') {
       rejectValidation(task.id, modalNotes);
     }
+    clearDraft();
     setIsModalOpen(false);
     navigate('/verifier/queue');
   };
@@ -126,17 +165,51 @@ export default function ValidationDetail() {
             
             <Text role="body" as="p" className="font-bold mb-2">Submitted Proof:</Text>
             {task.evidenceUrl ? (
-              <SafeLink
-                href={task.evidenceUrl}
-                className="inline-block px-4 py-2 border rounded transition font-medium text-sm"
-                style={{
-                  borderColor: 'var(--accent)',
-                  color: 'var(--accent)',
-                  background: 'var(--accent-transparent)',
-                }}
-              >
-                &#128279; View Attached Evidence
-              </SafeLink>
+              <div className="p-4 border rounded-lg" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  {(() => {
+                    const info = classifyEvidenceUrl(task.evidenceUrl);
+                    if (!info) return null;
+                    const kindLabels: Record<typeof info.kind, string> = {
+                      github: 'GitHub',
+                      figma: 'Figma',
+                      ipfs: 'IPFS',
+                      other: 'Other'
+                    };
+                    const kindColors: Record<typeof info.kind, { bg: string; color: string }> = {
+                      github: { bg: 'color-mix(in srgb, #24292e 10%, transparent)', color: '#24292e' },
+                      figma: { bg: 'color-mix(in srgb, #f24e1e 10%, transparent)', color: '#f24e1e' },
+                      ipfs: { bg: 'color-mix(in srgb, #65c3cb 10%, transparent)', color: '#65c3cb' },
+                      other: { bg: 'color-mix(in srgb, var(--muted) 10%, transparent)', color: 'var(--muted)' }
+                    };
+                    const colors = kindColors[info.kind];
+                    return (
+                      <>
+                        <span
+                          className="px-3 py-1 rounded-full text-xs font-semibold"
+                          style={{ background: colors.bg, color: colors.color, border: `1px solid ${colors.color}` }}
+                        >
+                          {kindLabels[info.kind]}
+                        </span>
+                        <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
+                          {info.host}
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </div>
+                <SafeLink
+                  href={task.evidenceUrl}
+                  className="inline-block px-4 py-2 border rounded transition font-medium text-sm"
+                  style={{
+                    borderColor: 'var(--accent)',
+                    color: 'var(--accent)',
+                    background: 'var(--accent-transparent)',
+                  }}
+                >
+                  &#128279; View Attached Evidence
+                </SafeLink>
+              </div>
             ) : (
               <Text role="body" as="p" className="italic" style={{ color: 'var(--muted)' }}>No evidence link provided.</Text>
             )}

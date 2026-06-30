@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import fc from 'fast-check';
 import { AddressDisplay } from '../AddressDisplay';
+import { truncateMiddle } from '../../utils/truncate';
+
+const ELLIPSIS = '...';
 
 const LONG = 'GA2C5RFPE6G6KXHEIRHZXSNBR3CJRBGUPTAOOVHRF4AFPS5YUMVSWH7B';
 const SHORT = 'GSHORT';
@@ -116,6 +120,84 @@ describe('AddressDisplay', () => {
         it('hides the explorer link when address is invalid', () => {
             render(<AddressDisplay address={INVALID} network="TESTNET" />);
             expect(screen.queryByRole('link')).not.toBeInTheDocument();
+        });
+    });
+
+    describe('truncateMiddle property-based boundaries', () => {
+        // Seeded for deterministic, reproducible property runs.
+        const RUN = { seed: 485, numRuns: 300 } as const;
+        const value = fc.string();
+        const head = fc.nat({ max: 40 });
+        // tail ≥ 1: tail of 0 hits the String.slice(-0) quirk (returns the
+        // whole string), which is covered separately as an edge case below.
+        const tail = fc.integer({ min: 1, max: 40 });
+
+        it('output never exceeds head + tail + ellipsis length', () => {
+            fc.assert(
+                fc.property(value, head, tail, (v, h, t) => {
+                    const out = truncateMiddle(v, h, t);
+                    // Either a pass-through (≤ original) or the bounded truncated form.
+                    expect(out.length).toBeLessThanOrEqual(
+                        Math.max(v.length, h + t + ELLIPSIS.length),
+                    );
+                }),
+                RUN,
+            );
+        });
+
+        // Build a value whose length is ≤ head + tail + 3 (a pass-through case).
+        const shortCase = fc
+            .record({ h: head, t: tail })
+            .chain(({ h, t }) =>
+                fc
+                    .string({ maxLength: h + t + ELLIPSIS.length })
+                    .map((v) => ({ v, h, t })),
+            );
+
+        // Build a value strictly longer than head + tail + 3 (a truncated case).
+        const longCase = fc
+            .record({ h: head, t: tail })
+            .chain(({ h, t }) =>
+                fc
+                    .string({ minLength: h + t + ELLIPSIS.length + 1 })
+                    .map((v) => ({ v, h, t })),
+            );
+
+        it('passes short values through unchanged (length ≤ head + tail + 3)', () => {
+            fc.assert(
+                fc.property(shortCase, ({ v, h, t }) => {
+                    expect(truncateMiddle(v, h, t)).toBe(v);
+                }),
+                RUN,
+            );
+        });
+
+        it('preserves head and tail substrings when truncated', () => {
+            fc.assert(
+                fc.property(longCase, ({ v, h, t }) => {
+                    const out = truncateMiddle(v, h, t);
+                    expect(out.startsWith(v.slice(0, h))).toBe(true);
+                    expect(out.includes(ELLIPSIS)).toBe(true);
+                    expect(out.endsWith(v.slice(-t))).toBe(true);
+                }),
+                RUN,
+            );
+        });
+
+        it('handles edge cases: empty string, boundary length, large head/tail, zero tail', () => {
+            expect(truncateMiddle('', 6, 4)).toBe('');
+            // exactly the boundary length (head + tail + 3) passes through.
+            const boundary = 'a'.repeat(6 + 4 + 3);
+            expect(truncateMiddle(boundary, 6, 4)).toBe(boundary);
+            // one over the boundary gets truncated.
+            const over = 'a'.repeat(6 + 4 + 4);
+            expect(truncateMiddle(over, 6, 4)).toBe(`${'a'.repeat(6)}...${'a'.repeat(4)}`);
+            // head/tail larger than the string → pass-through.
+            expect(truncateMiddle('abc', 50, 50)).toBe('abc');
+            // zero tail: slice(-0) returns the whole string, so the tail
+            // segment is the full address (documents current behaviour).
+            const src = 'GA2C5RFPE6G6KXHEIRHZXSNBR3';
+            expect(truncateMiddle(src, 6, 0)).toBe(`GA2C5R...${src}`);
         });
     });
 });

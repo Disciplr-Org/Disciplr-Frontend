@@ -1,12 +1,23 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { vi } from "vitest";
-import Vaults from "../../pages/Vaults";
+import Vaults, { VaultsInner } from "../../pages/Vaults";
+import type { Vault } from "../../types/vault";
 
 // Helper to mock fetch function
 const mockSuccess = <T,>(data: T) => vi.fn().mockResolvedValue(data);
 const mockFailure = (message = "Network error") =>
   vi.fn().mockRejectedValue(new Error(message));
+
+function CreateVaultStateProbe() {
+  const location = useLocation();
+  return (
+    <pre data-testid="create-vault-state">
+      {JSON.stringify(location.state ?? {})}
+    </pre>
+  );
+}
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -25,6 +36,22 @@ const localStorageMock = (() => {
   };
 })();
 
+// Mock matchMedia for Tooltip
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+// Mock localStorage
 Object.defineProperty(window, "localStorage", { value: localStorageMock });
 
 describe("Vaults page states", () => {
@@ -45,7 +72,7 @@ describe("Vaults page states", () => {
 
   test("shows empty state when no vaults", async () => {
     render(<Vaults fetchVaults={mockSuccess([])} />);
-    await waitFor(() => screen.getByText(/You don't have any vaults yet./i));
+    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
     expect(
       screen.getByRole("link", { name: /Create your first vault/i }),
     ).toBeInTheDocument();
@@ -58,14 +85,61 @@ describe("Vaults page states", () => {
         name: "Test Vault",
         amount: 1000,
         currency: "USDC",
-        status: "active" as any,
+        status: "active" as const,
         deadline: "2025-01-01T00:00:00Z",
-        milestones: [],
       },
     ];
     render(<Vaults fetchVaults={mockSuccess(mockData)} />);
     await waitFor(() => screen.getByText("Test Vault"));
     expect(screen.getByText(/Test Vault/i)).toBeInTheDocument();
+  });
+
+  test("duplicate action navigates to CreateVault with prefilled state", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as const,
+        deadline: "2025-01-01T00:00:00Z",
+        successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+        failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+        milestones: [{ title: "Milestone A", criteria: "Criteria A" }],
+        createdAt: "2024-01-01T00:00:00Z",
+        creatorAddress: "GCREA3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+        contractAddress: "GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+        transactions: [],
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/vaults"]}>
+        <Routes>
+          <Route
+            path="/vaults"
+            element={<VaultsInner fetchVaults={mockSuccess(mockData)} />}
+          />
+          <Route path="/vaults/create" element={<CreateVaultStateProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => screen.getByText("Test Vault"));
+    await userEvent.click(screen.getByRole("link", { name: /duplicate/i }));
+
+    const state = JSON.parse(
+      screen.getByTestId("create-vault-state").textContent ?? "{}",
+    );
+    expect(state.createVaultPrefill).toMatchObject({
+      sourceVaultId: "1",
+      sourceVaultName: "Test Vault",
+      amount: "1000",
+      successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+      failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+      milestones: [{ title: "Milestone A", criteria: "Criteria A" }],
+    });
+    expect(state.createVaultPrefill).not.toHaveProperty("deadline");
   });
 
   test("shows error state and can retry", async () => {
@@ -76,7 +150,7 @@ describe("Vaults page states", () => {
     expect(retryBtn).toBeInTheDocument();
     // Mock success on retry
     fetchMock.mockImplementationOnce(() => Promise.resolve([]));
-    userEvent.click(retryBtn);
+    await userEvent.click(retryBtn);
     await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
   });
 });
@@ -124,7 +198,7 @@ describe("Vaults view toggle", () => {
     await waitFor(() => screen.getByText("Test Vault"));
 
     const gridButton = screen.getByRole("radio", { name: "Grid" });
-    userEvent.click(gridButton);
+    await userEvent.click(gridButton);
 
     await waitFor(() =>
       expect(gridButton).toHaveAttribute("aria-checked", "true"),
@@ -153,10 +227,10 @@ describe("Vaults view toggle", () => {
     await waitFor(() => screen.getByText("Test Vault"));
 
     const gridButton = screen.getByRole("radio", { name: "Grid" });
-    userEvent.click(gridButton);
+    await userEvent.click(gridButton);
 
     const listButton = screen.getByRole("radio", { name: "List" });
-    userEvent.click(listButton);
+    await userEvent.click(listButton);
 
     await waitFor(() =>
       expect(listButton).toHaveAttribute("aria-checked", "true"),
@@ -182,7 +256,7 @@ describe("Vaults view toggle", () => {
     await waitFor(() => screen.getByText("Test Vault"));
 
     const gridButton = screen.getByRole("radio", { name: "Grid" });
-    userEvent.click(gridButton);
+    await userEvent.click(gridButton);
 
     await waitFor(() =>
       expect(gridButton).toHaveAttribute("aria-checked", "true"),
@@ -206,10 +280,10 @@ describe("Vaults view toggle", () => {
     await waitFor(() => screen.getByText("Test Vault"));
 
     const gridButton = screen.getByRole("radio", { name: "Grid" });
-    userEvent.click(gridButton);
+    await userEvent.click(gridButton);
 
     const listButton = screen.getByRole("radio", { name: "List" });
-    userEvent.click(listButton);
+    await userEvent.click(listButton);
 
     await waitFor(() =>
       expect(listButton).toHaveAttribute("aria-checked", "true"),
@@ -266,7 +340,7 @@ describe("Vaults view toggle", () => {
     await waitFor(() => screen.getByText("Test Vault"));
 
     const gridButton = screen.getByRole("radio", { name: "Grid" });
-    userEvent.click(gridButton);
+    await userEvent.click(gridButton);
 
     // VaultCard should be rendered with progress bar
     await waitFor(() => screen.getByLabelText(/Test Vault progress/i));

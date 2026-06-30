@@ -29,6 +29,7 @@ Notification preferences are stored globally and persisted across page reloads u
 
 ### Persistence Details
 Preferences are stored in `localStorage` under the key `"notification-preferences"`. Any component in the app can read from or write to this store to coordinate user notification preferences across surfaces (e.g., the notification settings page, header notification bell, etc.).
+
 ## Header Notification Bell
 
 The `NotificationBell` component is integrated into the Layout header to provide an interactive and accessible entry point to notifications:

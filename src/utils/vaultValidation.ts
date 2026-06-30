@@ -3,9 +3,31 @@ export interface CreateVaultFormValues {
   deadline: string;
   successAddress: string;
   failureAddress: string;
+  milestones?: CreateVaultMilestoneInput[];
 }
 
-export type CreateVaultErrors = Partial<Record<keyof CreateVaultFormValues, string>>;
+export interface CreateVaultMilestoneInput {
+  title: string;
+  criteria: string;
+}
+
+export interface CreateVaultMilestoneRowErrors {
+  title?: string;
+  criteria?: string;
+}
+
+export interface CreateVaultMilestoneErrors {
+  form?: string;
+  rows?: CreateVaultMilestoneRowErrors[];
+}
+
+type CreateVaultFieldName = Exclude<keyof CreateVaultFormValues, "milestones">;
+
+export type CreateVaultErrors = Partial<
+  Record<CreateVaultFieldName, string>
+> & {
+  milestones?: CreateVaultMilestoneErrors;
+};
 
 const STELLAR_PUBLIC_KEY = /^G[A-Z2-7]{55}$/;
 const USDC_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
@@ -32,23 +54,44 @@ export function validateCreateVault(
   const errors: CreateVaultErrors = {};
   const successAddress = values.successAddress.trim();
   const failureAddress = values.failureAddress.trim();
+  const verifierAddress = values.verifierAddress.trim();
 
   if (!isValidUsdcAmount(values.amount)) {
-    errors.amount = 'Enter a positive USDC amount with up to 7 decimal places.';
+    errors.amount = "Enter a positive USDC amount with up to 7 decimal places.";
   }
 
   if (!isFutureDeadline(values.deadline, now)) {
-    errors.deadline = 'Choose a future deadline.';
+    errors.deadline = "Choose a future deadline.";
   }
 
   if (!isValidStellarAddress(successAddress)) {
-    errors.successAddress = 'Enter a valid Stellar public key starting with G.';
+    errors.successAddress = "Enter a valid Stellar public key starting with G.";
   }
 
   if (!isValidStellarAddress(failureAddress)) {
-    errors.failureAddress = 'Enter a valid Stellar public key starting with G.';
+    errors.failureAddress = "Enter a valid Stellar public key starting with G.";
   } else if (successAddress === failureAddress) {
-    errors.failureAddress = 'Failure destination must be different from success destination.';
+    errors.failureAddress =
+      "Failure destination must be different from success destination.";
+  }
+
+  const milestoneErrors = validateMilestones(values.milestones);
+  if (milestoneErrors) {
+    errors.milestones = milestoneErrors;
+  }
+
+  const title = values.milestoneTitle.trim();
+  if (!title) {
+    errors.milestoneTitle = 'Enter a milestone title.';
+  } else if (title.length > MILESTONE_TITLE_MAX) {
+    errors.milestoneTitle = `Milestone title must be ${MILESTONE_TITLE_MAX} characters or fewer.`;
+  }
+
+  const criteria = values.milestoneCriteria.trim();
+  if (!criteria) {
+    errors.milestoneCriteria = 'Enter the milestone criteria.';
+  } else if (criteria.length > MILESTONE_CRITERIA_MAX) {
+    errors.milestoneCriteria = `Milestone criteria must be ${MILESTONE_CRITERIA_MAX} characters or fewer.`;
   }
 
   return errors;

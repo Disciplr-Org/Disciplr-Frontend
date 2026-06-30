@@ -33,6 +33,9 @@ const CSS_PROPS: Record<keyof typeof ANALYTICS_TOKEN_FALLBACKS, string> = {
   border: '--border',
   bg: '--bg',
   accentTransparent: '--accent-transparent',
+  legendGap: '--legend-gap',
+  legendSwatchSize: '--legend-swatch-size',
+  legendLabelRole: '--legend-label-role',
 }
 
 describe('getAnalyticsChartTokens', () => {
@@ -133,5 +136,77 @@ describe('ANALYTICS_TOKEN_FALLBACKS', () => {
       expect(typeof val).toBe('string')
       expect(val.trim().length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('legend tokens', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('falls back to default legend gap/swatch sizing when unset', () => {
+    const tokens = getAnalyticsChartTokens(makeRoot({}))
+    expect(tokens.legendGap).toBe(ANALYTICS_TOKEN_FALLBACKS.legendGap)
+    expect(tokens.legendSwatchSize).toBe(ANALYTICS_TOKEN_FALLBACKS.legendSwatchSize)
+    // legendLabelRole is not CSS-driven and always uses the fallback role.
+    expect(tokens.legendLabelRole).toBe(ANALYTICS_TOKEN_FALLBACKS.legendLabelRole)
+  })
+
+  it('resolves legend sizing from CSS variables when present', () => {
+    const tokens = getAnalyticsChartTokens(
+      makeRoot({ '--legend-gap': '1.25rem', '--legend-swatch-size': '0.5rem' }),
+    )
+    expect(tokens.legendGap).toBe('1.25rem')
+    expect(tokens.legendSwatchSize).toBe('0.5rem')
+  })
+})
+
+describe('custom root element handling', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('reads tokens from the provided root, not document.documentElement', () => {
+    // documentElement returns one set of values…
+    const customRoot = document.createElement('section')
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((target) => {
+      if (target === customRoot) {
+        return {
+          getPropertyValue: (p: string) => (p === '--accent' ? '#fromcustom' : ''),
+        } as unknown as CSSStyleDeclaration
+      }
+      // a non-custom root would resolve --accent to a different value
+      return {
+        getPropertyValue: (p: string) => (p === '--accent' ? '#fromdocument' : ''),
+      } as unknown as CSSStyleDeclaration
+    })
+
+    expect(getAnalyticsChartTokens(customRoot).accent).toBe('#fromcustom')
+    expect(getAnalyticsChartTokens().accent).toBe('#fromdocument')
+  })
+})
+
+describe('buildAnalyticsSeriesColors determinism for N series', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('produces identical output across repeated calls (stable for N series)', () => {
+    const tokens = getAnalyticsChartTokens(makeRoot({}))
+    const first = buildAnalyticsSeriesColors(tokens)
+    const second = buildAnalyticsSeriesColors(tokens)
+    expect(second).toEqual(first)
+    // pie palette ordering is stable for the N=3 series case.
+    expect(second.pie).toEqual(first.pie)
+    expect(second.pie).toHaveLength(3)
+  })
+
+  it('reflects token changes deterministically without leaking previous values', () => {
+    const a = buildAnalyticsSeriesColors(getAnalyticsChartTokens(makeRoot({ '--success': '#001122' })))
+    const b = buildAnalyticsSeriesColors(getAnalyticsChartTokens(makeRoot({ '--success': '#334455' })))
+    expect(a.success).toBe('#001122')
+    expect(b.success).toBe('#334455')
+    expect(a.pie[0]).toBe('#001122')
+    expect(b.pie[0]).toBe('#334455')
   })
 })

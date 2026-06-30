@@ -41,14 +41,14 @@ export default function VerifierDashboard() {
       <section className="flex gap-4 mt-4">
         <button
           onClick={() => navigate('/verifier/queue')}
-          className="px-6 py-3 font-medium rounded transition"
+          className="px-6 py-3 font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
           style={{ background: 'var(--accent)', color: 'white' }}
         >
           View Pending Queue
         </button>
         <button
           onClick={() => navigate('/verifier/history')}
-          className="px-6 py-3 border font-medium rounded transition"
+          className="px-6 py-3 border font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
           style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'transparent' }}
         >
           View History
@@ -82,11 +82,18 @@ export default function VerifierDashboard() {
                     className="font-bold"
                     style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
                   >
+                    {task.daysRemaining <= 3 && (
+                      <span aria-hidden="true">⚠ </span>
+                    )}
                     {task.daysRemaining} days left
+                    {task.daysRemaining <= 3 && (
+                      <span className="sr-only"> (urgent)</span>
+                    )}
                   </Text>
                   <button
                     onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                    className="font-medium text-sm mt-2 transition"
+                    aria-label={`Review ${task.vaultName}`}
+                    className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                     style={{ color: 'var(--accent)' }}
                   >
                     Review Now &rarr;
@@ -127,7 +134,8 @@ export default function VerifierDashboard() {
                   </Text>
                   <button
                     onClick={() => navigate('/verifier/history')}
-                    className="font-medium text-sm mt-2 transition text-left md:text-right"
+                    aria-label={`View ${task.vaultName} in History`}
+                    className="font-medium text-sm mt-2 transition text-left md:text-right focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                     style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >
                     View in History &rarr;

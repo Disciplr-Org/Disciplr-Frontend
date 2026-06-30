@@ -5,6 +5,10 @@ import { Text } from "../components/Text";
 import VaultCard from "../components/VaultCard";
 import { listVaults } from "../services/vaultService";
 import type { Vault } from "../types/vault";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import { filterVaults, sortVaults } from "../utils/vaultFilter";
+import type { VaultStatus } from "../types/vault";
+import type { VaultSortOptions } from "../utils/vaultFilter";
 
 const STORAGE_KEY = "vaults-view-preference";
 const DEFAULT_VIEW: "list" | "grid" = "list";
@@ -56,13 +60,22 @@ interface VaultsInnerProps {
   fetchVaults?: () => Promise<Vault[]>;
 }
 
-function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
+export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [status, setStatus] = useState<"loading" | "empty" | "data" | "error">(
     "loading",
   );
   const [retryCount, setRetryCount] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">(getViewPreference);
+
+  // Filtering and sorting state (keeping defaults)
+  const [statusFilter] = useState<VaultStatus | "all">("all");
+  const [searchQuery] = useState("");
+  const [sortOptions] = useState<VaultSortOptions>({
+    by: "deadline",
+    dir: "asc",
+  });
+
   // Use a ref so changing the fetchVaults prop identity doesn't re-trigger the effect
   const fetchRef = useRef(fetchVaults);
   fetchRef.current = fetchVaults;
@@ -91,6 +104,13 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
     setViewMode(newView);
     setViewPreference(newView);
   }, []);
+
+  // Apply filters and sorting
+  const filteredVaults = filterVaults(vaults, {
+    status: statusFilter,
+    query: searchQuery,
+  });
+  const sortedVaults = sortVaults(filteredVaults, sortOptions);
 
   return (
     <div>
@@ -219,64 +239,83 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
                 gap: "0.75rem",
               }}
             >
-              {vaults.map((vault) => (
-                <Link
+              {sortedVaults.map((vault) => (
+                <div
                   key={vault.id}
-                  to={`/vaults/${vault.id}`}
-                  style={{ textDecoration: "none", color: "inherit" }}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "1rem 1.25rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
+                  }}
                 >
+                  <div>
+                    <Text
+                      role="body"
+                      as="div"
+                      style={{ fontWeight: 600, marginBottom: 4 }}
+                    >
+                      {vault.name}
+                    </Text>
+                    <Text
+                      role="caption"
+                      as="div"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Deadline:{" "}
+                      {new Date(vault.deadline).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </div>
                   <div
                     style={{
-                      background: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius)",
-                      padding: "1rem 1.25rem",
                       display: "flex",
-                      justifyContent: "space-between",
                       alignItems: "center",
+                      gap: "1rem",
                       flexWrap: "wrap",
-                      gap: "0.75rem",
                     }}
                   >
-                    <div>
-                      <Text
-                        role="body"
-                        as="div"
-                        style={{ fontWeight: 600, marginBottom: 4 }}
-                      >
-                        {vault.name}
-                      </Text>
-                      <Text
-                        role="caption"
-                        as="div"
-                        style={{ color: "var(--muted)" }}
-                      >
-                        Deadline:{" "}
-                        {new Date(vault.deadline).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </Text>
-                    </div>
-                    <div
+                    <Text
+                      role="body"
+                      as="span"
+                      style={{ fontWeight: 700, color: "var(--accent)" }}
+                    >
+                      {vault.amount.toLocaleString()} {vault.currency}
+                    </Text>
+                    <StatusChip status={vault.status} />
+                    <Link
+                      to={`/vaults/${vault.id}`}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "1rem",
+                        color: "var(--accent)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        textDecoration: "none",
                       }}
                     >
-                      <Text
-                        role="body"
-                        as="span"
-                        style={{ fontWeight: 700, color: "var(--accent)" }}
-                      >
-                        {vault.amount.toLocaleString()} {vault.currency}
-                      </Text>
-                      <StatusChip status={vault.status} />
-                    </div>
+                      View Details
+                    </Link>
+                    <Link
+                      to="/vaults/create"
+                      state={createVaultPrefillFromVault(vault)}
+                      style={{
+                        color: "var(--accent)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Duplicate
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -288,7 +327,7 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
                 gap: "1rem",
               }}
             >
-              {vaults.map((vault) => (
+              {sortedVaults.map((vault) => (
                 <VaultCard
                   key={vault.id}
                   id={vault.id}
@@ -308,8 +347,6 @@ function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   );
 }
 
-// Default export wraps with MemoryRouter for standalone usage;
-// tests that need router control can wrap themselves.
 // Default export checks for router context to avoid nested router issues in production
 export default function Vaults(props: VaultsInnerProps) {
   return (
