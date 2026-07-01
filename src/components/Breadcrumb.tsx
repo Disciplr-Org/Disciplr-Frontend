@@ -86,7 +86,7 @@ export function Breadcrumb({
               {isCurrent || !segment.to ? (
                 <span
                   aria-current={isCurrent ? 'page' : undefined}
-                  title={wasTruncated ? segment.label : undefined}
+                  title={isCurrent ? (wasTruncated ? segment.label : undefined) : segment.label}
                   style={{
                     display: 'inline-block',
                     maxWidth: isCurrent ? '18rem' : '12rem',
@@ -103,6 +103,7 @@ export function Breadcrumb({
               ) : (
                 <Link
                   to={segment.to}
+                  title={segment.label}
                   style={{
                     display: 'inline-block',
                     maxWidth: '12rem',
