@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import VerifierDashboard from '../VerifierDashboard';
 import PendingValidations from '../PendingValidations';
 import ValidationDetail from '../ValidationDetail';
 import ValidationHistory from '../ValidationHistory';
@@ -58,6 +59,25 @@ function resetStore() {
   });
 }
 
+function clickReviewForVault(vaultName: string) {
+  const row = screen.getByRole('row', { name: new RegExp(vaultName) });
+  fireEvent.click(within(row).getByRole('button', { name: /Review/i }));
+}
+
+async function navigateFromQueueToHistory() {
+  fireEvent.click(screen.getByText(/Back to Dashboard/i));
+
+  await waitFor(() => {
+    expect(screen.getByText('Verifier Dashboard')).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: /View History/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText('Validation History')).toBeInTheDocument();
+  });
+}
+
 describe('Verifier Flow Integration Tests', () => {
   beforeEach(() => {
     resetStore();
@@ -65,9 +85,10 @@ describe('Verifier Flow Integration Tests', () => {
 
   describe('Approve flow', () => {
     it('approves a pending task and it appears in history with correct status and notes', async () => {
-      const { container } = render(
+      render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -79,9 +100,8 @@ describe('Verifier Flow Integration Tests', () => {
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
       expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
 
-      // Click Review on the first task (v-101)
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Click Review on v-101, independent of urgency sorting.
+      clickReviewForVault('Q3 Development Fund');
 
       // Should navigate to ValidationDetail for v-101
       await waitFor(() => {
@@ -90,7 +110,7 @@ describe('Verifier Flow Integration Tests', () => {
       });
 
       // Check all criteria to enable approve button
-      const criteriaCheckboxes = screen.getAllByRole('checkbox');
+      const criteriaCheckboxes = screen.getAllByRole<HTMLInputElement>('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
         if (!checkbox.checked) {
           fireEvent.click(checkbox);
@@ -114,17 +134,10 @@ describe('Verifier Flow Integration Tests', () => {
       });
 
       // Verify pending count decreased from 2 to 1
-      expect(screen.getByText('Q3 Development Fund')).not.toBeInTheDocument();
+      expect(screen.queryByText('Q3 Development Fund')).not.toBeInTheDocument();
       expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
 
-      // Navigate to history
-      const historyButton = screen.getByRole('button', { name: /View History/i });
-      fireEvent.click(historyButton);
-
-      // Should navigate to ValidationHistory
-      await waitFor(() => {
-        expect(screen.getByText('Validation History')).toBeInTheDocument();
-      });
+      await navigateFromQueueToHistory();
 
       // Verify the approved task appears in history
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
@@ -138,9 +151,10 @@ describe('Verifier Flow Integration Tests', () => {
     });
 
     it('pending count decrements after approval', async () => {
-      const { container } = render(
+      render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -153,8 +167,7 @@ describe('Verifier Flow Integration Tests', () => {
       expect(initialPending).toBe(2);
 
       // Navigate to detail and approve
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      clickReviewForVault('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
@@ -162,7 +175,7 @@ describe('Verifier Flow Integration Tests', () => {
 
       // Approve without criteria (task v-101 has criteria, but let's test v-102 which might not)
       // Actually, let's just check all criteria
-      const criteriaCheckboxes = screen.getAllByRole('checkbox');
+      const criteriaCheckboxes = screen.getAllByRole<HTMLInputElement>('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
         if (!checkbox.checked) {
           fireEvent.click(checkbox);
@@ -184,10 +197,11 @@ describe('Verifier Flow Integration Tests', () => {
   });
 
   describe('Reject flow', () => {
-    it('rejects a pending task and it appears in history with rejected status', async () => {
+    it('requires rejection notes, removes the task from pending, and persists it in history', async () => {
       render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -195,9 +209,8 @@ describe('Verifier Flow Integration Tests', () => {
         </MemoryRouter>
       );
 
-      // Click Review on the first task
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Click Review on v-101, independent of urgency sorting.
+      clickReviewForVault('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
@@ -206,12 +219,18 @@ describe('Verifier Flow Integration Tests', () => {
       // Click Reject Milestone
       fireEvent.click(screen.getByRole('button', { name: /Reject Milestone/i }));
 
+      const confirmBtn = screen.getByRole('button', { name: /Confirm Reject/i });
+      expect(confirmBtn).toBeDisabled();
+      expect(screen.getByText('Notes are required for rejection.')).toBeInTheDocument();
+
+      expect(useVerifierStore.getState().pendingValidations.map((task) => task.id)).toEqual(['v-101', 'v-102']);
+      expect(useVerifierStore.getState().validationHistory.map((task) => task.id)).toEqual(['v-099']);
+
       // Add rejection notes in modal
       const modalNotesArea = screen.getByPlaceholderText(/Reason for rejection is required/i);
       fireEvent.change(modalNotesArea, { target: { value: 'Deployment URL not accessible.' } });
 
       // Confirm rejection
-      const confirmBtn = screen.getByRole('button', { name: /Confirm Reject/i });
       fireEvent.click(confirmBtn);
 
       // Should navigate back to queue
@@ -219,18 +238,23 @@ describe('Verifier Flow Integration Tests', () => {
         expect(screen.getByText('Pending Validations')).toBeInTheDocument();
       });
 
-      // Navigate to history
-      fireEvent.click(screen.getByRole('button', { name: /View History/i }));
+      expect(screen.queryByText('Q3 Development Fund')).not.toBeInTheDocument();
+      expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
+      expect(useVerifierStore.getState().pendingValidations.map((task) => task.id)).toEqual(['v-102']);
 
-      await waitFor(() => {
-        expect(screen.getByText('Validation History')).toBeInTheDocument();
+      const rejectedRecord = useVerifierStore.getState().validationHistory.find((task) => task.id === 'v-101');
+      expect(rejectedRecord).toMatchObject({
+        status: 'rejected',
+        notes: 'Deployment URL not accessible.',
       });
+
+      await navigateFromQueueToHistory();
 
       // Verify the rejected task appears in history
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
       
       // Verify status is rejected
-      expect(screen.getByText('rejected')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Rejected' })).toBeInTheDocument();
 
       // Verify rejection notes are present
       expect(screen.getByText(/Deployment URL not accessible./)).toBeInTheDocument();
@@ -242,6 +266,7 @@ describe('Verifier Flow Integration Tests', () => {
       render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
           </Routes>
@@ -266,12 +291,7 @@ describe('Verifier Flow Integration Tests', () => {
         expect(screen.getByText('All caught up!')).toBeInTheDocument();
       });
 
-      // Navigate to history
-      fireEvent.click(screen.getByRole('button', { name: /View History/i }));
-
-      await waitFor(() => {
-        expect(screen.getByText('Validation History')).toBeInTheDocument();
-      });
+      await navigateFromQueueToHistory();
 
       // Verify both tasks appear in history
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
@@ -292,6 +312,7 @@ describe('Verifier Flow Integration Tests', () => {
       render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -300,8 +321,7 @@ describe('Verifier Flow Integration Tests', () => {
       );
 
       // Navigate to detail
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      clickReviewForVault('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
@@ -326,6 +346,7 @@ describe('Verifier Flow Integration Tests', () => {
       render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -334,14 +355,13 @@ describe('Verifier Flow Integration Tests', () => {
       );
 
       // Approve a task
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      clickReviewForVault('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
       });
 
-      const criteriaCheckboxes = screen.getAllByRole('checkbox');
+      const criteriaCheckboxes = screen.getAllByRole<HTMLInputElement>('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
         if (!checkbox.checked) {
           fireEvent.click(checkbox);
@@ -355,12 +375,7 @@ describe('Verifier Flow Integration Tests', () => {
         expect(screen.getByText('Pending Validations')).toBeInTheDocument();
       });
 
-      // Navigate to history and back
-      fireEvent.click(screen.getByRole('button', { name: /View History/i }));
-
-      await waitFor(() => {
-        expect(screen.getByText('Validation History')).toBeInTheDocument();
-      });
+      await navigateFromQueueToHistory();
 
       // Navigate back to queue
       fireEvent.click(screen.getByText(/Back to Dashboard/i));
