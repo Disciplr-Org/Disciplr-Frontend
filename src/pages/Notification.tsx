@@ -5,33 +5,36 @@ import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { Link } from "react-router-dom";
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion"; // <-- Import the hook
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
   const setNotifications = useNotification((state) => state.setNotification);
   const [currentNotification, setCurrentNotification] = useState(notifications);
-  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] =
-    useState("all");
-  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] =
-    useState("all");
+  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] = useState("all");
+  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const itemsPerPage = 5;
 
-  // 1. Calculate the data for the current page
+  const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
+
+  // Define a clean transition config that zero-durations motion elements when flag is on
+  const activeTransition = prefersReducedMotion 
+    ? { duration: 0 } 
+    : transitionEnter;
+
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = currentNotification.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
 
-  const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // 2. Function to handle clicks
     const handleClickOutside = (event: MouseEvent) => {
-      // If the clicked element is NOT inside our container, close it
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -40,10 +43,7 @@ export default function Notification() {
       }
     };
 
-    // 3. Attach listener to the whole document
     document.addEventListener("mousedown", handleClickOutside);
-
-    // 4. Cleanup listener when component unmounts
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
@@ -51,7 +51,6 @@ export default function Notification() {
 
   const filterNotification = () => {
     let filtered = notifications;
-
     if (!filtered) return;
 
     if (currentFilterReadSeletion !== "all") {
@@ -68,26 +67,26 @@ export default function Notification() {
     setCurrentNotification(filtered);
     setCurrentPage(1);
   };
+
   useEffect(() => {
     filterNotification();
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
-  // 2. Calculate total pages
   const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
+  
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
     setCurrentNotification((prev) =>
       prev.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
   };
+
   return (
     <>
       <div ref={containerRef} className="flex justify-between items-center">
@@ -123,10 +122,10 @@ export default function Notification() {
             <AnimatePresence>
               {isFilterOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={transitionEnter}
+                  exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
+                  transition={activeTransition} // <-- Assign the guarded duration here
                   className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md"
                   style={{ zIndex: 'var(--z-index-drawer)' }}
                 >
