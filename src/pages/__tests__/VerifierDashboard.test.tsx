@@ -124,19 +124,19 @@ describe('VerifierDashboard', () => {
 
   it('shows days remaining for each task', () => {
     renderPage();
-    expect(screen.getByText('10 days left')).toBeInTheDocument();
-    expect(screen.getByText('2 days left')).toBeInTheDocument();
+    expect(screen.getByText(/10 days left/)).toBeInTheDocument();
+    expect(screen.getByText(/2 days left/)).toBeInTheDocument();
   });
 
   it('applies danger color for tasks with 3 or fewer days remaining', () => {
     renderPage();
-    const urgentText = screen.getByText('2 days left');
+    const urgentText = screen.getByText(/2 days left/);
     expect(urgentText.getAttribute('style')).toContain('var(--danger)');
   });
 
   it('applies text color for tasks with more than 3 days remaining', () => {
     renderPage();
-    const normalText = screen.getByText('10 days left');
+    const normalText = screen.getByText(/10 days left/);
     expect(normalText.getAttribute('style')).toContain('var(--text)');
   });
 
@@ -145,6 +145,36 @@ describe('VerifierDashboard', () => {
     const reviewButtons = screen.getAllByText('Review Now →');
     fireEvent.click(reviewButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue/v-1');
+  });
+
+  it('gives each Review Now button an accessible name including the vault name', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Review Alpha Vault' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review Beta Vault' })).toBeInTheDocument();
+  });
+
+  it('shows urgency text (not just color) for tasks with 3 or fewer days remaining', () => {
+    renderPage();
+    const urgentContainer = screen.getByText(/2 days left/) as HTMLElement;
+    expect(urgentContainer.textContent).toContain('(urgent)');
+  });
+
+  it('does not show urgency text for tasks with more than 3 days remaining', () => {
+    renderPage();
+    const normalContainer = screen.getByText(/10 days left/) as HTMLElement;
+    expect(normalContainer.textContent).not.toContain('(urgent)');
+  });
+
+  it('Review Now buttons have focus-visible outline class', () => {
+    renderPage();
+    const btn = screen.getByRole('button', { name: 'Review Alpha Vault' });
+    expect(btn.className).toContain('focus-visible:outline');
+  });
+
+  it('nav buttons have focus-visible outline class', () => {
+    renderPage();
+    expect(screen.getByText('View Pending Queue').className).toContain('focus-visible:outline');
+    expect(screen.getByText('View History').className).toContain('focus-visible:outline');
   });
 
   it('uses design tokens for stat cards', () => {
@@ -195,9 +225,20 @@ describe('VerifierDashboard', () => {
 
     it('navigates to history page when View in History is clicked', () => {
       renderPage();
-      const viewHistoryBtn = screen.getByRole('button', { name: 'View in History →' });
+      const viewHistoryBtn = screen.getByRole('button', { name: 'View Gamma Vault in History' });
       fireEvent.click(viewHistoryBtn);
       expect(mockNavigate).toHaveBeenCalledWith('/verifier/history');
+    });
+
+    it('gives each View in History button an accessible name including the vault name', () => {
+      renderPage();
+      expect(screen.getByRole('button', { name: 'View Gamma Vault in History' })).toBeInTheDocument();
+    });
+
+    it('View in History buttons have focus-visible outline class', () => {
+      renderPage();
+      const btn = screen.getByRole('button', { name: 'View Gamma Vault in History' });
+      expect(btn.className).toContain('focus-visible:outline');
     });
 
     it('renders a maximum of 5 recent decisions', () => {

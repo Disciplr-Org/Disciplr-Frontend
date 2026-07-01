@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
-import { StatusChip } from './StatusChip';
 import type { VaultStatus } from '../types/vault';
 
 export type { VaultStatus };

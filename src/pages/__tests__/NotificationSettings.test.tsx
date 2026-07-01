@@ -6,23 +6,23 @@ type SourceAssertion = {
 const sourceAssertions: SourceAssertion[] = [
   {
     name: "uses checked state for email notifications",
-    pattern: /checked=\{emailNotification\}/,
+    pattern: /checked=\{emailNotification(?:\s*\?\?\s*false)?\}/,
   },
   {
     name: "uses checked state for push notifications",
-    pattern: /checked=\{pushNotification\}/,
+    pattern: /checked=\{pushNotification(?:\s*\?\?\s*false)?\}/,
   },
   {
     name: "uses tokenized surface and text colors",
     pattern: /background:\s*var\(--surface\)[\s\S]*color:\s*var\(--text\)/,
   },
   {
-    name: "themes toggle focus rings with the accent token",
-    pattern: /peer-focus:ring-\[var\(--accent-transparent\)\]/,
+    name: "adopts Switch component for email toggle",
+    pattern: /<Switch[\s\S]*label="Email Notification"/,
   },
   {
-    name: "themes checked toggle tracks with the accent token",
-    pattern: /\.peer:checked \+ \.notification-settings-toggle[\s\S]*background:\s*var\(--accent\)/,
+    name: "adopts Switch component for push toggle",
+    pattern: /<Switch[\s\S]*label="Push Notification"/,
   },
 ];
 
@@ -32,7 +32,7 @@ export function assertNotificationSettingsSource(source: string) {
     .map(({ name }) => name);
 
   if (missing.length > 0) {
-    throw new Error(`NotificationSettings theming assertions failed: ${missing.join(", ")}`);
+    throw new Error(`NotificationSettings assertions failed: ${missing.join(", ")}`);
   }
 }
 
@@ -50,7 +50,7 @@ const source = readFileSync(
   'utf8',
 );
 
-describe('NotificationSettings theming', () => {
+describe('NotificationSettings source assertions', () => {
   notificationSettingsThemeTestCases.forEach((name) => {
     it(name, () => {
       expect(() => assertNotificationSettingsSource(source)).not.toThrow();

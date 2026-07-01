@@ -1,12 +1,10 @@
-import { useState, useMemo, useCallback, memo, useEffect } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { windowRange, WINDOW_THRESHOLD } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
 import { computeTxTotals } from "../utils/txTotals";
 import { AddressDisplay } from "../components/AddressDisplay";
 import { Tooltip } from "../components/Tooltip";
 import type { TxType, TxStatus } from "../types/vault";
-import type { VaultActivityRecord } from "../services/vaultService";
-import { listAllActivity } from "../services/vaultService";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type Transaction = VaultActivityRecord;
@@ -89,14 +87,6 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-// VAULTS filter options are derived from loaded transactions in the component.
-const TYPES: string[] = [
-  "All Types",
-  "create",
-  "validate",
-  "release",
-  "redirect",
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function truncHash(hash: string, head = 8, tail = 6): string {
@@ -105,11 +95,7 @@ function truncHash(hash: string, head = 8, tail = 6): string {
 }
 
 function fmtTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  if (diff < 60000) return "just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatRelativeTime(date);
 }
 
 function fmtFullTime(date: Date): string {
@@ -131,27 +117,25 @@ function fmtAmount(n: number): string {
   });
 }
 
+interface VaultTransactionsProps {
+  transactions?: Transaction[];
+}
 
 // ── Main Component ─────────────────────────────────────────────────────────────────
-export default function VaultTransactions() {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+interface VaultTransactionsProps {
+  transactions?: Transaction[];
+}
 
-  useEffect(() => {
-    listAllActivity().then((data) => {
-      setAllTransactions(data);
-      setLoading(false);
-    });
-  }, []);
+interface SortState {
+  key: TransactionSortKey;
+  dir: TransactionSortDir;
+}
 
-  // Derive vault filter options from loaded transactions
-  const VAULTS = useMemo(
-    () => ["All Vaults", ...Array.from(new Set(allTransactions.map((t) => t.vault)))],
-    [allTransactions]
-  );
+const DEFAULT_SORT: SortState = { key: "timestamp", dir: "desc" };
 
-  const transactions = allTransactions;
-
+export default function VaultTransactions({
+  transactions: providedTransactions,
+}: VaultTransactionsProps = {}) {
   const [selectedTypes, setSelectedTypes] = useState<TxType[]>([...ALL_TYPES]);
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -160,13 +144,26 @@ export default function VaultTransactions() {
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
   const [anchorIndex, setAnchorIndex] = useState(0);
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1800);
+  }, []);
+
+  const updateSort = useCallback((key: TransactionSortKey) => {
+    setSortState((current) => ({
+      key,
+      dir:
+        current.key === key
+          ? current.dir === "desc"
+            ? "asc"
+            : "desc"
+          : "asc",
+    }));
+    setAnchorIndex(0);
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
@@ -185,12 +182,7 @@ export default function VaultTransactions() {
       list = list.filter((t) => t.amount >= parseFloat(amountMin));
     if (amountMax !== "")
       list = list.filter((t) => t.amount <= parseFloat(amountMax));
-    list.sort((a, b) =>
-      sortDir === "desc"
-        ? b.timestamp.getTime() - a.timestamp.getTime()
-        : a.timestamp.getTime() - b.timestamp.getTime(),
-    );
-    return list;
+    return sortTransactions(list, sortState.key, sortState.dir);
   }, [
     selectedTypes,
     filterVault,
@@ -198,20 +190,38 @@ export default function VaultTransactions() {
     searchHash,
     amountMin,
     amountMax,
-    sortDir,
+    sortState,
     transactions,
   ]);
 
-  const pending = useMemo(() => filtered.filter((t) => t.status === "pending"), [filtered]);
-  const failed = useMemo(() => filtered.filter((t) => t.status === "failed"), [filtered]);
-  const rest = useMemo(() => filtered.filter((t) => t.status === "confirmed"), [filtered]);
+  const pending = useMemo(
+    () => filtered.filter((t) => t.status === "pending"),
+    [filtered],
+  );
+  const failed = useMemo(
+    () => filtered.filter((t) => t.status === "failed"),
+    [filtered],
+  );
+  const rest = useMemo(
+    () => filtered.filter((t) => t.status === "confirmed"),
+    [filtered],
+  );
 
   // Reset window anchor when filters change so the user always sees the top.
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
-  const pendingWindow = useMemo(() => windowRange(pending, anchorIndex), [pending, anchorIndex]);
-  const failedWindow = useMemo(() => windowRange(failed, anchorIndex), [failed, anchorIndex]);
-  const restWindow = useMemo(() => windowRange(rest, anchorIndex), [rest, anchorIndex]);
+  const pendingWindow = useMemo(
+    () => windowRange(pending, anchorIndex),
+    [pending, anchorIndex],
+  );
+  const failedWindow = useMemo(
+    () => windowRange(failed, anchorIndex),
+    [failed, anchorIndex],
+  );
+  const restWindow = useMemo(
+    () => windowRange(rest, anchorIndex),
+    [rest, anchorIndex],
+  );
 
   const stats = useMemo(
     () => ({
@@ -282,7 +292,12 @@ export default function VaultTransactions() {
             </div>
             <button
               className="vt-export-btn"
-              onClick={() => downloadCsv(toCsv(filtered, "transactions"), "vault-transactions.csv")}
+              onClick={() =>
+                downloadCsv(
+                  toCsv(filtered, "transactions"),
+                  "vault-transactions.csv",
+                )
+              }
               disabled={filtered.length === 0}
             >
               <ExportIcon />
@@ -427,12 +442,16 @@ export default function VaultTransactions() {
               </div>
               <button
                 className="vt-sort-btn"
-                onClick={() =>
-                  setSortDir((d) => (d === "desc" ? "asc" : "desc"))
-                }
+                onClick={() => updateSort("timestamp")}
               >
-                <SortIcon dir={sortDir} />
-                {sortDir === "desc" ? "Newest" : "Oldest"}
+                <SortIcon
+                  dir={
+                    sortState.key === "timestamp" ? sortState.dir : "desc"
+                  }
+                />
+                {sortState.key === "timestamp" && sortState.dir === "asc"
+                  ? "Oldest"
+                  : "Newest"}
               </button>
               {hasFilters && (
                 <button className="vt-clear-btn" onClick={clearFilters}>
@@ -444,7 +463,13 @@ export default function VaultTransactions() {
 
           {/* Pending */}
           {pending.length > 0 && (
-            <Section title="Pending" accent="#fcd34d" count={pending.length}>
+            <Section
+              title="Pending"
+              accent="#fcd34d"
+              count={pending.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {pendingWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -460,7 +485,9 @@ export default function VaultTransactions() {
                   end={pendingWindow.endIndex}
                   total={pending.length}
                   onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
-                  onNext={() => setAnchorIndex((a) => Math.min(pending.length - 1, a + 10))}
+                  onNext={() =>
+                    setAnchorIndex((a) => Math.min(pending.length - 1, a + 10))
+                  }
                 />
               )}
             </Section>
@@ -468,7 +495,13 @@ export default function VaultTransactions() {
 
           {/* Failed */}
           {failed.length > 0 && (
-            <Section title="Failed" accent="#fca5a5" count={failed.length}>
+            <Section
+              title="Failed"
+              accent="#fca5a5"
+              count={failed.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {failedWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -486,14 +519,22 @@ export default function VaultTransactions() {
                   end={failedWindow.endIndex}
                   total={failed.length}
                   onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
-                  onNext={() => setAnchorIndex((a) => Math.min(failed.length - 1, a + 10))}
+                  onNext={() =>
+                    setAnchorIndex((a) => Math.min(failed.length - 1, a + 10))
+                  }
                 />
               )}
             </Section>
           )}
 
           {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+          <Section
+            title="Confirmed"
+            accent="#6ee7b7"
+            count={rest.length}
+            sortState={sortState}
+            onSort={updateSort}
+          >
             {rest.length === 0 ? (
               <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
             ) : (
@@ -513,7 +554,9 @@ export default function VaultTransactions() {
                     end={restWindow.endIndex}
                     total={rest.length}
                     onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
-                    onNext={() => setAnchorIndex((a) => Math.min(rest.length - 1, a + 10))}
+                    onNext={() =>
+                      setAnchorIndex((a) => Math.min(rest.length - 1, a + 10))
+                    }
                   />
                 )}
               </>
@@ -539,15 +582,36 @@ interface SectionProps {
   title: string;
   accent: string;
   count: number;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
   children: React.ReactNode;
 }
 
-function Section({ title, accent, count, children }: SectionProps) {
+function ariaSortFor(
+  sortState: SortState,
+  key: TransactionSortKey,
+): "ascending" | "descending" | "none" {
+  if (sortState.key !== key) return "none";
+  return sortState.dir === "asc" ? "ascending" : "descending";
+}
+
+function Section({
+  title,
+  accent,
+  count,
+  sortState,
+  onSort,
+  children,
+}: SectionProps) {
   const hasRows = count > 0;
   return (
     <section className="vt-section">
       <div className="vt-section-header">
-        <span className="vt-section-dot" style={{ background: accent }} aria-hidden="true" />
+        <span
+          className="vt-section-dot"
+          style={{ background: accent }}
+          aria-hidden="true"
+        />
         <span className="vt-section-title">{title}</span>
         <span className="vt-section-count">{count}</span>
       </div>
@@ -558,19 +622,81 @@ function Section({ title, accent, count, children }: SectionProps) {
       >
         {hasRows && (
           <div role="rowgroup">
-            <div role="row" className="vt-sr-only">
-              <span role="columnheader">Transaction Type</span>
-              <span role="columnheader">Vault &amp; Details</span>
-              <span role="columnheader">Amount</span>
-              <span role="columnheader">Status</span>
+            <div role="row" className="vt-tx-header-row">
+              <SortableColumnHeader
+                label="Transaction Type"
+                sortKey="type"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Vault &amp; Details
+              </span>
+              <SortableColumnHeader
+                label="Amount"
+                sortKey="amount"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <SortableColumnHeader
+                label="Fee"
+                sortKey="fee"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Status
+              </span>
+              <SortableColumnHeader
+                label="Timestamp"
+                sortKey="timestamp"
+                sortState={sortState}
+                onSort={onSort}
+              />
             </div>
           </div>
         )}
-        <div role={hasRows ? "rowgroup" : undefined}>
-          {children}
-        </div>
+        <div role={hasRows ? "rowgroup" : undefined}>{children}</div>
       </div>
     </section>
+  );
+}
+
+interface SortableColumnHeaderProps {
+  label: string;
+  sortKey: TransactionSortKey;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
+}
+
+function SortableColumnHeader({
+  label,
+  sortKey,
+  sortState,
+  onSort,
+}: SortableColumnHeaderProps) {
+  const active = sortState.key === sortKey;
+  const nextDirection =
+    active && sortState.dir === "desc"
+      ? "ascending"
+      : active
+        ? "descending"
+        : "ascending";
+
+  return (
+    <span role="columnheader" aria-sort={ariaSortFor(sortState, sortKey)}>
+      <button
+        type="button"
+        className="vt-column-sort-btn"
+        onClick={() => onSort(sortKey)}
+        aria-label={`Sort by ${label} ${nextDirection}`}
+      >
+        {label}
+        <span aria-hidden="true" className="vt-column-sort-indicator">
+          {active ? (sortState.dir === "asc" ? "ASC" : "DESC") : "SORT"}
+        </span>
+      </button>
+    </span>
   );
 }
 
@@ -582,7 +708,13 @@ interface TxRowProps {
   children?: React.ReactNode;
 }
 
-const TxRow = memo(function TxRow({ tx, onSelect, onCopy, copiedId, children }: TxRowProps) {
+const TxRow = memo(function TxRow({
+  tx,
+  onSelect,
+  onCopy,
+  copiedId,
+  children,
+}: TxRowProps) {
   const meta = TYPE_META[tx.type];
   const status = STATUS_META[tx.status];
   const Icon = meta.icon;
@@ -609,7 +741,6 @@ const TxRow = memo(function TxRow({ tx, onSelect, onCopy, copiedId, children }: 
           <Tooltip content={tx.hash} position="top">
             <button
               className="vt-tx-hash"
-              title="Copy hash"
               onClick={(e) => {
                 e.stopPropagation();
                 onCopy(tx.hash, tx.id + "-hash");
@@ -646,7 +777,11 @@ const TxRow = memo(function TxRow({ tx, onSelect, onCopy, copiedId, children }: 
           className="vt-tx-status"
           style={{ color: status.color, background: status.bg }}
         >
-          <span className="vt-status-dot" style={{ background: status.dot }} aria-hidden="true" />
+          <span
+            className="vt-status-dot"
+            style={{ background: status.dot }}
+            aria-hidden="true"
+          />
           {status.label}
         </span>
         <span className="vt-tx-time">{fmtTime(tx.timestamp)}</span>
@@ -877,17 +1012,31 @@ interface WindowBannerProps {
   onNext: () => void;
 }
 
-function WindowBanner({ start, end, total, onPrev, onNext }: WindowBannerProps) {
+function WindowBanner({
+  start,
+  end,
+  total,
+  onPrev,
+  onNext,
+}: WindowBannerProps) {
   return (
     <div className="vt-window-banner">
       <span className="vt-window-info">
         Showing {start + 1}–{end} of {total}
       </span>
       <div className="vt-window-nav">
-        <button className="vt-window-btn" onClick={onPrev} disabled={start === 0}>
+        <button
+          className="vt-window-btn"
+          onClick={onPrev}
+          disabled={start === 0}
+        >
           ← Prev
         </button>
-        <button className="vt-window-btn" onClick={onNext} disabled={end >= total}>
+        <button
+          className="vt-window-btn"
+          onClick={onNext}
+          disabled={end >= total}
+        >
           Next →
         </button>
       </div>
@@ -1050,25 +1199,6 @@ function ChevronIcon() {
     </svg>
   );
 }
-function SortIcon({ dir }: { dir: "asc" | "desc" }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      style={{ marginRight: 5 }}
-    >
-      <path
-        d={dir === "desc" ? "M2 3h8M3 6h6M4 9h4" : "M4 3h4M3 6h6M2 9h8"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1211,13 +1341,6 @@ const CSS = `
   .vt-amount-input:focus { border-color: rgba(110,231,183,0.25); }
   .vt-amount-input::placeholder { color: #334155; }
   .vt-amount-sep { color: #334155; font-size: 13px; }
-  .vt-sort-btn {
-    display: flex; align-items: center;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    padding: 8px 12px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
-  }
-  .vt-sort-btn:hover { color: #e2e8f0; border-color: rgba(110,231,183,0.25); }
   .vt-clear-btn {
     background: transparent; border: 1px solid rgba(252,165,165,0.2);
     color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
@@ -1234,6 +1357,25 @@ const CSS = `
     padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
   }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
+  .vt-tx-header-row {
+    display: grid; grid-template-columns: 120px minmax(160px, 1fr) 120px 90px 100px 110px;
+    gap: 12px; align-items: center;
+    padding: 0 16px 8px; color: #475569;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .vt-column-sort-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: transparent; border: 0; padding: 0;
+    color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit;
+    cursor: pointer;
+  }
+  .vt-column-sort-btn:hover, .vt-column-sort-btn:focus-visible {
+    color: #94a3b8; outline: none;
+  }
+  .vt-column-sort-indicator {
+    color: #6ee7b7; font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  }
   .vt-tx-row {
     display: flex; align-items: center; gap: 14px;
     background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
@@ -1358,6 +1500,7 @@ const CSS = `
     .vt-wrap { padding: 28px 16px 60px; }
     .vt-stats { grid-template-columns: 1fr 1fr; }
     .vt-stats > :last-child { grid-column: span 2; }
+    .vt-tx-header-row { display: none; }
     .vt-tx-memo { display: none; }
     .vt-tx-amount { display: none; }
     .vt-modal-row2 { grid-template-columns: 1fr 1fr; }
@@ -1369,10 +1512,5 @@ const CSS = `
     .vt-stats > :last-child { grid-column: span 1; }
     .vt-header { flex-direction: column; align-items: flex-start; }
     .vt-modal-row2 { grid-template-columns: 1fr; }
-  }
-  .vt-sr-only {
-    position: absolute; width: 1px; height: 1px; padding: 0;
-    margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
-    white-space: nowrap; border: 0;
   }
 `;

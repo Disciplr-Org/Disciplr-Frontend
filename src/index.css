@@ -34,6 +34,11 @@
   --border-width-2: 2px; /* emphasis */
   --border-width-4: 4px; /* strong emphasis */
 
+  /* Focus ring — mirrors design-system/tokens/borders.json border.focusRing */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: #1e40af;
+
   /* Semantic border colors — light-mode defaults; overridden in dark theme below */
   --border-default: #e5e7eb;
   --border-subtle: #f3f4f6;
@@ -230,6 +235,7 @@
     --border-interactive: #3b82f6;
     --border-error: #ef4444;
     --border-success: #10b981;
+    --focus-ring-color: #3b82f6;
   }
 }
 
@@ -260,6 +266,7 @@
   --border-interactive: #3b82f6;
   --border-error: #ef4444;
   --border-success: #10b981;
+  --focus-ring-color: #3b82f6;
 }
 
 /* Manual light theme override (if user selects light) */
@@ -289,6 +296,26 @@
   --border-interactive: #1e40af;
   --border-error: #dc2626;
   --border-success: #059669;
+}
+
+/* ── Focus ring — keyboard-only via :focus-visible ─────────────────────────
+   Applies the focusRing tokens from borders.json. Mouse/touch clicks do NOT
+   trigger :focus-visible, so this ring appears only on keyboard navigation. */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 * {

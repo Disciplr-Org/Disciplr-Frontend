@@ -1,9 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar,
-  PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   Target, TrendingUp, CheckCircle, AlertTriangle,
   Download, Flame, Award, Clock, DollarSign,
@@ -12,14 +7,15 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { ChartLegend } from '../components/ChartLegend'
+import { type ChartLegendEntry } from '../components/ChartLegend'
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { toCsv, downloadCsv } from '../utils/csv'
+import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
+
+const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type Period = '7d' | '30d' | '90d' | '1y' | 'All'
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -84,45 +80,45 @@ export const analyticsPeriodData: Record<Period, { name: string; success: number
 }
 
 // Previous period data for comparison
-const prevPeriodData: Record<Period, { name: string; success: number; capital: number }[]> = {
+const prevPeriodData: Record<Period, AnalyticsDataPoint[]> = {
   '7d': [
-    { name: 'Mon', success: 60, capital: 2000 },
-    { name: 'Tue', success: 65, capital: 2100 },
-    { name: 'Wed', success: 70, capital: 2200 },
-    { name: 'Thu', success: 72, capital: 2300 },
-    { name: 'Fri', success: 68, capital: 2150 },
-    { name: 'Sat', success: 75, capital: 2400 },
-    { name: 'Sun', success: 71, capital: 2350 },
+    { name: 'Mon', success: 60, failed: 40, capital: 2000, milestones: 1 },
+    { name: 'Tue', success: 65, failed: 35, capital: 2100, milestones: 2 },
+    { name: 'Wed', success: 70, failed: 30, capital: 2200, milestones: 2 },
+    { name: 'Thu', success: 72, failed: 28, capital: 2300, milestones: 2 },
+    { name: 'Fri', success: 68, failed: 32, capital: 2150, milestones: 1 },
+    { name: 'Sat', success: 75, failed: 25, capital: 2400, milestones: 3 },
+    { name: 'Sun', success: 71, failed: 29, capital: 2350, milestones: 2 },
   ],
   '30d': [
-    { name: 'Wk1', success: 50, capital: 500 },
-    { name: 'Wk2', success: 58, capital: 750 },
-    { name: 'Wk3', success: 62, capital: 1100 },
-    { name: 'Wk4', success: 70, capital: 1800 },
+    { name: 'Wk1', success: 50, failed: 50, capital: 500, milestones: 1 },
+    { name: 'Wk2', success: 58, failed: 42, capital: 750, milestones: 2 },
+    { name: 'Wk3', success: 62, failed: 38, capital: 1100, milestones: 3 },
+    { name: 'Wk4', success: 70, failed: 30, capital: 1800, milestones: 5 },
   ],
   '90d': [
-    { name: 'Oct', success: 55, capital: 600 },
-    { name: 'Nov', success: 60, capital: 800 },
-    { name: 'Dec', success: 63, capital: 700 },
+    { name: 'Oct', success: 55, failed: 45, capital: 600, milestones: 2 },
+    { name: 'Nov', success: 60, failed: 40, capital: 800, milestones: 2 },
+    { name: 'Dec', success: 63, failed: 37, capital: 700, milestones: 2 },
   ],
   '1y': [
-    { name: 'Jan', success: 45, capital: 400 },
-    { name: 'Feb', success: 50, capital: 600 },
-    { name: 'Mar', success: 48, capital: 500 },
-    { name: 'Apr', success: 65, capital: 900 },
-    { name: 'May', success: 68, capital: 1200 },
-    { name: 'Jun', success: 72, capital: 1800 },
-    { name: 'Jul', success: 70, capital: 1600 },
-    { name: 'Aug', success: 74, capital: 2000 },
-    { name: 'Sep', success: 69, capital: 1700 },
-    { name: 'Oct', success: 78, capital: 2200 },
-    { name: 'Nov', success: 75, capital: 2000 },
-    { name: 'Dec', success: 80, capital: 2500 },
+    { name: 'Jan', success: 45, failed: 55, capital: 400, milestones: 1 },
+    { name: 'Feb', success: 50, failed: 50, capital: 600, milestones: 1 },
+    { name: 'Mar', success: 48, failed: 52, capital: 500, milestones: 1 },
+    { name: 'Apr', success: 65, failed: 35, capital: 900, milestones: 3 },
+    { name: 'May', success: 68, failed: 32, capital: 1200, milestones: 3 },
+    { name: 'Jun', success: 72, failed: 28, capital: 1800, milestones: 5 },
+    { name: 'Jul', success: 70, failed: 30, capital: 1600, milestones: 4 },
+    { name: 'Aug', success: 74, failed: 26, capital: 2000, milestones: 6 },
+    { name: 'Sep', success: 69, failed: 31, capital: 1700, milestones: 4 },
+    { name: 'Oct', success: 78, failed: 22, capital: 2200, milestones: 7 },
+    { name: 'Nov', success: 75, failed: 25, capital: 2000, milestones: 6 },
+    { name: 'Dec', success: 80, failed: 20, capital: 2500, milestones: 8 },
   ],
   'All': [
-    { name: '2021', success: 40, capital: 200 },
-    { name: '2022', success: 52, capital: 800 },
-    { name: '2023', success: 60, capital: 1200 },
+    { name: '2021', success: 40, failed: 60, capital: 200, milestones: 1 },
+    { name: '2022', success: 52, failed: 48, capital: 800, milestones: 2 },
+    { name: '2023', success: 60, failed: 40, capital: 1200, milestones: 3 },
   ],
 }
 
@@ -145,6 +141,13 @@ const benchmarkData = [
   { metric: 'Avg Duration', you: 18, platform: 14 },
   { metric: 'Streak', you: 5, platform: 3 },
   { metric: 'Milestones/mo', you: 9, platform: 5 },
+]
+
+const TEAM_CHART_DATA = [
+  { name: 'Alice', rate: 94 },
+  { name: 'Bob', rate: 78 },
+  { name: 'Carol', rate: 88 },
+  { name: 'Dave', rate: 65 },
 ]
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -213,6 +216,21 @@ function EmptyState({ message = 'No data yet. Create your first vault to see ana
   )
 }
 
+// ─── Export Helpers ───────────────────────────────────────────────────────────
+
+function exportCSV(data: typeof analyticsPeriodData['30d']) {
+  const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
+  const rows = data.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'disciplr-analytics.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // Note: `jsPDF` is lazy-loaded inside the component to keep the Analytics chunk small.
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -221,8 +239,11 @@ export default function Analytics() {
   const chartTokens = useAnalyticsChartTokens()
   const seriesColors = useMemo(() => buildAnalyticsSeriesColors(chartTokens), [chartTokens])
   const prefersReducedMotion = usePrefersReducedMotion()
-  const [period, setPeriod] = useState<Period>('30d')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [period, setPeriodInternal] = useState<Period>(() => parsePeriod(searchParams.get('period')))
   const [showComparison, setShowComparison] = useState(false)
+  const [showMovingAverage, setShowMovingAverage] = useState(false)
+  const MA_WINDOW = 3
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
@@ -234,7 +255,6 @@ export default function Analytics() {
 
   const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
   const chartData = analyticsPeriodData[period]
-  const hasChartData = chartData.length > 0
 
   // Merge current + previous period for comparison charts
   const comparisonData = chartData.map((d, i) => ({
@@ -244,6 +264,13 @@ export default function Analytics() {
   }))
 
   const displayData = showComparison ? comparisonData : chartData
+  
+  // Compute KPIs from the selected period
+  const kpis = useMemo(
+    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevPeriodData[period] as AnalyticsDataPoint[]),
+    [chartData, period]
+  )
+
   const chartAnimationEnabled = !prefersReducedMotion
   const tooltipStyle = useMemo(() => ({
     contentStyle: {
@@ -441,6 +468,14 @@ export default function Analytics() {
           >
             {showComparison ? '✓' : ''} Compare Periods
           </button>
+          <button
+            className={`toggle-btn${showMovingAverage ? ' active' : ''}`}
+            onClick={() => setShowMovingAverage((v) => !v)}
+            aria-pressed={showMovingAverage}
+            title={`Toggle ${MA_WINDOW}-point moving average overlay on Success Rate chart`}
+          >
+            {showMovingAverage ? '✓' : ''} Moving Avg
+          </button>
 
 {/* Spacer */}
           <div style={{ flex: 1 }} />
@@ -607,11 +642,27 @@ export default function Analytics() {
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}
           >
             {[
-              { label: 'Total Capital Locked', value: '$12,450', sub: 'USDC · All time', icon: <Target size={17} color={seriesColors.success} />, up: true },
-              { label: 'Active Capital', value: '$3,200', sub: 'USDC · Right now', icon: <TrendingUp size={17} color={seriesColors.active} />, up: true },
-              { label: 'Success Rate', value: '85%', sub: '+7% vs last period', icon: <CheckCircle size={17} color={seriesColors.success} />, up: true },
-              { label: 'Total Vaults', value: '21', sub: 'Created all time', icon: <Zap size={17} color={seriesColors.success} />, up: true },
-              { label: 'Completed / Failed', value: '14 / 4', sub: '3 currently active', icon: <AlertTriangle size={17} color={seriesColors.failed} />, up: false },
+              { 
+                label: 'Total Capital Locked', 
+                value: formatCurrency(kpis.totalCapital), 
+                sub: kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)} vs prev` : 'USDC',
+                icon: <Target size={17} color={seriesColors.success} />, 
+                up: kpis.capitalTrend 
+              },
+              { 
+                label: 'Success Rate', 
+                value: formatPercentage(kpis.averageSuccessRate),
+                sub: kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)} vs prev` : 'Average',
+                icon: <CheckCircle size={17} color={seriesColors.success} />, 
+                up: kpis.successTrend 
+              },
+              { 
+                label: 'Total Milestones', 
+                value: `${kpis.totalMilestones}`,
+                sub: kpis.milestoneDelta !== 0 ? `${kpis.milestoneDelta > 0 ? '+' : ''}${kpis.milestoneDelta} vs prev` : 'All time',
+                icon: <Award size={17} color={seriesColors.success} />, 
+                up: kpis.milestoneTrend 
+              },
             ].map((stat, i) => (
               <Card key={i}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -631,95 +682,24 @@ export default function Analytics() {
         {/* ── SECTION 2: Performance Charts ── */}
         <div style={{ marginBottom: '2rem' }}>
           <SectionTitle>Performance Charts {showComparison && <span style={{ color: seriesColors.comparison, fontSize: '0.75rem', fontWeight: 400, marginLeft: '0.5rem' }}>Comparing with previous period</span>}</SectionTitle>
-          <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
-
-            {/* Success Rate */}
-            <Card>
-              <ChartTitle>Success Rate Over Time</ChartTitle>
-              <ChartSummary>
-                Line chart summarizing success and failure percentages for the selected {period} period.
-                {showComparison ? ' Previous period success rate is included for comparison.' : ''}
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={displayData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
-                      <Tooltip {...tooltipStyle} />
-                      <Line type="monotone" dataKey="success" stroke={seriesColors.success} strokeWidth={2.5} dot={{ r: 3, fill: seriesColors.success }} name="This Period %" isAnimationActive={chartAnimationEnabled} />
-                      <Line type="monotone" dataKey="failed" stroke={seriesColors.failed} strokeWidth={2} dot={{ r: 2, fill: seriesColors.failed }} name="Failed %" strokeDasharray="4 2" isAnimationActive={chartAnimationEnabled} />
-                      {showComparison && (
-                        <Line type="monotone" dataKey="prevSuccess" stroke={seriesColors.comparison} strokeWidth={1.5} dot={false} name="Prev Period %" strokeDasharray="6 3" isAnimationActive={chartAnimationEnabled} />
-                      )}
-                    </LineChart>
-                  </ResponsiveContainer>
-                  {showComparison && (
-                    <ChartLegend entries={successLegendEntries} colors={seriesColors} tokens={chartTokens} />
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* Capital Locked */}
-            <Card>
-              <ChartTitle>Capital Locked Over Time</ChartTitle>
-              <ChartSummary>
-                Area chart showing USDC capital locked over the selected {period} period.
-                {showComparison ? ' Previous period capital is shown as a comparison area.' : ''}
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={displayData}>
-                      <defs>
-                        <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={seriesColors.success} stopOpacity={0.25} />
-                          <stop offset="95%" stopColor={seriesColors.success} stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="prevCapGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={seriesColors.comparison} stopOpacity={0.15} />
-                          <stop offset="95%" stopColor={seriesColors.comparison} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                      <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                      <Tooltip {...tooltipStyle} />
-                      <Area type="monotone" dataKey="capital" stroke={seriesColors.success} strokeWidth={2.5} fill="url(#capGrad)" name="USDC Locked" isAnimationActive={chartAnimationEnabled} />
-                      {showComparison && (
-                        <Area type="monotone" dataKey="prevCapital" stroke={seriesColors.comparison} strokeWidth={1.5} fill="url(#prevCapGrad)" name="Prev Period" strokeDasharray="5 3" isAnimationActive={chartAnimationEnabled} />
-                      )}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  {showComparison && (
-                    <ChartLegend entries={capitalLegendEntries} colors={seriesColors} tokens={chartTokens} />
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* Milestone Trend */}
-            <Card>
-              <ChartTitle>Milestone Completion Trend</ChartTitle>
-              <ChartSummary>
-                Bar chart showing completed milestone counts for each point in the selected {period} period.
-              </ChartSummary>
-              {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={`No data for this period (${period}).`} /> : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
-                    <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                    <Tooltip {...tooltipStyle} />
-                    <Bar dataKey="milestones" fill={seriesColors.milestone} radius={[4, 4, 0, 0]} name="Milestones Completed" isAnimationActive={chartAnimationEnabled} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </Card>
-
-          </div>
+          <Suspense fallback={<SkeletonBox height={300} />}>
+            <AnalyticsCharts
+              section="performance"
+              displayData={displayData}
+              chartData={chartData}
+              period={period}
+              vaultStatusData={vaultStatusData}
+              teamChartData={TEAM_CHART_DATA}
+              showComparison={showComparison}
+              chartAnimationEnabled={chartAnimationEnabled}
+              tooltipStyle={tooltipStyle}
+              seriesColors={seriesColors}
+              chartTokens={chartTokens}
+              successLegendEntries={successLegendEntries}
+              capitalLegendEntries={capitalLegendEntries}
+              isLoading={isLoading}
+            />
+          </Suspense>
         </div>
 
         {/* ── SECTION 3: Vault Analytics ── */}
@@ -733,28 +713,24 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              {isLoading ? <SkeletonBox height={180} /> : vaultStatusData.length === 0 ? <EmptyState message="No data for this period." /> : (
-                <>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={vaultStatusData} innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value" isAnimationActive={chartAnimationEnabled}>
-                        {vaultStatusData.map((_, i) => (
-                          <Cell key={i} fill={seriesColors.pie[i % seriesColors.pie.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip {...tooltipStyle} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem', marginTop: '0.5rem' }}>
-                    {vaultStatusData.map((entry, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: seriesColors.pie[i], display: 'inline-block' }} />
-                        {entry.name} ({entry.value})
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+              <Suspense fallback={<SkeletonBox height={180} />}>
+                <AnalyticsCharts
+                  section="donut"
+                  displayData={displayData}
+                  chartData={chartData}
+                  period={period}
+                  vaultStatusData={vaultStatusData}
+                  teamChartData={TEAM_CHART_DATA}
+                  showComparison={showComparison}
+                  chartAnimationEnabled={chartAnimationEnabled}
+                  tooltipStyle={tooltipStyle}
+                  seriesColors={seriesColors}
+                  chartTokens={chartTokens}
+                  successLegendEntries={successLegendEntries}
+                  capitalLegendEntries={capitalLegendEntries}
+                  isLoading={isLoading}
+                />
+              </Suspense>
             </Card>
 
             {/* Vault Stats */}
@@ -1092,18 +1068,24 @@ export default function Analytics() {
               <ChartSummary>
                 Locked enterprise preview bar chart showing example team member success rates.
               </ChartSummary>
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={[
-                  { name: 'Alice', rate: 94 },
-                  { name: 'Bob', rate: 78 },
-                  { name: 'Carol', rate: 88 },
-                  { name: 'Dave', rate: 65 },
-                ]}>
-                  <XAxis dataKey="name" stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} />
-                  <YAxis stroke={seriesColors.axis} tick={{ fill: seriesColors.axis, fontSize: 11 }} unit="%" />
-                  <Bar dataKey="rate" fill={seriesColors.success} radius={[4, 4, 0, 0]} isAnimationActive={chartAnimationEnabled} />
-                </BarChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<SkeletonBox height={160} />}>
+                <AnalyticsCharts
+                  section="team"
+                  displayData={displayData}
+                  chartData={chartData}
+                  period={period}
+                  vaultStatusData={vaultStatusData}
+                  teamChartData={TEAM_CHART_DATA}
+                  showComparison={showComparison}
+                  chartAnimationEnabled={chartAnimationEnabled}
+                  tooltipStyle={tooltipStyle}
+                  seriesColors={seriesColors}
+                  chartTokens={chartTokens}
+                  successLegendEntries={successLegendEntries}
+                  capitalLegendEntries={capitalLegendEntries}
+                  isLoading={isLoading}
+                />
+              </Suspense>
             </Card>
 
             {/* Org Summary */}

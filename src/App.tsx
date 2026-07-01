@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { WalletProvider } from './context/WalletContext'
+import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
 import Skeleton from './components/Skeleton'
@@ -26,42 +27,44 @@ export default function App() {
   return (
     <ThemeProvider>
       <WalletProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/vaults" element={<Vaults />} />
-                <Route path="/vaults/create" element={<CreateVault />} />
-                <Route path="/vaults/:id" element={<VaultDetail />} />
-                <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
-                <Route path="/transactions" element={<VaultTransactions />} />
-                <Route path="/verifier" element={<VerifierDashboard />} />
-                <Route path="/verifier/queue" element={<PendingValidations />} />
-                <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
-                <Route path="/verifier/history" element={<ValidationHistory />} />
-                <Route
-                  path="/analytics"
-                  element={
-                    <Suspense fallback={PageFallback}>
-                      <Analytics />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/notifications"
-                  element={
-                    <Suspense fallback={PageFallback}>
-                      <Notification />
-                    </Suspense>
-                  }
-                />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </ErrorBoundary>
-        </BrowserRouter>
+        <AppConfigProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/vaults" element={<Vaults />} />
+                  <Route path="/vaults/create" element={<CreateVault />} />
+                  <Route path="/vaults/:id" element={<VaultDetail />} />
+                  <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
+                  <Route path="/transactions" element={<VaultTransactions />} />
+                  <Route path="/verifier" element={<VerifierDashboard />} />
+                  <Route path="/verifier/queue" element={<PendingValidations />} />
+                  <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+                  <Route path="/verifier/history" element={<ValidationHistory />} />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <Suspense fallback={PageFallback}>
+                        <Analytics />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <Suspense fallback={PageFallback}>
+                        <Notification />
+                      </Suspense>
+                    }
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </AppConfigProvider>
       </WalletProvider>
     </ThemeProvider>
   )

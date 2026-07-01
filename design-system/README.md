@@ -29,6 +29,15 @@ design-system test command, coverage threshold, and contributor conventions.
 - [`VaultProgressBar`](documentation/vault-progress-bar.md) - shared vault
   progress primitive with clamped values and ARIA progressbar semantics.
 
+## Token Loader
+
+The `loadTokens` / `getAllTokens` API in `src/utils/token-loader.ts` enforces
+basename-only filenames, a `.json` extension requirement, and a
+within-`tokens/` path-traversal guard before any file is read.
+
+See [`documentation/token-loader.md`](documentation/token-loader.md) for the
+full contract, security guarantees, worked examples, and failure modes.
+
 ## Responsive breakpoints
 
 Disciplr uses a five-step breakpoint scale that is shared between CSS, Tailwind v4
@@ -50,5 +59,5 @@ For the full breakpoint table, container max-width audit, vault-column stacking
 guidance, off-token usage catalogue, and example layouts per breakpoint, see
 [`documentation/breakpoints.md`](documentation/breakpoints.md).
 
-```markdown
 * 🎨 **Tokens:** Read our [Token Authoring Guide](./documentation/token-authoring.md) before adding or modifying design tokens.
+* 🔒 **Token Loader:** See the [Token Loader Contract](./documentation/token-loader.md) for security guarantees and the correct consumption API.
