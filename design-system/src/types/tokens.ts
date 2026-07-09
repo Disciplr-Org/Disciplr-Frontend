@@ -80,5 +80,10 @@ export interface DesignTokens {
   motion?: Record<string, MotionToken>;
   border?: Record<string, BorderToken>;
   zIndex?: Record<string, ZIndexToken>;
+  toast?: {
+    defaultDurationMs?: number;
+    maxVisible?: number;
+    reducedMotionDurationMs?: number;
+  };
 }
 
