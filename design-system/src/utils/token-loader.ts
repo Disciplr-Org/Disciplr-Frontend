@@ -40,3 +40,35 @@ export function getAllTokens(): DesignTokens {
   
   return allTokens;
 }
+
+
+/**
+ * Resolve a single token by its dotted path (e.g. "color.brand.primary").
+ * Returns the token's $value, or the value of a sub-property if a sub-path
+ * is provided (e.g. "color.brand.primary.contrast.light" returns the
+ * `contrast.light` numeric field).
+ *
+ * Returns `undefined` if any segment of the path is missing. Use this from
+ * component code to fetch individual tokens without re-walking the full
+ * tree.
+ */
+export function getTokenValue(
+  root: DesignTokens,
+  path: string,
+): unknown {
+  const parts = path.split(".").filter(Boolean);
+  if (parts.length === 0) return undefined;
+  let cursor: unknown = root;
+  for (const part of parts) {
+    if (cursor && typeof cursor === "object" && part in (cursor as Record<string, unknown>)) {
+      cursor = (cursor as Record<string, unknown>)[part];
+    } else {
+      return undefined;
+    }
+  }
+  // If the final node is a token object with $value, return $value.
+  if (cursor && typeof cursor === "object" && "$value" in (cursor as Record<string, unknown>)) {
+    return (cursor as Record<string, unknown>).$value;
+  }
+  return cursor;
+}
