@@ -64,6 +64,12 @@ export interface ZIndexToken {
   $description?: string;
 }
 
+export interface OpacityToken {
+  $type: 'number';
+  $value: number;
+  $description?: string;
+}
+
 export interface BorderToken {
   $type: 'dimension' | 'color';
   $value: string;
@@ -80,5 +86,7 @@ export interface DesignTokens {
   motion?: Record<string, MotionToken>;
   border?: Record<string, BorderToken>;
   zIndex?: Record<string, ZIndexToken>;
+  opacity?: Record<string, OpacityToken>;
+  breakpoint?: Record<string, { $type: string; $value: string; $description?: string }>;
 }
 

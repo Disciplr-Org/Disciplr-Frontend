@@ -1,0 +1,10 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "breakpoint": {
+    "sm": { "$type": "dimension", "$value": "640px", "$description": "Small screens" },
+    "md": { "$type": "dimension", "$value": "768px", "$description": "Medium screens" },
+    "lg": { "$type": "dimension", "$value": "1024px", "$description": "Large screens" },
+    "xl": { "$type": "dimension", "$value": "1280px", "$description": "Extra-large screens" },
+    "2xl": { "$type": "dimension", "$value": "1536px", "$description": "Ultra-wide screens" }
+  }
+}
