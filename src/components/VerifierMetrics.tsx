@@ -60,7 +60,7 @@ const VerifierMetrics: React.FC = () => {
   const { approvalRate, overdueCount, urgentCount, totalResolved } =
     computeVerifierMetrics(pendingValidations, validationHistory);
 
-  const approvalDisplay = `${Math.round(approvalRate)}%`;
+  const approvalDisplay = `${Math.round(approvalRate * 100)}%`;
 
   return (
     <section
@@ -76,7 +76,7 @@ const VerifierMetrics: React.FC = () => {
         label="Approval Rate"
         value={approvalDisplay}
         accentColor="var(--success)"
-        ariaLabel={`Approval rate: ${Math.round(approvalRate)} percent`}
+        ariaLabel={`Approval rate: ${Math.round(approvalRate * 100)} percent`}
       />
       <MetricCard
         label="Overdue"

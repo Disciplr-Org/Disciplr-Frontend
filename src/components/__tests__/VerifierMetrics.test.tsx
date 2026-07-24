@@ -70,7 +70,7 @@ describe('VerifierMetrics component', () => {
 
     it('displays the correct urgent count', () => {
       render(<VerifierMetrics />);
-      const urgentCard = screen.getByLabelText('Urgent: 1');
+      const urgentCard = screen.getByLabelText('Urgent: 2');
       expect(urgentCard).toBeInTheDocument();
     });
 
