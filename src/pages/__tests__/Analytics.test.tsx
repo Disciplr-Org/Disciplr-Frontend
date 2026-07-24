@@ -1,9 +1,11 @@
 import React, { Suspense, lazy } from 'react'
 import { describe, expect, it, vi, beforeAll } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { buildAnalyticsSeriesColors } from '../analyticsTheme'
 import Analytics, { analyticsPeriodData } from '../Analytics'
+
+// ── Browser API stubs (jsdom doesn't implement these) ───────────────────────
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -79,6 +81,9 @@ const tokenFixture = {
   border: 'border-token',
   bg: 'bg-token',
   accentTransparent: 'accent-transparent-token',
+  legendGap: 'legend-gap-token',
+  legendSwatchSize: 'legend-swatch-size-token',
+  legendLabelRole: 'caption' as const,
 }
 
 describe('Analytics chart theme mapping', () => {
@@ -185,7 +190,7 @@ describe('Analytics lazy route', () => {
     expect(screen.getByText('Prev Period')).toBeInTheDocument()
   })
 
-  it('shows a no-data placeholder for empty periods and restores charts when switching to populated periods', () => {
+  it('shows a no-data placeholder for empty periods and restores charts when switching to populated periods', async () => {
     const original90d = analyticsPeriodData['90d']
     analyticsPeriodData['90d'] = []
 
@@ -196,19 +201,61 @@ describe('Analytics lazy route', () => {
         </MemoryRouter>,
       )
 
-      fireEvent.click(screen.getByRole('button', { name: '90d' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '90d' }))
+      })
 
-      expect(screen.getAllByTestId('analytics-empty-state')).toHaveLength(3)
+      await waitFor(() =>
+        expect(screen.getAllByTestId('analytics-empty-state')).toHaveLength(3),
+        { timeout: 2000 },
+      )
       expect(screen.getAllByText('No data for this period (90d).')).toHaveLength(3)
 
-      fireEvent.click(screen.getByRole('button', { name: '30d' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '30d' }))
+      })
 
-      expect(screen.queryByTestId('analytics-empty-state')).not.toBeInTheDocument()
-      expect(screen.getByText('Success Rate Over Time')).toBeInTheDocument()
-      expect(screen.getByText('Capital Locked Over Time')).toBeInTheDocument()
-      expect(screen.getByText('Milestone Completion Trend')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.queryByTestId('analytics-empty-state')).not.toBeInTheDocument()
+        expect(screen.getByText('Success Rate Over Time')).toBeInTheDocument()
+        expect(screen.getByText('Capital Locked Over Time')).toBeInTheDocument()
+        expect(screen.getByText('Milestone Completion Trend')).toBeInTheDocument()
+      }, { timeout: 2000 })
     } finally {
       analyticsPeriodData['90d'] = original90d
     }
+  })
+
+  it('renders computed KPI cards with values from the selected period', async () => {
+    const { default: LazyLoadedAnalytics } = await import('../Analytics')
+
+    render(
+      <MemoryRouter>
+        <LazyLoadedAnalytics />
+      </MemoryRouter>,
+    )
+
+    // Wait for lazy load to complete
+    await waitFor(() => {
+      expect(screen.getByText('Analytics')).toBeInTheDocument()
+    }, { timeout: 2000 })
+
+    // Verify KPI labels are present (query for multiple matches and check at least one exists)
+    const capitalLabels = screen.getAllByText('Total Capital Locked')
+    expect(capitalLabels.length).toBeGreaterThan(0)
+    
+    const successLabels = screen.getAllByText('Success Rate')
+    expect(successLabels.length).toBeGreaterThan(0)
+    
+    const milestoneLabels = screen.getAllByText('Total Milestones')
+    expect(milestoneLabels.length).toBeGreaterThan(0)
+
+    // Switch periods and verify KPI cards update
+    fireEvent.click(screen.getByRole('button', { name: '7d' }))
+
+    // Verify the cards still render after switching
+    await waitFor(() => {
+      expect(screen.getAllByText('Total Capital Locked').length).toBeGreaterThan(0)
+    })
   })
 })

@@ -2,11 +2,15 @@ import React, { useState, type HTMLAttributes } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
+import { WalletBalanceChip } from "./Wallet/WalletBalanceChip";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
+import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
+import { ShortcutsHelp } from "./ShortcutsHelp";
+import ErrorBoundary from "./ErrorBoundary";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -15,10 +19,12 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
-  const toggleDrawer = () => setDrawerOpen(prev => !prev);
+  const toggleDrawer = () => setDrawerOpen((prev) => !prev);
   const location = useLocation();
   const backgroundA11yProps = isDrawerOpen
-    ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & { inert: "" })
+    ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & {
+        inert: "";
+      })
     : {};
 
   return (
@@ -48,7 +54,11 @@ export default function Layout({ children }: LayoutProps) {
           </NavLink>
         </div>
 
-        <nav className="desktop-nav" aria-label="Main navigation" {...backgroundA11yProps}>
+        <nav
+          className="desktop-nav"
+          aria-label="Main navigation"
+          {...backgroundA11yProps}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <NavLink
               to="/"
@@ -60,10 +70,7 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
-            <NavLink
-              to="/verifier"
-              className="header-link"
-            >
+            <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
                 Verifier
               </Text>
@@ -72,7 +79,9 @@ export default function Layout({ children }: LayoutProps) {
             <NavLink
               to="/analytics"
               className="header-link"
-              aria-current={location.pathname === "/analytics" ? "page" : undefined}
+              aria-current={
+                location.pathname === "/analytics" ? "page" : undefined
+              }
             >
               <Text role="caption" as="span">
                 Analytics
@@ -82,7 +91,9 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               to="/vaults/create"
               className="header-link header-cta"
-              aria-current={location.pathname === "/vaults/create" ? "page" : undefined}
+              aria-current={
+                location.pathname === "/vaults/create" ? "page" : undefined
+              }
             >
               Create Vault
             </Link>
@@ -103,7 +114,10 @@ export default function Layout({ children }: LayoutProps) {
         >
           <Menu size={24} aria-hidden="true" />
         </button>
-        <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
+        <MobileDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
       </header>
       <TrustlineBanner />
 
@@ -117,8 +131,9 @@ export default function Layout({ children }: LayoutProps) {
           width: "100%",
         }}
       >
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </main>
+      <ShortcutsHelp />
     </div>
   );
 }

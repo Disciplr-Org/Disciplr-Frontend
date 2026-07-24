@@ -1,4 +1,4 @@
-import { CountdownDeadline, timeRemaining } from './CountdownDeadline';
+﻿import { CountdownDeadline, timeRemaining } from './CountdownDeadline';
 import { Text } from './Text';
 import { deadlineUrgency, type UrgencyTier } from './VaultCard';
 import type { Deadline } from '../utils/dashboard';
@@ -47,6 +47,12 @@ function urgencyStyles(deadline: string) {
       background: 'var(--success-transparent)',
       borderColor: 'var(--success)',
       label: 'Safe',
+    },
+    expired: {
+      color: 'var(--danger)',
+      background: 'var(--danger-transparent)',
+      borderColor: 'var(--danger)',
+      label: 'Expired',
     },
   };
 

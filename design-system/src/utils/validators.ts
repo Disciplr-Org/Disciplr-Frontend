@@ -3,7 +3,7 @@
  */
 
 export function isValidHexColor(color: string): boolean {
-  return /^#[0-9A-F]{6}$/i.test(color);
+  return /^#(?:[0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(color);
 }
 
 export function isValidRgbColor(color: string): boolean {
@@ -34,15 +34,15 @@ export function isValidColorToken(token: unknown): boolean {
   if (typeof tokenObj.$value !== 'string' || !isValidColorString(tokenObj.$value)) return false;
 
   // Validate accessibility properties if present
-  if (tokenObj.accessibility !== undefined) {
+  if (tokenObj.accessibility) {
     const acc = tokenObj.accessibility;
-    if (!acc || typeof acc !== 'object' || Array.isArray(acc)) return false;
+    if (typeof acc !== 'object' || acc === null) return false;
     const accObj = acc as Record<string, unknown>;
     if (accObj.wcagLevel !== undefined && accObj.wcagLevel !== 'AA' && accObj.wcagLevel !== 'AAA') return false;
     if (accObj.colorblindSafe !== undefined && typeof accObj.colorblindSafe !== 'boolean') return false;
-    if (accObj.colorblindSimulation !== undefined) {
+    if (accObj.colorblindSimulation) {
       const sim = accObj.colorblindSimulation;
-      if (!sim || typeof sim !== 'object' || Array.isArray(sim)) return false;
+      if (typeof sim !== 'object' || sim === null) return false;
       const simObj = sim as Record<string, unknown>;
       if (simObj.protanopia !== undefined && (typeof simObj.protanopia !== 'string' || !isValidColorString(simObj.protanopia))) return false;
       if (simObj.deuteranopia !== undefined && (typeof simObj.deuteranopia !== 'string' || !isValidColorString(simObj.deuteranopia))) return false;

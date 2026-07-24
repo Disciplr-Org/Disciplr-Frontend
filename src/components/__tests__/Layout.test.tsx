@@ -145,6 +145,11 @@ describe('Layout header landmarks', () => {
     renderLayout('/');
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
+
+  test('mounts the global network mismatch banner', () => {
+    renderLayout('/');
+    expect(screen.getByTestId('network-mismatch-banner')).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

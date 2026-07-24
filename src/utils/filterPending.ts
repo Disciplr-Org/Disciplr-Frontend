@@ -10,17 +10,9 @@ export interface FilterOptions {
   query?: string;
   milestone?: string;
 }
+import type { ValidationTask } from '../Zustand/Store';
 
-export interface PendingTask {
-  id: string;
-  vaultName: string;
-  owner: string;
-  amount: string;
-  deadline: string;
-  daysRemaining: number;
-  status: 'pending';
-  milestone: string;
-}
+export type PendingTask = ValidationTask;
 
 export function filterPending(
   tasks: PendingTask[],

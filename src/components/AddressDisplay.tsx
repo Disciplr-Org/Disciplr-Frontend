@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
 import { isValidStellarAddress } from '../utils/stellarAddress';
@@ -10,6 +10,8 @@ interface AddressDisplayProps {
     tailChars?: number;
 }
 
+
+
 export function AddressDisplay({
     address,
     network,
@@ -17,8 +19,9 @@ export function AddressDisplay({
     tailChars = 4,
 }: AddressDisplayProps) {
     const [copied, setCopied] = useState(false);
-    const isValid = isValidStellarAddress(address);
+
     const display = truncateMiddle(address, chars, tailChars);
+    const isValid = isValidStellarAddress(address);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {
@@ -60,7 +63,6 @@ export function AddressDisplay({
             >
                 {copied ? 'âœ“' : 'âŽ˜'}
             </button>
-
             {network != null && isValid && (
                 <a
                     href={`${explorerBase}/${address}`}
@@ -75,3 +77,4 @@ export function AddressDisplay({
         </span>
     );
 }
+

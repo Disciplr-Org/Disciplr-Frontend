@@ -2,26 +2,25 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
+import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
+import Breadcrumb from "../components/Breadcrumb";
 import {
   FundReleaseStatus,
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
+import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { Text } from "../components/Text";
-import { AddressDisplay } from "../components/AddressDisplay";
 import { useWallet } from "../context/WalletContext";
+import { MASTER_VAULTS as MOCK_VAULTS } from "../fixtures/vaults";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import type { VaultStatus, MilestoneStatus, TxType, Vault, Milestone, VaultTransaction } from "../types/vault";
-import { getVault } from "../services/vaultService";
+import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import type { Vault, VaultStatus } from "../types/vault";
 
 // ── Types imported from canonical source ─────────────────────────────────────
-// Milestone, VaultTransaction, Vault, VaultStatus, MilestoneStatus, TxType
-// are all imported from "../types/vault" above.
+// Vault and VaultStatus are imported from "../types/vault" above.
 // MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
-
-// Suppress unused-import warnings for type-only imports used in JSX props
-type _Milestone = Milestone;
-type _VaultTransaction = VaultTransaction;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -122,30 +121,6 @@ function settlementForVault(vault: Vault): FundReleaseStatusProps {
   };
 }
 
-// ── Address Row ───────────────────────────────────────────────────────────────
-function AddrRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
-      <Text
-        role="caption"
-        as="span"
-        style={{ color: "var(--muted)", minWidth: 140 }}
-      >
-        {label}
-      </Text>
-      <AddressDisplay address={value} />
-    </div>
-  );
-}
-
 // ── Section Card ─────────────────────────────────────────────────────────────
 function Card({
   children,
@@ -172,27 +147,8 @@ function Card({
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
+  const vault = id ? MOCK_VAULTS[id] : undefined;
   const { network } = useWallet();
-  const [vault, setVault] = useState<Vault | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    getVault(id ?? "").then((v) => {
-      setVault(v);
-      setLoading(false);
-    });
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-        <Text role="body" as="p" style={{ color: "var(--muted)" }}>
-          Loading vault…
-        </Text>
-      </div>
-    );
-  }
 
   if (!vault) {
     return (
@@ -219,6 +175,15 @@ export default function VaultDetail() {
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
   const settlement = settlementForVault(vault);
+  const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const handleCalendarExport = () => {
+    downloadIcsEvent({
+      title: `${vault.name} deadline`,
+      deadline: vault.deadline,
+      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      uid: `vault-${vault.id}-deadline`,
+    });
+  };
 
   return (
     <div
@@ -228,6 +193,15 @@ export default function VaultDetail() {
         padding: "0 0 3rem",
       }}
     >
+      <Breadcrumb
+        segments={[
+          { label: "Home", to: "/" },
+          { label: "Vaults", to: "/vaults" },
+          { label: vault.name },
+        ]}
+        style={{ marginBottom: "var(--spacing-4)" }}
+      />
+
       {/* Back link */}
       <Link
         to="/vaults"
@@ -298,19 +272,33 @@ export default function VaultDetail() {
           </div>
 
           {/* Quick Actions */}
-          {isActive && (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {vault.status === "pending_validation" && (
-                <button style={actionBtn("var(--accent)")}>
-                  Validate Milestone
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link
+              to="/vaults/create"
+              state={createVaultPrefillFromVault(vault)}
+              style={{
+                ...actionBtn("var(--accent)"),
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Duplicate Vault
+            </Link>
+            {isActive && (
+              <>
+                {vault.status === "pending_validation" && (
+                  <button style={actionBtn("var(--accent)")}>
+                    Validate Milestone
+                  </button>
+                )}
+                <button style={actionBtn("var(--warning)")}>
+                  Extend Deadline
                 </button>
-              )}
-              <button style={actionBtn("var(--warning)")}>
-                Extend Deadline
-              </button>
-              <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
-            </div>
-          )}
+                <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
+              </>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -333,6 +321,7 @@ export default function VaultDetail() {
           label={`${vault.name} timeline progress`}
           showValue={false}
         />
+        <VaultLifecycle status={vault.status} />
         <div
           style={{
             display: "flex",
@@ -399,29 +388,14 @@ export default function VaultDetail() {
         </Card>
 
         <Card>
-          <Text
-            role="caption"
-            as="div"
-            style={{
-              color: "var(--muted)",
-              marginBottom: "1rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Addresses
-          </Text>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
-          >
-            <AddrRow label="Creator" value={vault.creatorAddress} />
-            {vault.verifierAddress && (
-              <AddrRow label="Verifier" value={vault.verifierAddress} />
-            )}
-            <AddrRow label="Success destination" value={vault.successAddress} />
-            <AddrRow label="Failure destination" value={vault.failureAddress} />
-            <AddrRow label="Contract" value={vault.contractAddress} />
-          </div>
+          <VaultMetaPanel
+            network={network}
+            creatorAddress={vault.creatorAddress}
+            verifierAddress={vault.verifierAddress}
+            successAddress={vault.successAddress}
+            failureAddress={vault.failureAddress}
+            contractAddress={vault.contractAddress}
+          />
         </Card>
       </div>
 

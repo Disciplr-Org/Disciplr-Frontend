@@ -21,7 +21,7 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 vi.mock('../../utils/csv', () => ({
-  toCsv: vi.fn((_data, _type) => 'mocked,csv,content'),
+  toCsv: vi.fn(() => 'mocked,csv,content'),
   downloadCsv: vi.fn(),
 }));
 
@@ -217,22 +217,84 @@ describe('VaultTransactions', () => {
   });
 
   describe('sort controls', () => {
-    it('sort button defaults to newest-first', () => {
+    it('timestamp header defaults to newest-first with aria-sort', () => {
       renderPage();
-      expect(screen.getByRole('button', { name: /Newest/i })).toBeInTheDocument();
+      const timeHeaders = screen.getAllByRole('columnheader', { name: /Time/i });
+      expect(timeHeaders[0]).toHaveAttribute('aria-sort', 'descending');
     });
 
-    it('clicking sort toggles to oldest-first', () => {
+    it('clicking the active timestamp header toggles to oldest-first', () => {
       renderPage();
-      fireEvent.click(screen.getByRole('button', { name: /Newest/i }));
-      expect(screen.getByRole('button', { name: /Oldest/i })).toBeInTheDocument();
+      fireEvent.click(screen.getAllByRole('button', { name: /Time/i })[0]);
+      expect(screen.getAllByRole('columnheader', { name: /Time/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'ascending',
+      );
     });
 
-    it('clicking sort twice returns to newest-first', () => {
+    it('clicking a different header activates that column and clears timestamp aria-sort', () => {
       renderPage();
-      fireEvent.click(screen.getByRole('button', { name: /Newest/i }));
-      fireEvent.click(screen.getByRole('button', { name: /Oldest/i }));
-      expect(screen.getByRole('button', { name: /Newest/i })).toBeInTheDocument();
+      fireEvent.click(screen.getAllByRole('button', { name: /Amount/i })[0]);
+      expect(screen.getAllByRole('columnheader', { name: /Amount/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'ascending',
+      );
+      expect(screen.getAllByRole('columnheader', { name: /Time/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'none',
+      );
+    });
+
+    it('exposes timestamp as the default sorted column', () => {
+      renderPage();
+
+      expect(screen.getAllByRole('columnheader', { name: /Timestamp/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'descending',
+      );
+      expect(screen.getAllByRole('columnheader', { name: /Amount/i })[0]).toHaveAttribute(
+        'aria-sort',
+        'none',
+      );
+    });
+
+    it('sorts visible rows by amount when the amount header is clicked', () => {
+      const transactions = [
+        { ...buildTransaction(0), id: 'high-amount', amount: 30 },
+        { ...buildTransaction(1), id: 'low-amount', amount: 10 },
+        { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
+      ];
+
+      render(<VaultTransactions transactions={transactions} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
+
+      expect(screen.getByRole('columnheader', { name: /Amount/i })).toHaveAttribute(
+        'aria-sort',
+        'ascending',
+      );
+      const amountCells = Array.from(document.querySelectorAll('.vt-tx-amount-val'));
+      expect(amountCells[0].textContent).toContain('10.00');
+    });
+
+    it('toggles amount sorting to descending on the second click', () => {
+      const transactions = [
+        { ...buildTransaction(0), id: 'high-amount', amount: 30 },
+        { ...buildTransaction(1), id: 'low-amount', amount: 10 },
+        { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
+      ];
+
+      render(<VaultTransactions transactions={transactions} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Sort by Amount descending/i }));
+
+      expect(screen.getByRole('columnheader', { name: /Amount/i })).toHaveAttribute(
+        'aria-sort',
+        'descending',
+      );
+      const amountCells = Array.from(document.querySelectorAll('.vt-tx-amount-val'));
+      expect(amountCells[0].textContent).toContain('30.00');
     });
   });
 
@@ -260,14 +322,14 @@ describe('VaultTransactions', () => {
     it('renders "Xm ago" labels for transactions within the last hour', () => {
       render(<VaultTransactions />);
       // MOCK_TRANSACTIONS offsets include 2m, 5m, 10m, 20m, 45m
-      const minuteLabels = screen.getAllByText(/^\d+m ago$/);
+      const minuteLabels = screen.getAllByText(/^\d+ minutes? ago$/);
       expect(minuteLabels.length).toBeGreaterThan(0);
     });
 
     it('renders "Xh ago" labels for transactions older than 60 minutes', () => {
       render(<VaultTransactions />);
       // MOCK_TRANSACTIONS offsets include 1.5h (→1h), 2h, 3.5h (→3h), 5h, 8h
-      const hourLabels = screen.getAllByText(/^\d+h ago$/);
+      const hourLabels = screen.getAllByText(/^\d+ hours? ago$/);
       expect(hourLabels.length).toBeGreaterThan(0);
     });
 
@@ -382,14 +444,18 @@ describe('VaultTransactions with small list', () => {
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(4);
   });
 
-  it('toggles sort direction', () => {
+  it('toggles timestamp sort direction from the table header', () => {
     render(<VaultTransactions />);
-    const sortBtn = document.querySelector('.vt-sort-btn')!;
-    expect(screen.getByText(/Newest/)).toBeInTheDocument();
-    fireEvent.click(sortBtn);
-    expect(screen.getByText(/Oldest/)).toBeInTheDocument();
-    fireEvent.click(sortBtn);
-    expect(screen.getByText(/Newest/)).toBeInTheDocument();
+    const timeButton = screen.getAllByRole('button', { name: /Time/i })[0];
+    expect(screen.getAllByRole('columnheader', { name: /Time/i })[0]).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+    fireEvent.click(timeButton);
+    expect(screen.getAllByRole('columnheader', { name: /Time/i })[0]).toHaveAttribute(
+      'aria-sort',
+      'ascending',
+    );
   });
 
   it('opens detail modal on row click', () => {
@@ -576,8 +642,8 @@ describe('VaultTransactions windowing threshold rendering', () => {
     render(<VaultTransactions transactions={transactions} />);
 
     expect(screen.getByRole('table', { name: /Confirmed transactions/i })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /Transaction Type/i })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /Status/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader', { name: /Type/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('columnheader', { name: /Time/i }).length).toBeGreaterThan(0);
 
     const statusBadges = document.querySelectorAll('.vt-tx-status');
     expect(statusBadges).toHaveLength(WINDOW_SIZE);

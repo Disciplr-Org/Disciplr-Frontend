@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationTask } from '../../Zustand/Store';
 import { useVerifierStore } from '../../Zustand/Store';
+import { VALIDATION_HISTORY_PAGE_SIZE_KEY } from '../../utils/pageSizePref';
 import ValidationHistory from '../ValidationHistory';
 
 const { mockDownloadCsv } = vi.hoisted(() => ({
@@ -33,7 +34,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERALPHA',
     amount: '1,000 USDC',
     deadline: '2026-01-01',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Launch',
     notes: 'Approved launch evidence.',
@@ -44,7 +44,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERBETA',
     amount: '2,000 USDC',
     deadline: '2026-01-02',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Audit',
     notes: 'Missing audit proof.',
@@ -55,7 +54,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERGAMMA',
     amount: '3,000 USDC',
     deadline: '2026-01-03',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Delivery',
   },
@@ -65,7 +63,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERDELTA',
     amount: '4,000 USDC',
     deadline: '2026-01-04',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Design',
   },
@@ -75,7 +72,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNEREPSILON',
     amount: '5,000 USDC',
     deadline: '2026-01-05',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Docs',
   },
@@ -85,7 +81,64 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERZETA',
     amount: '6,000 USDC',
     deadline: '2026-01-06',
-    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Payout',
+  },
+];
+
+const longHistory: ValidationTask[] = [
+  ...baseHistory,
+  {
+    id: 'v-007',
+    vaultName: 'Eta Reserve',
+    owner: 'GOWNERETA',
+    amount: '7,000 USDC',
+    deadline: '2026-01-07',
+    status: 'approved',
+    milestone: 'Review',
+  },
+  {
+    id: 'v-008',
+    vaultName: 'Theta Trust',
+    owner: 'GOWNERTHETA',
+    amount: '8,000 USDC',
+    deadline: '2026-01-08',
+    status: 'rejected',
+    milestone: 'Scale',
+  },
+  {
+    id: 'v-009',
+    vaultName: 'Iota Vault',
+    owner: 'GOWNERIOTA',
+    amount: '9,000 USDC',
+    deadline: '2026-01-09',
+    status: 'approved',
+    milestone: 'Launch',
+  },
+  {
+    id: 'v-010',
+    vaultName: 'Kappa Fund',
+    owner: 'GOWNERKAPPA',
+    amount: '10,000 USDC',
+    deadline: '2026-01-10',
+    status: 'approved',
+    milestone: 'Ops',
+  },
+  {
+    id: 'v-011',
+    vaultName: 'Lambda Pool',
+    owner: 'GOWNERLAMBDA',
+    amount: '11,000 USDC',
+    deadline: '2026-01-11',
+    status: 'rejected',
+    milestone: 'Quality',
+  },
+  {
+    id: 'v-012',
+    vaultName: 'Mu Treasury',
+    owner: 'GOWNERMU',
+    amount: '12,000 USDC',
+    deadline: '2026-01-12',
     status: 'approved',
     milestone: 'Payout',
   },
@@ -102,6 +155,7 @@ function renderHistory(history = baseHistory) {
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it('renders summary stats and first page of validation history', () => {
@@ -115,8 +169,8 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
-    expect(screen.queryByText('Zeta Treasury')).not.toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
   });
 
   it('filters by rejected status', () => {
@@ -151,7 +205,7 @@ describe('ValidationHistory', () => {
   });
 
   it('paginates results with accessible controls', () => {
-    renderHistory();
+    renderHistory(longHistory);
 
     const nav = screen.getByRole('navigation', { name: 'Validation history pagination' });
     const previous = within(nav).getByRole('button', { name: 'Go to previous validation history page' });
@@ -162,7 +216,8 @@ describe('ValidationHistory', () => {
 
     fireEvent.click(next);
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Lambda Pool')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
     expect(next).toBeDisabled();
@@ -170,13 +225,16 @@ describe('ValidationHistory', () => {
   });
 
   it('updates page size and shows no-match empty state', () => {
-    renderHistory();
+    renderHistory(longHistory);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Validation history page size'), {
-      target: { value: '10' },
+      target: { value: '25' },
     });
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
@@ -185,6 +243,31 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('No matching validations')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
+  });
+
+  it('persists the selected page size for the next visit', () => {
+    const { unmount } = renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Validation history page size'), {
+      target: { value: '25' },
+    });
+
+    expect(window.localStorage.getItem('validation-history-page-size')).toBe('25');
+
+    unmount();
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('25');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+  });
+
+  it('ignores invalid stored page sizes', () => {
+    window.localStorage.setItem('validation-history-page-size', '999');
+
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
   });
 
   it('navigates back to the verifier dashboard', () => {

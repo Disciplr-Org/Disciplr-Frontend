@@ -39,6 +39,8 @@ describe('token-loader', () => {
         if (path.toString().includes('shadows.json')) return '{"shadow": "1px"}';
         if (path.toString().includes('motion.json')) return '{"motion": "ease"}';
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
+        if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
+        if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
@@ -51,6 +53,8 @@ describe('token-loader', () => {
         "shadow": "1px",
         "motion": "ease",
         "border": "1px",
+        "zIndex": 100,
+        "opacity": 0.5,
         "breakpoint": "768px"
       });
     });
@@ -63,6 +67,8 @@ describe('token-loader', () => {
         if (path.toString().includes('shadows.json')) return '{"shadow": "1px"}';
         if (path.toString().includes('motion.json')) return '{"motion": "ease"}';
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
+        if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
+        if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
@@ -75,6 +81,8 @@ describe('token-loader', () => {
         "shadow": "1px",
         "motion": "ease",
         "border": "1px",
+        "zIndex": 100,
+        "opacity": 0.5,
         "breakpoint": "768px"
       });
       expect(allTokens).not.toHaveProperty('font');
@@ -103,6 +111,8 @@ describe('token-loader', () => {
         if (path.toString().includes('shadows.json')) return '{"shadow": "1px"}';
         if (path.toString().includes('motion.json')) return '{"motion": "ease"}';
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
+        if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
+        if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
@@ -115,6 +125,8 @@ describe('token-loader', () => {
         "shadow": "1px",
         "motion": "ease",
         "border": "1px",
+        "zIndex": 100,
+        "opacity": 0.5,
         "breakpoint": "768px"
       });
       expect(console.warn).toHaveBeenCalledWith(
@@ -159,7 +171,7 @@ describe('token-loader', () => {
       const allTokens = getAllTokens();
 
       expect(allTokens).toEqual({});
-      expect(console.warn).toHaveBeenCalledTimes(8);
+      expect(console.warn).toHaveBeenCalledTimes(9);
     });
   });
 });

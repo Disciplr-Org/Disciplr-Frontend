@@ -3,6 +3,15 @@ import { isValidStellarAddress } from './stellarAddress';
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer'
 
+export const EXPLORER_BASE_URLS: Record<WalletNetwork, string> = {
+  TESTNET: 'https://stellar.expert/explorer/testnet',
+  PUBLIC: 'https://stellar.expert/explorer/public',
+};
+
+export function explorerBaseUrl(network: WalletNetwork): string {
+  return EXPLORER_BASE_URLS[network] ?? EXPLORER_BASE_URLS.TESTNET;
+}
+
 export function getExplorerTxUrl(txHash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
   const segment = network === 'PUBLIC' ? 'public' : 'testnet'
   return `${EXPLORER_BASE}/${segment}/tx/${txHash}`
@@ -14,11 +23,6 @@ export function getExplorerAccountUrl(address: string, network: 'TESTNET' | 'PUB
   return `${EXPLORER_BASE}/${segment}/account/${address}`
 }
 
-const EXPLORER_BASES: Record<WalletNetwork, string> = {
-  TESTNET: 'https://stellar.expert/explorer/testnet',
-  PUBLIC: 'https://stellar.expert/explorer/public',
-};
-
 /**
  * Builds a Stellar Expert contract/account explorer URL for the given
  * address and network.
@@ -27,10 +31,10 @@ const EXPLORER_BASES: Record<WalletNetwork, string> = {
  * the link render without additional null checks.
  */
 export function contractExplorerUrl(address: string, network: string): string {
-  if (!isValidStellarAddress(address)) return '';
+  if (!address) return '';
   const base =
-    EXPLORER_BASES[(network as WalletNetwork)] ??
-    EXPLORER_BASES.TESTNET;
+    EXPLORER_BASE_URLS[(network as WalletNetwork)] ??
+    EXPLORER_BASE_URLS.TESTNET;
   return `${base}/contract/${address}`;
 }
 

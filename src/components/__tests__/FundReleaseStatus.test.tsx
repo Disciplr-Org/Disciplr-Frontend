@@ -113,4 +113,39 @@ describe('FundReleaseStatus', () => {
 
     expect(screen.getByText('Not available')).toBeInTheDocument();
   });
+
+  describe("outcome state accessible labels", () => {
+    it("released outcome has accessible region label", () => {
+      render(
+        <FundReleaseStatus
+          outcome="released"
+          destinationAddress="GSUCCESSDESTINATION1234567890"
+          amount={100}
+          currency="XLM"
+        />
+      );
+      expect(screen.getByRole('region', { name: /Fund settlement status/i })).toBeInTheDocument();
+    });
+
+    it("redirected outcome has accessible region label", () => {
+      render(<FundReleaseStatus outcome="redirected" amount={50} currency="XLM" />);
+      expect(screen.getByRole('region', { name: /Fund settlement status/i })).toBeInTheDocument();
+    });
+
+    it("pending outcome has accessible region label", () => {
+      render(<FundReleaseStatus outcome="pending" amount={200} currency="XLM" />);
+      expect(screen.getByRole('region', { name: /Fund settlement status/i })).toBeInTheDocument();
+    });
+
+    it("each outcome applies a distinct CSS modifier class", () => {
+      const { rerender } = render(<FundReleaseStatus outcome="pending" amount={1} currency="XLM" />);
+      expect(document.querySelector('.fund-release-status--pending')).not.toBeNull();
+
+      rerender(<FundReleaseStatus outcome="released" amount={1} currency="XLM" />);
+      expect(document.querySelector('.fund-release-status--released')).not.toBeNull();
+
+      rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" />);
+      expect(document.querySelector('.fund-release-status--redirected')).not.toBeNull();
+    });
+  });
 });

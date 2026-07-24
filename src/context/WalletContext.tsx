@@ -21,6 +21,9 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+/** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
+export const BALANCE_REFRESH_INTERVAL = 30_000;
+
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [network, setNetwork] = useState<WalletNetwork | null>(null);
@@ -30,6 +33,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const lastKnownAddressRef = useRef<string | null>(null);
+    const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -48,6 +53,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const netDetails = await getNetworkDetails();
             const activeNetwork = normalizeNetwork(netDetails.network);
             setNetwork(activeNetwork);
+            lastKnownNetworkRef.current = activeNetwork;
 
             const usdcBalance = await fetchUsdcBalance(pubKey, activeNetwork, fetch, {
                 signal: abortControllerRef.current.signal,
@@ -72,6 +78,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
+                    lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
                 }
             }
@@ -89,6 +96,47 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
+    // ── Balance auto-refresh ──────────────────────────────────────────────────
+    // Polls the balance at a configurable interval; pauses when the tab is
+    // hidden to avoid wasted Horizon calls. Never overlaps in-flight requests
+    // (fetchNetworkAndBalance already cancels the previous one via AbortController).
+    // No polling when disconnected (address is null).
+    // Also detects address changes via Freighter and updates state accordingly.
+    useEffect(() => {
+        if (!address) return;
+
+        const tick = async () => {
+            if (document.hidden) return;
+            try {
+                const { address: currentAddr, error: addrError } = await getAddress();
+                if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
+                    // Address changed — update the ref and re-fetch everything
+                    setAddress(currentAddr);
+                    lastKnownAddressRef.current = currentAddr;
+                    await fetchNetworkAndBalance(currentAddr);
+                } else {
+                    await fetchNetworkAndBalance(lastKnownAddressRef.current ?? address);
+                }
+            } catch {
+                await fetchNetworkAndBalance(address);
+            }
+        };
+
+        const id = setInterval(tick, BALANCE_REFRESH_INTERVAL);
+
+        const onVisibilityChange = () => {
+            if (!document.hidden && address) {
+                fetchNetworkAndBalance(address);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            clearInterval(id);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [address]);
+
     const connect = async () => {
         setIsConnecting(true);
         setError(null);
@@ -100,6 +148,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
+                    lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
                 } else {
                     setError(addrError || 'Failed to get wallet address.');
@@ -125,6 +174,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setBalance(null);
         setBalanceStatus('idle');
         setBalanceError(null);
+        lastKnownAddressRef.current = null;
+        lastKnownNetworkRef.current = null;
     };
 
     return (

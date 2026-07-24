@@ -1,8 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+import { CRITICAL_DAYS_THRESHOLD } from '../../utils/verifierMetrics';
 
 vi.mock('../../Zustand/Store', () => ({
   useVerifierStore: vi.fn(),
@@ -24,7 +25,6 @@ const pendingTasks = [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -33,8 +33,7 @@ const pendingTasks = [
     vaultName: 'Beta Vault',
     owner: '0xBBBB',
     amount: '5,000 USDC',
-    deadline: '2026-06-20',
-    daysRemaining: 2,
+    deadline: '2026-06-23',
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -47,7 +46,6 @@ const historyTasks = [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-05-01',
-    daysRemaining: 0,
     status: 'approved' as const,
     milestone: 'Phase 3',
     notes: 'Looks good.',
@@ -65,11 +63,30 @@ function renderPage() {
 
 describe('VerifierDashboard', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     (useVerifierStore as any).mockReturnValue({
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the page heading', () => {
@@ -124,19 +141,19 @@ describe('VerifierDashboard', () => {
 
   it('shows days remaining for each task', () => {
     renderPage();
-    expect(screen.getByText('10 days left')).toBeInTheDocument();
-    expect(screen.getByText('2 days left')).toBeInTheDocument();
+    expect(screen.getByText(/10 days left/)).toBeInTheDocument();
+    expect(screen.getByText(/2 days left/)).toBeInTheDocument();
   });
 
-  it('applies danger color for tasks with 3 or fewer days remaining', () => {
+  it(`applies danger color for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
     renderPage();
-    const urgentText = screen.getByText('2 days left');
+    const urgentText = screen.getByText(/2 days left/);
     expect(urgentText.getAttribute('style')).toContain('var(--danger)');
   });
 
-  it('applies text color for tasks with more than 3 days remaining', () => {
+  it(`applies text color for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
     renderPage();
-    const normalText = screen.getByText('10 days left');
+    const normalText = screen.getByText(/10 days left/);
     expect(normalText.getAttribute('style')).toContain('var(--text)');
   });
 
@@ -145,6 +162,36 @@ describe('VerifierDashboard', () => {
     const reviewButtons = screen.getAllByText('Review Now →');
     fireEvent.click(reviewButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue/v-1');
+  });
+
+  it('gives each Review Now button an accessible name including the vault name', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Review Alpha Vault' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review Beta Vault' })).toBeInTheDocument();
+  });
+
+  it(`shows urgency text (not just color) for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
+    renderPage();
+    const urgentContainer = screen.getByText(/2 days left/) as HTMLElement;
+    expect(urgentContainer.textContent).toContain('(urgent)');
+  });
+
+  it(`does not show urgency text for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
+    renderPage();
+    const normalContainer = screen.getByText(/10 days left/) as HTMLElement;
+    expect(normalContainer.textContent).not.toContain('(urgent)');
+  });
+
+  it('Review Now buttons have focus-visible outline class', () => {
+    renderPage();
+    const btn = screen.getByRole('button', { name: 'Review Alpha Vault' });
+    expect(btn.className).toContain('focus-visible:outline');
+  });
+
+  it('nav buttons have focus-visible outline class', () => {
+    renderPage();
+    expect(screen.getByText('View Pending Queue').className).toContain('focus-visible:outline');
+    expect(screen.getByText('View History').className).toContain('focus-visible:outline');
   });
 
   it('uses design tokens for stat cards', () => {
@@ -195,9 +242,20 @@ describe('VerifierDashboard', () => {
 
     it('navigates to history page when View in History is clicked', () => {
       renderPage();
-      const viewHistoryBtn = screen.getByRole('button', { name: 'View in History →' });
+      const viewHistoryBtn = screen.getByRole('button', { name: 'View Gamma Vault in History' });
       fireEvent.click(viewHistoryBtn);
       expect(mockNavigate).toHaveBeenCalledWith('/verifier/history');
+    });
+
+    it('gives each View in History button an accessible name including the vault name', () => {
+      renderPage();
+      expect(screen.getByRole('button', { name: 'View Gamma Vault in History' })).toBeInTheDocument();
+    });
+
+    it('View in History buttons have focus-visible outline class', () => {
+      renderPage();
+      const btn = screen.getByRole('button', { name: 'View Gamma Vault in History' });
+      expect(btn.className).toContain('focus-visible:outline');
     });
 
     it('renders a maximum of 5 recent decisions', () => {
@@ -207,7 +265,6 @@ describe('VerifierDashboard', () => {
         owner: '0xCCCC',
         amount: '20,000 USDC',
         deadline: '2026-05-01',
-        daysRemaining: 0,
         status: i % 2 === 0 ? ('approved' as const) : ('rejected' as const),
         milestone: `Phase ${i}`,
         decidedAt: `2026-05-0${i + 1}`,

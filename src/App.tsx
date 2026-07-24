@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { WalletProvider } from './context/WalletContext'
+import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
 import Skeleton from './components/Skeleton'
-import ErrorBoundary from './components/ErrorBoundary'
 import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import Vaults from './pages/Vaults'
@@ -26,8 +26,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <WalletProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
+        <AppConfigProvider>
+          <BrowserRouter>
             <Layout>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -60,8 +60,8 @@ export default function App() {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
-          </ErrorBoundary>
-        </BrowserRouter>
+          </BrowserRouter>
+        </AppConfigProvider>
       </WalletProvider>
     </ThemeProvider>
   )

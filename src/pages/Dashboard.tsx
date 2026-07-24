@@ -4,97 +4,18 @@ import VaultCard from "../components/VaultCard";
 import UpcomingDeadlines from "../components/UpcomingDeadlines";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
 import type { VaultStatus } from "../types/vault";
-import { listVaults } from "../services/vaultService";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
-const SUMMARY = {
-  totalLocked: 25500,
-  activeVaults: 3,
-  pendingMilestones: 2,
-  completionRate: 67,
-};
-// VAULTS removed — now loaded async from vaultService (see Dashboard component).
-
-const ACTIVITY: Activity[] = [
-  {
-    id: "a1",
-    type: "validated",
-    vault: "Alpha Vault",
-    timestamp: "2024-04-28T14:30:00Z",
-  },
-  {
-    id: "a2",
-    type: "created",
-    vault: "Gamma Fund",
-    timestamp: "2024-04-27T09:00:00Z",
-    amount: 4200,
-  },
-  {
-    id: "a3",
-    type: "released",
-    vault: "Delta Safe",
-    timestamp: "2024-04-25T16:45:00Z",
-    amount: 15000,
-  },
-  {
-    id: "a4",
-    type: "redirected",
-    vault: "Epsilon Pool",
-    timestamp: "2024-04-24T11:20:00Z",
-    amount: 3300,
-  },
-];
-
-const DEADLINES: Deadline[] = [
-  {
-    id: "2",
-    name: "Beta Reserve",
-    deadline: "2024-05-20T10:00:00Z",
-    amount: 8800,
-  },
-  {
-    id: "1",
-    name: "Alpha Vault",
-    deadline: "2024-07-15T10:00:00Z",
-    amount: 12500,
-  },
-];
+// Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
+// vaultService (see Dashboard component below).
+import { SUMMARY, ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "var(--muted)",
-    bg: "rgba(156,163,175,0.1)",
-  },
-};
+
 
 const ACTIVITY_CFG: Record<
   Activity["type"],
@@ -178,25 +99,6 @@ function SummaryCard({
   );
 }
 
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const cfg = STATUS_CFG[status];
-  return (
-    <span
-      style={{
-        background: cfg.bg,
-        color: cfg.color,
-        border: `var(--border-width-1) solid ${cfg.color}`,
-        borderRadius: "var(--radius-full)",
-        padding: "2px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cfg.label}
-    </span>
-  );
-}
 
 function SectionHeader({
   title,
@@ -398,11 +300,7 @@ export default function Dashboard({
               action="View all →"
               to="/vaults"
             />
-            {vaultsLoading ? (
-              <div style={{ textAlign: "center", padding: "2rem", color: "var(--muted)" }}>
-                <Text role="caption" as="div">Loading vaults…</Text>
-              </div>
-            ) : hasVaults ? (
+            {hasVaults ? (
               <div
                 style={{
                   display: "flex",
@@ -575,14 +473,7 @@ export default function Dashboard({
 }
 
 // ── Success Rate Sparkline ────────────────────────────────────────────────────
-const CHART_DATA = [
-  { month: "Nov", rate: 50 },
-  { month: "Dec", rate: 60 },
-  { month: "Jan", rate: 55 },
-  { month: "Feb", rate: 75 },
-  { month: "Mar", rate: 70 },
-  { month: "Apr", rate: 67 },
-];
+// CHART_DATA lives in src/fixtures/dashboard.ts (imported at top of file).
 
 function SuccessChart() {
   return (

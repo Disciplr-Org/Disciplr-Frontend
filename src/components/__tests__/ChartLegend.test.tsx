@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
-import { ChartLegend } from '../ChartLegend'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
+import { ChartLegend, type ChartLegendEntry } from '../ChartLegend'
 
 const tokens = {
   accent: '#0A7668',
@@ -72,5 +73,89 @@ describe('ChartLegend', () => {
     )
 
     expect(screen.getByText('This Period %').previousElementSibling).toHaveStyle({ backgroundColor: '#14B8A6' })
+  })
+
+  it('renders multiple color-keyed swatches with distinct colors', () => {
+    render(
+      <ChartLegend
+        entries={[
+          { label: 'Success', colorKey: 'success' },
+          { label: 'Warning', colorKey: 'warning' },
+          { label: 'Platform', colorKey: 'platform' },
+        ]}
+        colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
+        tokens={tokens}
+      />,
+    )
+
+    const swatches = ['Success', 'Warning', 'Platform'].map(
+      (label) => screen.getByText(label).previousElementSibling,
+    )
+    const colors = swatches.map((s) => (s as HTMLElement).style.backgroundColor)
+    const uniqueColors = new Set(colors)
+    expect(uniqueColors.size).toBe(3)
+  })
+
+  it('supports a custom ariaLabel overriding the default', () => {
+    render(
+      <ChartLegend
+        entries={[{ label: 'Revenue', colorKey: 'success' }]}
+        colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
+        tokens={tokens}
+        ariaLabel="Revenue chart legend"
+      />,
+    )
+    expect(screen.getByLabelText('Revenue chart legend')).toBeInTheDocument()
+  })
+
+  it('toggle wrapper: clicking an entry label can drive a hidden-series set', () => {
+    function ToggleWrapper() {
+      const [hidden, setHidden] = useState<Set<string>>(new Set())
+      const entries: ChartLegendEntry[] = [
+        { label: 'This Period', colorKey: 'success', id: 'series-a' },
+        { label: 'Failed', colorKey: 'failed', id: 'series-b' },
+      ]
+      return (
+        <>
+          <ul>
+            {entries.map((e) => (
+              <li key={e.id}>
+                <button
+                  aria-pressed={hidden.has(e.id!)}
+                  onClick={() =>
+                    setHidden((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(e.id!)) next.delete(e.id!);
+                      else next.add(e.id!)
+                      return next
+                    })
+                  }
+                >
+                  {e.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <ChartLegend
+            entries={entries.filter((e) => !hidden.has(e.id!))}
+            colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
+            tokens={tokens}
+          />
+        </>
+      )
+    }
+
+    render(<ToggleWrapper />)
+
+    expect(screen.getByText('This Period')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+
+    // Toggle off "Failed"
+    fireEvent.click(screen.getByRole('button', { name: 'Failed' }))
+    expect(screen.queryByRole('list', { name: 'Chart legend' })?.querySelector('[aria-hidden="true"]')).not.toBeNull()
+
+    // Legend still shows "This Period" but not "Failed" label in the legend
+    const legendItems = screen.getByLabelText('Chart legend').querySelectorAll('li')
+    expect(legendItems).toHaveLength(1)
   })
 })

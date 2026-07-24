@@ -1,5 +1,10 @@
 import { Text } from "./Text";
 
+export interface CreateVaultReviewMilestone {
+  title: string;
+  criteria: string;
+}
+
 interface CreateVaultReviewProps {
   amount: string;
   deadline: string;
@@ -7,6 +12,7 @@ interface CreateVaultReviewProps {
   failureAddress: string;
   verifierAddress?: string;
   milestone?: string;
+  milestones?: CreateVaultReviewMilestone[];
   onBack?: () => void;
   onConfirm?: () => void;
 }
@@ -42,9 +48,17 @@ export function CreateVaultReview({
   failureAddress,
   verifierAddress,
   milestone,
+  milestones,
   onBack,
   onConfirm,
 }: CreateVaultReviewProps) {
+  const reviewMilestones =
+    milestones && milestones.length > 0
+      ? milestones
+      : milestone
+        ? [{ title: milestone, criteria: "" }]
+        : [];
+
   return (
     <div
       style={{
@@ -105,16 +119,39 @@ export function CreateVaultReview({
           </div>
         ) : null}
 
-        {milestone ? (
+        {reviewMilestones.length > 0 ? (
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-              Milestone
+              Milestones
             </Text>
-            <Text role="body" as="p">
-              {milestone}
-            </Text>
+            <ol
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+                margin: 0,
+                paddingLeft: "1.25rem",
+              }}
+            >
+              {reviewMilestones.map((item, index) => (
+                <li key={`${item.title}-${index}`}>
+                  <Text role="body" as="p" style={{ fontWeight: 700 }}>
+                    {item.title}
+                  </Text>
+                  {item.criteria ? (
+                    <Text
+                      role="caption"
+                      as="p"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      {item.criteria}
+                    </Text>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
           </div>
         ) : null}
       </div>

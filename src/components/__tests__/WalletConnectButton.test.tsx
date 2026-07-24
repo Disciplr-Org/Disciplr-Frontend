@@ -49,12 +49,13 @@ function getConnectedButton() {
 describe('WalletConnectButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsAllowed.mockResolvedValue(false);
-    mockSetAllowed.mockResolvedValue(undefined);
-    mockRequestAccess.mockResolvedValue(true);
+    mockIsAllowed.mockResolvedValue({ isAllowed: false });
+    mockSetAllowed.mockResolvedValue({ isAllowed: false });
+    mockRequestAccess.mockResolvedValue({ address: walletAddress });
     mockGetAddress.mockResolvedValue({ address: walletAddress, error: undefined });
     mockGetNetworkDetails.mockResolvedValue({
       network: 'TESTNET',
+      networkUrl: 'https://horizon-testnet.stellar.org',
       networkPassphrase: 'Test SDF Network ; September 2015',
     });
   });
@@ -67,6 +68,18 @@ describe('WalletConnectButton', () => {
     expect(screen.getByRole('heading', { name: /connect wallet/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /freighter connected/i })).toBeInTheDocument();
     expect(screen.getByText('Albedo')).toBeInTheDocument();
+  });
+
+  it('renders the Albedo button as disabled with a Coming soon badge', () => {
+    renderWalletButton();
+
+    fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
+
+    const albedoButton = screen.getByRole('button', { name: /albedo/i });
+    expect(albedoButton).toBeDisabled();
+    expect(albedoButton).toHaveAttribute('aria-disabled', 'true');
+    expect(albedoButton).toHaveAttribute('title', 'Albedo support is coming soon');
+    expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
   });
 
   it('connects Freighter, renders the truncated address, and disconnects from the dropdown', async () => {
@@ -95,7 +108,7 @@ describe('WalletConnectButton', () => {
   });
 
   it('closes the connected dropdown when clicking outside', async () => {
-    mockIsAllowed.mockResolvedValue(true);
+    mockIsAllowed.mockResolvedValue({ isAllowed: true });
     renderWalletButton();
 
     await waitFor(() => {
