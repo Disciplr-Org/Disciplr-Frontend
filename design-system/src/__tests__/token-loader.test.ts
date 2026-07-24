@@ -41,6 +41,7 @@ describe('token-loader', () => {
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
+        if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
 
@@ -53,7 +54,8 @@ describe('token-loader', () => {
         "motion": "ease",
         "border": "1px",
         "zIndex": 100,
-        "opacity": 0.5
+        "opacity": 0.5,
+        "breakpoint": "768px"
       });
     });
 
@@ -67,6 +69,7 @@ describe('token-loader', () => {
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
+        if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
 
@@ -79,7 +82,8 @@ describe('token-loader', () => {
         "motion": "ease",
         "border": "1px",
         "zIndex": 100,
-        "opacity": 0.5
+        "opacity": 0.5,
+        "breakpoint": "768px"
       });
       expect(allTokens).not.toHaveProperty('font');
     });
@@ -109,6 +113,7 @@ describe('token-loader', () => {
         if (path.toString().includes('borders.json')) return '{"border": "1px"}';
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
+        if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
 
@@ -121,7 +126,8 @@ describe('token-loader', () => {
         "motion": "ease",
         "border": "1px",
         "zIndex": 100,
-        "opacity": 0.5
+        "opacity": 0.5,
+        "breakpoint": "768px"
       });
       expect(console.warn).toHaveBeenCalledWith(
         'Failed to load typography.json:',
@@ -132,25 +138,25 @@ describe('token-loader', () => {
     it('should let later files override earlier keys via Object.assign', () => {
       mockedFs.readFileSync.mockImplementation((path) => {
         if (path.toString().includes('colors.json')) return '{"token": "from-colors"}';
-        if (path.toString().includes('opacity.json')) return '{"token": "from-opacity"}';
+        if (path.toString().includes('breakpoints.json')) return '{"token": "from-breakpoints"}';
         return '{}';
       });
 
       const allTokens = getAllTokens();
 
-      expect(allTokens).toEqual({"token": "from-opacity"});
+      expect(allTokens).toEqual({"token": "from-breakpoints"});
     });
 
     it('should still merge a file ordered after a failing one', () => {
       mockedFs.readFileSync.mockImplementation((path) => {
         if (path.toString().includes('colors.json')) throw new Error('File not found');
-        if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
+        if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
         return '{}';
       });
 
       const allTokens = getAllTokens();
 
-      expect(allTokens).toEqual({"opacity": 0.5});
+      expect(allTokens).toEqual({"breakpoint": "768px"});
       expect(console.warn).toHaveBeenCalledWith(
         'Failed to load colors.json:',
         expect.any(Error)
@@ -165,7 +171,7 @@ describe('token-loader', () => {
       const allTokens = getAllTokens();
 
       expect(allTokens).toEqual({});
-      expect(console.warn).toHaveBeenCalledTimes(8);
+      expect(console.warn).toHaveBeenCalledTimes(9);
     });
   });
 });
