@@ -58,6 +58,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
           role="caption"
           as="span"
           id={errorId}
+          aria-live="polite"
           style={{ color: 'var(--danger)' }}
         >
           {error}
