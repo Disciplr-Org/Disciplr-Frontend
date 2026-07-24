@@ -157,8 +157,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setBalance(null);
         setBalanceStatus('idle');
         setBalanceError(null);
-        lastKnownAddressRef.current = null;
-        lastKnownNetworkRef.current = null;
     };
 
     return (

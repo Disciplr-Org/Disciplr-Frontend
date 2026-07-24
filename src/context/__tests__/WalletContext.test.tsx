@@ -238,7 +238,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
         await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
 
-        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+        expect(() => fireEvent.click(screen.getByRole('button', { name: /disconnect/i }))).not.toThrow();
 
         expect(screen.getByTestId('address')).toHaveTextContent('');
         expect(screen.getByTestId('network')).toHaveTextContent('');
