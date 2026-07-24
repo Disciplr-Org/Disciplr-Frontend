@@ -9,15 +9,18 @@ import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
 import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
   const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+  const now = useCurrentTime();
 
   // Queue-at-a-glance metrics for the strip above the table.
   const metrics = useMemo(
-    () => computeVerifierMetrics(pendingValidations, validationHistory),
-    [pendingValidations, validationHistory],
+    () => computeVerifierMetrics(pendingValidations, validationHistory, now),
+    [pendingValidations, validationHistory, now],
   );
 
   // Filter and sort state
@@ -150,50 +153,6 @@ export default function PendingValidations() {
 
       <VerifierMetricsBar metrics={metrics} />
 
-      {/* Search and filter controls */}
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <div className="flex-1">
-          <label htmlFor="search-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Search by Vault Name or Owner
-          </label>
-          <input
-            aria-label="Search by Vault Name or Owner"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search vault or owner"
-            className="px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-              background: 'var(--bg)',
-            }}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--muted)' }}>
-          Filter by Milestone
-          <select
-            aria-label="Filter by Milestone"
-            value={selectedMilestone}
-            onChange={(event) => setSelectedMilestone(event.target.value)}
-            className="px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-              background: 'var(--bg)',
-            }}
-          >
-            <option value="">All Milestones</option>
-            {availableMilestones.map((milestone) => (
-              <option key={milestone} value={milestone}>
-                {milestone}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <VerifierMetricsBar metrics={metrics} />
-
       <section
         aria-label="Pending validation filters"
         className="grid gap-4 md:grid-cols-2"
@@ -289,6 +248,7 @@ export default function PendingValidations() {
             <tbody>
               {sortedValidations.map((task) => {
                 const checked = selectedIds.includes(task.id);
+                const remaining = daysRemaining(task.deadline, now);
                 return (
                   <tr
                     key={task.id}
@@ -322,10 +282,10 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
-                          {task.daysRemaining} days left
+                        <span className="text-sm font-medium" style={{ color: remaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
+                          {remaining} days left
                         </span>
-                        {task.daysRemaining <= 3 && (
+                        {remaining <= 3 && (
                           <span className="sr-only">Urgent</span>
                         )}
                         <CountdownDeadline deadline={task.deadline} />
