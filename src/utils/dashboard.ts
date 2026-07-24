@@ -52,13 +52,11 @@ export function daysRemaining(
   deadline: string,
   now: number = Date.now(),
 ): number {
-  return Math.max(
-    0,
-    Math.ceil((new Date(deadline).getTime() - now) / 86400000),
-  );
+  return Math.ceil((new Date(deadline).getTime() - now) / 86400000);
 }
 
 export function urgencyColor(days: number): string {
+  if (days < 0) return "var(--danger)";
   if (days <= 7) return "var(--danger)";
   if (days <= 30) return "var(--warning)";
   return "var(--success)";
@@ -133,7 +131,7 @@ export function processDeadlines(
         ...d,
         daysRemaining: days,
         urgencyColor: color,
-        formattedDays: days === 0 ? "Today" : `${days}d`,
+        formattedDays: days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d`,
         formattedAmount: `${d.amount.toLocaleString()} USDC`,
         formattedDate: new Date(d.deadline).toLocaleDateString("en-US", {
           month: "short",
