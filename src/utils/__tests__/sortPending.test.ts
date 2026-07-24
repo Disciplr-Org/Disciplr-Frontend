@@ -11,7 +11,6 @@ const task = (
   owner: '0xowner',
   amount: '1,000 USDC',
   deadline: '2026-07-01',
-  daysRemaining: 10,
   status: 'pending',
   milestone: 'Milestone',
   ...overrides,
@@ -20,9 +19,9 @@ const task = (
 describe('sortPending', () => {
   it('sorts deadlines ascending and descending', () => {
     const tasks = [
-      task('later', { deadline: '2026-08-01', daysRemaining: 40 }),
-      task('soon', { deadline: '2026-06-20', daysRemaining: 2 }),
-      task('middle', { deadline: '2026-07-01', daysRemaining: 10 }),
+      task('later', { deadline: '2026-08-01' }),
+      task('soon', { deadline: '2026-06-20' }),
+      task('middle', { deadline: '2026-07-01' }),
     ];
 
     expect(sortPending(tasks, 'deadline', 'asc').map((t) => t.id)).toEqual([

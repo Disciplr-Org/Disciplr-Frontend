@@ -79,7 +79,7 @@ describe('CSV analytics export', () => {
           // Check that injection chars are escaped
           if (row.name.startsWith('=') || row.name.startsWith('+') || row.name.startsWith('-') || row.name.startsWith('@') || row.name.startsWith('\t')) {
             // Should have escaped with single quote prefix or quotes
-            expect(dataRow).toMatch(/'|")
+            expect(dataRow).toMatch(/['"]/)
           }
         },
       ),

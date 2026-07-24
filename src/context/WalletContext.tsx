@@ -33,6 +33,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const lastKnownAddressRef = useRef<string | null>(null);
+    const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -51,6 +53,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const netDetails = await getNetworkDetails();
             const activeNetwork = normalizeNetwork(netDetails.network);
             setNetwork(activeNetwork);
+            lastKnownNetworkRef.current = activeNetwork;
 
             const usdcBalance = await fetchUsdcBalance(pubKey, activeNetwork, fetch, {
                 signal: abortControllerRef.current.signal,
@@ -75,6 +78,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
+                    lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
                 }
             }
@@ -97,12 +101,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // hidden to avoid wasted Horizon calls. Never overlaps in-flight requests
     // (fetchNetworkAndBalance already cancels the previous one via AbortController).
     // No polling when disconnected (address is null).
+    // Also detects address changes via Freighter and updates state accordingly.
     useEffect(() => {
         if (!address) return;
 
-        const tick = () => {
-            if (!document.hidden) {
-                fetchNetworkAndBalance(address);
+        const tick = async () => {
+            if (document.hidden) return;
+            try {
+                const { address: currentAddr, error: addrError } = await getAddress();
+                if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
+                    // Address changed — update the ref and re-fetch everything
+                    setAddress(currentAddr);
+                    lastKnownAddressRef.current = currentAddr;
+                    await fetchNetworkAndBalance(currentAddr);
+                } else {
+                    await fetchNetworkAndBalance(lastKnownAddressRef.current ?? address);
+                }
+            } catch {
+                await fetchNetworkAndBalance(address);
             }
         };
 
@@ -132,6 +148,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
+                    lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
                 } else {
                     setError(addrError || 'Failed to get wallet address.');

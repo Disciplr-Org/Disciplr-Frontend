@@ -9,7 +9,6 @@ function task(overrides: Partial<ValidationTask> = {}): ValidationTask {
     owner: '0xowner',
     amount: '1,000 USDC',
     deadline: '2026-01-01',
-    daysRemaining: 5,
     status: 'pending',
     milestone: 'M',
     ...overrides,
@@ -35,9 +34,15 @@ describe('computeVerifierMetrics', () => {
   });
 
   it('counts pending, overdue, and critical tasks', () => {
+    const now = new Date('2026-06-01T00:00:00Z').getTime();
     const metrics = computeVerifierMetrics(
-      [task({ id: 'a', daysRemaining: -1 }), task({ id: 'b', daysRemaining: 2 }), task({ id: 'c', daysRemaining: 8 })],
+      [
+        task({ id: 'a', deadline: '2026-05-31' }),
+        task({ id: 'b', deadline: '2026-06-03' }),
+        task({ id: 'c', deadline: '2026-06-09' }),
+      ],
       [],
+      now,
     );
 
     expect(metrics.pendingCount).toBe(3);
