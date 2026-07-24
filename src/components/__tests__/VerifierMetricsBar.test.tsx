@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { VerifierMetricsBar } from '../VerifierMetricsBar';
-import type { VerifierMetrics } from '../../utils/verifierMetrics';
+import { CRITICAL_DAYS_THRESHOLD, type VerifierMetrics } from '../../utils/verifierMetrics';
 
 const baseMetrics: VerifierMetrics = {
   pendingCount: 5,
@@ -159,7 +159,25 @@ describe('VerifierMetricsBar', () => {
   // ── no-color-alone cue for critical cell ─────────────────────────────────
   it('shows a textual description for the critical cell so colour is not load-bearing', () => {
     render(<VerifierMetricsBar metrics={baseMetrics} />);
-    expect(screen.getByText(/≤ 3 days to deadline/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`≤ ${CRITICAL_DAYS_THRESHOLD} days to deadline`))).toBeInTheDocument();
+  });
+
+  it('updates copy when threshold changes', async () => {
+    vi.doMock('../../utils/verifierMetrics', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../utils/verifierMetrics')>();
+      return {
+        ...actual,
+        CRITICAL_DAYS_THRESHOLD: 5,
+      };
+    });
+
+    const { VerifierMetricsBar: MockedBar } = await import('../VerifierMetricsBar');
+    render(<MockedBar metrics={{ ...baseMetrics, criticalCount: 1 }} />);
+    
+    expect(screen.getByText(/≤ 5 days to deadline/)).toBeInTheDocument();
+    expect(screen.getByText(/Critical \\(≤5d\\)/)).toBeInTheDocument();
+    
+    vi.doUnmock('../../utils/verifierMetrics');
   });
 
   it('renders the calm-description when no tasks are critical', () => {
