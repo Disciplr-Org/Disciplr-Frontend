@@ -58,6 +58,10 @@ export default function ValidationDetail() {
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
   const remaining = task ? daysRemaining(task.deadline, now) : 0;
 
+  useEffect(() => {
+    setCheckedCriteria(new Set());
+  }, [task?.id]);
+
   if (!task) {
     return (
       <div className="p-12 text-center flex flex-col items-center gap-4">
