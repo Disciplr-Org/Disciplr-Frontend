@@ -1,6 +1,34 @@
-import { classifyEvidenceUrl } from '../evidenceKind';
+import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../evidenceKind';
+import type { EvidenceKind } from '../evidenceKind';
 
 describe('evidenceKind', () => {
+  describe('EVIDENCE_BADGE_COLORS', () => {
+    const ALL_KINDS: EvidenceKind[] = ['github', 'figma', 'ipfs', 'other'];
+
+    it('defines a color for every EvidenceKind', () => {
+      ALL_KINDS.forEach((kind) => {
+        expect(EVIDENCE_BADGE_COLORS[kind]).toBeDefined();
+        expect(EVIDENCE_BADGE_COLORS[kind]).not.toBe('');
+      });
+    });
+
+    it('uses the correct GitHub brand hex', () => {
+      expect(EVIDENCE_BADGE_COLORS.github).toBe('#24292e');
+    });
+
+    it('uses the correct Figma brand hex', () => {
+      expect(EVIDENCE_BADGE_COLORS.figma).toBe('#f24e1e');
+    });
+
+    it('uses the correct IPFS brand hex', () => {
+      expect(EVIDENCE_BADGE_COLORS.ipfs).toBe('#65c3cb');
+    });
+
+    it('uses a CSS variable for other (no single brand color)', () => {
+      expect(EVIDENCE_BADGE_COLORS.other).toMatch(/^var\(/);
+    });
+  });
+
   describe('classifyEvidenceUrl', () => {
     it('should classify GitHub URLs', () => {
       expect(classifyEvidenceUrl('https://github.com/user/repo')).toEqual({

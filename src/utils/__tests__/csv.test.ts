@@ -14,7 +14,6 @@ const baseTask = (overrides: Partial<ValidationTask> = {}): ValidationTask => ({
   owner: 'GOWNER...ALPHA',
   amount: '1,000 USDC',
   deadline: '2026-01-01',
-  daysRemaining: 0,
   status: 'approved',
   milestone: 'Launch',
   ...overrides,

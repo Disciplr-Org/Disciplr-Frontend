@@ -1,4 +1,4 @@
-// VaultCard component unit tests
+﻿// VaultCard component unit tests
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
@@ -35,8 +35,8 @@ describe('deadlineUrgency', () => {
     expect(deadlineUrgency(deadline, now)).toBe('safe');
   });
 
-  it('returns safe for expired deadlines', () => {
-    expect(deadlineUrgency('2024-06-01T00:00:00Z', now)).toBe('safe');
+  it('returns expired for overdue deadlines', () => {
+    expect(deadlineUrgency('2024-06-01T00:00:00Z', now)).toBe('expired');
   });
 
   it('returns safe for invalid deadline strings', () => {
@@ -92,10 +92,10 @@ describe('VaultCard', () => {
 
   it('shows no urgency badge when deadline is safe (> 7 d)', () => {
     renderCard({ ...baseProps, deadline: '2024-07-15T10:00:00Z' });
-    expect(screen.queryByLabelText(/Critical|Deadline approaching/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Critical|Deadline approaching|Overdue/)).not.toBeInTheDocument();
   });
 
-  it('shows "Due soon" badge with warning color for soon deadlines (1–7 d)', () => {
+  it('shows "Due soon" badge with warning color for soon deadlines (1-7 d)', () => {
     const deadline = new Date(fixedNow.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
     renderCard({ ...baseProps, deadline });
     const badge = screen.getByLabelText('Deadline approaching: due within 7 days');
@@ -113,12 +113,21 @@ describe('VaultCard', () => {
     expect(badge).toHaveStyle({ color: 'var(--danger)' });
   });
 
+  it('shows "Overdue" badge with danger color for expired deadlines', () => {
+    const deadline = '2024-06-01T00:00:00Z';
+    renderCard({ ...baseProps, deadline });
+    const badge = screen.getByLabelText('Overdue: deadline has passed');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent('Overdue');
+    expect(badge).toHaveStyle({ color: 'var(--danger)' });
+  });
+
   it.each(['completed', 'failed'] as const)(
     'shows no urgency badge for terminal status "%s"',
     (status) => {
       const deadline = new Date(fixedNow.getTime() + 6 * 60 * 60 * 1000).toISOString();
       renderCard({ ...baseProps, status, deadline });
-      expect(screen.queryByLabelText(/Critical|Deadline approaching/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Critical|Deadline approaching|Overdue/)).not.toBeInTheDocument();
     }
   );
 });

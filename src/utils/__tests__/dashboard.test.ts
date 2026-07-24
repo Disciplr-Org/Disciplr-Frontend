@@ -23,11 +23,11 @@ describe('Dashboard Utility Helpers', () => {
       expect(daysRemaining(deadline, MOCK_NOW)).toBe(2);
     });
 
-    it('returns 0 when deadline is exactly now or in the past', () => {
+    it('returns 0 when deadline is exactly now, negative when in the past', () => {
       const deadlineNow = '2026-06-27T12:00:00Z';
       const deadlinePast = '2026-06-25T12:00:00Z';
       expect(daysRemaining(deadlineNow, MOCK_NOW)).toBe(0);
-      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(0);
+      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(-2);
     });
 
     it('rounds up partial days remaining', () => {
@@ -134,6 +134,16 @@ describe('Dashboard Utility Helpers', () => {
       const processed = processDeadlines(deadlines, MOCK_NOW);
       expect(processed).toHaveLength(1);
       expect(processed[0].formattedDays).toBe('Today');
+    });
+
+    it('formats overdue deadlines with signed daysRemaining and holds urgency at danger', () => {
+      const deadlines: Deadline[] = [
+        { id: '1', name: 'Overdue Vault', deadline: '2026-06-20T12:00:00Z', amount: 500 },
+      ];
+      const processed = processDeadlines(deadlines, MOCK_NOW);
+      expect(processed[0].daysRemaining).toBe(-7);
+      expect(processed[0].formattedDays).toBe('7d overdue');
+      expect(processed[0].urgencyColor).toBe('var(--danger)');
     });
   });
 

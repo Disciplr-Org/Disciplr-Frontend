@@ -43,6 +43,15 @@ describe('AddressDisplay', () => {
             expect(el).toHaveAttribute('title', `Invalid address: ${INVALID}`);
             expect(el).toHaveAttribute('aria-label', `Invalid address ${INVALID}`);
             expect(el).toHaveStyle({ textDecoration: 'line-through' });
+            expect(el).toHaveStyle({ color: 'var(--error)' });
+        });
+
+        it('renders valid addresses with default color and no strikethrough', () => {
+            render(<AddressDisplay address={LONG} />);
+            const el = screen.getByRole('text');
+            expect(el).toHaveStyle({ textDecoration: 'none' });
+            // JSDOM resolves 'inherit' to a computed value; check the raw inline style instead.
+            expect((el as HTMLElement).style.color).toBe('inherit');
         });
     });
 

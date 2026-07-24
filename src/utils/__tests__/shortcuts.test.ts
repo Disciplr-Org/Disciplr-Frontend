@@ -27,6 +27,12 @@ describe('SHORTCUTS registry', () => {
     expect(entry?.description).toMatch(/close/i);
   });
 
+  it('contains a Ctrl/⌘ K entry that opens the command palette', () => {
+    const entry = SHORTCUTS.find(s => s.key === 'Ctrl/⌘ K');
+    expect(entry).toBeDefined();
+    expect(entry?.description).toMatch(/command palette/i);
+  });
+
   it('has no duplicate keys', () => {
     const keys = SHORTCUTS.map(s => s.key);
     const uniqueKeys = new Set(keys);

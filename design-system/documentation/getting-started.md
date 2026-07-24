@@ -74,7 +74,7 @@ and controlled through `src/components/ThemeToggle.tsx`.
 
 The `data-theme` attribute on `<html>` is always concrete (`light` or
 `dark`), ensuring CSS selectors such as `:root[data-theme="dark"]` and
-`:root[data-theme="light"]` in `src/index.css` resolve predictably.
+` :root[data-theme="light"]` in `src/index.css` resolve predictably.
 
 ### ThemeContext API
 
@@ -214,6 +214,36 @@ import { AddressDisplay } from '../components/AddressDisplay';
   so the explorer link points to the correct network.
 - The component uses `var(--success)`, `var(--muted)`, and `var(--accent)` CSS
   variables; it inherits correctly in both light and dark themes.
+
+## Vaults Page View Toggle
+
+The Vaults page (`src/pages/Vaults.tsx`) includes a list/grid view toggle that allows users to switch between a compact row-based list view and a rich card-based grid view.
+
+### Implementation
+
+- **Toggle Component**: An accessible radio group with `role="radiogroup"` and individual buttons with `role="radio"` and `aria-checked` attributes
+- **Persistence**: View preference is stored in `localStorage` under the key `vaults-view-preference` and survives page reloads
+- **Default View**: Defaults to list view when no preference exists
+- **Grid Layout**: Uses CSS Grid with `gridTemplateColumns: repeat(auto-fill, minmax(280px, 1fr))` for responsive card layout
+- **Card Component**: Grid view reuses the existing `VaultCard` component (`src/components/VaultCard.tsx`) which displays progress bars, countdown timers, and status badges
+
+### Token Usage
+
+The toggle buttons use design system tokens for consistent styling:
+
+- `var(--surface)` for the toggle container background
+- `var(--border)` for borders
+- `var(--radius)` for rounded corners
+- `var(--accent)` for the active button background
+- `var(--bg)` for active button text
+- `var(--muted)` for inactive button text
+
+### Accessibility
+
+- Toggle buttons are keyboard-accessible via the radio group
+- Active state is announced via `aria-checked` and `aria-pressed` attributes
+- The radio group has an `aria-label="View mode"` for screen readers
+- View preference persists across sessions, respecting user choices
 
 ## formatRelativeTime Utility
 

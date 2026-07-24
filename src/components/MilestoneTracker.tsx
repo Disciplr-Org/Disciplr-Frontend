@@ -1,17 +1,6 @@
 import { Text } from "./Text";
+import type { Milestone, MilestoneStatus } from "../types/vault";
 import "./MilestoneTracker.css";
-
-export type MilestoneStatus = "pending" | "validated" | "failed";
-
-export interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  criteria: string;
-  status: MilestoneStatus;
-  validatedAt?: string;
-  evidenceUrl?: string;
-}
 
 export interface MilestoneTrackerProps {
   milestones: Milestone[];
