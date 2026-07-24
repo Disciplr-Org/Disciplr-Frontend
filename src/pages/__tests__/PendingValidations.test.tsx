@@ -188,7 +188,7 @@ describe('PendingValidations', () => {
         { ...makeTasks()[0], id: 'v-a', deadline: '2026-06-25' },
         { ...makeTasks()[1], id: 'v-b', deadline: '2026-06-25' },
       ],
-    );
+    });
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
