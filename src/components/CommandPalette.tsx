@@ -282,6 +282,11 @@ export default function CommandPalette({
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Type a vault name, id, or action"
                 aria-controls="command-palette-results"
+                aria-activedescendant={
+                  items[activeIndex]
+                    ? `command-palette-option-${activeIndex}`
+                    : undefined
+                }
                 style={{
                   width: "100%",
                   border: "none",
@@ -319,6 +324,7 @@ export default function CommandPalette({
                   items.map((item, index) => (
                     <button
                       key={item.id}
+                      id={`command-palette-option-${index}`}
                       type="button"
                       role="option"
                       aria-selected={index === activeIndex}
