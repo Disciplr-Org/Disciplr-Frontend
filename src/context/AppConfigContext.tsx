@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useWallet, type WalletNetwork } from './WalletContext';
-import { EXPLORER_BASE_URLS, HORIZON_URLS, USDC_ISSUERS } from '../utils/horizon';
+import { explorerBaseUrl as getExplorerBaseUrl } from '../utils/explorer';
+import { HORIZON_URLS, USDC_ISSUERS } from '../utils/horizon';
 import { APP_EXPECTED_NETWORK } from '../utils/networkMismatch';
 
 export interface AppConfig {
@@ -24,7 +25,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
             network,
             horizonUrl: HORIZON_URLS[network],
             usdcIssuer: USDC_ISSUERS[network],
-            explorerBaseUrl: EXPLORER_BASE_URLS[network],
+            explorerBaseUrl: getExplorerBaseUrl(network),
         }),
         [network],
     );
