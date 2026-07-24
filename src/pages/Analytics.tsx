@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import {
   Target, TrendingUp, CheckCircle, AlertTriangle,
   Download, Flame, Award, Clock, DollarSign,
@@ -14,6 +15,8 @@ import { toCsv, downloadCsv } from '../utils/csv'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
+
+type JsPDFCtor = typeof import('jspdf').jsPDF
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,7 +155,7 @@ const TEAM_CHART_DATA = [
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
       background: 'var(--surface)',
@@ -166,7 +169,7 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 1.25rem 0', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
       {children}
@@ -174,7 +177,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ChartTitle({ children }: { children: React.ReactNode }) {
+function ChartTitle({ children }: { children: ReactNode }) {
   return (
     <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1.25rem 0' }}>
       {children}
@@ -182,7 +185,7 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
   )
 } 
 
-function ChartSummary({ children }: { children: React.ReactNode }) {
+function ChartSummary({ children }: { children: ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
 
@@ -249,7 +252,7 @@ export default function Analytics() {
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
   const [isLoading] = useState(false)
-  const jsPDFRef = useRef<any>(null)
+  const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 

@@ -8,6 +8,8 @@ import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
 import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../utils/evidenceKind';
 import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
 
@@ -45,6 +47,7 @@ function useNotesDraft(taskId: string | undefined) {
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
   const navigate = useNavigate();
+  const now = useCurrentTime();
   
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
@@ -53,6 +56,7 @@ export default function ValidationDetail() {
 
   const task = pendingValidations.find((t) => t.id === vaultId);
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
+  const remaining = task ? daysRemaining(task.deadline, now) : 0;
 
   if (!task) {
     return (
@@ -130,11 +134,11 @@ export default function ValidationDetail() {
           <div
             className="px-4 py-2 rounded font-bold text-sm"
             style={{
-              background: task.daysRemaining <= 3 ? 'var(--danger-transparent)' : 'var(--success-transparent)',
-              color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--success)',
+              background: remaining <= 3 ? 'var(--danger-transparent)' : 'var(--success-transparent)',
+              color: remaining <= 3 ? 'var(--danger)' : 'var(--success)',
             }}
           >
-            Deadline: {task.daysRemaining} days remaining
+            Deadline: {remaining} days remaining
           </div>
         </div>
       </header>

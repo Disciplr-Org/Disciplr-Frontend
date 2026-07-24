@@ -34,22 +34,55 @@ export default class ErrorBoundary extends Component<Props, State> {
           className="flex flex-col items-center justify-center gap-4 px-4 py-16 text-center"
         >
           <p className="text-4xl" aria-hidden="true">⚠️</p>
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>
             Something went wrong
           </h2>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
             An unexpected error occurred on this page.
           </p>
           <div className="flex gap-3">
             <Link
               to="/"
-              className="btn-primary rounded-xl px-5 py-2 text-sm font-semibold"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: 'var(--radius-xl)',
+                padding: '0.5rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                backgroundColor: 'var(--accent)',
+                color: 'white',
+                textDecoration: 'none',
+                transition: 'background-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'var(--accent-dim)'
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'var(--accent)'
+              }}
               onClick={() => this.setState({ error: null })}
             >
               Go home
             </Link>
             <button
-              className="btn-secondary rounded-xl px-5 py-2 text-sm font-semibold"
+              style={{
+                borderRadius: 'var(--radius-xl)',
+                padding: '0.5rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                backgroundColor: 'transparent',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--hover)'
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
+              }}
               onClick={() => window.location.reload()}
             >
               Refresh
