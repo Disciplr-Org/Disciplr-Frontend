@@ -1,4 +1,5 @@
-﻿import { Link } from 'react-router-dom';
+import { memo } from 'react';
+import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
 import { CountdownDeadline } from './CountdownDeadline';
@@ -17,9 +18,9 @@ export interface VaultCardProps {
   linkTo?: string;
 }
 
-/** Vaults with â‰¤ 24 h remaining are classified as critical. */
+/** Vaults with <= 24 h remaining are classified as critical. */
 export const URGENCY_CRITICAL_MS = 24 * 60 * 60 * 1000;
-/** Vaults with > 24 h and â‰¤ 7 d remaining are classified as soon. */
+/** Vaults with > 24 h and <= 7 d remaining are classified as soon. */
 export const URGENCY_SOON_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type UrgencyTier = 'safe' | 'soon' | 'critical' | 'expired';
@@ -114,7 +115,7 @@ function StatusBadge({ status }: { status: VaultStatus }) {
   );
 }
 
-export default function VaultCard({
+const VaultCard = memo(function VaultCard({
   id,
   name,
   amount,
@@ -170,4 +171,7 @@ export default function VaultCard({
       </div>
     </Link>
   );
-}
+});
+
+export default VaultCard;
+
