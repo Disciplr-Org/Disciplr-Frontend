@@ -192,7 +192,7 @@ export default function Notification() {
                 }
                 setIsFilterOpen((prev) => !prev);
               }}
-              className="bg-[#00c389] px-3 py-2 rounded-md"
+              className="bg-[var(--accent)] px-3 py-2 rounded-md"
             >
               Filter
             </button>
@@ -267,7 +267,7 @@ export default function Notification() {
               {group.items.map((items) => (
                 <div
                   key={items.id}
-                  className="w-full px-2 border-[#00c389] border-1 rounded-md mb-3"
+                  className="w-full px-2 border-[var(--accent)] border-1 rounded-md mb-3"
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
