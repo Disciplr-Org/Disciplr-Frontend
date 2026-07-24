@@ -1,4 +1,4 @@
-import { type ChangeEvent, type DragEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type CSSProperties, type DragEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Field } from './Field'
 import { Text } from './Text'
 import { normalizeEvidenceUrl } from '../utils/url'
@@ -148,7 +148,7 @@ export function EvidenceUpload({
     setDragError(undefined)
   }
 
-  const dropZoneStyles: React.CSSProperties = {
+  const dropZoneStyles: CSSProperties = {
     border: `2px dashed ${isDragOver ? 'var(--accent)' : dragError ? 'var(--danger)' : 'var(--border)'}`,
     borderRadius: 'var(--radius)',
     padding: 'var(--spacing-4)',
