@@ -30,14 +30,30 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
           <p className="text-4xl">⚠️</p>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>
             Something went wrong
           </h1>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
             An unexpected error occurred. Try refreshing the page.
           </p>
           <button
-            className="btn-primary rounded-xl px-5 py-2 text-sm font-semibold"
+            style={{
+              backgroundColor: 'var(--accent)',
+              color: 'white',
+              borderRadius: 'var(--radius-xl)',
+              padding: '0.5rem 1.25rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--accent-dim)'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--accent)'
+            }}
             onClick={() => window.location.reload()}
           >
             Refresh
