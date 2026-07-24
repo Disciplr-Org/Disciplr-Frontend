@@ -28,3 +28,17 @@ describe('z-index token layering scale', () => {
     });
   });
 });
+
+describe('opacity token scale', () => {
+  it('loads opacity tokens from opacity.json', () => {
+    const tokens = loadTokens('opacity.json');
+
+    expect(tokens).toHaveProperty('opacity');
+    expect(tokens.opacity).toMatchObject({
+      disabled: { $value: 0.5 },
+      backdrop: { $value: 0.5 },
+      hover: { $value: 0.08 },
+      muted: { $value: 0.72 },
+    });
+  });
+});

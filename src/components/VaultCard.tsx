@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
 import { CountdownDeadline } from './CountdownDeadline';
@@ -17,14 +17,14 @@ export interface VaultCardProps {
   linkTo?: string;
 }
 
-/** Vaults with ≤ 24 h remaining are classified as critical. */
+/** Vaults with â‰¤ 24 h remaining are classified as critical. */
 export const URGENCY_CRITICAL_MS = 24 * 60 * 60 * 1000;
-/** Vaults with > 24 h and ≤ 7 d remaining are classified as soon. */
+/** Vaults with > 24 h and â‰¤ 7 d remaining are classified as soon. */
 export const URGENCY_SOON_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type UrgencyTier = 'safe' | 'soon' | 'critical';
+export type UrgencyTier = 'safe' | 'soon' | 'critical' | 'expired';
 
-/** Returns urgency tier based on time remaining. Expired and invalid deadlines return 'safe'. */
+/** Returns urgency tier based on time remaining. Invalid deadlines return 'safe'. */
 export function deadlineUrgency(deadline: string, now: Date | number = Date.now()): UrgencyTier {
   const deadlineMs = new Date(deadline).getTime();
   const nowMs = typeof now === 'number' ? now : now.getTime();
@@ -32,7 +32,7 @@ export function deadlineUrgency(deadline: string, now: Date | number = Date.now(
   if (Number.isNaN(deadlineMs)) return 'safe';
 
   const msRemaining = deadlineMs - nowMs;
-  if (msRemaining <= 0) return 'safe';
+  if (msRemaining <= 0) return 'expired';
   if (msRemaining <= URGENCY_CRITICAL_MS) return 'critical';
   if (msRemaining <= URGENCY_SOON_MS) return 'soon';
   return 'safe';
@@ -50,6 +50,12 @@ const URGENCY_BADGE_CONFIG = {
     bg: 'var(--warning-transparent)',
     fg: 'var(--warning)',
     ariaLabel: 'Deadline approaching: due within 7 days',
+  },
+  expired: {
+    label: 'Overdue',
+    bg: 'var(--danger-transparent)',
+    fg: 'var(--danger)',
+    ariaLabel: 'Overdue: deadline has passed',
   },
 } as const;
 
@@ -121,7 +127,7 @@ export default function VaultCard({
   const link = linkTo ?? `/vaults/${id}`;
   const isTerminal = status === 'completed' || status === 'failed';
   const urgency = isTerminal ? 'safe' : deadlineUrgency(deadline);
-  const borderColor = urgency === 'critical'
+  const borderColor = urgency === 'critical' || urgency === 'expired'
     ? 'var(--danger)'
     : urgency === 'soon'
       ? 'var(--warning)'

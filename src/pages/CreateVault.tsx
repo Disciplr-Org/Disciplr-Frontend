@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Text } from "../components/Text";
 import { Field } from "../components/Field";
 import type {
@@ -51,7 +52,7 @@ export default function CreateVault() {
     errors[field] ? [{ field, message: errors[field] as string }] : [],
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const nextErrors = validateCreateVault({
       amount,

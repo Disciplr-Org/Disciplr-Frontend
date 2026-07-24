@@ -1,4 +1,5 @@
 import type { ValidationTask } from '../Zustand/Store';
+import { daysRemaining } from './dashboard';
 
 export const CRITICAL_DAYS_THRESHOLD = 3;
 
@@ -14,6 +15,7 @@ export interface VerifierMetrics {
 export function computeVerifierMetrics(
   pending: ValidationTask[] | undefined | null,
   history: ValidationTask[] | undefined | null,
+  now: number = Date.now(),
 ): VerifierMetrics {
   const safePending = pending ?? [];
   const safeHistory = history ?? [];
@@ -22,8 +24,9 @@ export function computeVerifierMetrics(
   let criticalCount = 0;
 
   for (const task of safePending) {
-    if (task.daysRemaining <= 0) overdueCount++;
-    if (task.daysRemaining <= CRITICAL_DAYS_THRESHOLD) criticalCount++;
+    const remaining = daysRemaining(task.deadline, now);
+    if (remaining <= 0) overdueCount++;
+    if (remaining <= CRITICAL_DAYS_THRESHOLD) criticalCount++;
   }
 
   let approved = 0;
