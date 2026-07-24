@@ -1,9 +1,34 @@
 /**
- * Minimal Node-compatible logger for the design-system package.
- * Suppresses non-error levels when NODE_ENV=production.
+ * Canonical runtime-agnostic logger shared by the design-system and app.
+ *
+ * Detects production via import.meta.env.MODE (Vite) or
+ * process.env.NODE_ENV (Node), so it works in both runtimes from a
+ * single source of truth.
+ *
+ * The app re-exports this module from src/utils/logger.ts rather than
+ * maintaining its own copy. When changing behaviour here, confirm both
+ * packages' tests still pass before merging.
  */
 
-const isProd = () => process.env.NODE_ENV === 'production';
+const isProd = (): boolean => {
+  // Vite: import.meta.env.MODE
+  if (
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any).env?.MODE === 'production'
+  ) {
+    return true;
+  }
+
+  // Node: process.env.NODE_ENV
+  if (
+    typeof process !== 'undefined' &&
+    (process as any).env?.NODE_ENV === 'production'
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 /* eslint-disable no-console */
 export const logger = {
