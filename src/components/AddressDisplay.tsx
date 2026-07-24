@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
+import { getExplorerAccountUrl } from '../utils/explorer';
 import { isValidStellarAddress } from '../utils/stellarAddress';
 
 interface AddressDisplayProps {
@@ -21,6 +22,8 @@ export function AddressDisplay({
     const [copied, setCopied] = useState(false);
 
     const display = truncateMiddle(address, chars, tailChars);
+    const isValid = isValidStellarAddress(address);
+    const explorerUrl = getExplorerAccountUrl(address, network);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {
@@ -28,11 +31,6 @@ export function AddressDisplay({
             setTimeout(() => setCopied(false), 1500);
         }).catch(() => {});
     };
-
-    const explorerBase =
-        network === 'PUBLIC'
-            ? 'https://stellar.expert/explorer/public/account'
-            : 'https://stellar.expert/explorer/testnet/account';
 
     return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -62,9 +60,9 @@ export function AddressDisplay({
             >
                 {copied ? 'âœ“' : 'âŽ˜'}
             </button>
-            {network != null && isValid && (
+            {network != null && explorerUrl && (
                 <a
-                    href={`${explorerBase}/${address}`}
+                    href={explorerUrl}
                     target="_blank" rel="noopener noreferrer"
                     title="View on Stellar Expert"
                     aria-label={`View ${address} on Stellar Expert`}
