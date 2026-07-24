@@ -91,9 +91,10 @@ export function computeAnalyticsKpis(
   }
 
   // Calculate deltas
-  const capitalDelta = prevTotalCapital > 0 ? totalCapital - prevTotalCapital : 0
-  const successDelta = prevAverageSuccessRate > 0 ? averageSuccessRate - prevAverageSuccessRate : 0
-  const milestoneDelta = prevTotalMilestones > 0 ? totalMilestones - prevTotalMilestones : 0
+  const hasPrevData = previousData && previousData.length > 0
+  const capitalDelta = hasPrevData ? totalCapital - prevTotalCapital : 0
+  const successDelta = hasPrevData ? averageSuccessRate - prevAverageSuccessRate : 0
+  const milestoneDelta = hasPrevData ? totalMilestones - prevTotalMilestones : 0
 
   return {
     totalCapital,
