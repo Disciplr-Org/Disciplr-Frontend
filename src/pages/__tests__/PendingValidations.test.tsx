@@ -276,7 +276,7 @@ describe('PendingValidations', () => {
   describe('sort selector', () => {
     it('sorts by amount numerically', () => {
       renderPage();
-      fireEvent.change(screen.getByLabelText(/Sort pending validations/i), {
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
         target: { value: 'amount' },
       });
 
@@ -288,7 +288,7 @@ describe('PendingValidations', () => {
 
     it('sorts by vault name and reverses with the direction toggle', () => {
       renderPage();
-      fireEvent.change(screen.getByLabelText(/Sort pending validations/i), {
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
         target: { value: 'vaultName' },
       });
       fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));

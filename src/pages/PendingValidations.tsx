@@ -104,10 +104,10 @@ export default function PendingValidations() {
   };
 
   const hasSelection = selectedIds.length > 0;
-  const sortLabel = sortDirection === 'asc' ? 'Ascending' : 'Descending';
+  const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const headerSort = (key: PendingSortKey) => {
     if (sortKey !== key) return 'none';
-    return sortDirection === 'asc' ? 'ascending' : 'descending';
+    return sortDir === 'asc' ? 'ascending' : 'descending';
   };
 
   return (
@@ -161,6 +161,7 @@ export default function PendingValidations() {
           Search by Vault Name or Owner
           <input
             type="search"
+            aria-label="Search by Vault Name or Owner"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="px-3 py-2 border rounded"
@@ -171,6 +172,7 @@ export default function PendingValidations() {
         <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
           Filter by Milestone
           <select
+            aria-label="Filter by Milestone"
             value={selectedMilestone}
             onChange={(event) => setSelectedMilestone(event.target.value)}
             className="px-3 py-2 border rounded"
