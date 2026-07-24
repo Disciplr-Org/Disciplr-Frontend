@@ -1,9 +1,19 @@
 import { useState, useMemo, useCallback, memo } from "react";
-import { windowRange, WINDOW_THRESHOLD } from "../utils/windowRange";
+import { useParams } from "react-router-dom";
+import { windowRange } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
 import { computeTxTotals } from "../utils/txTotals";
 import { AddressDisplay } from "../components/AddressDisplay";
 import { Tooltip } from "../components/Tooltip";
+import Breadcrumb from "../components/Breadcrumb";
+import { MASTER_VAULTS } from "../fixtures/vaults";
+import { getCachedActivity, type VaultActivityRecord } from "../services/vaultService";
+import { formatRelativeTime } from "../utils/relativeTime";
+import {
+  sortTransactions,
+  type TransactionSortDir,
+  type TransactionSortKey,
+} from "../utils/sortTransactions";
 import type { TxType, TxStatus } from "../types/vault";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -136,6 +146,9 @@ const DEFAULT_SORT: SortState = { key: "timestamp", dir: "desc" };
 export default function VaultTransactions({
   transactions: providedTransactions,
 }: VaultTransactionsProps = {}) {
+  const { id } = useParams<{ id?: string }>();
+  const routeVault = id ? MASTER_VAULTS[id] : undefined;
+  const routeVaultName = routeVault?.name ?? (id ? `Vault ${id}` : undefined);
   const [selectedTypes, setSelectedTypes] = useState<TxType[]>([...ALL_TYPES]);
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -146,6 +159,31 @@ export default function VaultTransactions({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
   const [anchorIndex, setAnchorIndex] = useState(0);
+
+  const transactions = useMemo(
+    () => providedTransactions ?? getCachedActivity(),
+    [providedTransactions],
+  );
+
+  const vaultOptions = useMemo(
+    () => [
+      "All Vaults",
+      ...Array.from(new Set(transactions.map((tx) => tx.vault))).sort(),
+    ],
+    [transactions],
+  );
+
+  const breadcrumbSegments = routeVaultName
+    ? [
+        { label: "Home", to: "/" },
+        { label: "Vaults", to: "/vaults" },
+        { label: routeVaultName, to: `/vaults/${id}` },
+        { label: "Transactions" },
+      ]
+    : [
+        { label: "Home", to: "/" },
+        { label: "Transactions" },
+      ];
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -232,14 +270,6 @@ export default function VaultTransactions({
     [transactions],
   );
 
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const tx of transactions) {
-      counts[tx.type] = (counts[tx.type] || 0) + 1;
-    }
-    return counts;
-  }, [transactions]);
-
   // Live counts reflect the current filtered (visible) set
   const filteredTypeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -278,6 +308,11 @@ export default function VaultTransactions({
       <div className="vt-root">
         <div className="vt-grid-bg" />
         <div className="vt-wrap">
+          <Breadcrumb
+            segments={breadcrumbSegments}
+            style={{ marginBottom: "var(--spacing-5)" }}
+          />
+
           {/* Header */}
           <header className="vt-header">
             <div>
@@ -411,7 +446,7 @@ export default function VaultTransactions({
               <Select
                 value={filterVault}
                 onChange={setFilterVault}
-                options={VAULTS}
+                options={vaultOptions}
               />
               <Select
                 value={filterStatus}

@@ -4,15 +4,19 @@ import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
 import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
+import Breadcrumb from "../components/Breadcrumb";
 import {
   FundReleaseStatus,
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
+import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { Text } from "../components/Text";
-import { AddressDisplay } from "../components/AddressDisplay";
 import { useWallet } from "../context/WalletContext";
+import { MASTER_VAULTS as MOCK_VAULTS } from "../fixtures/vaults";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
-import type { VaultStatus, MilestoneStatus, TxType } from "../types/vault";
+import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import type { Vault, VaultStatus } from "../types/vault";
 
 // ── Types imported from canonical source ─────────────────────────────────────
 // Vault and VaultStatus are imported from "../types/vault" above.
@@ -189,6 +193,15 @@ export default function VaultDetail() {
         padding: "0 0 3rem",
       }}
     >
+      <Breadcrumb
+        segments={[
+          { label: "Home", to: "/" },
+          { label: "Vaults", to: "/vaults" },
+          { label: vault.name },
+        ]}
+        style={{ marginBottom: "var(--spacing-4)" }}
+      />
+
       {/* Back link */}
       <Link
         to="/vaults"

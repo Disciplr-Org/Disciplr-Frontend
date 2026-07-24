@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Breadcrumb from '../components/Breadcrumb';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
@@ -104,6 +105,14 @@ export default function ValidationDetail() {
   return (
     <div className="flex flex-col gap-6 p-6 relative">
       <header>
+        <Breadcrumb
+          segments={[
+            { label: 'Home', to: '/' },
+            { label: 'Verifier Queue', to: '/verifier/queue' },
+            { label: task.vaultName },
+          ]}
+          style={{ marginBottom: 'var(--spacing-4)' }}
+        />
         <button
           onClick={() => navigate('/verifier/queue')}
           className="mb-4 text-sm font-medium transition"
