@@ -1,4 +1,5 @@
 import { Text } from "./Text";
+import { SafeLink } from "./SafeLink";
 import type { Milestone, MilestoneStatus } from "../types/vault";
 import "./MilestoneTracker.css";
 
@@ -84,14 +85,12 @@ export function MilestoneTracker({ milestones }: MilestoneTrackerProps) {
                   </Text>
                 )}
                 {milestone.evidenceUrl && (
-                  <a
+                  <SafeLink
                     className="milestone-tracker-evidence"
                     href={milestone.evidenceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                   >
                     View evidence
-                  </a>
+                  </SafeLink>
                 )}
               </div>
             </div>
