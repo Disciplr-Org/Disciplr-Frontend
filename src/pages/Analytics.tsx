@@ -16,6 +16,8 @@ import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsD
 
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
+type JsPDFCtor = typeof import('jspdf').jsPDF
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 function useAnalyticsChartTokens() {
@@ -250,7 +252,7 @@ export default function Analytics() {
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
   const [isLoading] = useState(false)
-  const jsPDFRef = useRef<any>(null)
+  const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
