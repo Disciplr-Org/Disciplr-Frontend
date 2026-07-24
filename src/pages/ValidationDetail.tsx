@@ -48,7 +48,7 @@ export default function ValidationDetail() {
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
+  const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
@@ -76,13 +76,13 @@ export default function ValidationDetail() {
     setIsModalOpen(true);
   };
 
-  const toggleCriterion = (index: number) => {
+  const toggleCriterion = (criterion: string) => {
     setCheckedCriteria((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
+      if (next.has(criterion)) {
+        next.delete(criterion);
       } else {
-        next.add(index);
+        next.add(criterion);
       }
       return next;
     });
@@ -225,16 +225,16 @@ export default function ValidationDetail() {
                 <legend className="font-medium text-sm mb-2">
                   <Text role="body" as="span">Milestone Criteria</Text>
                 </legend>
-                {task.criteria.map((criterion, i) => (
+                {task.criteria.map((criterion) => (
                   <label
-                    key={i}
+                    key={criterion}
                     className="flex items-start gap-2 text-sm cursor-pointer"
                     style={{ color: 'var(--text)' }}
                   >
                     <input
                       type="checkbox"
-                      checked={checkedCriteria.has(i)}
-                      onChange={() => toggleCriterion(i)}
+                      checked={checkedCriteria.has(criterion)}
+                      onChange={() => toggleCriterion(criterion)}
                       aria-label={criterion}
                       className="mt-0.5 accent-[var(--accent)] shrink-0"
                     />
