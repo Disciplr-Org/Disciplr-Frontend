@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useWallet } from '../context/WalletContext';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
 
 interface RequireWalletProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function RequireWallet({ children }: RequireWalletProps) {
