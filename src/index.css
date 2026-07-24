@@ -112,6 +112,12 @@
   --z-index-drawer: 200;
   --z-index-modal: 300;
   --z-index-toast: 400;
+
+  /* Opacity scale — mirrors design-system/tokens/opacity.json */
+  --opacity-disabled: 0.5;
+  --opacity-backdrop: 0.5;
+  --opacity-hover: 0.08;
+  --opacity-muted: 0.72;
 }
 
 /* Responsive breakpoints - update CSS variables */
