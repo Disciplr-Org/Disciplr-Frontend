@@ -16,6 +16,7 @@ import VerifierDashboard from './pages/VerifierDashboard'
 import PendingValidations from './pages/PendingValidations'
 import ValidationDetail from './pages/ValidationDetail'
 import ValidationHistory from './pages/ValidationHistory'
+import HelpCenter from './pages/HelpCenter'
 import NotFound from './pages/NotFound'
 
 const Analytics = lazy(() => import('./pages/Analytics'))
@@ -43,6 +44,8 @@ export default function App() {
                   <Route path="/verifier/queue" element={<PendingValidations />} />
                   <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
                   <Route path="/verifier/history" element={<ValidationHistory />} />
+                  <Route path="/help" element={<HelpCenter />} />
+                  <Route path="/help/search" element={<HelpCenter />} />
                   <Route
                     path="/analytics"
                     element={
