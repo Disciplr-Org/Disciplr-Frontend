@@ -15,7 +15,7 @@ components to the design system.
 | Focus ring | `tokens/borders.json` (`border.focusRing`) | `--focus-ring-width`, `--focus-ring-offset`, `--focus-ring-color` in `src/index.css`; applied via global `:focus-visible` rule | All interactive elements: buttons, links, inputs, selects, textareas, `[role="button"]` |
 | Shadows | `tokens/shadows.json` | Elevation references for raised surfaces and overlays | Modals, dropdowns, raised cards, dashboard surfaces |
 | Motion | `tokens/motion.json` | `src/utils/motion.ts` exports `duration`, `ease`, `transitionEnter`, `transitionExit`, and `transitionPage` | `Notification`, animated overlays, dropdowns, page transitions |
-| Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers |`n| Opacity | `tokens/opacity.json` | `--opacity-disabled`, `--opacity-backdrop`, `--opacity-hover`, `--opacity-muted` | `Field`, `Modal`, disabled controls, overlays |
+| Z-index | `tokens/z-index.json` | `--z-index-base`, `--z-index-header`, `--z-index-tooltip`, `--z-index-drawer`, `--z-index-modal`, `--z-index-toast` | `Layout`, `MobileDrawer`, `ConfirmationModal`, wallet modals, notification popovers, tooltips |`n| Opacity | `tokens/opacity.json` | `--opacity-disabled`, `--opacity-backdrop`, `--opacity-hover`, `--opacity-muted` | `Field`, `Modal`, disabled controls, overlays |
 
 ## Component Notes
 
