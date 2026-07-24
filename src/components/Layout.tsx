@@ -9,6 +9,7 @@ import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
+import { ShortcutsHelp } from "./ShortcutsHelp";
 import "./Layout.css";
 
 interface LayoutProps {

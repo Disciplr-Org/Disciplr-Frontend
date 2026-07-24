@@ -190,8 +190,8 @@ describe('PendingValidations', () => {
       pendingValidations: [
         { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
         { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
-      ]),
-    );
+      ],
+    });
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
