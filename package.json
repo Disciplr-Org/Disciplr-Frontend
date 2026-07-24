@@ -6,11 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
