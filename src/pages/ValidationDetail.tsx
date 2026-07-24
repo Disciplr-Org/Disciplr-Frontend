@@ -5,7 +5,7 @@ import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
-import { classifyEvidenceUrl } from '../utils/evidenceKind';
+import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../utils/evidenceKind';
 import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
@@ -176,13 +176,11 @@ export default function ValidationDetail() {
                       ipfs: 'IPFS',
                       other: 'Other'
                     };
-                    const kindColors: Record<typeof info.kind, { bg: string; color: string }> = {
-                      github: { bg: 'color-mix(in srgb, #24292e 10%, transparent)', color: '#24292e' },
-                      figma: { bg: 'color-mix(in srgb, #f24e1e 10%, transparent)', color: '#f24e1e' },
-                      ipfs: { bg: 'color-mix(in srgb, #65c3cb 10%, transparent)', color: '#65c3cb' },
-                      other: { bg: 'color-mix(in srgb, var(--muted) 10%, transparent)', color: 'var(--muted)' }
+                    const brandColor = EVIDENCE_BADGE_COLORS[info.kind];
+                    const colors = {
+                      bg: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
+                      color: brandColor,
                     };
-                    const colors = kindColors[info.kind];
                     return (
                       <>
                         <span
