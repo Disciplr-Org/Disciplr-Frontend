@@ -80,4 +80,19 @@ describe("Pagination", () => {
     expect(screen.getByRole("button", { name: "Go to next page" })).toBeDisabled();
     expect(screen.getByText("0 total items")).toBeInTheDocument();
   });
+
+  it("renders a bounded window for large page counts", () => {
+    render(
+      <Pagination
+        pagination={{ currentPage: 100, pageCount: 200, totalItems: 4000 }}
+        onPageChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Go to page 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to page 200" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go to page 50" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Go to page/ })).toHaveLength(5);
+    expect(screen.getAllByText("…")).toHaveLength(2);
+  });
 });
