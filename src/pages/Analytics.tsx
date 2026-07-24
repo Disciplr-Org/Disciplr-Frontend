@@ -1,24 +1,28 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import type { ReactNode, CSSProperties } from 'react'
-import {
-  Target, TrendingUp, CheckCircle, AlertTriangle,
-  Download, Flame, Award, Clock, DollarSign,
-  ArrowUpRight, ArrowDownRight, Zap, Flag, BarChart2,
-  Users, Lock, Crown
-} from 'lucide-react'
-import { useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
-import { type ChartLegendEntry } from '../components/ChartLegend'
-import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
-import { toCsv, downloadCsv } from '../utils/csv'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import {
+  Target, CheckCircle, Award, ArrowUpRight, ArrowDownRight, Clock, DollarSign,
+  Flame, TrendingUp, AlertTriangle, Download, Flag, BarChart2, Crown, Users, Lock,
+} from 'lucide-react'
+
+import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
+import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
+
+type Period = '7d' | '30d' | '90d' | '1y' | 'All'
+
+const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
+
+function parsePeriod(value: string | null): Period {
+  return (PERIODS.includes(value as Period) ? value : '30d') as Period
+}
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -38,124 +42,7 @@ function useAnalyticsChartTokens() {
   return tokens
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-export const analyticsPeriodData: Record<Period, { name: string; success: number; failed: number; capital: number; milestones: number }[]> = {
-  '7d': [
-    { name: 'Mon', success: 80, failed: 20, capital: 2800, milestones: 2 },
-    { name: 'Tue', success: 85, failed: 15, capital: 2900, milestones: 3 },
-    { name: 'Wed', success: 78, failed: 22, capital: 2750, milestones: 2 },
-    { name: 'Thu', success: 90, failed: 10, capital: 3100, milestones: 4 },
-    { name: 'Fri', success: 88, failed: 12, capital: 3050, milestones: 3 },
-    { name: 'Sat', success: 92, failed: 8,  capital: 3200, milestones: 5 },
-    { name: 'Sun', success: 87, failed: 13, capital: 3150, milestones: 3 },
-  ],
-  '30d': [
-    { name: 'Wk1', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Wk2', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Wk3', success: 80, failed: 20, capital: 2100, milestones: 6 },
-    { name: 'Wk4', success: 88, failed: 12, capital: 3200, milestones: 9 },
-  ],
-  '90d': [
-    { name: 'Jan', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Feb', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Mar', success: 68, failed: 32, capital: 950,  milestones: 4 },
-  ],
-  '1y': [
-    { name: 'Jan', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Feb', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Mar', success: 68, failed: 32, capital: 950,  milestones: 4 },
-    { name: 'Apr', success: 85, failed: 15, capital: 1800, milestones: 7 },
-    { name: 'May', success: 88, failed: 12, capital: 2400, milestones: 6 },
-    { name: 'Jun', success: 92, failed: 8,  capital: 3200, milestones: 9 },
-    { name: 'Jul', success: 89, failed: 11, capital: 3000, milestones: 8 },
-    { name: 'Aug', success: 91, failed: 9,  capital: 3400, milestones: 10 },
-    { name: 'Sep', success: 86, failed: 14, capital: 2900, milestones: 7 },
-    { name: 'Oct', success: 93, failed: 7,  capital: 3800, milestones: 11 },
-    { name: 'Nov', success: 90, failed: 10, capital: 3500, milestones: 9 },
-    { name: 'Dec', success: 95, failed: 5,  capital: 4200, milestones: 13 },
-  ],
-  'All': [
-    { name: '2023', success: 60, failed: 40, capital: 500,  milestones: 2 },
-    { name: '2024', success: 75, failed: 25, capital: 2100, milestones: 6 },
-    { name: '2025', success: 88, failed: 12, capital: 4200, milestones: 9 },
-  ],
-}
-
-// Previous period data for comparison
-const prevPeriodData: Record<Period, AnalyticsDataPoint[]> = {
-  '7d': [
-    { name: 'Mon', success: 60, failed: 40, capital: 2000, milestones: 1 },
-    { name: 'Tue', success: 65, failed: 35, capital: 2100, milestones: 2 },
-    { name: 'Wed', success: 70, failed: 30, capital: 2200, milestones: 2 },
-    { name: 'Thu', success: 72, failed: 28, capital: 2300, milestones: 2 },
-    { name: 'Fri', success: 68, failed: 32, capital: 2150, milestones: 1 },
-    { name: 'Sat', success: 75, failed: 25, capital: 2400, milestones: 3 },
-    { name: 'Sun', success: 71, failed: 29, capital: 2350, milestones: 2 },
-  ],
-  '30d': [
-    { name: 'Wk1', success: 50, failed: 50, capital: 500, milestones: 1 },
-    { name: 'Wk2', success: 58, failed: 42, capital: 750, milestones: 2 },
-    { name: 'Wk3', success: 62, failed: 38, capital: 1100, milestones: 3 },
-    { name: 'Wk4', success: 70, failed: 30, capital: 1800, milestones: 5 },
-  ],
-  '90d': [
-    { name: 'Oct', success: 55, failed: 45, capital: 600, milestones: 2 },
-    { name: 'Nov', success: 60, failed: 40, capital: 800, milestones: 2 },
-    { name: 'Dec', success: 63, failed: 37, capital: 700, milestones: 2 },
-  ],
-  '1y': [
-    { name: 'Jan', success: 45, failed: 55, capital: 400, milestones: 1 },
-    { name: 'Feb', success: 50, failed: 50, capital: 600, milestones: 1 },
-    { name: 'Mar', success: 48, failed: 52, capital: 500, milestones: 1 },
-    { name: 'Apr', success: 65, failed: 35, capital: 900, milestones: 3 },
-    { name: 'May', success: 68, failed: 32, capital: 1200, milestones: 3 },
-    { name: 'Jun', success: 72, failed: 28, capital: 1800, milestones: 5 },
-    { name: 'Jul', success: 70, failed: 30, capital: 1600, milestones: 4 },
-    { name: 'Aug', success: 74, failed: 26, capital: 2000, milestones: 6 },
-    { name: 'Sep', success: 69, failed: 31, capital: 1700, milestones: 4 },
-    { name: 'Oct', success: 78, failed: 22, capital: 2200, milestones: 7 },
-    { name: 'Nov', success: 75, failed: 25, capital: 2000, milestones: 6 },
-    { name: 'Dec', success: 80, failed: 20, capital: 2500, milestones: 8 },
-  ],
-  'All': [
-    { name: '2021', success: 40, failed: 60, capital: 200, milestones: 1 },
-    { name: '2022', success: 52, failed: 48, capital: 800, milestones: 2 },
-    { name: '2023', success: 60, failed: 40, capital: 1200, milestones: 3 },
-  ],
-}
-
-const vaultStatusData = [
-  { name: 'Completed', value: 14 },
-  { name: 'Active', value: 3 },
-  { name: 'Failed', value: 4 },
-]
-const milestoneTypes = [
-  { type: 'Daily Exercise', count: 12 },
-  { type: 'Study Goal', count: 9 },
-  { type: 'No Spending', count: 7 },
-  { type: 'Reading', count: 5 },
-  { type: 'Sleep Schedule', count: 3 },
-]
-
-// Benchmarking data
-const benchmarkData = [
-  { metric: 'Success Rate', you: 85, platform: 68 },
-  { metric: 'Avg Duration', you: 18, platform: 14 },
-  { metric: 'Streak', you: 5, platform: 3 },
-  { metric: 'Milestones/mo', you: 9, platform: 5 },
-]
-
-const TEAM_CHART_DATA = [
-  { name: 'Alice', rate: 94 },
-  { name: 'Bob', rate: 78 },
-  { name: 'Carol', rate: 88 },
-  { name: 'Dave', rate: 65 },
-]
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Card({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {
+function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
       background: 'var(--surface)',
@@ -169,7 +56,7 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
   )
 }
 
-function SectionTitle({ children }: { children: ReactNode }) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 1.25rem 0', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
       {children}
@@ -177,15 +64,15 @@ function SectionTitle({ children }: { children: ReactNode }) {
   )
 }
 
-function ChartTitle({ children }: { children: ReactNode }) {
+function ChartTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1.25rem 0' }}>
       {children}
     </h3>
   )
-} 
+}
 
-function ChartSummary({ children }: { children: ReactNode }) {
+function ChartSummary({ children }: { children: React.ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
 
@@ -199,44 +86,6 @@ function SkeletonBox({ height = 220 }: { height?: number }) {
     }} />
   )
 }
-
-function EmptyState({ message = 'No data yet. Create your first vault to see analytics.' }: { message?: string }) {
-  return (
-    <div
-      data-testid="analytics-empty-state"
-      role="status"
-      style={{
-        padding: '2.5rem',
-        textAlign: 'center',
-        color: 'var(--muted)',
-        border: '1px dashed var(--border)',
-        borderRadius: 'var(--radius)',
-      }}
-    >
-      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
-      <div style={{ fontSize: '0.9rem' }}>{message}</div>
-    </div>
-  )
-}
-
-// ─── Export Helpers ───────────────────────────────────────────────────────────
-
-function exportCSV(data: typeof analyticsPeriodData['30d']) {
-  const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-  const rows = data.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-  const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'disciplr-analytics.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// Note: `jsPDF` is lazy-loaded inside the component to keep the Analytics chunk small.
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Analytics() {
   const chartTokens = useAnalyticsChartTokens()
@@ -256,25 +105,44 @@ export default function Analytics() {
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
-  const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
-  const chartData = analyticsPeriodData[period]
+  const setPeriod = useCallback((p: Period) => {
+    setPeriodInternal(p)
+    setSearchParams({ period: p })
+  }, [setSearchParams])
 
-  // Merge current + previous period for comparison charts
-  const comparisonData = chartData.map((d, i) => ({
-    ...d,
-    prevSuccess: prevPeriodData[period][i]?.success ?? 0,
-    prevCapital: prevPeriodData[period][i]?.capital ?? 0,
-  }))
+  // ─── Memoized data selections ──────────────────────────────────────────────
+  const chartData = useMemo(
+    () => analyticsPeriodData[period],
+    [period]
+  )
 
-  const displayData = showComparison ? comparisonData : chartData
-  
-  // Compute KPIs from the selected period
+  const prevChartData = useMemo(
+    () => prevPeriodData[period],
+    [period]
+  )
+
+  const comparisonData = useMemo(
+    () => chartData.map((d, i) => ({
+      ...d,
+      prevSuccess: prevChartData[i]?.success ?? 0,
+      prevCapital: prevChartData[i]?.capital ?? 0,
+    })),
+    [chartData, prevChartData]
+  )
+
+  const displayData = useMemo(
+    () => (showComparison ? comparisonData : chartData),
+    [showComparison, comparisonData, chartData]
+  )
+
+  // ─── Memoized KPI computation ──────────────────────────────────────────────
   const kpis = useMemo(
-    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevPeriodData[period] as AnalyticsDataPoint[]),
-    [chartData, period]
+    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevChartData as AnalyticsDataPoint[]),
+    [chartData, prevChartData]
   )
 
   const chartAnimationEnabled = !prefersReducedMotion
+
   const tooltipStyle = useMemo(() => ({
     contentStyle: {
       background: seriesColors.tooltipBackground,
@@ -287,7 +155,7 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries = showComparison
+  const successLegendEntries = useMemo(() => showComparison
     ? [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
@@ -296,16 +164,204 @@ export default function Analytics() {
     : [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
-      ]
+      ], [showComparison])
 
-  const capitalLegendEntries = showComparison
+  const capitalLegendEntries = useMemo(() => showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
       ]
     : [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
+      ], [showComparison])
+
+  // ─── Stable callback for period buttons ───────────────────────────────────
+  const handlePeriodClick = useCallback((p: Period) => {
+    setPeriod(p)
+  }, [setPeriod])
+
+  // ─── Stable callbacks for AnalyticsCharts ────────────────────
+  const analyticsChartProps = useMemo(() => ({
+    displayData,
+    chartData,
+    period,
+    vaultStatusData,
+    teamChartData: TEAM_CHART_DATA,
+    showComparison,
+    chartAnimationEnabled,
+    tooltipStyle,
+    seriesColors,
+    chartTokens,
+    successLegendEntries,
+    capitalLegendEntries,
+    isLoading,
+  }), [
+    displayData,
+    chartData,
+    period,
+    showComparison,
+    chartAnimationEnabled,
+    tooltipStyle,
+    seriesColors,
+    chartTokens,
+    successLegendEntries,
+    capitalLegendEntries,
+    isLoading,
+  ])
+
+  // ─── Export handlers ───────────────────────────────────────────────────────
+  const handleCsvExport = useCallback(() => {
+    if (chartData.length === 0) return
+    const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
+    const rows = chartData.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `disciplr-analytics-${period}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [chartData, period])
+
+  const handlePdfExport = useCallback(async () => {
+    setExportError(null)
+    setIsExportLoading(true)
+    try {
+      if (!jsPDFRef.current) {
+        const mod = await import('jspdf')
+        jsPDFRef.current = mod?.default ?? mod
+      }
+
+      const jsPDF = jsPDFRef.current
+      const doc = new jsPDF()
+      const accent = [0, 195, 137] as const
+
+      // Header bar
+      doc.setFillColor(...accent)
+      doc.rect(0, 0, 210, 28, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Disciplr Analytics Report', 14, 18)
+
+      // Period & date
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Period: ${period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
+
+      // Key metrics section
+      doc.setTextColor(30, 45, 66)
+      doc.setFontSize(13)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Key Metrics', 14, 42)
+
+      const metrics = [
+        ['Total Capital Locked', '$12,450 USDC'],
+        ['Active Capital', '$3,200 USDC'],
+        ['Success Rate', '85%'],
+        ['Total Vaults', '21'],
+        ['Completed / Failed', '14 / 4'],
+        ['Accountability Score', '82 / 100'],
       ]
+
+      doc.setFontSize(10)
+      metrics.forEach(([label, value], i) => {
+        const col = i % 2 === 0 ? 14 : 110
+        const row = 52 + Math.floor(i / 2) * 14
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 110, 130)
+        doc.text(label as string, col, row)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(20, 20, 30)
+        doc.text(value as string, col, row + 6)
+      })
+
+      // Divider
+      doc.setDrawColor(...accent)
+      doc.setLineWidth(0.5)
+      doc.line(14, 94, 196, 94)
+
+      // Performance data table
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(30, 45, 66)
+      doc.text('Performance Data', 14, 106)
+
+      // Table header
+      doc.setFillColor(240, 250, 247)
+      doc.rect(14, 112, 182, 9, 'F')
+      doc.setFontSize(9)
+      doc.setTextColor(0, 195, 137)
+      doc.text('PERIOD', 17, 118)
+      doc.text('SUCCESS %', 60, 118)
+      doc.text('FAILED %', 100, 118)
+      doc.text('CAPITAL (USDC)', 135, 118)
+      doc.text('MILESTONES', 175, 118)
+
+      // Table rows
+      chartData.forEach((row, i) => {
+        const y = 128 + i * 10
+        if (i % 2 === 0) {
+          doc.setFillColor(249, 252, 251)
+          doc.rect(14, y - 5, 182, 10, 'F')
+        }
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(30, 45, 66)
+        doc.text(row.name, 17, y)
+        doc.setTextColor(0, 155, 110)
+        doc.text(`${row.success}%`, 60, y)
+        doc.setTextColor(200, 60, 55)
+        doc.text(`${row.failed}%`, 100, y)
+        doc.setTextColor(30, 45, 66)
+        doc.text(`$${row.capital.toLocaleString()}`, 135, y)
+        doc.text(`${row.milestones}`, 175, y)
+      })
+
+      // Capital flow
+      const tableEnd = 128 + chartData.length * 10 + 10
+      doc.setDrawColor(...accent)
+      doc.line(14, tableEnd, 196, tableEnd)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(30, 45, 66)
+      doc.text('Capital Flow Summary', 14, tableEnd + 12)
+
+      const flow = [
+        ['Released to Success Destinations', '$8,750 USDC', [0, 155, 110] as const],
+        ['Redirected on Failure', '$2,400 USDC', [200, 60, 55] as const],
+        ['Platform Fee (1%)', '$124 USDC', [100, 110, 130] as const],
+      ]
+
+      flow.forEach(([label, value, color], i) => {
+        const y = tableEnd + 24 + i * 12
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(100, 110, 130)
+        doc.text(label as string, 17, y)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...(color as [number, number, number]))
+        doc.text(value as string, 150, y)
+      })
+
+      // Footer
+      doc.setFillColor(245, 248, 250)
+      doc.rect(0, 278, 210, 20, 'F')
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(150, 160, 175)
+      doc.text('Generated by Disciplr — Accountability on Stellar', 14, 288)
+      doc.text(`Page 1 of 1`, 185, 288)
+
+      doc.save(`disciplr-report-${period}.pdf`)
+    } catch (err) {
+      console.error('Failed to load or run jsPDF', err)
+      setExportError('Failed to generate PDF. Please try again.')
+    } finally {
+      setIsExportLoading(false)
+    }
+  }, [chartData, period])
 
   return (
     <>
@@ -443,7 +499,7 @@ export default function Analytics() {
               <button
                 key={p}
                 className={`period-btn${period === p ? ' active' : ''}`}
-                onClick={() => setPeriod(p)}
+                onClick={() => handlePeriodClick(p)}
               >
                 {p}
               </button>
@@ -480,156 +536,16 @@ export default function Analytics() {
             {showMovingAverage ? '✓' : ''} Moving Avg
           </button>
 
-{/* Spacer */}
+          {/* Spacer */}
           <div style={{ flex: 1 }} />
 
           {/* Export Buttons */}
-          <button className="action-btn" onClick={() => downloadCsv(toCsv(chartData, 'analytics'), `disciplr-analytics-${period}.csv`)} disabled={chartData.length === 0}>
+          <button className="action-btn" onClick={handleCsvExport} disabled={chartData.length === 0}>
             <Download size={14} /> CSV
           </button>
           <button
             className="action-btn"
-            onClick={() => {
-              // fire-and-forget handler — errors are surfaced inline
-              void (async () => {
-                setExportError(null)
-                setIsExportLoading(true)
-                try {
-                  if (!jsPDFRef.current) {
-                    const mod = await import('jspdf')
-                    jsPDFRef.current = mod?.default ?? mod
-                  }
-
-                  const jsPDF = jsPDFRef.current
-                  const doc = new jsPDF()
-                  const accent = [0, 195, 137] as const
-
-                  // Header bar
-                  doc.setFillColor(...accent)
-                  doc.rect(0, 0, 210, 28, 'F')
-                  doc.setTextColor(255, 255, 255)
-                  doc.setFontSize(20)
-                  doc.setFont('helvetica', 'bold')
-                  doc.text('Disciplr Analytics Report', 14, 18)
-
-                  // Period & date
-                  doc.setFontSize(9)
-                  doc.setFont('helvetica', 'normal')
-                  doc.text(`Period: ${period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
-
-                  // Key metrics section
-                  doc.setTextColor(30, 45, 66)
-                  doc.setFontSize(13)
-                  doc.setFont('helvetica', 'bold')
-                  doc.text('Key Metrics', 14, 42)
-
-                  const metrics = [
-                    ['Total Capital Locked', '$12,450 USDC'],
-                    ['Active Capital', '$3,200 USDC'],
-                    ['Success Rate', '85%'],
-                    ['Total Vaults', '21'],
-                    ['Completed / Failed', '14 / 4'],
-                    ['Accountability Score', '82 / 100'],
-                  ]
-
-                  doc.setFontSize(10)
-                  metrics.forEach(([label, value], i) => {
-                    const col = i % 2 === 0 ? 14 : 110
-                    const row = 52 + Math.floor(i / 2) * 14
-                    doc.setFont('helvetica', 'normal')
-                    doc.setTextColor(100, 110, 130)
-                    doc.text(label as string, col, row)
-                    doc.setFont('helvetica', 'bold')
-                    doc.setTextColor(20, 20, 30)
-                    doc.text(value as string, col, row + 6)
-                  })
-
-                  // Divider
-                  doc.setDrawColor(...accent)
-                  doc.setLineWidth(0.5)
-                  doc.line(14, 94, 196, 94)
-
-                  // Performance data table
-                  doc.setFont('helvetica', 'bold')
-                  doc.setFontSize(13)
-                  doc.setTextColor(30, 45, 66)
-                  doc.text('Performance Data', 14, 106)
-
-                  // Table header
-                  doc.setFillColor(240, 250, 247)
-                  doc.rect(14, 112, 182, 9, 'F')
-                  doc.setFontSize(9)
-                  doc.setTextColor(0, 195, 137)
-                  doc.text('PERIOD', 17, 118)
-                  doc.text('SUCCESS %', 60, 118)
-                  doc.text('FAILED %', 100, 118)
-                  doc.text('CAPITAL (USDC)', 135, 118)
-                  doc.text('MILESTONES', 175, 118)
-
-                  // Table rows
-                  chartData.forEach((row, i) => {
-                    const y = 128 + i * 10
-                    if (i % 2 === 0) {
-                      doc.setFillColor(249, 252, 251)
-                      doc.rect(14, y - 5, 182, 10, 'F')
-                    }
-                    doc.setFont('helvetica', 'normal')
-                    doc.setTextColor(30, 45, 66)
-                    doc.text(row.name, 17, y)
-                    doc.setTextColor(0, 155, 110)
-                    doc.text(`${row.success}%`, 60, y)
-                    doc.setTextColor(200, 60, 55)
-                    doc.text(`${row.failed}%`, 100, y)
-                    doc.setTextColor(30, 45, 66)
-                    doc.text(`$${row.capital.toLocaleString()}`, 135, y)
-                    doc.text(`${row.milestones}`, 175, y)
-                  })
-
-                  // Capital flow
-                  const tableEnd = 128 + chartData.length * 10 + 10
-                  doc.setDrawColor(...accent)
-                  doc.line(14, tableEnd, 196, tableEnd)
-
-                  doc.setFont('helvetica', 'bold')
-                  doc.setFontSize(13)
-                  doc.setTextColor(30, 45, 66)
-                  doc.text('Capital Flow Summary', 14, tableEnd + 12)
-
-                  const flow = [
-                    ['Released to Success Destinations', '$8,750 USDC', [0, 155, 110] as const],
-                    ['Redirected on Failure', '$2,400 USDC', [200, 60, 55] as const],
-                    ['Platform Fee (1%)', '$124 USDC', [100, 110, 130] as const],
-                  ]
-
-                  flow.forEach(([label, value, color], i) => {
-                    const y = tableEnd + 24 + i * 12
-                    doc.setFont('helvetica', 'normal')
-                    doc.setFontSize(10)
-                    doc.setTextColor(100, 110, 130)
-                    doc.text(label as string, 17, y)
-                    doc.setFont('helvetica', 'bold')
-                    doc.setTextColor(...(color as [number, number, number]))
-                    doc.text(value as string, 150, y)
-                  })
-
-                  // Footer
-                  doc.setFillColor(245, 248, 250)
-                  doc.rect(0, 278, 210, 20, 'F')
-                  doc.setFont('helvetica', 'normal')
-                  doc.setFontSize(8)
-                  doc.setTextColor(150, 160, 175)
-                  doc.text('Generated by Disciplr — Accountability on Stellar', 14, 288)
-                  doc.text(`Page 1 of 1`, 185, 288)
-
-                  doc.save(`disciplr-report-${period}.pdf`)
-                } catch (err) {
-                  console.error('Failed to load or run jsPDF', err)
-                  setExportError('Failed to generate PDF. Please try again.')
-                } finally {
-                  setIsExportLoading(false)
-                }
-              })()
-            }}
+            onClick={handlePdfExport}
             disabled={isExportLoading}
           >
             <Download size={14} /> {isExportLoading ? 'Loading...' : 'PDF Report'}
@@ -645,26 +561,26 @@ export default function Analytics() {
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}
           >
             {[
-              { 
-                label: 'Total Capital Locked', 
-                value: formatCurrency(kpis.totalCapital), 
+              {
+                label: 'Total Capital Locked',
+                value: formatCurrency(kpis.totalCapital),
                 sub: kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)} vs prev` : 'USDC',
-                icon: <Target size={17} color={seriesColors.success} />, 
-                up: kpis.capitalTrend 
+                icon: <Target size={17} color={seriesColors.success} />,
+                up: kpis.capitalTrend,
               },
-              { 
-                label: 'Success Rate', 
+              {
+                label: 'Success Rate',
                 value: formatPercentage(kpis.averageSuccessRate),
                 sub: kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)} vs prev` : 'Average',
-                icon: <CheckCircle size={17} color={seriesColors.success} />, 
-                up: kpis.successTrend 
+                icon: <CheckCircle size={17} color={seriesColors.success} />,
+                up: kpis.successTrend,
               },
-              { 
-                label: 'Total Milestones', 
+              {
+                label: 'Total Milestones',
                 value: `${kpis.totalMilestones}`,
                 sub: kpis.milestoneDelta !== 0 ? `${kpis.milestoneDelta > 0 ? '+' : ''}${kpis.milestoneDelta} vs prev` : 'All time',
-                icon: <Award size={17} color={seriesColors.success} />, 
-                up: kpis.milestoneTrend 
+                icon: <Award size={17} color={seriesColors.success} />,
+                up: kpis.milestoneTrend,
               },
             ].map((stat, i) => (
               <Card key={i}>
@@ -688,19 +604,7 @@ export default function Analytics() {
           <Suspense fallback={<SkeletonBox height={300} />}>
             <AnalyticsCharts
               section="performance"
-              displayData={displayData}
-              chartData={chartData}
-              period={period}
-              vaultStatusData={vaultStatusData}
-              teamChartData={TEAM_CHART_DATA}
-              showComparison={showComparison}
-              chartAnimationEnabled={chartAnimationEnabled}
-              tooltipStyle={tooltipStyle}
-              seriesColors={seriesColors}
-              chartTokens={chartTokens}
-              successLegendEntries={successLegendEntries}
-              capitalLegendEntries={capitalLegendEntries}
-              isLoading={isLoading}
+              {...analyticsChartProps}
             />
           </Suspense>
         </div>
@@ -719,19 +623,7 @@ export default function Analytics() {
               <Suspense fallback={<SkeletonBox height={180} />}>
                 <AnalyticsCharts
                   section="donut"
-                  displayData={displayData}
-                  chartData={chartData}
-                  period={period}
-                  vaultStatusData={vaultStatusData}
-                  teamChartData={TEAM_CHART_DATA}
-                  showComparison={showComparison}
-                  chartAnimationEnabled={chartAnimationEnabled}
-                  tooltipStyle={tooltipStyle}
-                  seriesColors={seriesColors}
-                  chartTokens={chartTokens}
-                  successLegendEntries={successLegendEntries}
-                  capitalLegendEntries={capitalLegendEntries}
-                  isLoading={isLoading}
+                  {...analyticsChartProps}
                 />
               </Suspense>
             </Card>
@@ -1074,19 +966,7 @@ export default function Analytics() {
               <Suspense fallback={<SkeletonBox height={160} />}>
                 <AnalyticsCharts
                   section="team"
-                  displayData={displayData}
-                  chartData={chartData}
-                  period={period}
-                  vaultStatusData={vaultStatusData}
-                  teamChartData={TEAM_CHART_DATA}
-                  showComparison={showComparison}
-                  chartAnimationEnabled={chartAnimationEnabled}
-                  tooltipStyle={tooltipStyle}
-                  seriesColors={seriesColors}
-                  chartTokens={chartTokens}
-                  successLegendEntries={successLegendEntries}
-                  capitalLegendEntries={capitalLegendEntries}
-                  isLoading={isLoading}
+                  {...analyticsChartProps}
                 />
               </Suspense>
             </Card>
