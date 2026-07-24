@@ -71,13 +71,14 @@ describe('NotificationSettings component behavior', () => {
   it('renders default notification preferences from store', () => {
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText('Email Notification') as HTMLInputElement;
-    const pushToggle = screen.getByLabelText('Push Notification') as HTMLInputElement;
+    const emailToggle = screen.getByLabelText('Email Notification');
+    const pushToggle = screen.getByLabelText('Push Notification');
     const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
-    expect(emailToggle.checked).toBe(true);
-    expect(pushToggle.checked).toBe(false);
+    // Switch renders a button with role="switch" and aria-checked
+    expect(emailToggle).toHaveAttribute('aria-checked', 'true');
+    expect(pushToggle).toHaveAttribute('aria-checked', 'false');
     expect(frequencySelect.value).toBe('1');
     expect(quietHoursInput.value).toBe('12:00');
   });
@@ -89,7 +90,7 @@ describe('NotificationSettings component behavior', () => {
     fireEvent.click(emailToggle);
 
     expect(useNotificationPreferences.getState().email).toBe(false);
-    expect(emailToggle).not.toBeChecked();
+    expect(emailToggle).toHaveAttribute('aria-checked', 'false');
   });
 
   it('updates the store when push notification toggle is clicked', () => {
@@ -99,7 +100,7 @@ describe('NotificationSettings component behavior', () => {
     fireEvent.click(pushToggle);
 
     expect(useNotificationPreferences.getState().push).toBe(true);
-    expect(pushToggle).toBeChecked();
+    expect(pushToggle).toHaveAttribute('aria-checked', 'true');
   });
 
   it('updates the store when frequency select is changed', () => {
@@ -130,13 +131,14 @@ describe('NotificationSettings component behavior', () => {
 
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText('Email Notification') as HTMLInputElement;
-    const pushToggle = screen.getByLabelText('Push Notification') as HTMLInputElement;
+    const emailToggle = screen.getByLabelText('Email Notification');
+    const pushToggle = screen.getByLabelText('Push Notification');
     const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
-    expect(emailToggle.checked).toBe(false);
-    expect(pushToggle.checked).toBe(true);
+    // Switch renders role="switch" buttons; state is reflected via aria-checked
+    expect(emailToggle).toHaveAttribute('aria-checked', 'false');
+    expect(pushToggle).toHaveAttribute('aria-checked', 'true');
     expect(frequencySelect.value).toBe('3');
     expect(quietHoursInput.value).toBe('09:45');
   });
@@ -144,8 +146,8 @@ describe('NotificationSettings component behavior', () => {
   it('resets all preferences to default values when reset button is clicked', () => {
     render(<NotificationSettings />);
 
-    const emailToggle = screen.getByLabelText('Email Notification') as HTMLInputElement;
-    const pushToggle = screen.getByLabelText('Push Notification') as HTMLInputElement;
+    const emailToggle = screen.getByLabelText('Email Notification');
+    const pushToggle = screen.getByLabelText('Push Notification');
     const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
 
@@ -154,24 +156,62 @@ describe('NotificationSettings component behavior', () => {
     fireEvent.change(frequencySelect, { target: { value: '4' } });
     fireEvent.change(quietHoursInput, { target: { value: '23:00' } });
 
-    expect(emailToggle.checked).toBe(false);
-    expect(pushToggle.checked).toBe(true);
+    // Switch state is reflected via aria-checked
+    expect(emailToggle).toHaveAttribute('aria-checked', 'false');
+    expect(pushToggle).toHaveAttribute('aria-checked', 'true');
     expect(frequencySelect.value).toBe('4');
     expect(quietHoursInput.value).toBe('23:00');
 
     const resetButton = screen.getByRole('button', { name: /Reset Preferences/i });
     fireEvent.click(resetButton);
 
-    expect(emailToggle.checked).toBe(true);
-    expect(pushToggle.checked).toBe(false);
+    expect(emailToggle).toHaveAttribute('aria-checked', 'true');
+    expect(pushToggle).toHaveAttribute('aria-checked', 'false');
     expect(frequencySelect.value).toBe('1');
     expect(quietHoursInput.value).toBe('12:00');
 
     const storeState = useNotificationPreferences.getState();
     expect(storeState.email).toBe(true);
     expect(storeState.push).toBe(false);
-    expect(storeState.frequency).toBe('');
+    expect(storeState.frequency).toBe('1');
     expect(storeState.quietHours).toBe('12:00');
+  });
+
+  // Regression test for issue #723:
+  // frequency default must correspond to a valid <select> option so the
+  // dropdown always shows a selected item on first render and after reset.
+  it('regression #723: default frequency renders a selected option in the frequency dropdown', () => {
+    render(<NotificationSettings />);
+
+    const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
+
+    // The select must not be in an empty-value / unmatched state.
+    expect(frequencySelect.value).not.toBe('');
+
+    // The selected option must be one that actually exists in the DOM.
+    const selectedOption = Array.from(frequencySelect.options).find(
+      (opt) => opt.selected,
+    );
+    expect(selectedOption).toBeDefined();
+    expect(selectedOption?.value).toBe(frequencySelect.value);
+  });
+
+  it('regression #723: frequency remains a selected option after store reset', () => {
+    render(<NotificationSettings />);
+
+    const frequencySelect = screen.getByLabelText('Notification Frequency') as HTMLSelectElement;
+    fireEvent.change(frequencySelect, { target: { value: '4' } });
+
+    const resetButton = screen.getByRole('button', { name: /Reset Preferences/i });
+    fireEvent.click(resetButton);
+
+    expect(frequencySelect.value).not.toBe('');
+
+    const selectedOption = Array.from(frequencySelect.options).find(
+      (opt) => opt.selected,
+    );
+    expect(selectedOption).toBeDefined();
+    expect(selectedOption?.value).toBe(frequencySelect.value);
   });
 });
 

@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { AlertCircle, Home, ArrowLeft } from 'lucide-react'
@@ -94,10 +95,10 @@ export default function NotFound() {
             border: 'none',
             cursor: 'pointer',
           }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+          onMouseEnter={(e: MouseEvent<HTMLAnchorElement>) => {
             e.currentTarget.style.backgroundColor = 'var(--accent-dim)'
           }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+          onMouseLeave={(e: MouseEvent<HTMLAnchorElement>) => {
             e.currentTarget.style.backgroundColor = 'var(--accent)'
           }}
         >
@@ -121,10 +122,10 @@ export default function NotFound() {
             cursor: 'pointer',
             transition: 'background-color 0.2s ease',
           }}
-          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
+          onMouseEnter={(e: MouseEvent<HTMLButtonElement>) => {
             e.currentTarget.style.backgroundColor = 'var(--hover)'
           }}
-          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
+          onMouseLeave={(e: MouseEvent<HTMLButtonElement>) => {
             e.currentTarget.style.backgroundColor = 'transparent'
           }}
         >
