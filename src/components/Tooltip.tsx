@@ -114,7 +114,7 @@ export function Tooltip({
         style={{
           position: "absolute",
           ...positionStyle,
-          zIndex: 9999,
+          zIndex: "var(--z-index-tooltip, 150)",
           pointerEvents: "none",
           whiteSpace: "nowrap",
           padding: "4px 10px",
