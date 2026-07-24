@@ -11,6 +11,11 @@
       "$value": 100,
       "$description": "Sticky site header"
     },
+    "tooltip": {
+      "$type": "number",
+      "$value": 150,
+      "$description": "Inline hover and focus help bubbles"
+    },
     "drawer": {
       "$type": "number",
       "$value": 200,
