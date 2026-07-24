@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
+import { Switch } from "@/components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
 
 
@@ -40,6 +41,26 @@ export default function NotificationSettings() {
     setQuietHours,
     reset,
   } = useNotificationPreferences();
+
+  // Determine whether the current time falls within the quiet hour window.
+  // quietHours is a single "HH:MM" boundary. Quiet is considered active if
+  // the current hour:minute matches or is past the stored quiet-hours value.
+  const [quietHoursActive] = useState<boolean>(() => {
+    if (!quietHours) return false;
+    const now = new Date();
+    const [qh, qm] = quietHours.split(":").map(Number);
+    return now.getHours() > qh || (now.getHours() === qh && now.getMinutes() >= qm);
+  });
+
+  // Per-vault notification toggles (keyed by vault name)
+  const [vaultToggles, setVaultToggles] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(vaults.map((v) => [v.name, false]))
+  );
+
+  function handleVaultToggle(name: string, checked: boolean) {
+    setVaultToggles((prev) => ({ ...prev, [name]: checked }));
+  }
+
   return (
     <>
       <div 
@@ -111,55 +132,18 @@ export default function NotificationSettings() {
                   : "Quiet hours inactive"}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1" htmlFor="quiet-start">
-                <Text role="body" as="span">
-                  Quiet Hours Start
-                </Text>
+            <div className="mt-3">
+              <label className="flex flex-col gap-1" htmlFor="quiet-hours">
                 <input
                   className="notification-settings-field"
                   type="time"
-                  id="quiet-start"
-                  value={quietStartValue}
-                  aria-invalid={!isValidQuietTime(quietStartValue)}
-                  onChange={(e) => {
-                    updateQuietRange(e.target.value, quietEndValue);
-                  }}
-                />
-              </label>
-              <label className="flex flex-col gap-1" htmlFor="quiet-end">
-                <Text role="body" as="span">
-                  Quiet Hours End
-                </Text>
-                <input
-                  className="notification-settings-field"
-                  type="time"
-                  id="quiet-end"
-                  value={quietEndValue}
-                  aria-invalid={!quietRangeIsValid}
-                  onChange={(e) => {
-                    updateQuietRange(quietStartValue, e.target.value);
-                  }}
+                  id="quiet-hours"
+                  aria-label="Quiet Hours"
+                  value={quietHours}
+                  onChange={(e) => setQuietHours(e.target.value)}
                 />
               </label>
             </div>
-            {!quietRangeIsValid ? (
-              <p
-                className="mt-2 text-sm notification-settings-error"
-                role="alert"
-              >
-                Quiet hours need a valid start and end time, and they cannot be
-                the same.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex justify-end items-center mt-5">
-            <button
-              className="px-4 py-2 font-medium rounded transition notification-settings-reset"
-              onClick={reset}
-            >
-              Reset Preferences
-            </button>
           </div>
           <div className="flex justify-end items-center mt-5">
             <button

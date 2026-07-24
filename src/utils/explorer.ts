@@ -3,13 +3,13 @@ import { isValidStellarAddress } from './stellarAddress';
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer'
 
-const EXPLORER_BASES: Record<WalletNetwork, string> = {
+export const EXPLORER_BASE_URLS: Record<WalletNetwork, string> = {
   TESTNET: 'https://stellar.expert/explorer/testnet',
   PUBLIC: 'https://stellar.expert/explorer/public',
 };
 
 export function explorerBaseUrl(network: WalletNetwork): string {
-  return EXPLORER_BASES[network] ?? EXPLORER_BASES.TESTNET;
+  return EXPLORER_BASE_URLS[network] ?? EXPLORER_BASE_URLS.TESTNET;
 }
 
 export function getExplorerTxUrl(txHash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
@@ -33,8 +33,8 @@ export function getExplorerAccountUrl(address: string, network: 'TESTNET' | 'PUB
 export function contractExplorerUrl(address: string, network: string): string {
   if (!address) return '';
   const base =
-    EXPLORER_BASES[(network as WalletNetwork)] ??
-    EXPLORER_BASES.TESTNET;
+    EXPLORER_BASE_URLS[(network as WalletNetwork)] ??
+    EXPLORER_BASE_URLS.TESTNET;
   return `${base}/contract/${address}`;
 }
 

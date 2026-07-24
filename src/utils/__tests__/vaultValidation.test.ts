@@ -10,6 +10,7 @@ import {
 
 const successAddress = `G${"A".repeat(55)}`;
 const failureAddress = `G${"B".repeat(55)}`;
+const verifierAddress = `G${"C".repeat(55)}`;
 const now = new Date("2026-06-18T00:00:00Z");
 
 describe("vaultValidation", () => {

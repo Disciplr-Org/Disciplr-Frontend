@@ -1,4 +1,5 @@
 :root {
+  --overlay-backdrop: rgba(0, 0, 0, 0.5);
   /* Light theme (default) */
   --bg: #f9fafb;
   --surface: #f3f4f6;
@@ -64,6 +65,12 @@
   --container-max: 1280px;
   --container-detail: 860px;
 
+  /* Breakpoint tokens */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
   /* Touch target minimum */
   --touch-target: 44px;
 
@@ -78,6 +85,12 @@
   --line-height-title: 28px;
   --letter-spacing-title: 0;
   --font-weight-title: 600;
+
+  /* Subtitle Scale - sm breakpoint (< 640px) */
+  --font-size-subtitle: 20px;
+  --line-height-subtitle: 28px;
+  --letter-spacing-subtitle: 0;
+  --font-weight-subtitle: 600;
 
   /* Body Scale - sm breakpoint (< 640px) */
   --font-size-body: 14px;
@@ -105,6 +118,12 @@
   --z-index-drawer: 200;
   --z-index-modal: 300;
   --z-index-toast: 400;
+
+  /* Opacity scale — mirrors design-system/tokens/opacity.json */
+  --opacity-disabled: 0.5;
+  --opacity-backdrop: 0.5;
+  --opacity-hover: 0.08;
+  --opacity-muted: 0.72;
 }
 
 /* Responsive breakpoints - update CSS variables */
@@ -119,6 +138,12 @@
     --font-size-title: 28px;
     --line-height-title: 36px;
     --letter-spacing-title: -0.01em;
+
+    /* Subtitle at md (640px-768px) */
+    --font-size-subtitle: 28px;
+    --line-height-subtitle: 36px;
+    --letter-spacing-subtitle: -0.01em;
+    --font-weight-subtitle: 600;
 
     /* Body at md (640px-768px) */
     --font-size-body: 16px;
@@ -148,6 +173,12 @@
     --font-size-title: 36px;
     --line-height-title: 44px;
     --letter-spacing-title: -0.01em;
+
+    /* Subtitle at lg (≥768px) */
+    --font-size-subtitle: 36px;
+    --line-height-subtitle: 44px;
+    --letter-spacing-subtitle: -0.01em;
+    --font-weight-subtitle: 600;
 
     /* Body at lg (≥768px) */
     --font-size-body: 18px;
@@ -183,6 +214,13 @@
   font-family: var(--font-sans);
 }
 
+.text-subtitle {
+  font-size: var(--font-size-subtitle);
+  line-height: var(--line-height-subtitle);
+  letter-spacing: var(--letter-spacing-subtitle);
+  font-weight: var(--font-weight-subtitle);
+  font-family: var(--font-sans);
+}
 .text-body {
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);

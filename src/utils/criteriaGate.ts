@@ -4,7 +4,7 @@
  */
 export function isCriteriaGateOpen(
   criteria: string[] | undefined,
-  checked: Set<number>,
+  checked: Set<string>,
 ): boolean {
   if (!criteria || criteria.length === 0) return true;
   return checked.size === criteria.length;
