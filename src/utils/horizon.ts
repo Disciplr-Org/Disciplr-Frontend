@@ -1,4 +1,7 @@
 import type { WalletNetwork } from '../context/WalletContext';
+import { EXPLORER_BASE_URLS, explorerBaseUrl } from './explorer';
+
+export { EXPLORER_BASE_URLS, explorerBaseUrl };
 
 export const HORIZON_URLS: Record<WalletNetwork, string> = {
     TESTNET: 'https://horizon-testnet.stellar.org',
@@ -8,11 +11,6 @@ export const HORIZON_URLS: Record<WalletNetwork, string> = {
 export const USDC_ISSUERS: Record<WalletNetwork, string> = {
     TESTNET: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
     PUBLIC: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-};
-
-export const EXPLORER_BASE_URLS: Record<WalletNetwork, string> = {
-    TESTNET: 'https://stellar.expert/explorer/testnet',
-    PUBLIC: 'https://stellar.expert/explorer/public',
 };
 
 export type HorizonBalanceErrorCode = 'ACCOUNT_NOT_FOUND' | 'REQUEST_FAILED' | 'INVALID_RESPONSE';
@@ -47,10 +45,6 @@ export interface UsdcBalanceResult {
 
 export function horizonUrl(network: WalletNetwork) {
     return HORIZON_URLS[network];
-}
-
-export function explorerBaseUrl(network: WalletNetwork) {
-    return EXPLORER_BASE_URLS[network];
 }
 
 function isFiniteNumericString(value: unknown): value is string {
