@@ -164,6 +164,21 @@ function renderHistory(history = baseHistory) {
   return render(<ValidationHistory />);
 }
 
+// Mock matchMedia for Tooltip/StatusChip components
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -246,7 +261,7 @@ describe('ValidationHistory', () => {
       target: { value: '25' },
     });
 
-    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
@@ -326,7 +341,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when from date changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
@@ -363,7 +378,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when milestone changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
