@@ -34,7 +34,7 @@ export function formatRelativeTime(
   // Less than 1 minute
   if (absDiff < 60) {
     if (absDiff < 10) {
-      return diffInSeconds > 0 ? "just now" : "just now";
+      return diffInSeconds > 0 ? "in a moment" : "just now";
     }
     return rtf.format(Math.round(diffInSeconds), "second");
   }
