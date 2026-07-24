@@ -25,7 +25,6 @@ const makeTasks = () => [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -35,7 +34,6 @@ const makeTasks = () => [
     owner: '0xBBBB',
     amount: '5,000 USDC',
     deadline: '2026-06-20',
-    daysRemaining: 2,
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -45,7 +43,6 @@ const makeTasks = () => [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-07-10',
-    daysRemaining: 20,
     status: 'pending' as const,
     milestone: 'Phase 3',
   },
@@ -103,7 +100,7 @@ describe('PendingValidations', () => {
     expect(screen.getByLabelText(/Sort by/i)).toHaveValue('deadline');
     expect(screen.getByRole('button', { name: /Ascending/i })).toBeInTheDocument();
 
-    // ascending: v-2 (2 days) → v-1 (10 days) → v-3 (20 days)
+    // ascending: v-2 → v-1 → v-3
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Beta Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
@@ -116,7 +113,7 @@ describe('PendingValidations', () => {
 
     expect(screen.getByRole('button', { name: /Descending/i })).toBeInTheDocument();
 
-    // descending: v-3 (20 days) → v-1 (10 days) → v-2 (2 days)
+    // descending: v-3 → v-1 → v-2
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Gamma Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
@@ -185,12 +182,12 @@ describe('PendingValidations', () => {
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + 1 row
   });
 
-  it('handles ties in daysRemaining (stable relative order preserved)', () => {
+  it('handles ties in deadlines (stable relative order preserved)', () => {
     mockedUseVerifierStore.mockReturnValue({
       pendingValidations: [
-        { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
-        { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
-      ]),
+        { ...makeTasks()[0], id: 'v-a', deadline: '2026-06-25' },
+        { ...makeTasks()[1], id: 'v-b', deadline: '2026-06-25' },
+      ],
     );
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
@@ -257,14 +254,14 @@ describe('PendingValidations', () => {
 
     it('urgent rows (≤3 days) include a non-color sr-only urgency cue', () => {
       renderPage();
-      // v-2 has daysRemaining: 2 which is ≤ 3
+      // v-2 is overdue, which is within the critical threshold.
       const urgentCue = screen.getByText('Urgent');
       expect(urgentCue.className).toContain('sr-only');
     });
 
     it('non-urgent rows do not include an urgency cue', () => {
       renderPage();
-      // Only v-2 (daysRemaining: 2) is urgent; v-1 and v-3 are not
+      // Only v-2 is urgent; v-1 and v-3 are not.
       const urgentCues = screen.getAllByText('Urgent');
       expect(urgentCues).toHaveLength(1);
     });

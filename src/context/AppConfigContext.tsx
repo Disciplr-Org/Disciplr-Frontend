@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useWallet, type WalletNetwork } from './WalletContext';
 import { explorerBaseUrl as getExplorerBaseUrl } from '../utils/explorer';
 import { HORIZON_URLS, USDC_ISSUERS } from '../utils/horizon';
+import { APP_EXPECTED_NETWORK } from '../utils/networkMismatch';
 
 export interface AppConfig {
     network: WalletNetwork;
@@ -10,7 +11,7 @@ export interface AppConfig {
     explorerBaseUrl: string;
 }
 
-const DEFAULT_NETWORK: WalletNetwork = 'TESTNET';
+const DEFAULT_NETWORK: WalletNetwork = APP_EXPECTED_NETWORK;
 
 const AppConfigContext = createContext<AppConfig | undefined>(undefined);
 

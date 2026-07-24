@@ -17,7 +17,7 @@ describe("useNotificationPreferences store", () => {
     const state = useNotificationPreferences.getState();
     expect(state.email).toBe(true);
     expect(state.push).toBe(false);
-    expect(state.frequency).toBe("");
+    expect(state.frequency).toBe("1");
     expect(state.quietHours).toBe("12:00");
   });
 
@@ -58,7 +58,7 @@ describe("useNotificationPreferences store", () => {
     const state = useNotificationPreferences.getState();
     expect(state.email).toBe(true);
     expect(state.push).toBe(false);
-    expect(state.frequency).toBe("");
+    expect(state.frequency).toBe("1");
     expect(state.quietHours).toBe("12:00");
   });
 
@@ -94,7 +94,24 @@ describe("useNotificationPreferences store", () => {
     const state = useNotificationPreferences.getState();
     expect(state.email).toBe(true);
     expect(state.push).toBe(false);
-    expect(state.frequency).toBe("");
+    expect(state.frequency).toBe("1");
     expect(state.quietHours).toBe("12:00");
+  });
+
+  // Regression test for https://github.com/Disciplr-Org/Disciplr-Frontend/issues/723
+  // The frequency default must be one of the valid select option values ("1","2","3","4")
+  // so that a fresh or reset store always maps to a visible, selected option in the UI.
+  it("default frequency matches a valid NotificationSettings dropdown option", () => {
+    const validFrequencyValues = ["1", "2", "3", "4"];
+    const { frequency } = useNotificationPreferences.getState();
+    expect(validFrequencyValues).toContain(frequency);
+  });
+
+  it("reset frequency matches a valid NotificationSettings dropdown option", () => {
+    const validFrequencyValues = ["1", "2", "3", "4"];
+    useNotificationPreferences.getState().setFrequency("3");
+    useNotificationPreferences.getState().reset();
+    const { frequency } = useNotificationPreferences.getState();
+    expect(validFrequencyValues).toContain(frequency);
   });
 });

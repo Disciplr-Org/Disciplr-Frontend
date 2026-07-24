@@ -39,11 +39,13 @@ const validChart = () => ({
 });
 
 describe('standalone color string validators', () => {
-  it('validates six-digit hex colors case-insensitively', () => {
+  it('validates supported hex color lengths', () => {
     expect(isValidHexColor('#ABCDEF')).toBe(true);
     expect(isValidHexColor('#abcdef')).toBe(true);
+    expect(isValidHexColor('#abc')).toBe(true);
+    expect(isValidHexColor('#abcd')).toBe(true);
+    expect(isValidHexColor('#3B82F6AA')).toBe(true);
     expect(isValidHexColor('#123abz')).toBe(false);
-    expect(isValidHexColor('#abc')).toBe(false);
     expect(isValidHexColor('ABCDEF')).toBe(false);
   });
 
@@ -91,16 +93,19 @@ describe('token name validators', () => {
 });
 
 describe('isValidHexColor boundary table', () => {
-  it('accepts canonical six-digit hex colors', () => {
+  it('accepts supported hex color lengths', () => {
     expect(isValidHexColor('#0A7668')).toBe(true);
     expect(isValidHexColor('#000000')).toBe(true);
     expect(isValidHexColor('#FFFFFF')).toBe(true);
     expect(isValidHexColor('#0a7668')).toBe(true);
+    expect(isValidHexColor('#abc')).toBe(true);
+    expect(isValidHexColor('#ABCD')).toBe(true);
+    expect(isValidHexColor('#0A7668FF')).toBe(true);
   });
 
   it('rejects malformed hex colors', () => {
-    expect(isValidHexColor('#abc')).toBe(false); // 3-digit
-    expect(isValidHexColor('#0A7668FF')).toBe(false); // 8-digit
+    expect(isValidHexColor('#ab')).toBe(false); // too short
+    expect(isValidHexColor('#0A7668FFF')).toBe(false); // too long
     expect(isValidHexColor('0A7668')).toBe(false); // missing #
     expect(isValidHexColor('#12345g')).toBe(false); // non-hex char
     expect(isValidHexColor('')).toBe(false); // empty
@@ -204,6 +209,8 @@ describe('isValidColorToken', () => {
     );
     expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
     expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(false);
+    expect(isValidColorToken({ $type: 'color', $value: '#abc' })).toBe(true);
+    expect(isValidColorToken({ $type: 'color', $value: '#3B82F6AA' })).toBe(true);
   });
 
   it('validates accessibility metadata branches', () => {

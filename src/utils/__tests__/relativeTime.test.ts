@@ -49,9 +49,9 @@ describe("formatRelativeTime", () => {
   });
 
   describe("future dates", () => {
-    it('should return "just now" for very near future timestamps', () => {
-      expect(formatRelativeTime(NOW + 5000, NOW)).toBe("just now");
-      expect(formatRelativeTime(NOW + 9000, NOW)).toBe("just now");
+    it('should return "in a moment" for very near future timestamps', () => {
+      expect(formatRelativeTime(NOW + 5000, NOW)).toBe("in a moment");
+      expect(formatRelativeTime(NOW + 9000, NOW)).toBe("in a moment");
     });
 
     it("should format future seconds correctly", () => {
