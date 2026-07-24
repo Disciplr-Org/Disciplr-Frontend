@@ -88,6 +88,16 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
+            <NavLink
+              to="/help"
+              className="header-link"
+              aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
+            >
+              <Text role="caption" as="span">
+                Help
+              </Text>
+            </NavLink>
+
             <Link
               to="/vaults/create"
               className="header-link header-cta"
