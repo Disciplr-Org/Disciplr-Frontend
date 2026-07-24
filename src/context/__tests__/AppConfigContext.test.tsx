@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AppConfigProvider, useAppConfig } from '../AppConfigContext';
 import { WalletProvider, useWallet } from '../WalletContext';
-import { EXPLORER_BASE_URLS, HORIZON_URLS, USDC_ISSUERS } from '../../utils/horizon';
+import { EXPLORER_BASE_URLS } from '../../utils/explorer';
+import { HORIZON_URLS, USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
     isAllowed: vi.fn(),

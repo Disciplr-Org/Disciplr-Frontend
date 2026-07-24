@@ -7,7 +7,6 @@ const task = (id: string): ValidationTask => ({
   owner: '0xowner',
   amount: '1,000 USDC',
   deadline: '2026-06-01',
-  daysRemaining: 5,
   status: 'pending',
   milestone: `Milestone ${id}`,
 });

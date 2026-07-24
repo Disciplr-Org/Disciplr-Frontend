@@ -28,3 +28,31 @@ describe('z-index token layering scale', () => {
     });
   });
 });
+
+describe('breakpoint token scale', () => {
+  it('loads breakpoint tokens from breakpoints.json', () => {
+    const tokens = loadTokens('breakpoints.json');
+
+    expect(tokens).toHaveProperty('breakpoint');
+    expect(tokens.breakpoint).toMatchObject({
+      sm: { $value: '640px' },
+      md: { $value: '768px' },
+      lg: { $value: '1024px' },
+      xl: { $value: '1280px' },
+    });
+  });
+});
+
+describe('opacity token scale', () => {
+  it('loads opacity tokens from opacity.json', () => {
+    const tokens = loadTokens('opacity.json');
+
+    expect(tokens).toHaveProperty('opacity');
+    expect(tokens.opacity).toMatchObject({
+      disabled: { $value: 0.5 },
+      backdrop: { $value: 0.5 },
+      hover: { $value: 0.08 },
+      muted: { $value: 0.72 },
+    });
+  });
+});

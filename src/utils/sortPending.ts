@@ -10,7 +10,7 @@ const parseAmount = (amount: string): number => {
 
 const parseDeadline = (task: ValidationTask): number => {
   const timestamp = Date.parse(task.deadline);
-  return Number.isNaN(timestamp) ? task.daysRemaining : timestamp;
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 };
 
 const compareTasks = (
