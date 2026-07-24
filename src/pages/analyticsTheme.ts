@@ -38,27 +38,29 @@ export const ANALYTICS_TOKEN_FALLBACKS: AnalyticsChartTokens = {
   legendLabelRole: 'caption',
 }
 
-function readToken(root: HTMLElement, token: string, fallback: string) {
-  const value = getComputedStyle(root).getPropertyValue(token).trim()
+function readToken(computed: CSSStyleDeclaration, token: string, fallback: string) {
+  const value = computed.getPropertyValue(token).trim()
   return value || fallback
 }
 
 export function getAnalyticsChartTokens(root: HTMLElement = document.documentElement): AnalyticsChartTokens {
+  const computed = getComputedStyle(root)
+
   return {
-    accent: readToken(root, '--accent', ANALYTICS_TOKEN_FALLBACKS.accent),
-    success: readToken(root, '--success', ANALYTICS_TOKEN_FALLBACKS.success),
-    danger: readToken(root, '--danger', ANALYTICS_TOKEN_FALLBACKS.danger),
-    info: readToken(root, '--info', ANALYTICS_TOKEN_FALLBACKS.info),
-    warning: readToken(root, '--warning', ANALYTICS_TOKEN_FALLBACKS.warning),
-    text: readToken(root, '--text', ANALYTICS_TOKEN_FALLBACKS.text),
-    muted: readToken(root, '--muted', ANALYTICS_TOKEN_FALLBACKS.muted),
-    surface: readToken(root, '--surface', ANALYTICS_TOKEN_FALLBACKS.surface),
-    surfaceRaised: readToken(root, '--surface-raised', ANALYTICS_TOKEN_FALLBACKS.surfaceRaised),
-    border: readToken(root, '--border', ANALYTICS_TOKEN_FALLBACKS.border),
-    bg: readToken(root, '--bg', ANALYTICS_TOKEN_FALLBACKS.bg),
-    accentTransparent: readToken(root, '--accent-transparent', ANALYTICS_TOKEN_FALLBACKS.accentTransparent),
-    legendGap: readToken(root, '--legend-gap', ANALYTICS_TOKEN_FALLBACKS.legendGap),
-    legendSwatchSize: readToken(root, '--legend-swatch-size', ANALYTICS_TOKEN_FALLBACKS.legendSwatchSize),
+    accent: readToken(computed, '--accent', ANALYTICS_TOKEN_FALLBACKS.accent),
+    success: readToken(computed, '--success', ANALYTICS_TOKEN_FALLBACKS.success),
+    danger: readToken(computed, '--danger', ANALYTICS_TOKEN_FALLBACKS.danger),
+    info: readToken(computed, '--info', ANALYTICS_TOKEN_FALLBACKS.info),
+    warning: readToken(computed, '--warning', ANALYTICS_TOKEN_FALLBACKS.warning),
+    text: readToken(computed, '--text', ANALYTICS_TOKEN_FALLBACKS.text),
+    muted: readToken(computed, '--muted', ANALYTICS_TOKEN_FALLBACKS.muted),
+    surface: readToken(computed, '--surface', ANALYTICS_TOKEN_FALLBACKS.surface),
+    surfaceRaised: readToken(computed, '--surface-raised', ANALYTICS_TOKEN_FALLBACKS.surfaceRaised),
+    border: readToken(computed, '--border', ANALYTICS_TOKEN_FALLBACKS.border),
+    bg: readToken(computed, '--bg', ANALYTICS_TOKEN_FALLBACKS.bg),
+    accentTransparent: readToken(computed, '--accent-transparent', ANALYTICS_TOKEN_FALLBACKS.accentTransparent),
+    legendGap: readToken(computed, '--legend-gap', ANALYTICS_TOKEN_FALLBACKS.legendGap),
+    legendSwatchSize: readToken(computed, '--legend-swatch-size', ANALYTICS_TOKEN_FALLBACKS.legendSwatchSize),
     legendLabelRole: ANALYTICS_TOKEN_FALLBACKS.legendLabelRole,
   }
 }
