@@ -10,7 +10,7 @@ This document describes the state structures, the transition mechanics, and reco
 
 ## 1. Verifier Store (`useVerifierStore`)
 
-The verifier store is defined in [Store.ts](file:///c:/Users/HP/Disciplr-Frontend/src/Zustand/Store.ts) and manages verification workflows.
+The verifier store is defined in [Store.ts](../src/Zustand/Store.ts) and manages verification workflows.
 
 ### State Shapes
 
