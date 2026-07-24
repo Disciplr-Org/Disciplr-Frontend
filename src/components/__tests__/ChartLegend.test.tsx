@@ -38,8 +38,8 @@ describe('ChartLegend', () => {
     render(
       <ChartLegend
         entries={[
-          { label: 'This Period %', colorKey: 'success' },
-          { label: 'Failed %', colorKey: 'failed' },
+          { label: 'This Period %', colorKey: 'success', id: 'series-1' },
+          { label: 'Failed %', colorKey: 'failed', id: 'series-2' },
         ]}
         colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
         tokens={tokens}
@@ -56,7 +56,7 @@ describe('ChartLegend', () => {
   it('updates swatch colors when the theme palette changes', () => {
     const { rerender } = render(
       <ChartLegend
-        entries={[{ label: 'This Period %', colorKey: 'success' }]}
+        entries={[{ label: 'This Period %', colorKey: 'success', id: 'series-1' }]}
         colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
         tokens={tokens}
       />,
@@ -66,7 +66,7 @@ describe('ChartLegend', () => {
 
     rerender(
       <ChartLegend
-        entries={[{ label: 'This Period %', colorKey: 'success' }]}
+        entries={[{ label: 'This Period %', colorKey: 'success', id: 'series-1' }]}
         colors={{ success: '#14B8A6', failed: '#F87171', comparison: '#60A5FA', milestone: '#0A7668', active: '#60A5FA', warning: '#F59E0B', platform: '#6B7280' }}
         tokens={tokens}
       />,
@@ -79,9 +79,9 @@ describe('ChartLegend', () => {
     render(
       <ChartLegend
         entries={[
-          { label: 'Success', colorKey: 'success' },
-          { label: 'Warning', colorKey: 'warning' },
-          { label: 'Platform', colorKey: 'platform' },
+          { label: 'Success', colorKey: 'success', id: 'color-1' },
+          { label: 'Warning', colorKey: 'warning', id: 'color-2' },
+          { label: 'Platform', colorKey: 'platform', id: 'color-3' },
         ]}
         colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
         tokens={tokens}
@@ -99,7 +99,7 @@ describe('ChartLegend', () => {
   it('supports a custom ariaLabel overriding the default', () => {
     render(
       <ChartLegend
-        entries={[{ label: 'Revenue', colorKey: 'success' }]}
+        entries={[{ label: 'Revenue', colorKey: 'success', id: 'revenue-1' }]}
         colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
         tokens={tokens}
         ariaLabel="Revenue chart legend"
@@ -147,8 +147,8 @@ describe('ChartLegend', () => {
 
     render(<ToggleWrapper />)
 
-    expect(screen.getByText('This Period')).toBeInTheDocument()
-    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'This Period' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Failed' })).toBeInTheDocument()
 
     // Toggle off "Failed"
     fireEvent.click(screen.getByRole('button', { name: 'Failed' }))
@@ -157,5 +157,39 @@ describe('ChartLegend', () => {
     // Legend still shows "This Period" but not "Failed" label in the legend
     const legendItems = screen.getByLabelText('Chart legend').querySelectorAll('li')
     expect(legendItems).toHaveLength(1)
+  })
+
+  it('renders without duplicate-key warnings when entries have unique stable ids', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      render(
+        <ChartLegend
+          entries={[
+            { label: 'Metric A', colorKey: 'success', id: 'metric-a' },
+            { label: 'Metric A', colorKey: 'failed', id: 'metric-b' },
+            { label: 'Metric A', colorKey: 'comparison', id: 'metric-c' },
+          ]}
+          colors={{ success: '#059669', failed: '#DC2626', comparison: '#2563EB', milestone: '#0A7668', active: '#2563EB', warning: '#D97706', platform: '#4B5563' }}
+          tokens={tokens}
+        />,
+      )
+
+      // Assert no React duplicate-key warning was logged
+      const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
+        (call) => call[0]?.toString?.().includes('duplicate key'),
+      )
+      expect(duplicateKeyWarnings).toHaveLength(0)
+
+      // Verify all three items rendered correctly despite duplicate labels
+      const legendItems = screen.getByLabelText('Chart legend').querySelectorAll('li')
+      expect(legendItems).toHaveLength(3)
+      
+      // Verify each legend item is rendered with the correct text
+      const textElements = Array.from(screen.getAllByText('Metric A'))
+      expect(textElements.length).toBe(3)
+    } finally {
+      consoleSpy.mockRestore()
+    }
   })
 })

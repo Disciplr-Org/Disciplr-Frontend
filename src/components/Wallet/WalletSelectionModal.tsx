@@ -8,7 +8,8 @@ interface WalletSelectionModalProps {
 }
 
 export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
-    const { connect, isConnecting, error } = useWallet();
+    const { connect, isConnecting, error, address } = useWallet();
+    const isConnected = address !== null;
 
     const handleConnect = async () => {
         await connect();
@@ -58,7 +59,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                         <span className="wallet-name">Freighter</span>
                     </div>
                     <span className="wallet-status">
-                        {isConnecting ? <div className="loader" /> : 'Connected'}
+                        {isConnecting ? <div className="loader" /> : isConnected ? 'Connected' : 'Available'}
                     </span>
                 </button>
 

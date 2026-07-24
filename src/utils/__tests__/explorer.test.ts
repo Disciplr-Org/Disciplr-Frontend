@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { contractExplorerUrl, networkLabel } from '../explorer';
+import { contractExplorerUrl, networkLabel, EXPLORER_BASE_URLS as EXPLORER_BASE_URLS_FROM_EXPLORER } from '../explorer';
+import { EXPLORER_BASE_URLS as EXPLORER_BASE_URLS_FROM_HORIZON } from '../horizon';
 
 const TESTNET_BASE = 'https://stellar.expert/explorer/testnet';
 const PUBLIC_BASE = 'https://stellar.expert/explorer/public';
@@ -39,6 +40,14 @@ describe('contractExplorerUrl', () => {
     expect(testnet).toContain('/testnet/');
     expect(pub).toContain('/public/');
     expect(testnet.replace('/testnet/', '/public/')).toBe(pub);
+  });
+});
+
+describe('shared explorer base URLs', () => {
+  it('reuses the same explorer base URL map from horizon', () => {
+    expect(EXPLORER_BASE_URLS_FROM_HORIZON).toBe(EXPLORER_BASE_URLS_FROM_EXPLORER);
+    expect(EXPLORER_BASE_URLS_FROM_HORIZON.TESTNET).toBe(EXPLORER_BASE_URLS_FROM_EXPLORER.TESTNET);
+    expect(EXPLORER_BASE_URLS_FROM_HORIZON.PUBLIC).toBe(EXPLORER_BASE_URLS_FROM_EXPLORER.PUBLIC);
   });
 });
 

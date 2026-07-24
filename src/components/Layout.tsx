@@ -9,6 +9,7 @@ import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
+import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import "./Layout.css";
 
@@ -84,6 +85,16 @@ export default function Layout({ children }: LayoutProps) {
             >
               <Text role="caption" as="span">
                 Analytics
+              </Text>
+            </NavLink>
+
+            <NavLink
+              to="/help"
+              className="header-link"
+              aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
+            >
+              <Text role="caption" as="span">
+                Help
               </Text>
             </NavLink>
 
