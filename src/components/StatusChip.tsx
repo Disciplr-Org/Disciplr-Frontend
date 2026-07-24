@@ -101,7 +101,6 @@ export const StatusChip: React.FC<StatusChipProps> = ({
         cursor: "default",
         ...sizeStyle,
       }}
-      role="status"
       aria-label={displayLabel}
       // tabIndex allows focus trigger for the tooltip without a focusable wrapper
       tabIndex={0}

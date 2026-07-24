@@ -1,4 +1,4 @@
-import type { WalletNetwork } from '../context/WalletContext';
+﻿import type { WalletNetwork } from '../context/WalletContext';
 
 export const HORIZON_URLS: Record<WalletNetwork, string> = {
     TESTNET: 'https://horizon-testnet.stellar.org',
@@ -14,6 +14,11 @@ export const EXPLORER_BASE_URLS: Record<WalletNetwork, string> = {
     TESTNET: 'https://stellar.expert/explorer/testnet',
     PUBLIC: 'https://stellar.expert/explorer/public',
 };
+
+/** Maximum number of balance lines to accept from a Horizon account response.
+ *  If the response contains more than this many lines the fetch is rejected
+ *  with an INVALID_RESPONSE error, preventing excessive memory use. */
+export const MAX_HORIZON_BALANCES = 100;
 
 export type HorizonBalanceErrorCode = 'ACCOUNT_NOT_FOUND' | 'REQUEST_FAILED' | 'INVALID_RESPONSE';
 
@@ -92,6 +97,10 @@ export async function fetchUsdcBalance(
 
         if (!Array.isArray(account.balances)) {
             throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response did not include balances.');
+        }
+
+        if (account.balances.length > MAX_HORIZON_BALANCES) {
+            throw new HorizonBalanceError('INVALID_RESPONSE', 'Horizon account response included too many balances.');
         }
 
         const usdcBalance = account.balances.find(

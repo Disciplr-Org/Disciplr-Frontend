@@ -3,9 +3,13 @@ import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import VerifierMetrics from '../components/VerifierMetrics';
 import { StatusChip } from '../components/StatusChip';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
+import { CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
+  const now = useCurrentTime();
   
   const { pendingValidations, validationHistory } = useVerifierStore();
 
@@ -63,44 +67,47 @@ export default function VerifierDashboard() {
               <Text role="body" as="p">You have no pending validations at this time.</Text>
             </div>
           ) : (
-            pendingValidations.slice(0, 3).map((task) => (
-              <div
-                key={task.id}
-                className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center transition gap-4"
-                style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-              >
-                <div>
-                  <Text role="body" as="h3">{task.vaultName}</Text>
-                  <Text role="body" as="p" className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                    Milestone: {task.milestone}
-                  </Text>
+            pendingValidations.slice(0, 3).map((task) => {
+              const remaining = daysRemaining(task.deadline, now);
+              return (
+                <div
+                  key={task.id}
+                  className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center transition gap-4"
+                  style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+                >
+                  <div>
+                    <Text role="body" as="h3">{task.vaultName}</Text>
+                    <Text role="body" as="p" className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+                      Milestone: {task.milestone}
+                    </Text>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <Text
+                      role="body"
+                      as="p"
+                      className="font-bold"
+                      style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--text)' }}
+                    >
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
+                        <span aria-hidden="true">⚠ </span>
+                      )}
+                      {remaining} days left
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
+                        <span className="sr-only"> (urgent)</span>
+                      )}
+                    </Text>
+                    <button
+                      onClick={() => navigate(`/verifier/queue/${task.id}`)}
+                      aria-label={`Review ${task.vaultName}`}
+                      className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      Review Now &rarr;
+                    </button>
+                  </div>
                 </div>
-                <div className="text-left md:text-right">
-                  <Text
-                    role="body"
-                    as="p"
-                    className="font-bold"
-                    style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
-                  >
-                    {task.daysRemaining <= 3 && (
-                      <span aria-hidden="true">⚠ </span>
-                    )}
-                    {task.daysRemaining} days left
-                    {task.daysRemaining <= 3 && (
-                      <span className="sr-only"> (urgent)</span>
-                    )}
-                  </Text>
-                  <button
-                    onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                    aria-label={`Review ${task.vaultName}`}
-                    className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    Review Now &rarr;
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>
