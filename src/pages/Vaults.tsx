@@ -347,21 +347,6 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   );
 }
 
-// Default export checks for router context to avoid nested router issues in production
 export default function Vaults(props: VaultsInnerProps) {
-  return (
-    <RouterSafeWrapper>
-      <VaultsInner {...props} />
-    </RouterSafeWrapper>
-  );
-}
-
-function RouterSafeWrapper({ children }: { children: React.ReactNode }) {
-  try {
-    const inRouter = useInRouterContext();
-    if (inRouter) return <>{children}</>;
-  } catch {
-    // If hook throws outside of context
-  }
-  return <MemoryRouter>{children}</MemoryRouter>;
+  return <VaultsInner {...props} />;
 }
