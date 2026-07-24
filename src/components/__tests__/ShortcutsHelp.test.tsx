@@ -163,6 +163,14 @@ describe('ShortcutsHelp', () => {
     });
   });
 
+  it('renders the command palette shortcut entry', () => {
+    render(<ShortcutsHelp />);
+    fireEvent.keyDown(document, { key: '?' });
+
+    expect(screen.getByText('Ctrl/⌘ K')).toBeInTheDocument();
+    expect(screen.getByText('Open the command palette')).toBeInTheDocument();
+  });
+
   it('shows an empty-state message when the shortcuts list is empty', () => {
     render(<ShortcutsHelp shortcuts={[]} />);
     fireEvent.keyDown(document, { key: '?' });

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandPalette from "../CommandPalette";
 import type { Vault } from "../../types/vault";
 import { fuzzyMatch } from "../../utils/commandPalette";
@@ -69,6 +69,19 @@ async function openPalette() {
   );
   return user;
 }
+
+beforeEach(() => {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })) as unknown as typeof window.matchMedia;
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -164,6 +177,60 @@ describe("CommandPalette", () => {
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(input).not.toBeInTheDocument();
+  });
+
+  it("updates aria-activedescendant on ArrowDown", async () => {
+    const user = await openPaletteAfterRender();
+    const input = screen.getByRole("textbox", {
+      name: /search vaults and actions/i,
+    });
+
+    expect(input).toHaveAttribute(
+      "aria-activedescendant",
+      "command-palette-option-0",
+    );
+
+    await user.keyboard("{ArrowDown}");
+
+    await waitFor(() =>
+      expect(input).toHaveAttribute(
+        "aria-activedescendant",
+        "command-palette-option-1",
+      ),
+    );
+  });
+
+  it("sets aria-activedescendant via hover", async () => {
+    const user = await openPaletteAfterRender();
+
+    await screen.findByRole("option", { name: /Verifier Queue/i });
+    const input = screen.getByRole("textbox", {
+      name: /search vaults and actions/i,
+    });
+
+    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-0");
+
+    await user.hover(screen.getByRole("option", { name: /Verifier Queue/i }));
+
+    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-1");
+
+    await user.hover(screen.getByRole("option", { name: /Alpha Vault/i }));
+
+    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-3");
+  });
+
+  it("clears aria-activedescendant when no items match", async () => {
+    const user = await openPaletteAfterRender();
+
+    await user.type(
+      screen.getByRole("textbox", { name: /search vaults and actions/i }),
+      "zzzz",
+    );
+
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /search vaults and actions/i }),
+    ).not.toHaveAttribute("aria-activedescendant");
   });
 
   it("closes with Escape, backdrop click, and restores focus to the trigger", async () => {

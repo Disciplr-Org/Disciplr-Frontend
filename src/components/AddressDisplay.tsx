@@ -21,6 +21,7 @@ export function AddressDisplay({
     const [copied, setCopied] = useState(false);
 
     const display = truncateMiddle(address, chars, tailChars);
+    const isValid = isValidStellarAddress(address);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {

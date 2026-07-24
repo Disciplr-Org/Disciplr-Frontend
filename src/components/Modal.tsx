@@ -18,7 +18,7 @@ export function Modal({
   children,
   ariaLabelledBy,
   ariaDescribedBy,
-  overlayClassName = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm",
+  overlayClassName = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/[var(--opacity-backdrop)] backdrop-blur-sm",
   contentClassName = "bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col",
 }: ModalProps) {
   const shouldReduceMotion = useReducedMotion();
