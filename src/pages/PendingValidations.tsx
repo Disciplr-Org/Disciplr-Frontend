@@ -101,10 +101,10 @@ export default function PendingValidations() {
   };
 
   const hasSelection = selectedIds.length > 0;
-  const sortLabel = sortDirection === 'asc' ? 'Ascending' : 'Descending';
+  const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const headerSort = (key: PendingSortKey) => {
     if (sortKey !== key) return 'none';
-    return sortDirection === 'asc' ? 'ascending' : 'descending';
+    return sortDir === 'asc' ? 'ascending' : 'descending';
   };
 
   return (
@@ -150,50 +150,6 @@ export default function PendingValidations() {
 
       <VerifierMetricsBar metrics={metrics} />
 
-      {/* Search and filter controls */}
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <div className="flex-1">
-          <label htmlFor="search-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Search by Vault Name or Owner
-          </label>
-          <input
-            aria-label="Search by Vault Name or Owner"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search vault or owner"
-            className="px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-              background: 'var(--bg)',
-            }}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--muted)' }}>
-          Filter by Milestone
-          <select
-            aria-label="Filter by Milestone"
-            value={selectedMilestone}
-            onChange={(event) => setSelectedMilestone(event.target.value)}
-            className="px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-              background: 'var(--bg)',
-            }}
-          >
-            <option value="">All Milestones</option>
-            {availableMilestones.map((milestone) => (
-              <option key={milestone} value={milestone}>
-                {milestone}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <VerifierMetricsBar metrics={metrics} />
-
       <section
         aria-label="Pending validation filters"
         className="grid gap-4 md:grid-cols-2"
@@ -202,6 +158,7 @@ export default function PendingValidations() {
           Search by Vault Name or Owner
           <input
             type="search"
+            aria-label="Search by Vault Name or Owner"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="px-3 py-2 border rounded"
@@ -212,6 +169,7 @@ export default function PendingValidations() {
         <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
           Filter by Milestone
           <select
+            aria-label="Filter by Milestone"
             value={selectedMilestone}
             onChange={(event) => setSelectedMilestone(event.target.value)}
             className="px-3 py-2 border rounded"
