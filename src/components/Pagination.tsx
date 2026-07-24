@@ -11,6 +11,29 @@ interface PaginationProps {
   className?: string;
 }
 
+type PageControl = number | "ellipsis";
+
+function getPageControls(currentPage: number, pageCount: number): PageControl[] {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const leftSibling = Math.max(currentPage - 1, 2);
+  const rightSibling = Math.min(currentPage + 1, pageCount - 1);
+  const showLeftDots = leftSibling > 2;
+  const showRightDots = rightSibling < pageCount - 1;
+
+  if (!showLeftDots && showRightDots) {
+    return [1, 2, 3, 4, 5, "ellipsis", pageCount];
+  }
+
+  if (showLeftDots && !showRightDots) {
+    return [1, "ellipsis", pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount];
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", pageCount];
+}
+
 export function Pagination({
   pagination,
   onPageChange,
@@ -20,7 +43,7 @@ export function Pagination({
   const { currentPage, pageCount, totalItems } = pagination;
   const isFirstPage = currentPage <= 1;
   const isLastPage = currentPage >= pageCount;
-  const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+  const pages = getPageControls(currentPage, pageCount);
 
   return (
     <nav
@@ -44,22 +67,32 @@ export function Pagination({
         </button>
 
         <div className="flex flex-wrap justify-center gap-1">
-          {pages.map((page) => (
-            <button
-              key={page}
-              type="button"
-              onClick={() => onPageChange(page)}
-              aria-label={`Go to page ${page}`}
-              aria-current={page === currentPage ? "page" : undefined}
-              className={`h-9 min-w-9 rounded px-3 text-sm font-medium ${
-                page === currentPage
-                  ? "bg-[#00c389] text-[#121a2a]"
-                  : "bg-white text-[#121a2a] ring-1 ring-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {page}
-            </button>
-          ))}
+          {pages.map((page, index) =>
+            page === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="inline-flex h-9 min-w-9 items-center justify-center rounded px-3 text-sm text-gray-500"
+                aria-hidden="true"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={page}
+                type="button"
+                onClick={() => onPageChange(page)}
+                aria-label={`Go to page ${page}`}
+                aria-current={page === currentPage ? "page" : undefined}
+                className={`h-9 min-w-9 rounded px-3 text-sm font-medium ${
+                  page === currentPage
+                    ? "bg-[#00c389] text-[#121a2a]"
+                    : "bg-white text-[#121a2a] ring-1 ring-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                {page}
+              </button>
+            ),
+          )}
         </div>
 
         <button
