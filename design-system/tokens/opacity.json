@@ -1,0 +1,25 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format.json",
+  "opacity": {
+    "disabled": {
+      "$type": "number",
+      "$value": 0.5,
+      "$description": "Disabled control opacity"
+    },
+    "backdrop": {
+      "$type": "number",
+      "$value": 0.5,
+      "$description": "Modal and overlay backdrop opacity"
+    },
+    "hover": {
+      "$type": "number",
+      "$value": 0.08,
+      "$description": "Subtle hover-state layer opacity"
+    },
+    "muted": {
+      "$type": "number",
+      "$value": 0.72,
+      "$description": "Muted content opacity when color alone is not enough"
+    }
+  }
+}

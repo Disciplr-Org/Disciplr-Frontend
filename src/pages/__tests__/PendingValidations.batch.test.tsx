@@ -15,21 +15,20 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const task = (id: string, vaultName: string, daysRemaining: number): ValidationTask => ({
+const task = (id: string, vaultName: string): ValidationTask => ({
   id,
   vaultName,
   owner: '0xowner',
   amount: '1,000 USDC',
   deadline: '2026-06-01',
-  daysRemaining,
   status: 'pending',
   milestone: `Milestone ${id}`,
 });
 
 const seed = () => [
-  task('v-1', 'Alpha Vault', 2),
-  task('v-2', 'Beta Vault', 5),
-  task('v-3', 'Gamma Vault', 9),
+  task('v-1', 'Alpha Vault'),
+  task('v-2', 'Beta Vault'),
+  task('v-3', 'Gamma Vault'),
 ];
 
 const renderPage = () =>

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import {
   Target, TrendingUp, CheckCircle, AlertTriangle,
   Download, Flame, Award, Clock, DollarSign,
@@ -152,7 +153,7 @@ const TEAM_CHART_DATA = [
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
       background: 'var(--surface)',
@@ -166,7 +167,7 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 1.25rem 0', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
       {children}
@@ -174,7 +175,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ChartTitle({ children }: { children: React.ReactNode }) {
+function ChartTitle({ children }: { children: ReactNode }) {
   return (
     <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1.25rem 0' }}>
       {children}
@@ -182,7 +183,7 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
   )
 } 
 
-function ChartSummary({ children }: { children: React.ReactNode }) {
+function ChartSummary({ children }: { children: ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
 
