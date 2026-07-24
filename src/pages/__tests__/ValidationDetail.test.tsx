@@ -32,7 +32,6 @@ const mockPendingValidations = [
     owner: '0x123',
     amount: '100 USDC',
     deadline: '2026-06-01',
-    daysRemaining: 10,
     status: 'pending',
     milestone: 'Test Milestone',
     evidenceUrl: 'https://example.com/evidence',

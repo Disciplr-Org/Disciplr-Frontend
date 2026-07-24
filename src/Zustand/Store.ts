@@ -67,7 +67,6 @@ export type ValidationTask = {
   owner: string;
   amount: string;
   deadline: string;
-  daysRemaining: number;
   status: 'pending' | 'approved' | 'rejected';
   milestone: string;
   evidenceUrl?: string;

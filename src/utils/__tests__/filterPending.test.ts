@@ -7,7 +7,6 @@ const createTask = (overrides: Partial<PendingTask> = {}): PendingTask => ({
   owner: '0xAAAA',
   amount: '10,000 USDC',
   deadline: '2026-07-01',
-  daysRemaining: 10,
   status: 'pending' as const,
   milestone: 'Phase 1',
   ...overrides,
