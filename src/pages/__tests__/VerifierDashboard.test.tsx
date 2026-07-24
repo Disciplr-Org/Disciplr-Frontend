@@ -284,5 +284,30 @@ describe('VerifierDashboard', () => {
       expect(screen.queryByText('Vault 5')).not.toBeInTheDocument();
       expect(screen.queryByText('Vault 7')).not.toBeInTheDocument();
     });
+
+    it('renders a pending task in history with the correct chip label ("Pending Validation")', () => {
+      const pendingHistoryTask = {
+        id: 'h-pending',
+        vaultName: 'Pending Test Vault',
+        owner: '0xDDDD',
+        amount: '15,000 USDC',
+        deadline: '2026-06-01',
+        daysRemaining: 5,
+        status: 'pending' as const,
+        milestone: 'Phase 4',
+        decidedAt: '2026-06-02',
+      };
+
+      (useVerifierStore as any).mockReturnValue({
+        pendingValidations: [],
+        validationHistory: [pendingHistoryTask],
+      });
+
+      renderPage();
+
+      expect(screen.getByText('Pending Test Vault')).toBeInTheDocument();
+      expect(screen.getByText('Pending Validation')).toBeInTheDocument();
+      expect(screen.queryByText('Cancelled')).not.toBeInTheDocument();
+    });
   });
 });

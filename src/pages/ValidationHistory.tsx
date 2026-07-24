@@ -23,7 +23,7 @@ export default function ValidationHistory() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('');
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(() => readValidationHistoryPageSize());
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
