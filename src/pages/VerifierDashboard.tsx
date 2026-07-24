@@ -1,9 +1,24 @@
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
-import { useVerifierStore } from '../Zustand/Store';
+import { useVerifierStore, type ValidationTask } from '../Zustand/Store';
 import VerifierMetrics from '../components/VerifierMetrics';
-import { StatusChip } from '../components/StatusChip';
+import { StatusChip, type ChipStatus } from '../components/StatusChip';
 import { CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
+
+function mapValidationStatusToChipStatus(status: ValidationTask['status']): ChipStatus {
+  switch (status) {
+    case 'pending':
+      return 'pending_validation';
+    case 'approved':
+      return 'approved';
+    case 'rejected':
+      return 'rejected';
+    default: {
+      const exhaustiveCheck: never = status;
+      return exhaustiveCheck;
+    }
+  }
+}
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
@@ -123,7 +138,7 @@ export default function VerifierDashboard() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Text role="body" as="h3">{task.vaultName}</Text>
-                    <StatusChip status={task.status as any} size="sm" />
+                    <StatusChip status={mapValidationStatusToChipStatus(task.status)} size="sm" />
                   </div>
                   <Text role="body" as="p" className="text-sm" style={{ color: 'var(--muted)' }}>
                     Milestone: {task.milestone}
