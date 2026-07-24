@@ -211,7 +211,7 @@ export default function CommandPalette({
               position: "fixed",
               inset: 0,
               zIndex: "var(--z-index-modal, 1000)",
-              background: "rgba(0, 0, 0, 0.48)",
+              background: "var(--overlay-backdrop)",
               display: "flex",
               alignItems: "flex-start",
               justifyContent: "center",

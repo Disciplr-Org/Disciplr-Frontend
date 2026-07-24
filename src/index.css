@@ -1,4 +1,5 @@
 :root {
+  --overlay-backdrop: rgba(0, 0, 0, 0.5);
   /* Light theme (default) */
   --bg: #f9fafb;
   --surface: #f3f4f6;

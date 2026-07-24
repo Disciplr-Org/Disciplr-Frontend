@@ -1470,7 +1470,7 @@ const CSS = `
   .vt-raw-toggle:hover { color: #94a3b8; }
   .vt-raw-pre {
     font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b;
-    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+    background: var(--overlay-backdrop); border: 1px solid rgba(255,255,255,0.05);
     border-radius: var(--radius-md); padding: 14px; margin-top: 10px; overflow-x: auto; white-space: pre;
   }
   .vt-modal-footer { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; }
