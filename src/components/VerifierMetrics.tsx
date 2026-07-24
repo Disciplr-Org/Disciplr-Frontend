@@ -1,6 +1,7 @@
 import React from 'react';
 import { useVerifierStore } from '../Zustand/Store';
 import { computeVerifierMetrics } from '../utils/verifierMetrics';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 // Color tokens are global CSS variables (no import needed) — same pattern as
 // StatusChip.tsx and VerifierDashboard.tsx in this codebase.
@@ -56,9 +57,10 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, accentColor, aria
 const VerifierMetrics: React.FC = () => {
   // Exact hook pattern used in VerifierDashboard.tsx
   const { pendingValidations, validationHistory } = useVerifierStore();
+  const now = useCurrentTime();
 
   const { approvalRate, overdueCount, urgentCount, totalResolved } =
-    computeVerifierMetrics(pendingValidations, validationHistory);
+    computeVerifierMetrics(pendingValidations, validationHistory, now);
 
   const approvalDisplay = `${Math.round(approvalRate)}%`;
 

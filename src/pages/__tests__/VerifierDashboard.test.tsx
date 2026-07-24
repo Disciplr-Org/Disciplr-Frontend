@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
@@ -25,7 +25,6 @@ const pendingTasks = [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -34,8 +33,7 @@ const pendingTasks = [
     vaultName: 'Beta Vault',
     owner: '0xBBBB',
     amount: '5,000 USDC',
-    deadline: '2026-06-20',
-    daysRemaining: 2,
+    deadline: '2026-06-23',
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -48,7 +46,6 @@ const historyTasks = [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-05-01',
-    daysRemaining: 0,
     status: 'approved' as const,
     milestone: 'Phase 3',
     notes: 'Looks good.',
@@ -66,6 +63,8 @@ function renderPage() {
 
 describe('VerifierDashboard', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -84,6 +83,10 @@ describe('VerifierDashboard', () => {
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the page heading', () => {
@@ -262,7 +265,6 @@ describe('VerifierDashboard', () => {
         owner: '0xCCCC',
         amount: '20,000 USDC',
         deadline: '2026-05-01',
-        daysRemaining: 0,
         status: i % 2 === 0 ? ('approved' as const) : ('rejected' as const),
         milestone: `Phase ${i}`,
         decidedAt: `2026-05-0${i + 1}`,
