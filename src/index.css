@@ -79,6 +79,12 @@
   --letter-spacing-title: 0;
   --font-weight-title: 600;
 
+  /* Subtitle Scale - sm breakpoint (< 640px) */
+  --font-size-subtitle: 20px;
+  --line-height-subtitle: 28px;
+  --letter-spacing-subtitle: 0;
+  --font-weight-subtitle: 600;
+
   /* Body Scale - sm breakpoint (< 640px) */
   --font-size-body: 14px;
   --line-height-body: 20px;
@@ -120,6 +126,12 @@
     --line-height-title: 36px;
     --letter-spacing-title: -0.01em;
 
+    /* Subtitle at md (640px-768px) */
+    --font-size-subtitle: 28px;
+    --line-height-subtitle: 36px;
+    --letter-spacing-subtitle: -0.01em;
+    --font-weight-subtitle: 600;
+
     /* Body at md (640px-768px) */
     --font-size-body: 16px;
     --line-height-body: 24px;
@@ -148,6 +160,12 @@
     --font-size-title: 36px;
     --line-height-title: 44px;
     --letter-spacing-title: -0.01em;
+
+    /* Subtitle at lg (≥768px) */
+    --font-size-subtitle: 36px;
+    --line-height-subtitle: 44px;
+    --letter-spacing-subtitle: -0.01em;
+    --font-weight-subtitle: 600;
 
     /* Body at lg (≥768px) */
     --font-size-body: 18px;
@@ -183,6 +201,13 @@
   font-family: var(--font-sans);
 }
 
+.text-subtitle {
+  font-size: var(--font-size-subtitle);
+  line-height: var(--line-height-subtitle);
+  letter-spacing: var(--letter-spacing-subtitle);
+  font-weight: var(--font-weight-subtitle);
+  font-family: var(--font-sans);
+}
 .text-body {
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
