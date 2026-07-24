@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+import { CRITICAL_DAYS_THRESHOLD } from '../../utils/verifierMetrics';
 
 vi.mock('../../Zustand/Store', () => ({
   useVerifierStore: vi.fn(),
@@ -66,6 +67,19 @@ function renderPage() {
 describe('VerifierDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     (useVerifierStore as any).mockReturnValue({
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
@@ -128,13 +142,13 @@ describe('VerifierDashboard', () => {
     expect(screen.getByText(/2 days left/)).toBeInTheDocument();
   });
 
-  it('applies danger color for tasks with 3 or fewer days remaining', () => {
+  it(`applies danger color for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
     renderPage();
     const urgentText = screen.getByText(/2 days left/);
     expect(urgentText.getAttribute('style')).toContain('var(--danger)');
   });
 
-  it('applies text color for tasks with more than 3 days remaining', () => {
+  it(`applies text color for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
     renderPage();
     const normalText = screen.getByText(/10 days left/);
     expect(normalText.getAttribute('style')).toContain('var(--text)');
@@ -153,13 +167,13 @@ describe('VerifierDashboard', () => {
     expect(screen.getByRole('button', { name: 'Review Beta Vault' })).toBeInTheDocument();
   });
 
-  it('shows urgency text (not just color) for tasks with 3 or fewer days remaining', () => {
+  it(`shows urgency text (not just color) for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
     renderPage();
     const urgentContainer = screen.getByText(/2 days left/) as HTMLElement;
     expect(urgentContainer.textContent).toContain('(urgent)');
   });
 
-  it('does not show urgency text for tasks with more than 3 days remaining', () => {
+  it(`does not show urgency text for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
     renderPage();
     const normalContainer = screen.getByText(/10 days left/) as HTMLElement;
     expect(normalContainer.textContent).not.toContain('(urgent)');

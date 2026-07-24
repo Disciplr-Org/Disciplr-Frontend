@@ -3,6 +3,7 @@ import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import VerifierMetrics from '../components/VerifierMetrics';
 import { StatusChip } from '../components/StatusChip';
+import { CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
@@ -80,13 +81,13 @@ export default function VerifierDashboard() {
                     role="body"
                     as="p"
                     className="font-bold"
-                    style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
+                    style={{ color: task.daysRemaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--text)' }}
                   >
-                    {task.daysRemaining <= 3 && (
+                    {task.daysRemaining <= CRITICAL_DAYS_THRESHOLD && (
                       <span aria-hidden="true">⚠ </span>
                     )}
                     {task.daysRemaining} days left
-                    {task.daysRemaining <= 3 && (
+                    {task.daysRemaining <= CRITICAL_DAYS_THRESHOLD && (
                       <span className="sr-only"> (urgent)</span>
                     )}
                   </Text>
