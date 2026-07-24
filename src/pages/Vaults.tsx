@@ -1,13 +1,43 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, MemoryRouter } from "react-router-dom";
-import { Text } from "../components/Text";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, MemoryRouter, useInRouterContext } from "react-router-dom";
 import { StatusChip } from "../components/StatusChip";
-import type { Vault } from "../types/vault";
+import { Text } from "../components/Text";
+import VaultCard from "../components/VaultCard";
 import { listVaults } from "../services/vaultService";
+import type { Vault } from "../types/vault";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import { filterVaults, sortVaults } from "../utils/vaultFilter";
+import type { VaultStatus } from "../types/vault";
+import type { VaultSortOptions } from "../utils/vaultFilter";
 
-// The Vault type is imported from '../types/vault' via vaultService.
-// Local MOCK_VAULTS removed — listVaults() in vaultService is the single source.
+const STORAGE_KEY = "vaults-view-preference";
+const DEFAULT_VIEW: "list" | "grid" = "list";
+
+function getViewPreference(): "list" | "grid" {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "list" || stored === "grid") return stored;
+  } catch {
+    // localStorage may be disabled
+  }
+  return DEFAULT_VIEW;
+}
+
+function setViewPreference(view: "list" | "grid") {
+  try {
+    localStorage.setItem(STORAGE_KEY, view);
+  } catch {
+    // localStorage may be disabled
+  }
+}
+
+function calculateProgressPct(vault: Vault): number {
+  if (!vault.milestones || vault.milestones.length === 0) return 0;
+  const validated = vault.milestones.filter(
+    (m) => m.status === "validated",
+  ).length;
+  return Math.round((validated / vault.milestones.length) * 100);
+}
 
 const DEFAULT_FETCH = () => listVaults();
 
@@ -36,6 +66,16 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
     "loading",
   );
   const [retryCount, setRetryCount] = useState(0);
+  const [viewMode, setViewMode] = useState<"list" | "grid">(getViewPreference);
+
+  // Filtering and sorting state (keeping defaults)
+  const [statusFilter] = useState<VaultStatus | "all">("all");
+  const [searchQuery] = useState("");
+  const [sortOptions] = useState<VaultSortOptions>({
+    by: "deadline",
+    dir: "asc",
+  });
+
   // Use a ref so changing the fetchVaults prop identity doesn't re-trigger the effect
   const fetchRef = useRef(fetchVaults);
   fetchRef.current = fetchVaults;
@@ -60,12 +100,17 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
 
   const retry = useCallback(() => setRetryCount((c) => c + 1), []);
 
+  const handleViewChange = useCallback((newView: "list" | "grid") => {
+    setViewMode(newView);
+    setViewPreference(newView);
+  }, []);
+
   // Apply filters and sorting
-  const filteredVaults = filterVaults(vaults, { status: statusFilter, query: searchQuery })
-  const sortedVaults = sortVaults(filteredVaults, { by: sortBy, dir: sortDir })
-  
-  const hasResults = sortedVaults.length > 0
-  const hasFilters = statusFilter !== 'all' || searchQuery.trim() !== ''
+  const filteredVaults = filterVaults(vaults, {
+    status: statusFilter,
+    query: searchQuery,
+  });
+  const sortedVaults = sortVaults(filteredVaults, sortOptions);
 
   return (
     <div>
@@ -87,21 +132,73 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
             View and manage your productivity vaults.
           </Text>
         </div>
-        <Link
-          to="/vaults/create"
-          style={{
-            background: "var(--accent)",
-            color: "var(--bg)",
-            padding: "0.6rem 1.25rem",
-            borderRadius: "var(--radius)",
-            fontWeight: 600,
-            fontSize: 14,
-            textDecoration: "none",
-            display: "inline-block",
-          }}
-        >
-          + Create Vault
-        </Link>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div
+            role="radiogroup"
+            aria-label="View mode"
+            style={{
+              display: "flex",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "0.25rem",
+            }}
+          >
+            <button
+              onClick={() => handleViewChange("list")}
+              aria-pressed={viewMode === "list"}
+              role="radio"
+              aria-checked={viewMode === "list"}
+              style={{
+                background:
+                  viewMode === "list" ? "var(--accent)" : "transparent",
+                color: viewMode === "list" ? "var(--bg)" : "var(--muted)",
+                border: "none",
+                padding: "0.4rem 0.8rem",
+                borderRadius: "calc(var(--radius) - 0.25rem)",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              List
+            </button>
+            <button
+              onClick={() => handleViewChange("grid")}
+              aria-pressed={viewMode === "grid"}
+              role="radio"
+              aria-checked={viewMode === "grid"}
+              style={{
+                background:
+                  viewMode === "grid" ? "var(--accent)" : "transparent",
+                color: viewMode === "grid" ? "var(--bg)" : "var(--muted)",
+                border: "none",
+                padding: "0.4rem 0.8rem",
+                borderRadius: "calc(var(--radius) - 0.25rem)",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              Grid
+            </button>
+          </div>
+          <Link
+            to="/vaults/create"
+            style={{
+              background: "var(--accent)",
+              color: "var(--bg)",
+              padding: "0.6rem 1.25rem",
+              borderRadius: "var(--radius)",
+              fontWeight: 600,
+              fontSize: 14,
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            + Create Vault
+          </Link>
+        </div>
       </div>
 
       {status === "loading" && (
@@ -133,97 +230,138 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
       )}
 
       {status === "data" && (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
-        >
-          {vaults.map((vault) => (
+        <>
+          {viewMode === "list" && (
             <div
-              key={vault.id}
               style={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                padding: "1rem 1.25rem",
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
+                flexDirection: "column",
                 gap: "0.75rem",
               }}
             >
-              <div>
-                <Text
-                  role="body"
-                  as="div"
-                  style={{ fontWeight: 600, marginBottom: 4 }}
-                >
-                  {vault.name}
-                </Text>
-                <Text role="caption" as="div" style={{ color: "var(--muted)" }}>
-                  Deadline:{" "}
-                  {new Date(vault.deadline).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Text>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <Text
-                  role="body"
-                  as="span"
-                  style={{ fontWeight: 700, color: "var(--accent)" }}
-                >
-                  {vault.amount.toLocaleString()} {vault.currency}
-                </Text>
-                <StatusChip status={vault.status} />
-                <Link
-                  to={`/vaults/${vault.id}`}
+              {sortedVaults.map((vault) => (
+                <div
+                  key={vault.id}
                   style={{
-                    color: "var(--accent)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    textDecoration: "none",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "1rem 1.25rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
                   }}
                 >
-                  View Details
-                </Link>
-                <Link
-                  to="/vaults/create"
-                  state={createVaultPrefillFromVault(vault)}
-                  style={{
-                    color: "var(--accent)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    textDecoration: "none",
-                  }}
-                >
-                  Duplicate
-                </Link>
-              </div>
+                  <div>
+                    <Text
+                      role="body"
+                      as="div"
+                      style={{ fontWeight: 600, marginBottom: 4 }}
+                    >
+                      {vault.name}
+                    </Text>
+                    <Text
+                      role="caption"
+                      as="div"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Deadline:{" "}
+                      {new Date(vault.deadline).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "1rem",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Text
+                      role="body"
+                      as="span"
+                      style={{ fontWeight: 700, color: "var(--accent)" }}
+                    >
+                      {vault.amount.toLocaleString()} {vault.currency}
+                    </Text>
+                    <StatusChip status={vault.status} />
+                    <Link
+                      to={`/vaults/${vault.id}`}
+                      style={{
+                        color: "var(--accent)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      View Details
+                    </Link>
+                    <Link
+                      to="/vaults/create"
+                      state={createVaultPrefillFromVault(vault)}
+                      style={{
+                        color: "var(--accent)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Duplicate
+                    </Link>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+          {viewMode === "grid" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "1rem",
+              }}
+            >
+              {sortedVaults.map((vault) => (
+                <VaultCard
+                  key={vault.id}
+                  id={vault.id}
+                  name={vault.name}
+                  amount={vault.amount}
+                  currency={vault.currency}
+                  status={vault.status}
+                  deadline={vault.deadline}
+                  progressPct={calculateProgressPct(vault)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-// Default export wraps with MemoryRouter for standalone usage;
-// tests that need router control can wrap themselves.
-export default function Vaults({ fetchVaults }: VaultsInnerProps = {}) {
-  // If we're already inside a Router (detected by trying), use VaultsInner directly.
-  // We always wrap in MemoryRouter here so the component is self-contained.
+// Default export checks for router context to avoid nested router issues in production
+export default function Vaults(props: VaultsInnerProps) {
   return (
-    <MemoryRouter>
-      <VaultsInner fetchVaults={fetchVaults} />
-    </MemoryRouter>
+    <RouterSafeWrapper>
+      <VaultsInner {...props} />
+    </RouterSafeWrapper>
   );
+}
+
+function RouterSafeWrapper({ children }: { children: React.ReactNode }) {
+  try {
+    const inRouter = useInRouterContext();
+    if (inRouter) return <>{children}</>;
+  } catch {
+    // If hook throws outside of context
+  }
+  return <MemoryRouter>{children}</MemoryRouter>;
 }

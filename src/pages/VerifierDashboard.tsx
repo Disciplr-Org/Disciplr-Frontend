@@ -5,6 +5,7 @@ import VerifierMetrics from '../components/VerifierMetrics';
 import { StatusChip } from '../components/StatusChip';
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
@@ -85,13 +86,13 @@ export default function VerifierDashboard() {
                       role="body"
                       as="p"
                       className="font-bold"
-                      style={{ color: remaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
+                      style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--text)' }}
                     >
-                      {remaining <= 3 && (
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
                         <span aria-hidden="true">⚠ </span>
                       )}
                       {remaining} days left
-                      {remaining <= 3 && (
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
                         <span className="sr-only"> (urgent)</span>
                       )}
                     </Text>

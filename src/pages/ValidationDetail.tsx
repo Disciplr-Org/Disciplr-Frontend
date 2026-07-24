@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Breadcrumb from '../components/Breadcrumb';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
 import { isCriteriaGateOpen } from '../utils/criteriaGate';
-import { classifyEvidenceUrl } from '../utils/evidenceKind';
+import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../utils/evidenceKind';
 import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
@@ -51,7 +52,7 @@ export default function ValidationDetail() {
   const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [checkedCriteria, setCheckedCriteria] = useState<Set<number>>(new Set());
+  const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
@@ -80,13 +81,13 @@ export default function ValidationDetail() {
     setIsModalOpen(true);
   };
 
-  const toggleCriterion = (index: number) => {
+  const toggleCriterion = (criterion: string) => {
     setCheckedCriteria((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
+      if (next.has(criterion)) {
+        next.delete(criterion);
       } else {
-        next.add(index);
+        next.add(criterion);
       }
       return next;
     });
@@ -108,6 +109,14 @@ export default function ValidationDetail() {
   return (
     <div className="flex flex-col gap-6 p-6 relative">
       <header>
+        <Breadcrumb
+          segments={[
+            { label: 'Home', to: '/' },
+            { label: 'Verifier Queue', to: '/verifier/queue' },
+            { label: task.vaultName },
+          ]}
+          style={{ marginBottom: 'var(--spacing-4)' }}
+        />
         <button
           onClick={() => navigate('/verifier/queue')}
           className="mb-4 text-sm font-medium transition"
@@ -180,13 +189,11 @@ export default function ValidationDetail() {
                       ipfs: 'IPFS',
                       other: 'Other'
                     };
-                    const kindColors: Record<typeof info.kind, { bg: string; color: string }> = {
-                      github: { bg: 'color-mix(in srgb, #24292e 10%, transparent)', color: '#24292e' },
-                      figma: { bg: 'color-mix(in srgb, #f24e1e 10%, transparent)', color: '#f24e1e' },
-                      ipfs: { bg: 'color-mix(in srgb, #65c3cb 10%, transparent)', color: '#65c3cb' },
-                      other: { bg: 'color-mix(in srgb, var(--muted) 10%, transparent)', color: 'var(--muted)' }
+                    const brandColor = EVIDENCE_BADGE_COLORS[info.kind];
+                    const colors = {
+                      bg: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
+                      color: brandColor,
                     };
-                    const colors = kindColors[info.kind];
                     return (
                       <>
                         <span
@@ -229,16 +236,16 @@ export default function ValidationDetail() {
                 <legend className="font-medium text-sm mb-2">
                   <Text role="body" as="span">Milestone Criteria</Text>
                 </legend>
-                {task.criteria.map((criterion, i) => (
+                {task.criteria.map((criterion) => (
                   <label
-                    key={i}
+                    key={criterion}
                     className="flex items-start gap-2 text-sm cursor-pointer"
                     style={{ color: 'var(--text)' }}
                   >
                     <input
                       type="checkbox"
-                      checked={checkedCriteria.has(i)}
-                      onChange={() => toggleCriterion(i)}
+                      checked={checkedCriteria.has(criterion)}
+                      onChange={() => toggleCriterion(criterion)}
                       aria-label={criterion}
                       className="mt-0.5 accent-[var(--accent)] shrink-0"
                     />

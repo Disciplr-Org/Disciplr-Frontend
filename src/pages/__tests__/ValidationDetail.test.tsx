@@ -585,4 +585,36 @@ describe('ValidationDetail Page', () => {
 
     expect(screen.queryByText('Milestone Criteria')).not.toBeInTheDocument();
   });
+
+  it('retains checked state per criterion text when criteria are reordered', () => {
+    const reorderedCriteria = ['Criterion B', 'Criterion A'];
+
+    vi.mocked(useVerifierStore).mockReturnValue({
+      pendingValidations: [{ ...mockPendingWithCriteria[0], criteria: reorderedCriteria }],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    // Check 'Criterion A' — it's now at the second position (index 1)
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+
+    // Only one checkbox should be checked, and it should be 'Criterion A'
+    const checkboxA = screen.getByLabelText('Criterion A') as HTMLInputElement;
+    const checkboxB = screen.getByLabelText('Criterion B') as HTMLInputElement;
+    expect(checkboxA).toBeChecked();
+    expect(checkboxB).not.toBeChecked();
+
+    // The reorder hasn't caused incorrect state — checked stays with 'Criterion A'
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+
+    // Check both
+    fireEvent.click(screen.getByLabelText('Criterion B'));
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
+  });
 });

@@ -47,7 +47,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-backdrop);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -132,6 +132,31 @@
 
 .wallet-option:active {
   transform: translateY(0);
+}
+
+.wallet-option:disabled,
+.wallet-option[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wallet-option:disabled:hover,
+.wallet-option[aria-disabled="true"]:hover {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  transform: none;
+}
+
+.wallet-coming-soon {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--muted);
+  border: var(--border-width-1) solid var(--border);
 }
 
 .wallet-option-info {
