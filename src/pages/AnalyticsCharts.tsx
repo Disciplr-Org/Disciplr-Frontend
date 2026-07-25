@@ -8,6 +8,7 @@ import {
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import type { ReactNode, CSSProperties } from 'react'
 import { ChartLegend, type ChartLegendEntry } from '../components/ChartLegend'
 import type { AnalyticsSeriesColors, AnalyticsChartTokens } from './analyticsTheme'
 
@@ -46,7 +47,7 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
       background: 'var(--surface)',
@@ -60,11 +61,11 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
   )
 }
 
-function ChartTitle({ children }: { children: React.ReactNode }) {
+function ChartTitle({ children }: { children: ReactNode }) {
   return <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1.25rem 0' }}>{children}</h3>
 }
 
-function ChartSummary({ children }: { children: React.ReactNode }) {
+function ChartSummary({ children }: { children: ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
 
