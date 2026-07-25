@@ -28,17 +28,3 @@ export function getTypographyClass(role: TypographyRole): string {
   return classMap[role];
 }
 
-/**
- * Combines typography class with optional additional classes
- * 
- * @param role - The typography role
- * @param additionalClasses - Optional additional CSS classes to combine
- * @returns Combined class string
- */
-export function classifyTypography(
-  role: TypographyRole,
-  additionalClasses?: string
-): string {
-  const baseClass = getTypographyClass(role);
-  return additionalClasses ? `${baseClass} ${additionalClasses}` : baseClass;
-}
