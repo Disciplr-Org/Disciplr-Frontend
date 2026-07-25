@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -12,7 +11,7 @@ import {
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
 import { Text } from "../components/Text";
 import { useWallet } from "../context/WalletContext";
-import { MASTER_VAULTS as MOCK_VAULTS } from "../fixtures/vaults";
+import { MASTER_VAULTS as MOCK_VAULTS } from "../services/vaultService";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
