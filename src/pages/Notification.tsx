@@ -5,8 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
+import { X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion"; // <-- Import the hook
+import { Pagination } from "@/components/Pagination";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { paginate } from "@/utils/paginate";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
@@ -29,13 +33,12 @@ export default function Notification() {
     ? { duration: 0 } 
     : transitionEnter;
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentData = currentNotification.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+  const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,13 +75,14 @@ export default function Notification() {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
-  useEffect(() => {
+  const filterNotification = () => {
     let filtered = notifications;
     if (!filtered) return;
 
@@ -101,8 +105,6 @@ export default function Notification() {
     filterNotification();
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
-  const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
-  
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
@@ -116,6 +118,30 @@ export default function Notification() {
     );
   };
 
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setShowClearModal(false);
+  };
+
+  const statusLabel =
+    currentFilterReadSeletion === "all"
+      ? "all"
+      : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+  const categoryLabel =
+    currentFilterTypeSeletion === "all" ? "all categories" : currentFilterTypeSeletion;
+  const resultCount = currentNotification.length;
+  const countText =
+    resultCount === 0
+      ? "No notifications found"
+      : `Showing ${resultCount === 1 ? "1 notification" : `${resultCount} notifications`}`;
+  const liveAnnouncement = `${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`;
+
   return (
     <>
       <div ref={containerRef} className="flex justify-between items-center">
@@ -123,7 +149,7 @@ export default function Notification() {
         <div className="flex gap-5 items-center justify-center">
           <div className="relative">
             <Link
-              to="/notification/settings"
+              to="/notifications/settings"
               aria-label="Notification Preferences"
               style={{
                 padding: "0.5rem 1rem",
@@ -156,6 +182,8 @@ export default function Notification() {
             <AnimatePresence>
               {isFilterOpen && (
                 <motion.div
+                  ref={filterPanelRef}
+                  id="notification-filter-panel"
                   initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
