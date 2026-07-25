@@ -11,6 +11,7 @@ import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
+import { ToastViewport } from "./ToastViewport";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -144,6 +145,7 @@ export default function Layout({ children }: LayoutProps) {
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
       <ShortcutsHelp />
+      <ToastViewport />
     </div>
   );
 }
