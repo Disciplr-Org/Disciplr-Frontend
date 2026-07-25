@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { VaultStatus } from '../types/vault';
 import { VAULT_STATUS_ORDER } from '../types/vault';
 import type { VaultFilters } from '../utils/filterVaults';
@@ -15,7 +16,7 @@ const STATUS_LABELS: Record<VaultStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const selectStyle: React.CSSProperties = {
+const selectStyle: CSSProperties = {
   background: 'var(--surface)',
   color: 'var(--text)',
   border: '1px solid var(--border)',
@@ -26,7 +27,7 @@ const selectStyle: React.CSSProperties = {
   minHeight: 44,
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   ...selectStyle,
   flex: 1,
   minWidth: 0,
