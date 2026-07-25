@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
+import { SafeLink } from './SafeLink';
 import { getExplorerTxUrl } from '../utils/explorer';
 import './FundReleaseStatus.css';
 
@@ -144,16 +145,14 @@ export function FundReleaseStatus({
               Transaction
             </Text>
             {hash ? (
-              <a
+              <SafeLink
                 className="fund-release-status__link"
                 href={explorerUrl(hash, network)}
-                target="_blank"
-                rel="noopener noreferrer"
                 title={hash}
                 aria-label={`View transaction ${hash} on Stellar ${network === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
               >
                 {truncateMiddle(hash, 8, 6)}
-              </a>
+              </SafeLink>
             ) : (
               <Text role="caption" as="span" className="fund-release-status__label">
                 Pending transaction
