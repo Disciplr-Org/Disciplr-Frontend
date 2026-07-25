@@ -55,15 +55,15 @@ export function Modal({
             transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
             className={overlayClassName}
             onClick={onClose}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={ariaLabelledBy}
-            aria-describedby={ariaDescribedBy}
           >
             <motion.div
               variants={contentVariants}
               transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
               className={contentClassName}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={ariaLabelledBy}
+              aria-describedby={ariaDescribedBy}
               onClick={(e) => e.stopPropagation()}
             >
               {children}
