@@ -542,6 +542,9 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
     : '';
 
   const isTestnet = network !== 'PUBLIC';
+  const networkStatusColor = isTestnet
+    ? "var(--warning, #f59e0b)"
+    : "var(--success, #10b981)";
 
   return (
     <footer
@@ -550,7 +553,7 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
         marginTop: "1.5rem",
         padding: "0.75rem 1rem",
         borderRadius: "var(--radius)",
-        border: `1px solid ${isTestnet ? "var(--warning, #f59e0b)" : "var(--success, #10b981)"}`,
+        border: `1px solid ${networkStatusColor}`,
         background: isTestnet
           ? "rgba(245,158,11,0.07)"
           : "rgba(16,185,129,0.07)",
@@ -571,9 +574,7 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
           fontSize: 12,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
-          color: isTestnet
-            ? "var(--warning, #f59e0b)"
-            : "var(--success, #10b981)",
+          color: networkStatusColor,
         }}
       >
         <span
@@ -583,9 +584,7 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
             width: 8,
             height: 8,
             borderRadius: "50%",
-            background: isTestnet
-              ? "var(--warning, #f59e0b)"
-              : "var(--success, #10b981)",
+            background: networkStatusColor,
           }}
         />
         {label}
@@ -611,9 +610,7 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
           rel="noopener noreferrer"
           aria-label={`View contract ${contractAddress} on Stellar ${label} explorer`}
           style={{
-            color: isTestnet
-              ? "var(--warning, #f59e0b)"
-              : "var(--success, #10b981)",
+            color: networkStatusColor,
             fontSize: 12,
             fontWeight: 600,
             textDecoration: "none",
