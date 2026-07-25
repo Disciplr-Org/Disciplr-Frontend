@@ -1,6 +1,6 @@
-﻿// VaultCard component unit tests
+// VaultCard component unit tests
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VaultCard, {
@@ -130,4 +130,36 @@ describe('VaultCard', () => {
       expect(screen.queryByLabelText(/Critical|Deadline approaching|Overdue/)).not.toBeInTheDocument();
     }
   );
+
+  it('does not re-render when parent component re-renders with unchanged props (React.memo)', () => {
+    const spy = vi.spyOn(VaultCard, 'type');
+
+    function ParentWrapper() {
+      const [count, setCount] = React.useState(0);
+      return (
+        <div>
+          <button onClick={() => setCount((c) => c + 1)}>Trigger Parent Re-render ({count})</button>
+          <VaultCard {...baseProps} />
+        </div>
+      );
+    }
+
+    render(
+      <MemoryRouter>
+        <ParentWrapper />
+      </MemoryRouter>
+    );
+
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+
+    // Because VaultCard is wrapped in React.memo, the parent state update does NOT trigger a VaultCard re-render
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
 });
+
+
+
