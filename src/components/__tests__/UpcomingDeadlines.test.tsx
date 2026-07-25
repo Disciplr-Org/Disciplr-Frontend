@@ -78,7 +78,7 @@ describe("UpcomingDeadlines", () => {
   it("renders CountdownDeadline output for each row", () => {
     render(<UpcomingDeadlines deadlines={deadlines} />);
 
-    expect(screen.getByLabelText(/Deadline .* Expired/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Deadline .* Overdue/)).toBeInTheDocument();
     expect(screen.getByText("6h 0m remaining")).toBeInTheDocument();
     expect(screen.getByText("3d 0h remaining")).toBeInTheDocument();
     expect(screen.getByText("10d 0h remaining")).toBeInTheDocument();

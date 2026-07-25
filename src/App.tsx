@@ -4,6 +4,7 @@ import { WalletProvider } from './context/WalletContext'
 import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
+import RequireWallet from './components/RequireWallet'
 import Skeleton from './components/Skeleton'
 import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
@@ -35,13 +36,13 @@ export default function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/vaults" element={<Vaults />} />
-                  <Route path="/vaults/create" element={<CreateVault />} />
-                  <Route path="/vaults/:id" element={<VaultDetail />} />
+                  <Route path="/vaults/create" element={<RequireWallet><CreateVault /></RequireWallet>} />
+                  <Route path="/vaults/:id" element={<RequireWallet><VaultDetail /></RequireWallet>} />
                   <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
                   <Route path="/transactions" element={<VaultTransactions />} />
                   <Route path="/verifier" element={<VerifierDashboard />} />
-                  <Route path="/verifier/queue" element={<PendingValidations />} />
-                  <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+                  <Route path="/verifier/queue" element={<RequireWallet><PendingValidations /></RequireWallet>} />
+                  <Route path="/verifier/queue/:vaultId" element={<RequireWallet><ValidationDetail /></RequireWallet>} />
                   <Route path="/verifier/history" element={<ValidationHistory />} />
                   <Route path="/help" element={<HelpCenter />} />
                   <Route path="/help/search" element={<HelpCenter />} />
@@ -70,13 +71,13 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/vaults" element={<Vaults />} />
-                <Route path="/vaults/create" element={<CreateVault />} />
-                <Route path="/vaults/:id" element={<VaultDetail />} />
+                <Route path="/vaults/create" element={<RequireWallet><CreateVault /></RequireWallet>} />
+                <Route path="/vaults/:id" element={<RequireWallet><VaultDetail /></RequireWallet>} />
                 <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
                 <Route path="/transactions" element={<VaultTransactions />} />
                 <Route path="/verifier" element={<VerifierDashboard />} />
-                <Route path="/verifier/queue" element={<PendingValidations />} />
-                <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+                <Route path="/verifier/queue" element={<RequireWallet><PendingValidations /></RequireWallet>} />
+                <Route path="/verifier/queue/:vaultId" element={<RequireWallet><ValidationDetail /></RequireWallet>} />
                 <Route path="/verifier/history" element={<ValidationHistory />} />
                 <Route
                   path="/analytics"
