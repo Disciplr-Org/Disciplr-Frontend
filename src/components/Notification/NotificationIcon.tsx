@@ -119,13 +119,13 @@ export default function NotificationIcon() {
             >
               <div className="w-full h-full flex flex-col items-center justify-between pb-5">
                 <div className="w-full flex flex-col justify-center items-center">
-                  <div className="flex justify-between items-center py-3 gap-10 px-2 bg-[#121a2a]">
+                  <div className="flex justify-between items-center py-3 gap-10 px-2" style={{ background: "var(--surface)" }}>
                     <h2 className="text-white font-bold text-xl">
                       Notifications
                     </h2>
                     <button
                       onClick={markAllAsRead}
-                      className="bg-white text-[#00c389] px-3 rounded-lg shadow-lg"
+                      className="bg-white px-3 rounded-lg shadow-lg" style={{ color: "var(--accent)" }}
                     >
                       Mark All As Read
                     </button>
