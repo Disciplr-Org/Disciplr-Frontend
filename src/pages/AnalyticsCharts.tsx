@@ -231,6 +231,8 @@ export default function AnalyticsCharts({
   }
 
   // section === 'team'
+  if (isLoading) return <SkeletonBox height={160} />
+  if (teamChartData.length === 0) return <EmptyState message={emptyMsg} />
   return (
     <ResponsiveContainer width="100%" height={160}>
       <BarChart data={teamChartData}>
