@@ -161,6 +161,22 @@ describe('Analytics lazy route', () => {
     await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 2000 })
   })
 
+  it('reads period from query params and writes it back on selection change', async () => {
+    const { default: LazyLoadedAnalytics } = await import('../Analytics')
+
+    render(
+      <MemoryRouter initialEntries={['/analytics?period=7d']}>
+        <LazyLoadedAnalytics />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByText('Analytics')).toBeInTheDocument(), { timeout: 2000 })
+    expect(screen.getByRole('button', { name: '7d' })).toHaveClass('active')
+
+    fireEvent.click(screen.getByRole('button', { name: '30d' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '30d' })).toHaveClass('active'), { timeout: 2000 })
+  })
+
   it('lazy-loads jsPDF on export and shows loading state', async () => {
     const { default: LazyLoadedAnalytics } = await import('../Analytics')
 

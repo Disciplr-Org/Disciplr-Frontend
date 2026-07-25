@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
-
+import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
@@ -16,13 +16,7 @@ import {
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
 import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
-type Period = '7d' | '30d' | '90d' | '1y' | 'All'
-
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
-
-function parsePeriod(value: string | null): Period {
-  return (PERIODS.includes(value as Period) ? value : '30d') as Period
-}
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -107,8 +101,17 @@ export default function Analytics() {
 
   const setPeriod = useCallback((p: Period) => {
     setPeriodInternal(p)
-    setSearchParams({ period: p })
-  }, [setSearchParams])
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('period', serializePeriod(p))
+    setSearchParams(nextParams)
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    const queryPeriod = parsePeriod(searchParams.get('period'))
+    if (queryPeriod !== period) {
+      setPeriodInternal(queryPeriod)
+    }
+  }, [period, searchParams])
 
   // ─── Memoized data selections ──────────────────────────────────────────────
   const chartData = useMemo(
