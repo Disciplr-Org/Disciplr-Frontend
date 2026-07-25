@@ -47,8 +47,8 @@ function Skeleton() {
       data-testid="skeleton"
       style={{
         height: 72,
-        background: "var(--surface, #1e293b)",
-        border: "1px solid var(--border, #334155)",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
         borderRadius: "var(--radius, 8px)",
         animation: "pulse 1.5s ease-in-out infinite",
       }}
