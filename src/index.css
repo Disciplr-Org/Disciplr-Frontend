@@ -408,6 +408,41 @@ a:hover {
   text-decoration: underline;
 }
 
+.notfound-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-6);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--font-size-body);
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.notfound-action--primary {
+  background-color: var(--accent);
+  color: white;
+  border: none;
+}
+
+.notfound-action--primary:hover,
+.notfound-action--primary:focus-visible {
+  background-color: var(--accent-dim);
+}
+
+.notfound-action--secondary {
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.notfound-action--secondary:hover,
+.notfound-action--secondary:focus-visible {
+  background-color: var(--hover);
+}
+
 /* ── prefers-reduced-motion ─────────────────────────────────────────────────
    Collapse all durations to near-zero so CSS transitions still fire
    (avoids layout jumps) but are imperceptible. JS/framer-motion components
