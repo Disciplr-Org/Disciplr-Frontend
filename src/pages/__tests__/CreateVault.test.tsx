@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
@@ -7,7 +7,23 @@ vi.mock("../../context/WalletContext", () => ({
   useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
 }));
 
+vi.mock("../../services/vaultService", () => ({
+  createVault: vi.fn(async (vault) => ({
+    id: "999",
+    name: vault.name,
+    amount: vault.amount,
+    currency: vault.currency,
+    deadline: vault.deadline,
+    creatorAddress: vault.creatorAddress,
+    successAddress: vault.successAddress,
+    failureAddress: vault.failureAddress,
+    milestones: [],
+    transactions: [],
+  })),
+}));
+
 import { useWallet } from "../../context/WalletContext";
+import { createVault } from "../../services/vaultService";
 const mockUseWallet = vi.mocked(useWallet);
 
 const successAddress = `G${"A".repeat(55)}`;
@@ -25,6 +41,24 @@ function fillFirstMilestone(
 ) {
   fillField(/milestone 1 title/i, title);
   fillField(/milestone 1 criteria/i, criteria);
+}
+
+function renderCreateVault(state?: unknown) {
+  return render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: "/vaults/create",
+          state,
+        },
+      ]}
+    >
+      <Routes>
+        <Route path="/vaults/create" element={<CreateVault />} />
+        <Route path="/vaults/:id" element={<div>Vault Detail Page</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
 }
 
 describe("CreateVault", () => {
@@ -137,6 +171,12 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
       successAddress,
       failureAddress,
+      milestones: [
+        {
+          title: "Prototype",
+          criteria: "Prototype approved by verifier",
+        },
+      ],
       evidenceUrl: undefined,
     });
     expect(consoleDebug).toHaveBeenCalledTimes(1);
@@ -248,7 +288,7 @@ describe("CreateVault", () => {
       balance: "50",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
@@ -264,12 +304,40 @@ describe("CreateVault", () => {
       balance: "100",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
     });
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("calls the createVault service and navigates to the detail page on confirm", async () => {
+    mockUseWallet.mockReturnValue({
+      balance: "5000",
+      balanceStatus: "success",
+      address: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+    } as ReturnType<typeof useWallet>);
+    
+    renderCreateVault();
+
+    fillField(/amount/i, "100.5");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Milestone 1", "Default milestone criteria");
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+
+    await screen.findByText("Vault Detail Page");
+
+    expect(createVault).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 100.5,
+      successAddress,
+      failureAddress,
+      deadline: "2030-01-01T00:00",
+    }));
   });
 });
