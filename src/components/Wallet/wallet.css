@@ -53,7 +53,7 @@
   align-items: center;
   justify-content: center;
   z-index: var(--z-index-modal);
-  animation: fadeIn var(--duration-normal) var(--ease-out);
+  animation: fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
 }
 
 .wallet-modal-content {
@@ -92,7 +92,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  transition: color var(--duration-normal) var(--ease-in-out), background var(--duration-normal) var(--ease-in-out);
+  transition: color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), background var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 .wallet-close-btn:focus-visible {
@@ -121,7 +121,7 @@
   border: var(--border-width-1) solid var(--border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-in-out);
+  transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 .wallet-option:hover {
@@ -244,7 +244,7 @@
   width: 280px;
   box-shadow: var(--shadow-level-4);
   z-index: var(--z-index-drawer);
-  animation: slideDown var(--duration-normal) var(--ease-out);
+  animation: slideDown var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
 }
 
 .wallet-dropdown-header {
@@ -272,7 +272,7 @@
   cursor: pointer;
   padding: 0.25rem;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-normal) var(--ease-in-out);
+  transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   display: flex;
   align-items: center;
 }

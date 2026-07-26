@@ -1303,7 +1303,7 @@ const CSS = `
     background: var(--success-transparent); border: 1px solid var(--success);
     color: var(--success); font-family: var(--font-sans); font-size: 13px; font-weight: 600;
     padding: 10px 18px; border-radius: var(--radius-md); cursor: pointer;
-    transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
+    transition: background var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-export-btn:hover:not(:disabled) { background: var(--success-transparent); border-color: var(--success); }
   .vt-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1312,7 +1312,7 @@ const CSS = `
   }
   .vt-stat-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 20px 22px; transition: border-color var(--duration-normal) var(--ease-in-out);
+    border-radius: var(--radius-lg); padding: 20px 22px; transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-stat-card:hover { border-color: var(--success); }
   .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
@@ -1326,7 +1326,7 @@ const CSS = `
     background: var(--surface); border: 1px solid var(--border);
     color: var(--muted); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
     padding: 6px 12px; border-radius: var(--radius-full); cursor: pointer;
-    transition: all var(--duration-fast) var(--ease-in-out);
+    transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
     user-select: none;
   }
   .vt-type-chip:hover { color: var(--text); border-color: var(--text); }
@@ -1373,7 +1373,7 @@ const CSS = `
     width: 100%; background: var(--surface-raised); border: 1px solid var(--border);
     border-radius: var(--radius-md); color: var(--text); font-family: var(--font-family-mono);
     font-size: 13px; padding: 9px 12px 9px 34px; outline: none; box-sizing: border-box;
-    transition: border-color var(--duration-normal) var(--ease-in-out);
+    transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-search::placeholder { color: var(--border); }
   .vt-search:focus { border-color: var(--success); }
@@ -1384,14 +1384,14 @@ const CSS = `
     background: var(--surface-raised); border: 1px solid var(--border);
     color: var(--muted); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
     padding: 8px 30px 8px 12px; border-radius: 7px; cursor: pointer; outline: none;
-    transition: border-color var(--duration-normal) var(--ease-in-out);
+    transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-select:hover, .vt-select:focus { border-color: var(--success); color: var(--text); }
   .vt-amount-range { display: flex; align-items: center; gap: 6px; }
   .vt-amount-input {
     width: 90px; background: var(--surface-raised); border: 1px solid var(--border);
     color: var(--muted); font-family: var(--font-family-mono); font-size: 12px;
-    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal) var(--ease-in-out);
+    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-amount-input:focus { border-color: var(--success); }
   .vt-amount-input::placeholder { color: var(--border); }
@@ -1399,7 +1399,7 @@ const CSS = `
   .vt-clear-btn {
     background: transparent; border: 1px solid var(--danger);
     color: var(--danger); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
-    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
+    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-clear-btn:hover { background: var(--danger-transparent); }
   .vt-clear-btn--lg { padding: 10px 20px; font-size: 13px; margin-top: 12px; }
@@ -1435,7 +1435,7 @@ const CSS = `
     display: flex; align-items: center; gap: 14px;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 14px 16px; cursor: pointer;
-    transition: background var(--duration-fast) var(--ease-in-out), border-color var(--duration-fast) var(--ease-in-out); min-height: 64px;
+    transition: background var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), border-color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)); min-height: 64px;
   }
   .vt-tx-row:hover { background: var(--surface-raised); border-color: var(--success); }
   .vt-tx-icon {
@@ -1451,10 +1451,10 @@ const CSS = `
   .vt-tx-hash {
     font-family: var(--font-family-mono); font-size: 11px; color: var(--muted);
     background: none; border: none; cursor: pointer; padding: 0;
-    display: flex; align-items: center; gap: 3px; transition: color var(--duration-fast) var(--ease-in-out);
+    display: flex; align-items: center; gap: 3px; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-tx-hash:hover { color: var(--text); }
-  .vt-tx-explorer { font-size: 11px; color: var(--border); text-decoration: none; transition: color var(--duration-fast) var(--ease-in-out); }
+  .vt-tx-explorer { font-size: 11px; color: var(--border); text-decoration: none; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)); }
   .vt-tx-explorer:hover { color: var(--success); }
   .vt-tx-amount { text-align: right; flex-shrink: 0; }
   .vt-tx-amount-val { display: block; font-family: var(--font-family-mono); font-size: 14px; font-weight: 500; color: var(--text); }
@@ -1471,7 +1471,7 @@ const CSS = `
   .vt-retry-btn {
     background: var(--danger-transparent); border: 1px solid var(--danger);
     color: var(--danger); font-family: var(--font-sans); font-size: 11px; font-weight: 700;
-    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal) var(--ease-in-out);
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-retry-btn:hover { background: var(--danger-transparent); }
   .vt-empty { text-align: center; padding: 56px 24px; }
@@ -1482,21 +1482,21 @@ const CSS = `
     position: fixed; inset: 0; z-index: 100;
     background: var(--overlay-backdrop); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; padding: 24px;
-    animation: vt-fadeIn var(--duration-normal) var(--ease-out);
+    animation: vt-fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
   }
   @keyframes vt-fadeIn { from { opacity: 0 } to { opacity: 1 } }
   .vt-modal {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-xl); padding: 28px; width: 100%; max-width: 580px;
     max-height: 90vh; overflow-y: auto; position: relative;
-    animation: vt-slideUp var(--duration-normal) var(--ease-out);
+    animation: vt-slideUp var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
   }
   @keyframes vt-slideUp { from { transform: translateY(16px); opacity:0 } to { transform: translateY(0); opacity:1 } }
   .vt-modal-close {
     position: absolute; top: 18px; right: 18px;
     background: var(--surface-raised); border: 1px solid var(--border);
     color: var(--muted); font-size: 13px; width: 28px; height: 28px; border-radius: 6px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast) var(--ease-in-out);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-modal-close:hover { color: var(--text); background: var(--hover); }
   .vt-modal-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
@@ -1514,13 +1514,13 @@ const CSS = `
   .vt-copy-btn {
     background: var(--surface-raised); border: 1px solid var(--border);
     color: var(--muted); padding: 4px 8px; border-radius: 5px; cursor: pointer;
-    flex-shrink: 0; font-size: 12px; transition: all var(--duration-fast) var(--ease-in-out);
+    flex-shrink: 0; font-size: 12px; transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-copy-btn:hover { color: var(--text); background: var(--hover); }
   .vt-raw-section { margin-bottom: 20px; }
   .vt-raw-toggle {
     background: none; border: none; color: var(--muted); font-family: var(--font-sans);
-    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color var(--duration-fast) var(--ease-in-out);
+    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-raw-toggle:hover { color: var(--text); }
   .vt-raw-pre {
@@ -1530,7 +1530,7 @@ const CSS = `
   }
   .vt-modal-footer { border-top: 1px solid var(--border); padding-top: 16px; }
   .vt-explorer-link {
-    font-size: 13px; color: var(--success); text-decoration: none; font-weight: 600; transition: opacity var(--duration-fast) var(--ease-in-out);
+    font-size: 13px; color: var(--success); text-decoration: none; font-weight: 600; transition: opacity var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-explorer-link:hover { opacity: 0.75; }
 
@@ -1546,7 +1546,7 @@ const CSS = `
     background: var(--success-transparent); border: 1px solid var(--success);
     color: var(--success); font-family: var(--font-sans); font-size: 11px; font-weight: 700;
     padding: 5px 12px; border-radius: 6px; cursor: pointer;
-    transition: all var(--duration-normal) var(--ease-in-out);
+    transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-window-btn:hover:not(:disabled) { background: var(--success-transparent); }
   .vt-window-btn:disabled { opacity: 0.3; cursor: default; }
