@@ -106,7 +106,7 @@ export default function PendingValidations() {
   const hasSelection = selectedIds.length > 0;
   const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const headerSort = (key: PendingSortKey) => {
-    if (sortKey !== key) return 'none';
+    if (sortKey !== key) return undefined;
     return sortDir === 'asc' ? 'ascending' : 'descending';
   };
 
@@ -146,7 +146,7 @@ export default function PendingValidations() {
             className="self-end px-4 py-2 border rounded text-sm font-medium transition"
             style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
           >
-            Sort direction: {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+            Sort direction: {sortLabel}
           </button>
         </div>
       </header>
@@ -223,7 +223,7 @@ export default function PendingValidations() {
                   scope="col"
                   className="p-4 font-medium text-sm"
                   style={{ color: 'var(--muted)' }}
-                  aria-sort={sortKey === 'vaultName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  aria-sort={headerSort('vaultName')}
                 >
                   Vault & Milestone
                 </th>
@@ -232,7 +232,7 @@ export default function PendingValidations() {
                   scope="col"
                   className="p-4 font-medium text-sm"
                   style={{ color: 'var(--muted)' }}
-                  aria-sort={sortKey === 'amount' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  aria-sort={headerSort('amount')}
                 >
                   Amount at Stake
                 </th>
@@ -240,7 +240,7 @@ export default function PendingValidations() {
                   scope="col"
                   className="p-4 font-medium text-sm"
                   style={{ color: 'var(--muted)' }}
-                  aria-sort={sortKey === 'deadline' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  aria-sort={headerSort('deadline')}
                 >
                   Deadline
                 </th>
