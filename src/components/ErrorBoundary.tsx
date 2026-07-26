@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react'
+import { logger } from '../utils/logger'
 
 interface Props {
   children: ReactNode
@@ -11,7 +12,7 @@ interface State {
 }
 
 const defaultReporter = (error: Error, info: ErrorInfo) => {
-  console.error('[ErrorBoundary]', error, info)
+  logger.error('[ErrorBoundary]', error, info)
 }
 
 export default class ErrorBoundary extends Component<Props, State> {

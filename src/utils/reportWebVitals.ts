@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 /**
  * Web Vitals Reporter
  * 
@@ -169,7 +171,7 @@ function safeReport(metric: Metric, onReport: MetricCallback): void {
     onReport(metric);
   } catch (e) {
     // Callback threw an error, log it but don't crash the app
-    console.error('Web Vitals reporter callback threw an error:', e);
+    logger.error('Web Vitals reporter callback threw an error:', e);
   }
 }
 

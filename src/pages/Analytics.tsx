@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
+import { logger } from '../utils/logger'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
@@ -359,7 +360,7 @@ export default function Analytics() {
 
       doc.save(`disciplr-report-${period}.pdf`)
     } catch (err) {
-      console.error('Failed to load or run jsPDF', err)
+      logger.error('Failed to load or run jsPDF', err)
       setExportError('Failed to generate PDF. Please try again.')
     } finally {
       setIsExportLoading(false)
