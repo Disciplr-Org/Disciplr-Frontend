@@ -118,14 +118,21 @@
   white-space: nowrap;
 }
 
-/* ─── Transactions link (hide label on very small screens) ───────────────── */
+/* ─── Transactions link (icon on small screens, label on wider) ──────────── */
 .header-transactions-label {
   display: none;
+}
+
+.header-transactions-icon {
+  display: inline;
 }
 
 @media (min-width: 400px) {
   .header-transactions-label {
     display: inline;
+  }
+  .header-transactions-icon {
+    display: none;
   }
 }
 

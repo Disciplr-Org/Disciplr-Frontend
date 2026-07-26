@@ -47,7 +47,6 @@ export default function Layout({ children }: LayoutProps) {
             <span
               aria-hidden="true"
               className="header-transactions-icon"
-              style={{ display: "none" }}
             >
               ↗
             </span>
