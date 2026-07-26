@@ -21,10 +21,6 @@ export function filterPending(
   const { query = '', milestone = '' } = options;
   const normalizedQuery = query.trim().toLowerCase();
 
-  if (query && !normalizedQuery) {
-    return [];
-  }
-
   return tasks.filter((task) => {
     // Filter by milestone if provided
     if (milestone && task.milestone !== milestone) {

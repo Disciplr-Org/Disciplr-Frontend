@@ -1,4 +1,3 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import './Layout.css';
 
@@ -92,19 +91,11 @@ function getIcon(preference: string) {
 export default function ThemeToggle() {
   const { preference, toggleTheme } = useTheme();
 
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      toggleTheme();
-    }
-  };
-
   return (
     <button
       type="button"
       className="theme-toggle"
       onClick={toggleTheme}
-      onKeyDown={handleKeyDown}
       aria-label={getNextLabel(preference)}
       aria-pressed={preference === 'dark' ? true : preference === 'system' ? 'mixed' as const : false}
       style={{
