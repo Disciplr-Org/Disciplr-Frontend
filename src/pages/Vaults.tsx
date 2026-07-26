@@ -49,7 +49,7 @@ function Skeleton() {
         height: 72,
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: "var(--radius, 8px)",
+        borderRadius: "var(--radius)",
         animation: "pulse 1.5s ease-in-out infinite",
       }}
     />
