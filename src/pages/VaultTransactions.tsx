@@ -4,6 +4,7 @@ import { windowRange } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
 import { computeTxTotals } from "../utils/txTotals";
 import { AddressDisplay } from "../components/AddressDisplay";
+import { truncateMiddle } from "../utils/truncate";
 import { Tooltip } from "../components/Tooltip";
 import Breadcrumb from "../components/Breadcrumb";
 import { MASTER_VAULTS } from "../fixtures/vaults";
@@ -99,10 +100,6 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function truncHash(hash: string, head = 8, tail = 6): string {
-  if (!hash) return "";
-  return `${hash.slice(0, head)}...${hash.slice(-tail)}`;
-}
 
 function fmtTime(date: Date): string {
   return formatRelativeTime(date);
@@ -781,7 +778,7 @@ const TxRow = memo(function TxRow({
                 onCopy(tx.hash, tx.id + "-hash");
               }}
             >
-              {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
+              {copiedId === tx.id + "-hash" ? "Copied!" : truncateMiddle(tx.hash, 8, 6)}
               <CopyIcon small />
             </button>
           </Tooltip>
