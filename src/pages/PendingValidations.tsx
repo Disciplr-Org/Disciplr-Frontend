@@ -105,9 +105,13 @@ export default function PendingValidations() {
 
   const hasSelection = selectedIds.length > 0;
   const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
-  const headerSort = (key: PendingSortKey) => {
-    if (sortKey !== key) return undefined;
-    return sortDir === 'asc' ? 'ascending' : 'descending';
+  const handleHeaderSort = (key: PendingSortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   };
 
   return (
@@ -219,31 +223,28 @@ export default function PendingValidations() {
                     className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                   />
                 </th>
-                <th
-                  scope="col"
-                  className="p-4 font-medium text-sm"
-                  style={{ color: 'var(--muted)' }}
-                  aria-sort={headerSort('vaultName')}
-                >
-                  Vault & Milestone
-                </th>
+                <SortableHeader
+                  label="Vault & Milestone"
+                  fieldKey="vaultName"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Owner</th>
-                <th
-                  scope="col"
-                  className="p-4 font-medium text-sm"
-                  style={{ color: 'var(--muted)' }}
-                  aria-sort={headerSort('amount')}
-                >
-                  Amount at Stake
-                </th>
-                <th
-                  scope="col"
-                  className="p-4 font-medium text-sm"
-                  style={{ color: 'var(--muted)' }}
-                  aria-sort={headerSort('deadline')}
-                >
-                  Deadline
-                </th>
+                <SortableHeader
+                  label="Amount at Stake"
+                  fieldKey="amount"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
+                <SortableHeader
+                  label="Deadline"
+                  fieldKey="deadline"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm text-right" style={{ color: 'var(--muted)' }}>Actions</th>
               </tr>
             </thead>
@@ -350,3 +351,49 @@ export default function PendingValidations() {
     </div>
   );
 }
+
+interface SortableHeaderProps {
+  label: string;
+  fieldKey: PendingSortKey;
+  currentSortKey: PendingSortKey;
+  currentSortDir: SortDirection;
+  onSort: (key: PendingSortKey) => void;
+}
+
+function SortableHeader({
+  label,
+  fieldKey,
+  currentSortKey,
+  currentSortDir,
+  onSort,
+}: SortableHeaderProps) {
+  const active = currentSortKey === fieldKey;
+  const ariaSort = active
+    ? currentSortDir === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : undefined;
+
+  return (
+    <th
+      scope="col"
+      className="p-4 font-medium text-sm"
+      style={{ color: 'var(--muted)' }}
+      aria-sort={ariaSort}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(fieldKey)}
+        className="flex items-center gap-1.5 font-medium text-sm text-left transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] rounded"
+        style={{ color: 'var(--muted)', background: 'transparent', border: 'none', padding: 0 }}
+        aria-label={`Sort ${label} column`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-xs">
+          {active ? (currentSortDir === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+

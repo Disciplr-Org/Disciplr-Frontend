@@ -109,7 +109,7 @@ export default function ThemeToggle() {
         justifyContent: 'center',
         cursor: 'pointer',
         color: 'var(--text)',
-        transition: 'all var(--duration-normal) var(--ease-in-out)',
+        transition: 'all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1))',
       }}
     >
       {getIcon(preference)}

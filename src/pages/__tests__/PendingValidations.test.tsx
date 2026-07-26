@@ -259,6 +259,28 @@ describe('PendingValidations', () => {
       expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
     });
 
+    it('clicking an inactive column header button activates that column sort and sets aria-sort', () => {
+      renderPage();
+      const amountButton = screen.getByRole('button', { name: /Sort Amount at Stake column/i });
+      fireEvent.click(amountButton);
+
+      expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
+      expect(screen.getByLabelText(/Sort by/i)).toHaveValue('amount');
+    });
+
+    it('clicking the active column header button toggles sort direction', () => {
+      renderPage();
+      const deadlineButton = screen.getByRole('button', { name: /Sort Deadline column/i });
+      fireEvent.click(deadlineButton);
+
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'descending');
+      expect(screen.getByRole('button', { name: /Sort direction: Descending/i })).toBeInTheDocument();
+
+      fireEvent.click(deadlineButton);
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'ascending');
+    });
+
     it('urgent rows (≤3 days) include a non-color sr-only urgency cue', () => {
       renderPage();
       // v-2 is overdue, which is within the critical threshold.
