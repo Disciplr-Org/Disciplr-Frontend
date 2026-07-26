@@ -26,6 +26,15 @@ export interface Metric {
 
 type MetricCallback = (metric: Metric) => void;
 
+interface LayoutShiftEntry extends PerformanceEntry {
+  hadRecentInput: boolean;
+  value: number;
+}
+
+interface EventTimingEntry extends PerformanceEntry {
+  processingStart: number;
+}
+
 /**
  * Reports Core Web Vitals to the provided callback.
  * If no callback is provided, metrics are not reported (no-op).
@@ -75,8 +84,9 @@ export function reportWebVitals(onReport?: MetricCallback): void {
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (!(entry as any).hadRecentInput) {
-            clsValue += (entry as any).value;
+          const layoutShift = entry as LayoutShiftEntry;
+          if (!layoutShift.hadRecentInput) {
+            clsValue += layoutShift.value;
           }
         }
 
@@ -106,11 +116,12 @@ export function reportWebVitals(onReport?: MetricCallback): void {
     if ('PerformanceObserver' in window) {
       const inpObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
+          const eventTiming = entry as EventTimingEntry;
           const metric: Metric = {
             id: `inp-${Date.now()}`,
             name: 'INP',
-            value: (entry as any).processingStart - (entry as any).startTime,
-            rating: getInpRating((entry as any).processingStart - (entry as any).startTime),
+            value: eventTiming.processingStart - eventTiming.startTime,
+            rating: getInpRating(eventTiming.processingStart - eventTiming.startTime),
             navigationType: getNavigationType(),
           };
 
@@ -125,11 +136,12 @@ export function reportWebVitals(onReport?: MetricCallback): void {
         try {
           const fidObserver = new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
+              const eventTiming = entry as EventTimingEntry;
               const metric: Metric = {
                 id: `fid-${Date.now()}`,
                 name: 'FID',
-                value: (entry as any).processingStart - entry.startTime,
-                rating: getFidRating((entry as any).processingStart - entry.startTime),
+                value: eventTiming.processingStart - entry.startTime,
+                rating: getFidRating(eventTiming.processingStart - entry.startTime),
                 navigationType: getNavigationType(),
               };
 
