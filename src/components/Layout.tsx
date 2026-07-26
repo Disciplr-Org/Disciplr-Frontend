@@ -12,6 +12,7 @@ import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
+import ThemeToggle from "./ThemeToggle";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -108,11 +109,13 @@ export default function Layout({ children }: LayoutProps) {
               Create Vault
             </Link>
             <NotificationBell />
+            <ThemeToggle />
             <WalletConnectButton />
           </div>
         </nav>
         <div className="mobile-bell-wrapper" {...backgroundA11yProps}>
           <NotificationBell />
+          <ThemeToggle />
         </div>
         <button
           type="button"
