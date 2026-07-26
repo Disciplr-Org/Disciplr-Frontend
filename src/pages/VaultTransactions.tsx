@@ -129,10 +129,6 @@ interface VaultTransactionsProps {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────────
-interface VaultTransactionsProps {
-  transactions?: Transaction[];
-}
-
 interface SortState {
   key: TransactionSortKey;
   dir: TransactionSortDir;
@@ -1202,6 +1198,35 @@ function ExportIcon() {
         strokeWidth="1.5"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+function SortIcon({ dir }: { dir: TransactionSortDir }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      style={{ marginRight: 4, verticalAlign: "middle" }}
+    >
+      {dir === "asc" ? (
+        <path
+          d="M8 3v10M4 7l4-4 4 4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <path
+          d="M8 13V3M4 9l4 4 4-4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
     </svg>
   );
 }
