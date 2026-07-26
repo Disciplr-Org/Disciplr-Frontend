@@ -235,7 +235,7 @@ export default function CommandPalette({
                 borderRadius: "var(--radius)",
                 border: "1px solid var(--border)",
                 background: "var(--surface)",
-                boxShadow: "var(--shadow-lg)",
+                boxShadow: "var(--shadow-level-5)",
                 transform: "translateY(0)",
                 transition: prefersReducedMotion
                   ? "none"

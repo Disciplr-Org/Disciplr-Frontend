@@ -221,7 +221,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-level-5);
   border-right: 1px solid var(--border);
   animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
