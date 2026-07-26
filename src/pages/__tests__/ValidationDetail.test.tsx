@@ -49,13 +49,20 @@ const mockPendingWithCriteria = [
 describe('ValidationDetail Page', () => {
   const mockApproveValidation = vi.fn();
   const mockRejectValidation = vi.fn();
-  const mockUseVerifierStore = useVerifierStore as unknown as Mock;
+  const mockUseVerifierStore = useVerifierStore as unknown as ReturnType<typeof vi.fn>;
+
+  /** Apply the selector-based mock for useVerifierStore. */
+  function mockStore(state: Record<string, unknown>) {
+    vi.mocked(useVerifierStore).mockImplementation(
+      (selector: (s: unknown) => unknown) => selector(state),
+    );
+  }
 
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
     window.localStorage.clear();
-    vi.mocked(useVerifierStore).mockReturnValue({
+    mockStore({
       pendingValidations: mockPendingValidations,
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,

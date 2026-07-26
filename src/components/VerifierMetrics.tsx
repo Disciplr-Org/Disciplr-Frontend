@@ -54,8 +54,8 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, accentColor, aria
 );
 
 const VerifierMetrics: React.FC = () => {
-  // Exact hook pattern used in VerifierDashboard.tsx
-  const { pendingValidations, validationHistory } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
   const { approvalRate, overdueCount, urgentCount, totalResolved } =
     computeVerifierMetrics(pendingValidations, validationHistory);

@@ -7,7 +7,8 @@ import { StatusChip } from '../components/StatusChip';
 export default function VerifierDashboard() {
   const navigate = useNavigate();
   
-  const { pendingValidations, validationHistory } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
   const totalPending = pendingValidations.length;
   const totalCompleted = validationHistory.length;

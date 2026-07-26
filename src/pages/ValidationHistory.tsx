@@ -17,7 +17,7 @@ import {
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
-  const { validationHistory } = useVerifierStore();
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
   const [statusFilter, setStatusFilter] = useState<ValidationHistoryStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState('');

@@ -12,7 +12,10 @@ import { sortPending, type PendingSortKey, type SortDirection } from '../utils/s
 
 export default function PendingValidations() {
   const navigate = useNavigate();
-  const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const batchApprove = useVerifierStore((state) => state.batchApprove);
+  const batchReject = useVerifierStore((state) => state.batchReject);
 
   // Queue-at-a-glance metrics for the strip above the table.
   const metrics = useMemo(

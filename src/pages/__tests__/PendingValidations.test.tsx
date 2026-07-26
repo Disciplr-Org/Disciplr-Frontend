@@ -53,6 +53,13 @@ const makeTasks = () => [
 
 const mockedUseVerifierStore = useVerifierStore as unknown as Mock;
 
+/** Helper: make useVerifierStore(selector) work in tests. */
+function mockStore(state: Record<string, unknown>) {
+  mockedUseVerifierStore.mockImplementation((selector: (s: unknown) => unknown) =>
+    selector(state),
+  );
+}
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -66,7 +73,12 @@ describe('PendingValidations', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: makeTasks() });
+    mockStore({
+      pendingValidations: makeTasks(),
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -79,14 +91,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -177,8 +189,11 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    mockedUseVerifierStore.mockReturnValue({
+    mockStore({
       pendingValidations: [makeTasks()[0]],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
     });
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
@@ -186,12 +201,15 @@ describe('PendingValidations', () => {
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    mockedUseVerifierStore.mockReturnValue({
+    mockStore({
       pendingValidations: [
         { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
         { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
-      ]),
-    );
+      ],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
+    });
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
@@ -270,7 +288,7 @@ describe('PendingValidations', () => {
     });
 
     it('empty table state renders no table role', () => {
-      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
       renderPage();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
@@ -539,7 +557,7 @@ describe('PendingValidations', () => {
 
   describe('empty state messaging', () => {
     it('shows "All caught up!" when there are no pending validations', () => {
-      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
       renderPage();
 
       expect(screen.getByText('All caught up!')).toBeInTheDocument();
