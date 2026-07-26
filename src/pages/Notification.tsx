@@ -78,7 +78,7 @@ export default function Notification() {
     };
   }, []);
 
-  useEffect(() => {
+  const filterNotification = () => {
     let filtered = notifications;
     if (!filtered) return;
 
