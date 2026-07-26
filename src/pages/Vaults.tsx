@@ -3,11 +3,12 @@ import { Link, MemoryRouter, useInRouterContext } from "react-router-dom";
 import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
 import VaultCard from "../components/VaultCard";
+import { VaultFilterBar } from "../components/VaultFilterBar";
 import { listVaults } from "../services/vaultService";
 import type { Vault } from "../types/vault";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import type { VaultFilters } from "../utils/filterVaults";
 import { filterVaults, sortVaults } from "../utils/vaultFilter";
-import type { VaultStatus } from "../types/vault";
 import type { VaultSortOptions } from "../utils/vaultFilter";
 
 const STORAGE_KEY = "vaults-view-preference";
@@ -68,10 +69,8 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">(getViewPreference);
 
-  // Filtering and sorting state (keeping defaults)
-  const [statusFilter] = useState<VaultStatus | "all">("all");
-  const [searchQuery] = useState("");
-  const [sortOptions] = useState<VaultSortOptions>({
+  const [filters, setFilters] = useState<VaultFilters>({ status: "all", query: "" });
+  const [sortOptions, setSortOptions] = useState<VaultSortOptions>({
     by: "deadline",
     dir: "asc",
   });
@@ -106,10 +105,7 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   }, []);
 
   // Apply filters and sorting
-  const filteredVaults = filterVaults(vaults, {
-    status: statusFilter,
-    query: searchQuery,
-  });
+  const filteredVaults = filterVaults(vaults, filters);
   const sortedVaults = sortVaults(filteredVaults, sortOptions);
 
   return (
@@ -199,6 +195,67 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
             + Create Vault
           </Link>
         </div>
+      </div>
+
+      <VaultFilterBar value={filters} onChange={setFilters} />
+
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          alignItems: "center",
+          margin: "1rem 0",
+          flexWrap: "wrap",
+        }}
+      >
+        <label htmlFor="vault-sort-by" style={{ fontSize: 14, color: "var(--muted)" }}>
+          Sort by
+        </label>
+        <select
+          id="vault-sort-by"
+          aria-label="Sort vaults by"
+          value={sortOptions.by}
+          onChange={(e) =>
+            setSortOptions((prev) => ({
+              ...prev,
+              by: e.target.value as VaultSortOptions["by"],
+            }))
+          }
+          style={{
+            background: "var(--surface)",
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "0.5rem 0.75rem",
+            fontSize: 14,
+            cursor: "pointer",
+            minHeight: 44,
+          }}
+        >
+          <option value="deadline">Deadline</option>
+          <option value="amount">Amount</option>
+        </select>
+        <button
+          aria-label={`Sort ${sortOptions.dir === "asc" ? "descending" : "ascending"}`}
+          onClick={() =>
+            setSortOptions((prev) => ({
+              ...prev,
+              dir: prev.dir === "asc" ? "desc" : "asc",
+            }))
+          }
+          style={{
+            background: "var(--surface)",
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "0.5rem 0.75rem",
+            fontSize: 14,
+            cursor: "pointer",
+            minHeight: 44,
+          }}
+        >
+          {sortOptions.dir === "asc" ? "↑ Asc" : "↓ Desc"}
+        </button>
       </div>
 
       {status === "loading" && (
