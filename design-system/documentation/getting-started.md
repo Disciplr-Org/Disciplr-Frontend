@@ -126,13 +126,13 @@ The site-wide navigation is defined in `src/components/Layout.tsx` for desktop h
 `src/components/VaultFilterBar.tsx` is a controlled filter bar for vault lists.
 It combines a status `<select>` and a name search `<input type="search">` in a
 single composable component backed by the pure `filterVaults` utility in
-`src/utils/filterVaults.ts`.
+`src/utils/vaultFilter.ts`.
 
 ```tsx
 import { useState } from 'react';
 import { VaultFilterBar } from '../components/VaultFilterBar';
-import { filterVaults } from '../utils/filterVaults';
-import type { VaultFilters } from '../utils/filterVaults';
+import { filterVaults } from '../utils/vaultFilter';
+import type { VaultFilters } from '../utils/vaultFilter';
 
 const [filters, setFilters] = useState<VaultFilters>({ status: 'all', query: '' });
 const visible = filterVaults(vaults, filters);
