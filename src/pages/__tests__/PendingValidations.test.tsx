@@ -70,6 +70,13 @@ describe('PendingValidations', () => {
     vi.useRealTimers();
   });
 
+  it('renders without throwing (regression test for #622)', () => {
+    // Ensure that sortLabel, headerSort, and aria-sort expressions all
+    // reference the correct state variable (sortDir, not sortDirection)
+    // and that the page mounts without a ReferenceError.
+    expect(() => renderPage()).not.toThrow();
+  });
+
   it('renders the page heading', () => {
     renderPage();
     expect(screen.getByText('Pending Validations')).toBeInTheDocument();
