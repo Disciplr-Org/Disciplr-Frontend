@@ -40,7 +40,7 @@ export function AddressDisplay({
                 style={{ 
                     fontFamily: 'monospace', 
                     fontSize: 'inherit',
-                    color: isValid ? 'inherit' : 'var(--error)',
+                    color: isValid ? 'inherit' : 'var(--danger)',
                     textDecoration: isValid ? 'none' : 'line-through' 
                 }}
             >
