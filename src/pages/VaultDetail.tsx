@@ -17,6 +17,7 @@ import { contractExplorerUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
 import { truncateMiddle } from "../utils/truncate";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import { timelineProgress } from "../utils/vaultLifecycle";
 import type { Vault } from "../types/vault";
 
 // ── Types imported from canonical source ─────────────────────────────────────
@@ -46,13 +47,6 @@ function fmtDateTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function timelineProgress(created: string, deadline: string): number {
-  const start = new Date(created).getTime();
-  const end = new Date(deadline).getTime();
-  const now = Date.now();
-  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
 }
 
 function settlementForVault(vault: Vault): FundReleaseStatusProps {
