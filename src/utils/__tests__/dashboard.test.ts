@@ -9,8 +9,8 @@ import {
   computeDashboardSummary,
   type Deadline,
   type Activity,
-  type VaultPreview,
 } from '../dashboard';
+import type { Vault, VaultStatus } from '../../types/vault';
 
 describe('Dashboard Utility Helpers', () => {
   // A fixed timestamp representing 2026-06-27T12:00:00Z
@@ -186,16 +186,29 @@ describe('Dashboard Utility Helpers', () => {
   describe('computeDashboardSummary', () => {
     const makeVault = (
       id: string,
-      status: VaultPreview['status'],
+      status: VaultStatus,
       amount: number,
-    ): VaultPreview => ({
+      pendingMilestoneCount: number = 0,
+    ): Vault => ({
       id,
       name: `Vault ${id}`,
       amount,
       currency: 'USDC',
       status,
-      progressPct: 0,
+      createdAt: '2026-01-01T00:00:00Z',
       deadline: '2026-12-31T00:00:00Z',
+      creatorAddress: 'GCREATOR',
+      successAddress: 'GSUCCESS',
+      failureAddress: 'GFAILURE',
+      contractAddress: 'GCONTRACT',
+      milestones: Array.from({ length: pendingMilestoneCount }, (_, i) => ({
+        id: `m${i}`,
+        title: `Milestone ${i}`,
+        description: 'Test milestone',
+        criteria: 'Test criteria',
+        status: 'pending' as const,
+      })),
+      transactions: [],
     });
 
     it('returns all zeros for an empty vault list', () => {
@@ -217,6 +230,16 @@ describe('Dashboard Utility Helpers', () => {
       const result = computeDashboardSummary(vaults);
       expect(result.totalLocked).toBe(1500);
       expect(result.activeVaults).toBe(2);
+    });
+
+    it('counts pending milestones across all vaults', () => {
+      const vaults = [
+        makeVault('1', 'active', 1000, 3),
+        makeVault('2', 'active', 500, 2),
+        makeVault('3', 'completed', 200, 0),
+      ];
+      const result = computeDashboardSummary(vaults);
+      expect(result.pendingMilestones).toBe(5);
     });
 
     it('computes completionRate as completed/(completed+failed+cancelled)*100', () => {
@@ -253,17 +276,17 @@ describe('Dashboard Utility Helpers', () => {
 
     it('handles mixed statuses correctly end-to-end', () => {
       const vaults = [
-        makeVault('1', 'active', 1000),
-        makeVault('2', 'active', 2000),
-        makeVault('3', 'pending_validation', 500),
-        makeVault('4', 'completed', 0),
-        makeVault('5', 'failed', 0),
-        makeVault('6', 'cancelled', 0),
+        makeVault('1', 'active', 1000, 2),
+        makeVault('2', 'active', 2000, 1),
+        makeVault('3', 'pending_validation', 500, 3),
+        makeVault('4', 'completed', 0, 0),
+        makeVault('5', 'failed', 0, 0),
+        makeVault('6', 'cancelled', 0, 0),
       ];
       const result = computeDashboardSummary(vaults);
       expect(result.totalLocked).toBe(3500);
       expect(result.activeVaults).toBe(3);
-      expect(result.pendingMilestones).toBe(3);
+      expect(result.pendingMilestones).toBe(6);
       // 1 completed / 3 terminal = 33.33 → rounded to 33
       expect(result.completionRate).toBe(33);
     });

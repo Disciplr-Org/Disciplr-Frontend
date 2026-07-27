@@ -7,7 +7,7 @@ import UpcomingDeadlines from "../components/UpcomingDeadlines";
 import { useMemo, useState, useEffect } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
-import type { VaultStatus } from "../types/vault";
+import type { VaultStatus, Vault } from "../types/vault";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 // Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
@@ -142,10 +142,12 @@ export default function Dashboard({
   deadlines?: Deadline[];
 } = {}) {
   const [vaults, setVaults] = useState<VaultPreview[]>([]);
+  const [fullVaults, setFullVaults] = useState<Vault[]>([]);
   const [vaultsLoading, setVaultsLoading] = useState(true);
 
   useEffect(() => {
     listVaults().then((loaded) => {
+      setFullVaults(loaded);
       setVaults(
         loaded.map((v) => ({
           id: v.id,
@@ -163,9 +165,13 @@ export default function Dashboard({
 
   const hasVaults = vaults.length > 0;
 
+  const computedSummary = useMemo(
+    () => dashboardUtils.computeDashboardSummary(fullVaults),
+    [fullVaults],
+  );
   const memoizedSummary = useMemo(
-    () => dashboardUtils.formatSummary(summary),
-    [summary],
+    () => dashboardUtils.formatSummary(computedSummary),
+    [computedSummary],
   );
   const memoizedActivity = useMemo(
     () => dashboardUtils.processActivity(activity),
