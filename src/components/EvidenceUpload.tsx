@@ -28,7 +28,12 @@ interface EvidenceUploadProps {
   onSubmit?: (evidenceUrl: string) => void
   onFileSelect?: (file: File) => void
   acceptedFileTypes?: string[]
+  /** Maximum allowed file size in bytes. Defaults to 50 MB. */
+  maxFileSizeBytes?: number
 }
+
+/** Default maximum file size: 50 MB */
+const DEFAULT_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
 
 export function EvidenceUpload({
   id,
@@ -39,6 +44,7 @@ export function EvidenceUpload({
   onSubmit,
   onFileSelect,
   acceptedFileTypes = ACCEPTED_FILE_TYPES,
+  maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE_BYTES,
 }: EvidenceUploadProps) {
   const generatedId = useId()
   const fieldId = id || `evidence-upload-${generatedId}`
@@ -85,6 +91,14 @@ export function EvidenceUpload({
       setDragError(
         `File type not accepted. Allowed types: ${ACCEPTED_FILE_EXTENSIONS.join(', ')}.`
       )
+      setDroppedFile(null)
+      return
+    }
+
+    if (file.size > maxFileSizeBytes) {
+      const limitMb = (maxFileSizeBytes / (1024 * 1024)).toFixed(0)
+      const fileMb = (file.size / (1024 * 1024)).toFixed(1)
+      setDragError(`File is too large (${fileMb} MB). Maximum allowed size is ${limitMb} MB.`)
       setDroppedFile(null)
       return
     }
@@ -226,6 +240,8 @@ export function EvidenceUpload({
             <span style={{ color: 'var(--accent)', textDecoration: 'underline' }}>browse</span>
             <br />
             Accepted types: {ACCEPTED_FILE_EXTENSIONS.join(', ')}
+            <br />
+            Max size: {(maxFileSizeBytes / (1024 * 1024)).toFixed(0)} MB
           </Text>
         )}
       </div>
