@@ -252,7 +252,7 @@ export default function Notification() {
                         id={items.id}
                         title={items.title}
                         message={items.message}
-                        timeAgo={items.timeAgo}
+                        timestamp={items.timestamp}
                         type={items.type}
                         read={items.isRead}
                         isFullPage={true}
