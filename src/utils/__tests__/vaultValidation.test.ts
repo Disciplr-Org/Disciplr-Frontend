@@ -52,8 +52,8 @@ describe("vaultValidation", () => {
     expect(errors).toEqual({
       amount: "Enter a positive USDC amount with up to 7 decimal places.",
       deadline: "Choose a future deadline.",
-      successAddress: "Enter a valid Stellar public key starting with G.",
-      failureAddress: "Enter a valid Stellar public key starting with G.",
+      successAddress: "Enter a valid Stellar public key starting with G or C.",
+      failureAddress: "Enter a valid Stellar public key starting with G or C.",
       milestones: { form: "Add at least one milestone." },
     });
   });
@@ -208,7 +208,7 @@ describe("vaultValidation", () => {
       },
       now,
     );
-    expect(errors.verifierAddress).toBe('Enter a valid Stellar public key starting with G.');
+    expect(errors.verifierAddress).toBe('Enter a valid Stellar public key starting with G or C.');
   });
 
   it('rejects verifier identical to success address', () => {

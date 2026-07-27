@@ -35,15 +35,12 @@ export type CreateVaultErrors = Partial<
   milestones?: CreateVaultMilestoneErrors;
 };
 
-const STELLAR_PUBLIC_KEY = /^G[A-Z2-7]{55}$/;
 const USDC_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
 
 export const MILESTONE_TITLE_MAX = 100;
 export const MILESTONE_CRITERIA_MAX = 500;
 
-export function isValidStellarAddress(address: string): boolean {
-  return STELLAR_PUBLIC_KEY.test(address.trim());
-}
+export { isValidStellarAddress } from './stellarAddress';
 
 export function isValidUsdcAmount(amount: string): boolean {
   const normalized = amount.trim();
@@ -119,11 +116,11 @@ export function validateCreateVault(
   }
 
   if (!isValidStellarAddress(successAddress)) {
-    errors.successAddress = "Enter a valid Stellar public key starting with G.";
+    errors.successAddress = "Enter a valid Stellar public key starting with G or C.";
   }
 
   if (!isValidStellarAddress(failureAddress)) {
-    errors.failureAddress = "Enter a valid Stellar public key starting with G.";
+    errors.failureAddress = "Enter a valid Stellar public key starting with G or C.";
   } else if (successAddress === failureAddress) {
     errors.failureAddress =
       "Failure destination must be different from success destination.";
@@ -135,7 +132,7 @@ export function validateCreateVault(
     if (verifierAddress) {
       if (!isValidStellarAddress(verifierAddress)) {
         errors.verifierAddress =
-          "Enter a valid Stellar public key starting with G.";
+          "Enter a valid Stellar public key starting with G or C.";
       } else if (verifierAddress === successAddress) {
         errors.verifierAddress =
           "Verifier must be different from the success destination.";

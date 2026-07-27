@@ -26,7 +26,8 @@ export default function VerifierDashboard() {
   const navigate = useNavigate();
   const now = useCurrentTime();
   
-  const { pendingValidations, validationHistory } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
   const totalPending = pendingValidations.length;
   const totalCompleted = validationHistory.length;

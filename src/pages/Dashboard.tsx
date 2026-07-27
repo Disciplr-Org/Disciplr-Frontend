@@ -31,7 +31,7 @@ const ACTIVITY_CFG: Record<
   released: {
     label: "Funds released",
     icon: "↑",
-    color: "var(--info, #60A5FA)",
+    color: "var(--info)",
   },
   redirected: { label: "Funds redirected", icon: "→", color: "var(--warning)" },
 };

@@ -21,6 +21,7 @@ import NotFound from './pages/NotFound'
 
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Notification = lazy(() => import('./pages/Notification'))
+const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 
 const PageFallback = <Skeleton className="w-full h-screen" />
 
@@ -62,6 +63,14 @@ export default function App() {
                       </Suspense>
                     }
                   />
+                  <Route
+                    path="/notifications/settings"
+                    element={
+                      <Suspense fallback={PageFallback}>
+                        <NotificationSettings />
+                      </Suspense>
+                    }
+                  />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Layout>
@@ -92,6 +101,14 @@ export default function App() {
                   element={
                     <Suspense fallback={PageFallback}>
                       <Notification />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/notifications/settings"
+                  element={
+                    <Suspense fallback={PageFallback}>
+                      <NotificationSettings />
                     </Suspense>
                   }
                 />
