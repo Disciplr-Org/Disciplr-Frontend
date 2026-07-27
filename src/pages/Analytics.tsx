@@ -169,6 +169,28 @@ export default function Analytics() {
 
   const benchmarkData = useMemo(() => computeBenchmarkData(kpis), [kpis])
 
+  const bestPeriod = useMemo(() => {
+  if (!chartData.length) return null;
+
+  return chartData.reduce((best, current) =>
+    current.success > best.success ? current : best
+  );
+}, [chartData]);
+
+const currentStreak = useMemo(() => {
+  let streak = 0;
+
+  for (let i = chartData.length - 1; i >= 0; i--) {
+    if (chartData[i].success >= 80) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}, [chartData]);
+
   const chartAnimationEnabled = !prefersReducedMotion
 
   const tooltipStyle = useMemo(() => ({
