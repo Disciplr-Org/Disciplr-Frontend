@@ -171,12 +171,11 @@ describe('VerifierMetricsBar', () => {
       };
     });
 
-    vi.resetModules();
     const { VerifierMetricsBar: MockedBar } = await import('../VerifierMetricsBar');
     render(<MockedBar metrics={{ ...baseMetrics, criticalCount: 1 }} />);
     
     expect(screen.getByText(/≤ 5 days to deadline/)).toBeInTheDocument();
-    expect(screen.getByText(/Critical \(≤5d\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Critical \\(≤5d\\)/)).toBeInTheDocument();
     
     vi.doUnmock('../../utils/verifierMetrics');
   });
