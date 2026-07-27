@@ -29,6 +29,20 @@ type CommandItem = {
 
 const QUICK_ACTIONS: CommandItem[] = [
   {
+    id: "action-dashboard",
+    label: "Dashboard",
+    description: "View vault summary and stats",
+    to: "/dashboard",
+    kind: "action",
+  },
+  {
+    id: "action-vaults",
+    label: "Vaults",
+    description: "Browse all vaults",
+    to: "/vaults",
+    kind: "action",
+  },
+  {
     id: "action-create-vault",
     label: "Create Vault",
     description: "Start a new vault",

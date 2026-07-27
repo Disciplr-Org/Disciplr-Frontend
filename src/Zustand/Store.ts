@@ -94,7 +94,7 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     const taskIndex = state.pendingValidations.findIndex(t => t.id === id);
     if (taskIndex === -1) return state;
     
-    const task = { ...state.pendingValidations[taskIndex], status: 'approved' as const, notes };
+    const task = { ...state.pendingValidations[taskIndex], status: 'approved' as const, notes, decidedAt: new Date().toISOString() };
     const newPending = [...state.pendingValidations];
     newPending.splice(taskIndex, 1);
     
@@ -108,7 +108,7 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     const taskIndex = state.pendingValidations.findIndex(t => t.id === id);
     if (taskIndex === -1) return state;
     
-    const task = { ...state.pendingValidations[taskIndex], status: 'rejected' as const, notes };
+    const task = { ...state.pendingValidations[taskIndex], status: 'rejected' as const, notes, decidedAt: new Date().toISOString() };
     const newPending = [...state.pendingValidations];
     newPending.splice(taskIndex, 1);
     
