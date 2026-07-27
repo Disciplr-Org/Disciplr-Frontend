@@ -137,4 +137,103 @@ describe("MilestoneTracker", () => {
     const failedStep = screen.getByText("Production Audit").closest("li")!;
     expect(failedStep.querySelector("a")).toBeNull();
   });
+
+  it("renders '[Invalid Link]' text for unsafe evidenceUrl (javascript: scheme)", () => {
+    const unsafeMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Unsafe JS",
+        description: "Test milestone",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+        evidenceUrl: "javascript:alert('xss')",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={unsafeMilestones} />);
+
+    expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
+  });
+
+  it("renders '[Invalid Link]' text for unsafe evidenceUrl (data: scheme)", () => {
+    const unsafeMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Unsafe Data",
+        description: "Test milestone",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+        evidenceUrl: "data:text/html,<script>alert('xss')</script>",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={unsafeMilestones} />);
+
+    expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
+  });
+
+  it("renders '[Invalid Link]' text for URLs with embedded credentials", () => {
+    const unsafeMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Credential Leak",
+        description: "Test milestone",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+        evidenceUrl: "https://user:pass@example.com/evidence",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={unsafeMilestones} />);
+
+    expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
+  });
+
+  it("renders working link for safe HTTPS URLs", () => {
+    const safeMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Safe Evidence",
+        description: "Test milestone",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+        evidenceUrl: "https://github.com/example/repo/pull/123",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={safeMilestones} />);
+
+    const link = screen.getByRole("link", { name: "View evidence" });
+    expect(link).toHaveAttribute("href", "https://github.com/example/repo/pull/123");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("renders working link for safe HTTP URLs", () => {
+    const safeMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Safe HTTP",
+        description: "Test milestone",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+        evidenceUrl: "http://example.com/evidence",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={safeMilestones} />);
+
+    const link = screen.getByRole("link", { name: "View evidence" });
+    expect(link).toHaveAttribute("href", "http://example.com/evidence");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
 });

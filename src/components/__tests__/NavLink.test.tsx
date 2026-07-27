@@ -70,6 +70,59 @@ describe('NavLink', () => {
     expect(screen.getByRole('link').className).toBe('active');
   });
 
+  it('is active when to is an object with a matching pathname', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <NavLink to={{ pathname: '/dashboard' }}>Link</NavLink>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link');
+    expect(link).toHaveClass('active');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('is active with object to when current path starts with pathname', () => {
+    render(
+      <MemoryRouter initialEntries={['/vaults/123']}>
+        <NavLink to={{ pathname: '/vaults' }}>Link</NavLink>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link');
+    expect(link).toHaveClass('active');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('is inactive when object to pathname does not match', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <NavLink to={{ pathname: '/vaults' }}>Link</NavLink>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link');
+    expect(link).not.toHaveClass('active');
+    expect(link).not.toHaveAttribute('aria-current');
+  });
+
+  it('root pathname in object to is active only on exact "/" path', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <NavLink to={{ pathname: '/' }}>Link</NavLink>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link')).toHaveClass('active');
+  });
+
+  it('root pathname in object to is inactive on a non-root path', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <NavLink to={{ pathname: '/' }}>Link</NavLink>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link');
+    expect(link).not.toHaveClass('active');
+    expect(link).not.toHaveAttribute('aria-current');
+  });
+
   it('partial prefix of to does NOT make to active (to is the prefix, not the path)', () => {
     // current path "/vault" does not start with "/vaults"
     renderNav('/vaults', '/vault');

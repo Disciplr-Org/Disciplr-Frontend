@@ -49,7 +49,9 @@ export default function ValidationDetail() {
   const navigate = useNavigate();
   const now = useCurrentTime();
   
-  const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const approveValidation = useVerifierStore((state) => state.approveValidation);
+  const rejectValidation = useVerifierStore((state) => state.rejectValidation);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());
@@ -57,6 +59,10 @@ export default function ValidationDetail() {
   const task = pendingValidations.find((t) => t.id === vaultId);
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
   const remaining = task ? daysRemaining(task.deadline, now) : 0;
+
+  useEffect(() => {
+    setCheckedCriteria(new Set());
+  }, [task?.id]);
 
   if (!task) {
     return (

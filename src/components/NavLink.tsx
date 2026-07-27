@@ -6,7 +6,7 @@ interface NavLinkProps extends React.ComponentPropsWithoutRef<typeof Link> {
 
 export default function NavLink({ to, className = '', children, ariaLabel, ...props }: NavLinkProps) {
   const location = useLocation();
-  const toStr = typeof to === 'string' ? to : (to as any)?.pathname || '';
+  const toStr = typeof to === 'string' ? to : to.pathname ?? '';
   const isActive = toStr === '/'
     ? location.pathname === '/'
     : location.pathname.startsWith(toStr);

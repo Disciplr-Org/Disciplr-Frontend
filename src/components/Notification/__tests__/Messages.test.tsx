@@ -3,12 +3,14 @@ import { describe, it, expect, vi } from "vitest";
 import Message from "../Messages";
 
 describe("Message Component", () => {
+  // A fixed ISO timestamp; the rendered timeAgo is computed by formatRelativeTime
+  // so we just verify it renders something (non-empty) rather than a hardcoded string.
   const defaultProps = {
     id: "msg-123",
     type: "funds_released",
     title: "Funds Released Successfully",
     message: "Your funds have been released from the escrow vault.",
-    timeAgo: "5 minutes ago",
+    timestamp: "2025-01-01T00:00:00Z",
     read: false,
     isFullPage: false,
     setRead: vi.fn(),
@@ -23,8 +25,9 @@ describe("Message Component", () => {
     // Assert message is truncated to 30 characters + ellipsis in preview
     expect(screen.getByText(/Your funds have been released.*.../)).toBeInTheDocument();
 
-    // Assert timeAgo is rendered
-    expect(screen.getByText(defaultProps.timeAgo)).toBeInTheDocument();
+    // Assert a relative time label is rendered (non-empty, computed from timestamp)
+    const timeLabel = screen.getByTestId("message-time-ago");
+    expect(timeLabel.textContent).toBeTruthy();
 
     // Assert "New" badge is rendered because read is false
     expect(screen.getByText("New")).toBeInTheDocument();

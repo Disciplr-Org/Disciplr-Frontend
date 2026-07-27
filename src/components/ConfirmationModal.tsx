@@ -67,7 +67,7 @@ export function ConfirmationModal({
         onClose={onClose}
         ariaLabelledBy="modal-title"
         overlayClassName="fixed inset-0 z-[var(--z-index-modal)] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        contentClassName="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col"
+        contentClassName="modal-content-default rounded-xl max-w-lg w-full overflow-hidden flex flex-col"
       >
         <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
           <Text role="title" as="h2" id="modal-title" className="text-gray-900 dark:text-white">

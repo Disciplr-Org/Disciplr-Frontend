@@ -1,8 +1,9 @@
 # Zustand Store Contracts
 
-Disciplr utilizes Zustand to manage global client-side state across two main stores:
+Disciplr utilizes Zustand to manage global client-side state across three main stores:
 1. `useVerifierStore`: Manages validation tasks (pending queue and verification history) for verifiers.
 2. `useNotification`: Manages user notifications, unread status, and batch read operations.
+3. `useToastStore`: Manages the transient toast/snackbar queue (push, dismiss, auto-expiry).
 
 This document describes the state structures, the transition mechanics, and recommendations for React components consuming these stores.
 
@@ -10,7 +11,7 @@ This document describes the state structures, the transition mechanics, and reco
 
 ## 1. Verifier Store (`useVerifierStore`)
 
-The verifier store is defined in [Store.ts](file:///c:/Users/HP/Disciplr-Frontend/src/Zustand/Store.ts) and manages verification workflows.
+The verifier store is defined in [Store.ts](../src/Zustand/Store.ts) and manages verification workflows.
 
 ### State Shapes
 
@@ -114,7 +115,31 @@ Derived from example notifications, each item has the following structure:
 
 ---
 
-## 3. Best Practices & React Component Consumption
+## 3. Toast Store (`useToastStore`)
+
+The toast store is defined in [toastStore.ts](../src/Zustand/toastStore.ts) and powers
+transient feedback (wallet connect, copy-to-clipboard, validation messages). The visual
+surface is `ToastViewport`, mounted once in `Layout`. See
+[toast.md](../design-system/documentation/toast.md) for full API and token mapping.
+
+### State Shapes
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Generated id returned by `push`. |
+| `message` | `string` | User-facing copy. |
+| `variant` | `'info' \| 'success' \| 'error'` | Maps to semantic color tokens. |
+| `createdAt` | `number` | `Date.now()` at push time. |
+
+### Mutators
+
+- `push({ message, variant?, durationMs? }): string` — enqueue, schedule auto-dismiss, FIFO-evict when over `TOAST_MAX_VISIBLE`.
+- `dismiss(id): void` — remove one toast and cancel its timer.
+- `clear(): void` — remove all toasts and cancel all timers.
+
+---
+
+## 4. Best Practices & React Component Consumption
 
 To avoid unnecessary component re-renders when using Zustand, always select specific state slices rather than consuming the entire store object.
 

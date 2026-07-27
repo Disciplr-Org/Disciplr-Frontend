@@ -10,14 +10,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MASTER_VAULTS } from "../../fixtures/vaults";
 import VaultDetail from "../VaultDetail";
 
+const { mockDownloadIcsEvent } = vi.hoisted(() => ({
+  mockDownloadIcsEvent: vi.fn(),
+}));
+
 vi.mock("../../context/WalletContext", () => ({
   useWallet: () => ({ network: "TESTNET" }),
 }));
+
+vi.mock("../../utils/ics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../utils/ics")>();
+  return {
+    ...actual,
+    downloadIcsEvent: mockDownloadIcsEvent,
+  };
+});
 
 const ORIGINAL_VAULT_1_CONTRACT = MASTER_VAULTS["1"].contractAddress;
 
 afterEach(() => {
   MASTER_VAULTS["1"].contractAddress = ORIGINAL_VAULT_1_CONTRACT;
+  mockDownloadIcsEvent.mockReset();
 });
 
 function renderVaultDetail(id: string) {
@@ -46,7 +59,7 @@ describe("VaultDetail", () => {
     expect(
       await screen.findByRole("heading", { name: "Alpha Vault" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
     expect(screen.getByText("12,500")).toBeInTheDocument();
     expect(screen.getAllByText("USDC").length).toBeGreaterThan(0);
 

@@ -27,7 +27,7 @@ describe('StatusChip Component', () => {
 
     allStatuses.forEach((status) => {
       const { unmount } = render(<StatusChip status={status} />);
-      const chip = screen.getByRole('status');
+      const chip = screen.getByLabelText(expectedLabels[status]);
       expect(chip).toHaveTextContent(expectedLabels[status]);
       unmount();
     });
@@ -57,15 +57,15 @@ describe('StatusChip Component', () => {
 
   it('falls back gracefully to cancelled config on unknown status', () => {
     // We suppress the console error for unknown status (TS would normally catch this, but in pure JS it might happen)
-    // @ts-ignore
+    // @ts-expect-error - unknown status is intentionally exercised for fallback behavior
     render(<StatusChip status="unknown_status" />);
-    const chip = screen.getByRole('status');
+    const chip = screen.getByLabelText('Cancelled');
     expect(chip).toHaveTextContent('Cancelled');
   });
 
   it('applies additional classNames correctly', () => {
     render(<StatusChip status="active" className="uppercase extra-class" />);
-    const chip = screen.getByRole('status');
+    const chip = screen.getByLabelText('Active');
     expect(chip).toHaveClass('status-chip');
     expect(chip).toHaveClass('uppercase');
     expect(chip).toHaveClass('extra-class');

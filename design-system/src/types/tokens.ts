@@ -78,6 +78,12 @@ export interface BorderToken {
 
 export type ColorTokenNode = ColorToken | { [key: string]: ColorTokenNode };
 
+export interface ToastToken {
+  $type: 'number';
+  $value: number;
+  $description?: string;
+}
+
 export interface DesignTokens {
   color?: Record<string, ColorTokenNode>;
   typography?: Record<string, TypographyToken>;
@@ -88,5 +94,7 @@ export interface DesignTokens {
   zIndex?: Record<string, ZIndexToken>;
   opacity?: Record<string, OpacityToken>;
   breakpoint?: Record<string, SpacingToken>;
+  /** Timing / capacity tokens from tokens/toast.json (DTCG number leaves). */
+  toast?: Record<string, ToastToken>;
 }
 
