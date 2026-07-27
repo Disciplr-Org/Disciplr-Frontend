@@ -11,22 +11,10 @@ import {
 import type { ReactNode, CSSProperties } from 'react'
 import { ChartLegend, type ChartLegendEntry } from '../components/ChartLegend'
 import type { AnalyticsSeriesColors, AnalyticsChartTokens } from './analyticsTheme'
+import Skeleton from '../components/Skeleton'
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
 
-function SkeletonBox({ height = 220 }: { height?: number }) {
-  return (
-    <div
-      data-testid="chart-skeleton"
-      style={{
-        height,
-        background: 'var(--border)',
-        borderRadius: 'var(--radius)',
-        animation: 'disciplr-pulse 1.5s ease-in-out infinite',
-      }}
-    />
-  )
-}
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -121,7 +109,7 @@ export default function AnalyticsCharts({
             Line chart summarizing success and failure percentages for the selected {period} period.
             {showComparison ? ' Previous period success rate is included for comparison.' : ''}
           </ChartSummary>
-          {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
+          {isLoading ? <Skeleton data-testid="chart-skeleton" /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
             <>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={displayData}>
@@ -150,7 +138,7 @@ export default function AnalyticsCharts({
             Area chart showing USDC capital locked over the selected {period} period.
             {showComparison ? ' Previous period capital is shown as a comparison area.' : ''}
           </ChartSummary>
-          {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
+          {isLoading ? <Skeleton data-testid="chart-skeleton" /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
             <>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={displayData}>
@@ -187,7 +175,7 @@ export default function AnalyticsCharts({
           <ChartSummary>
             Bar chart showing completed milestone counts for each point in the selected {period} period.
           </ChartSummary>
-          {isLoading ? <SkeletonBox /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
+          {isLoading ? <Skeleton data-testid="chart-skeleton" /> : !hasChartData ? <EmptyState message={emptyMsg} /> : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={seriesColors.grid} vertical={false} />
@@ -205,7 +193,7 @@ export default function AnalyticsCharts({
   }
 
   if (section === 'donut') {
-    if (isLoading) return <SkeletonBox height={180} />
+    if (isLoading) return <Skeleton height={180} data-testid="chart-skeleton" />
     if (vaultStatusData.length === 0) return <EmptyState message="No data for this period." />
     return (
       <>
@@ -232,7 +220,7 @@ export default function AnalyticsCharts({
   }
 
   // section === 'team'
-  if (isLoading) return <SkeletonBox height={160} />
+  if (isLoading) return <Skeleton height={160} data-testid="chart-skeleton" />
   if (teamChartData.length === 0) return <EmptyState message={emptyMsg} />
   return (
     <ResponsiveContainer width="100%" height={160}>
