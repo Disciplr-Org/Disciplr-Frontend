@@ -294,6 +294,7 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        localStorage.clear();
         freighterMocks.isAllowed.mockResolvedValue(false);
         freighterMocks.getAddress.mockResolvedValue({ address: null, error: null });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
@@ -302,6 +303,7 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     afterAll(() => {
         globalThis.fetch = originalFetch;
+        localStorage.clear();
     });
 
     test('restores address and balance when isAllowed returns true', async () => {

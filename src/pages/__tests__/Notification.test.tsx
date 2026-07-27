@@ -1,8 +1,9 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Ref, ReactNode } from "react";
 import Notification from "../Notification";
+import NotificationSettings from "../NotificationSettings";
 import { useNotification } from "@/Zustand/Store";
 import { getNotifications } from "@/components/Notification/exampleNotification/example";
 
@@ -388,6 +389,30 @@ describe("Notification page", () => {
       const state = useNotification.getState();
       const updated = state.notification.find((n) => n.id === firstUnread.id);
       expect(updated!.isRead).toBe(true);
+    });
+  });
+
+  describe("navigation to settings", () => {
+    it("navigates from the bell icon through to the settings screen", () => {
+      render(
+        <MemoryRouter initialEntries={["/notifications"]}>
+          <Routes>
+            <Route path="/notifications" element={<Notification />} />
+            <Route path="/notifications/settings" element={<NotificationSettings />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      const settingsLink = screen.getByRole("link", {
+        name: "Notification Preferences",
+      });
+      expect(settingsLink).toHaveAttribute("href", "/notifications/settings");
+
+      fireEvent.click(settingsLink);
+
+      expect(
+        screen.getByRole("heading", { name: "Notification Settings" }),
+      ).toBeInTheDocument();
     });
   });
 });

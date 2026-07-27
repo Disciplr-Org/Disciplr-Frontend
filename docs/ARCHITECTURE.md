@@ -19,11 +19,12 @@ Provider/wrapper nesting, outermost to innermost (verified against
 ```text
 ThemeProvider                  (src/context/ThemeContext.tsx)
   WalletProvider               (src/context/WalletContext.tsx)
-    BrowserRouter              (react-router-dom)
-      ErrorBoundary            (src/components/ErrorBoundary.tsx)
-        Layout                 (src/components/Layout.tsx) — header, nav, TrustlineBanner, <main>
-          Routes               (route table below)
-            Route element      lazy routes are individually wrapped in <Suspense>
+    AppConfigProvider          (src/context/AppConfigContext.tsx)
+      BrowserRouter              (react-router-dom)
+        ErrorBoundary            (src/components/ErrorBoundary.tsx)
+          Layout                 (src/components/Layout.tsx) — header, nav, TrustlineBanner, <main>
+            Routes               (route table below)
+              Route element      lazy routes are individually wrapped in <Suspense>
 ```
 
 `Layout` renders the shared chrome (site header, desktop nav, mobile drawer,
@@ -145,9 +146,12 @@ Soroban/Horizon calls without touching the pages.
 
 - [`src/services/vaultService.ts`](../src/services/vaultService.ts) — exposes
   `listVaults()`, `getVault(id)`, `getTransactions(id)`, and
-  `listAllActivity()`. Mock datasets (`MASTER_VAULTS`, `MASTER_ACTIVITY`) live
-  inside this file; each function is marked with a `SEAM` comment indicating the
-  Soroban/Horizon call that should replace its internals.
+  `listAllActivity()`. Mock datasets live in
+  [`src/fixtures/vaults.ts`](../src/fixtures/vaults.ts) (`MASTER_VAULTS`) and
+  [`src/fixtures/transactions.ts`](../src/fixtures/transactions.ts)
+  (`MASTER_ACTIVITY`) and are imported by the service; each function is marked
+  with a `SEAM` comment indicating the Soroban/Horizon call that should replace
+  its internals.
 - Shared domain types live in [`src/types/vault.ts`](../src/types/vault.ts)
   (`Vault`, `VaultStatus`, `MilestoneStatus`, `TxType`, `TxStatus`, etc.).
 

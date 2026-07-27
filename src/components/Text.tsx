@@ -1,5 +1,6 @@
 import React from 'react'
-import { TypographyRole, getTypographyClass } from '../utils/typography'
+import { getTypographyClass } from '../utils/typography'
+import type { TypographyRole } from '../utils/typography'
 
 interface TextProps extends React.HTMLAttributes<HTMLElement> {
   /** Typography role determining size and weight */

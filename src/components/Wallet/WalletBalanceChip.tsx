@@ -19,7 +19,12 @@ export function WalletBalanceChip() {
 
     if (balanceStatus === 'loading') {
         return (
-            <div className="wallet-balance-chip" data-testid="wallet-balance-chip">
+            <div
+                className="wallet-balance-chip"
+                data-testid="wallet-balance-chip"
+                role="status"
+                aria-label="Loading balance"
+            >
                 <Skeleton className="wallet-balance-skeleton" />
             </div>
         );
@@ -31,6 +36,7 @@ export function WalletBalanceChip() {
                 className="wallet-balance-chip wallet-balance-chip--error"
                 data-testid="wallet-balance-chip"
                 role="status"
+                aria-label="Balance unavailable"
             >
                 <span className="wallet-balance-value">!</span>
                 <span className="wallet-balance-currency">USDC</span>

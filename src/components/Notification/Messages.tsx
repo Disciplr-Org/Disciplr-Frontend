@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { getNotificationTypeMapping } from "./notificationType";
+import { formatRelativeTime } from "../../utils/relativeTime";
 
 interface MessageProps {
   id: string;
   type: string;
   title: string;
   message: string;
-  timeAgo: string;
+  timestamp: string;
   read: boolean;
   isFullPage: boolean;
   setRead: (id: string) => void;
@@ -17,13 +18,14 @@ export default function Message({
   type,
   title,
   message,
-  timeAgo,
+  timestamp,
   read,
   isFullPage,
   setRead,
 }: MessageProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { icon: Icon, color, label } = getNotificationTypeMapping(type);
+  const timeAgo = formatRelativeTime(timestamp);
 
   return (
     <>
@@ -50,7 +52,7 @@ export default function Message({
                   {title}
                 </h2>
                 <p className="text-sm text-[#667589]">
-                  {message.slice(0, 30)} ...
+                  {message.length > 30 ? `${message.slice(0, 30)}...` : message}
                 </p>
               </div>
               {isFullPage && (
@@ -66,7 +68,7 @@ export default function Message({
               >
                 <p className="font-bold">{read ? "" : "New"}</p>
               </div>
-              <p className="text-sm text-[#667589]">{timeAgo}</p>
+              <p className="text-sm text-[#667589]" data-testid="message-time-ago">{timeAgo}</p>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import Message from "@/components/Notification/Messages";
 import { groupNotificationsByDate } from "../utils/groupNotifications";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
@@ -17,7 +17,6 @@ export default function Notification() {
   const setNotifications = useNotification((state) => state.setNotification);
   const dismiss = useNotification((state) => state.dismiss);
   const clearAll = useNotification((state) => state.clearAll);
-  const [currentNotification, setCurrentNotification] = useState(notifications);
   const [currentFilterReadSeletion, setCurrentFilterReadSeletion] = useState("all");
   const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,11 +33,27 @@ export default function Notification() {
     ? { duration: 0 } 
     : transitionEnter;
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentData = currentNotification.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
+    if (!filtered) return [];
+
+    if (currentFilterReadSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
+      );
+    }
+
+    if (currentFilterTypeSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.category === currentFilterTypeSeletion,
+      );
+    }
+
+    return filtered;
+  }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
+
+  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
+  const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -87,21 +102,6 @@ export default function Notification() {
   }, []);
 
   useEffect(() => {
-    let filtered = notifications;
-    if (!filtered) return;
-
-    if (currentFilterReadSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
-      );
-    }
-
-    if (currentFilterTypeSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.category === currentFilterTypeSeletion,
-      );
-    }
-    setCurrentNotification(filtered);
     setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
@@ -145,12 +145,31 @@ export default function Notification() {
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
-    setCurrentNotification((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
   };
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setShowClearModal(false);
+  };
+
+  const statusLabel =
+    currentFilterReadSeletion === "all"
+      ? "all"
+      : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+  const categoryLabel =
+    currentFilterTypeSeletion === "all" ? "all categories" : currentFilterTypeSeletion;
+  const resultCount = filteredNotifications.length;
+  const countText =
+    resultCount === 0
+      ? "No notifications found"
+      : `Showing ${resultCount === 1 ? "1 notification" : `${resultCount} notifications`}`;
+  const liveAnnouncement = `${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`;
 
   return (
     <>
@@ -159,7 +178,7 @@ export default function Notification() {
         <div className="flex gap-5 items-center justify-center">
           <div className="relative">
             <Link
-              to="/notification/settings"
+              to="/notifications/settings"
               aria-label="Notification Preferences"
               style={{
                 padding: "0.5rem 1rem",
@@ -267,7 +286,7 @@ export default function Notification() {
                         id={items.id}
                         title={items.title}
                         message={items.message}
-                        timeAgo={items.timeAgo}
+                        timestamp={items.timestamp}
                         type={items.type}
                         read={items.isRead}
                         isFullPage={true}
