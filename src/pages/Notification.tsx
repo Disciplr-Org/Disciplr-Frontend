@@ -1,6 +1,6 @@
 import Message from "@/components/Notification/Messages";
 import { groupNotificationsByDate } from "../utils/groupNotifications";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
@@ -17,7 +17,6 @@ export default function Notification() {
   const setNotifications = useNotification((state) => state.setNotification);
   const dismiss = useNotification((state) => state.dismiss);
   const clearAll = useNotification((state) => state.clearAll);
-  const [currentNotification, setCurrentNotification] = useState(notifications);
   const [currentFilterReadSeletion, setCurrentFilterReadSeletion] = useState("all");
   const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +32,26 @@ export default function Notification() {
     ? { duration: 0 } 
     : transitionEnter;
 
-  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
+    if (!filtered) return [];
+
+    if (currentFilterReadSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
+      );
+    }
+
+    if (currentFilterTypeSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.category === currentFilterTypeSeletion,
+      );
+    }
+
+    return filtered;
+  }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
+
+  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
   const currentData = pagination.items;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -82,37 +100,13 @@ export default function Notification() {
     };
   }, []);
 
-  const filterNotification = () => {
-    let filtered = notifications;
-    if (!filtered) return;
-
-    if (currentFilterReadSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
-      );
-    }
-
-    if (currentFilterTypeSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.category === currentFilterTypeSeletion,
-      );
-    }
-    setCurrentNotification(filtered);
-    setCurrentPage(1);
-  };
-
   useEffect(() => {
-    filterNotification();
+    setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-    setCurrentNotification((prev) =>
-      prev.map((n) =>
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
@@ -135,7 +129,7 @@ export default function Notification() {
         : "read";
   const categoryLabel =
     currentFilterTypeSeletion === "all" ? "all categories" : currentFilterTypeSeletion;
-  const resultCount = currentNotification.length;
+  const resultCount = filteredNotifications.length;
   const countText =
     resultCount === 0
       ? "No notifications found"
