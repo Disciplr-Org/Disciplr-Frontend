@@ -47,14 +47,23 @@ export default function Message({
                 className="w-full"
               >
                 <h2
-                  className={`${read ? "text-[#667589]" : isFullPage ? "text-white" : "text-black"} font-bold`}
+                  className={`${
+                    read
+                      ? "text-[#667589]"
+                      : isFullPage
+                      ? "text-white"
+                      : "text-black"
+                  } font-bold`}
                 >
                   {title}
                 </h2>
                 <p className="text-sm text-[#667589]">
-                  {message.length > 30 ? `${message.slice(0, 30)}...` : message}
+                  {message.length > 30
+                    ? `${message.slice(0, 30)}...`
+                    : message}
                 </p>
               </div>
+
               {isFullPage && (
                 <button className="bg-[#00c389] px-2 py-1 rounded-md">
                   Delete
@@ -64,11 +73,19 @@ export default function Message({
 
             <div className="flex justify-between w-full">
               <div
-                className={`${!read ? "bg-[#00c389]" : ""} rounded-md mb-1 px-2`}
+                className={`${
+                  !read ? "bg-[#00c389]" : ""
+                } rounded-md mb-1 px-2`}
               >
                 <p className="font-bold">{read ? "" : "New"}</p>
               </div>
-              <p className="text-sm text-[#667589]" data-testid="message-time-ago">{timeAgo}</p>
+
+              <p
+                className="text-sm text-[#667589]"
+                data-testid="message-time-ago"
+              >
+                {timeAgo}
+              </p>
             </div>
           </div>
         </div>
@@ -83,13 +100,16 @@ export default function Message({
           }`}
         >
           <div className="flex justify-end p-4">
-            <div
+            <button
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="bg-red-500 rounded-full text-white w-7 h-7 flex items-center justify-center cursor-default"
+              aria-label="Close message"
+              className="bg-red-500 rounded-full text-white w-7 h-7 flex items-center justify-center hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
             >
-              <h1>X</h1>
-            </div>
+              <span aria-hidden="true">X</span>
+            </button>
           </div>
+
           <div className="px-2">
             <h2 className="text-black font-bold text-xl">{title}</h2>
             <p className="mt-5 text-[#667589]">{message}</p>
