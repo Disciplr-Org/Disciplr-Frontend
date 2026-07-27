@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
+import { toCsv, downloadCsv } from '../utils/csv'
 import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
@@ -240,18 +241,10 @@ export default function Analytics() {
   // ─── Export handlers ───────────────────────────────────────────────────────
   const handleCsvExport = useCallback(() => {
     if (chartData.length === 0) return
-    const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-    const rows = chartData.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = customRangeActive
+    const filename = customRangeActive
       ? `disciplr-analytics-${customFrom}-to-${customTo}.csv`
       : `disciplr-analytics-${period}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(toCsv(chartData, 'analytics'), filename)
   }, [chartData, period, customRangeActive, customFrom, customTo])
 
   const handlePdfExport = useCallback(async () => {
