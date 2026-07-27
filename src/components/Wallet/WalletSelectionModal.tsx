@@ -13,12 +13,10 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const isConnected = address !== null;
 
     const handleConnect = async () => {
-        await connect();
-        // Assuming connect throws or handles error internally, we wait for it
-        // If successful, the context will update address, which will re-render
-        // the parent component and unmount this modal automatically usually,
-        // or we can close it manually
-        onClose();
+        const connected = await connect();
+        if (connected) {
+            onClose();
+        }
     };
 
     return (
