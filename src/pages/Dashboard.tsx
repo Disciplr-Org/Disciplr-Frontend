@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text';
 import VaultCard from '../components/VaultCard';
+import { getAtRiskVaults } from '../utils/atRiskVaults';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
@@ -55,7 +56,7 @@ const VAULTS: VaultPreview[] = [
     currency: "USDC",
     status: "pending_validation",
     progressPct: 78,
-    deadline: "2024-05-20T10:00:00Z",
+    deadline: "2026-07-30T10:00:00Z",
   },
   {
     id: "3",
@@ -64,7 +65,7 @@ const VAULTS: VaultPreview[] = [
     currency: "USDC",
     status: "active",
     progressPct: 25,
-    deadline: "2024-09-01T10:00:00Z",
+    deadline: "2026-07-28T06:00:00Z",
   },
 ];
 
@@ -283,6 +284,49 @@ function SectionHeader({
   );
 }
 
+// ── At Risk Section ───────────────────────────────────────────────────────────
+function AtRiskSection({ vaults }: { vaults: VaultPreview[] }) {
+  const atRiskVaults = getAtRiskVaults(vaults);
+
+  if (atRiskVaults.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        marginBottom: '1.75rem',
+        background: 'var(--danger-transparent)',
+        border: '1px solid var(--danger)',
+        borderRadius: 'var(--radius)',
+        padding: '1.25rem',
+      }}
+    >
+      <SectionHeader title={`⚠️ At Risk (${atRiskVaults.length})`} />
+      <Text
+        role="caption"
+        as="p"
+        style={{ color: 'var(--danger)', margin: '0 0 1rem' }}
+      >
+        These vaults need immediate attention — their deadlines are approaching
+        or critical.
+      </Text>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {atRiskVaults.map((v) => (
+          <VaultCard
+            key={v.id}
+            id={v.id}
+            name={v.name}
+            amount={v.amount}
+            currency={v.currency}
+            status={v.status}
+            deadline={v.deadline}
+            progressPct={v.progressPct}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const hasVaults = VAULTS.length > 0;
@@ -388,6 +432,9 @@ export default function Dashboard() {
           Verify Milestone
         </button>
       </div>
+
+      {/* ── At Risk Vaults ── */}
+      <AtRiskSection vaults={VAULTS} />
 
       {/* ── Main grid: vault list + sidebar ── */}
       <div
