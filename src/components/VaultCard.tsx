@@ -104,7 +104,7 @@ const VaultCard = memo(function VaultCard({
           gridTemplateColumns: 'minmax(0, 1fr) auto',
           gap: '0.75rem',
           marginBottom: 4,
-          boxShadow: 'var(--elevated)',
+          boxShadow: 'var(--shadow-level-2)',
         }}
       >
         <div style={{ minWidth: 0 }}>
