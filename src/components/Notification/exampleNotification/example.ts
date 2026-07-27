@@ -1,12 +1,3 @@
-import { SiInternetarchive } from "react-icons/si";
-import { HiOutlineCheckBadge } from "react-icons/hi2";
-import { FiAlertTriangle } from "react-icons/fi";
-import { FaSquareArrowUpRight } from "react-icons/fa6";
-import { FiRefreshCw } from "react-icons/fi";
-import { FaUserCheck } from "react-icons/fa6";
-import { IoMegaphoneOutline } from "react-icons/io5";
-import { IconType } from "react-icons";
-
 export function getNotifications() {
   const notifications = [
     {
@@ -218,28 +209,10 @@ export function getNotifications() {
   return notifications;
 }
 
-export const notificationTypeIcons: { [key: string]: IconType } = {
-  vault_created_successfully: SiInternetarchive,
-  milestone_validated: HiOutlineCheckBadge,
-  vault_deadline_approaching: FiAlertTriangle,
-  funds_released: FaSquareArrowUpRight,
-  funds_redirected: FiRefreshCw,
-  verification_requested: FaUserCheck,
-  system_announcement: IoMegaphoneOutline,
-};
-
 export const vaults = [
   { name: "First Vault" },
   { name: "Second Vault" },
   { name: "Third Vault" },
 ];
 
-export const notificationTypeColors: { [key: string]: string } = {
-  vault_created_successfully: "grey",
-  milestone_validated: "orange",
-  vault_deadline_approaching: "red",
-  funds_released: "green",
-  funds_redirected: "amber",
-  verification_requested: "blue",
-  system_announcement: "grey",
-};
+
