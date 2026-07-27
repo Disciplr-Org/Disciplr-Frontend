@@ -286,12 +286,12 @@ export default function Analytics() {
       doc.text('Key Metrics', 14, 42)
 
       const metrics = [
-        ['Total Capital Locked', '$12,450 USDC'],
-        ['Active Capital', '$3,200 USDC'],
-        ['Success Rate', '85%'],
-        ['Total Vaults', '21'],
-        ['Completed / Failed', '14 / 4'],
-        ['Accountability Score', '82 / 100'],
+        ['Total Capital Locked', `${formatCurrency(kpis.totalCapital)} USDC`],
+        ['Success Rate', formatPercentage(kpis.averageSuccessRate)],
+        ['Total Milestones', `${kpis.totalMilestones}`],
+        ['Period', period],
+        ['vs Previous Period (Capital)', kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)}` : 'No prior data'],
+        ['vs Previous Period (Success)', kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)}` : 'No prior data'],
       ]
 
       doc.setFontSize(10)
@@ -851,21 +851,21 @@ export default function Analytics() {
                   onChange={e => setGoalRate(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: 85%</span>
-                    <span style={{ color: Number(goalRate) <= 85 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatPercentage(kpis.averageSuccessRate)}</span>
+                    <span style={{ color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: {goalRate}%
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(85, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(kpis.averageSuccessRate, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2, left: `${Math.min(Number(goalRate), 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2,
                       transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalRate) <= 85 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalRate) <= 85 ? '✓ Goal achieved!' : `${Number(goalRate) - 85}% to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.averageSuccessRate >= Number(goalRate) ? '✓ Goal achieved!' : `${(Number(goalRate) - kpis.averageSuccessRate).toFixed(1)}% to go`}
                   </div>
                 </div>
               </div>
@@ -879,21 +879,21 @@ export default function Analytics() {
                   onChange={e => setGoalCapital(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: $3,200</span>
-                    <span style={{ color: Number(goalCapital) <= 3200 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatCurrency(kpis.totalCapital)}</span>
+                    <span style={{ color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: ${Number(goalCapital).toLocaleString()}
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((3200 / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((kpis.totalCapital / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2,
-                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`,
+                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2, transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalCapital) <= 3200 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalCapital) <= 3200 ? '✓ Goal achieved!' : `$${(Number(goalCapital) - 3200).toLocaleString()} to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.totalCapital >= Number(goalCapital) ? '✓ Goal achieved!' : `$${(Number(goalCapital) - kpis.totalCapital).toLocaleString()} to go`}
                   </div>
                 </div>
               </div>
