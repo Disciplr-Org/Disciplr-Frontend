@@ -95,7 +95,7 @@ export default function Analytics() {
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
-  const [isLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)

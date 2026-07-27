@@ -151,7 +151,9 @@ export default function VaultTransactions({
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
-  const [anchorIndex, setAnchorIndex] = useState(0);
+  const [pendingAnchor, setPendingAnchor] = useState(0);
+  const [failedAnchor, setFailedAnchor] = useState(0);
+  const [restAnchor, setRestAnchor] = useState(0);
 
   const transactions = useMemo(
     () => providedTransactions ?? getCachedActivity(),
@@ -194,7 +196,9 @@ export default function VaultTransactions({
             : "desc"
           : "asc",
     }));
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
@@ -242,16 +246,16 @@ export default function VaultTransactions({
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
   const pendingWindow = useMemo(
-    () => windowRange(pending, anchorIndex),
-    [pending, anchorIndex],
+    () => windowRange(pending, pendingAnchor),
+    [pending, pendingAnchor],
   );
   const failedWindow = useMemo(
-    () => windowRange(failed, anchorIndex),
-    [failed, anchorIndex],
+    () => windowRange(failed, failedAnchor),
+    [failed, failedAnchor],
   );
   const restWindow = useMemo(
-    () => windowRange(rest, anchorIndex),
-    [rest, anchorIndex],
+    () => windowRange(rest, restAnchor),
+    [rest, restAnchor],
   );
 
   const stats = useMemo(
@@ -284,7 +288,9 @@ export default function VaultTransactions({
     setSearchHash("");
     setAmountMin("");
     setAmountMax("");
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   };
 
   const hasFilters =
@@ -512,9 +518,9 @@ export default function VaultTransactions({
                   start={pendingWindow.startIndex}
                   end={pendingWindow.endIndex}
                   total={pending.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setPendingAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(pending.length - 1, a + 10))
+                    setPendingAnchor((a) => Math.min(pending.length - 1, a + 10))
                   }
                 />
               )}
@@ -546,9 +552,9 @@ export default function VaultTransactions({
                   start={failedWindow.startIndex}
                   end={failedWindow.endIndex}
                   total={failed.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setFailedAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(failed.length - 1, a + 10))
+                    setFailedAnchor((a) => Math.min(failed.length - 1, a + 10))
                   }
                 />
               )}
@@ -581,9 +587,9 @@ export default function VaultTransactions({
                     start={restWindow.startIndex}
                     end={restWindow.endIndex}
                     total={rest.length}
-                    onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                    onPrev={() => setRestAnchor((a) => Math.max(0, a - 10))}
                     onNext={() =>
-                      setAnchorIndex((a) => Math.min(rest.length - 1, a + 10))
+                      setRestAnchor((a) => Math.min(rest.length - 1, a + 10))
                     }
                   />
                 )}
