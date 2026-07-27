@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useEffect, memo } from "react";
 import { useParams } from "react-router-dom";
 import { windowRange } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
@@ -251,6 +251,12 @@ export default function VaultTransactions({
   );
 
   // Reset window anchor when filters change so the user always sees the top.
+  // sort changes are handled inside updateSort(); this effect covers the six
+  // filter controls that filtered() depends on.
+  useEffect(() => {
+    setAnchorIndex(0);
+  }, [selectedTypes, filterVault, filterStatus, searchHash, amountMin, amountMax]);
+
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
   const pendingWindow = useMemo(

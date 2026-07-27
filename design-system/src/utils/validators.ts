@@ -19,7 +19,7 @@ export function isKebabCase(str: string): boolean {
 }
 
 export function hasValidTokenPrefix(tokenName: string): boolean {
-  const validPrefixes = ['color', 'spacing', 'typography', 'shadow', 'radius', 'border', 'motion', 'z-index'];
+  const validPrefixes = ['chart', 'color', 'font', 'spacing', 'typography', 'shadow', 'radius', 'border', 'motion', 'z-index'];
   return validPrefixes.some(prefix => tokenName.startsWith(prefix + '-'));
 }
 export function isValidColorString(color: string): boolean {
