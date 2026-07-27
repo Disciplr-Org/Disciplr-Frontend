@@ -900,7 +900,9 @@ export default function Analytics() {
                 Monitor your entire organization's accountability performance, compare members, and export team-wide reports.
               </div>
             </div>
-            <button style={{
+            <button
+              onClick={() => window.open('mailto:sales@disciplr.app?subject=Enterprise%20Upgrade%20Inquiry', '_blank')}
+              style={{
               background: seriesColors.warning,
               color: 'var(--bg)',
               border: 'none',
