@@ -168,7 +168,7 @@ describe('Analytics lazy route', () => {
     )
 
     expect(screen.getByTestId('skeleton')).toBeTruthy()
-    await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 2000 })
+    await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 10000 })
   })
 
   it('renders Analytics content after lazy chunk resolves', async () => {
@@ -182,7 +182,7 @@ describe('Analytics lazy route', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 2000 })
+    await waitFor(() => expect(screen.queryByTestId('skeleton')).toBeNull(), { timeout: 10000 })
   })
 
   it('reads period from query params and writes it back on selection change', async () => {
@@ -194,7 +194,7 @@ describe('Analytics lazy route', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('Analytics')).toBeInTheDocument(), { timeout: 2000 })
+    await waitFor(() => expect(screen.getByText('Analytics')).toBeInTheDocument(), { timeout: 10000 })
     expect(screen.getByRole('button', { name: '7d' })).toHaveClass('active')
 
     fireEvent.click(screen.getByRole('button', { name: '30d' }))

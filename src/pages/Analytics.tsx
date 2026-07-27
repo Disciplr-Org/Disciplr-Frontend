@@ -16,6 +16,7 @@ import {
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
 import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
+import Skeleton from '../components/Skeleton'
 
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
 
@@ -69,17 +70,6 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
 
 function ChartSummary({ children }: { children: React.ReactNode }) {
   return <p className="sr-only">{children}</p>
-}
-
-function SkeletonBox({ height = 220 }: { height?: number }) {
-  return (
-    <div style={{
-      height,
-      background: 'var(--border)',
-      borderRadius: 'var(--radius)',
-      animation: 'disciplr-pulse 1.5s ease-in-out infinite',
-    }} />
-  )
 }
 
 export default function Analytics() {
@@ -672,7 +662,7 @@ export default function Analytics() {
         {/* ── SECTION 2: Performance Charts ── */}
         <div style={{ marginBottom: '2rem' }}>
           <SectionTitle>Performance Charts {showComparison && <span style={{ color: seriesColors.comparison, fontSize: '0.75rem', fontWeight: 400, marginLeft: '0.5rem' }}>Comparing with previous period</span>}</SectionTitle>
-          <Suspense fallback={<SkeletonBox height={300} />}>
+          <Suspense fallback={<Skeleton height={300} data-testid="chart-skeleton" />}>
             <AnalyticsCharts
               section="performance"
               {...analyticsChartProps}
@@ -691,7 +681,7 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={180} />}>
+              <Suspense fallback={<Skeleton height={180} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="donut"
                   {...analyticsChartProps}
@@ -1034,7 +1024,7 @@ export default function Analytics() {
               <ChartSummary>
                 Locked enterprise preview bar chart showing example team member success rates.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={160} />}>
+              <Suspense fallback={<Skeleton height={160} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="team"
                   {...analyticsChartProps}
