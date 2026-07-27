@@ -4,13 +4,7 @@ import NavLink from "../NavLink";
 import "./NotificationBell.css";
 
 export default function NotificationBell() {
-  const notifications = useNotification((state) => state.notification) || [];
-
-  // Compute unread count. If isRead flag is absent/undefined, treat as unread.
-  const unreadCount = notifications.filter((item) => {
-    const isRead = item.isRead !== undefined ? item.isRead : false;
-    return !isRead;
-  }).length;
+  const unreadCount = useNotification((state) => state.unreadCount);
 
   const hasUnread = unreadCount > 0;
   

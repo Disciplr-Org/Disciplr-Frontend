@@ -79,5 +79,23 @@ describe('design-system logger', () => {
       expect(errorSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy).toHaveBeenCalledWith('critical', { code: 500 });
     });
+
+    it('does not throw when process is unavailable', () => {
+      const globalWithProcess = global as typeof globalThis & {
+        process?: typeof process;
+      };
+      const originalProcess = globalWithProcess.process;
+
+      delete globalWithProcess.process;
+
+      try {
+        jest.isolateModules(() => {
+          const isolatedLogger = require('../utils/logger').logger as typeof logger;
+          expect(() => isolatedLogger.debug('hello')).not.toThrow();
+        });
+      } finally {
+        globalWithProcess.process = originalProcess;
+      }
+    });
   });
 });

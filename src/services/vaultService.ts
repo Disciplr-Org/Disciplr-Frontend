@@ -10,9 +10,11 @@
  * zero changes.
  */
 
-import type { Vault, VaultTransaction } from "../types/vault";
+import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import { MASTER_VAULTS } from "../fixtures/vaults";
 import { MASTER_ACTIVITY } from "../fixtures/transactions";
+
+export { MASTER_VAULTS } from "../fixtures/vaults";
 
 // ── Re-export canonical types for consumers that need them ────────────────────
 export type { Vault, VaultTransaction };
@@ -92,4 +94,51 @@ export function getCachedActivity(): VaultActivityRecord[] {
  */
 export async function listAllActivity(): Promise<VaultActivityRecord[]> {
   return [...MASTER_ACTIVITY];
+}
+
+/**
+ * Create a new vault in mock memory.
+ * 
+ * SEAM → replace with: Soroban contract initialization invocation.
+ */
+export async function createVault(vaultData: {
+  name: string;
+  amount: number;
+  currency: string;
+  deadline: string;
+  creatorAddress: string;
+  successAddress: string;
+  failureAddress: string;
+  milestones: Omit<Milestone, "id" | "status">[];
+}): Promise<Vault> {
+  const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
+  const newVault: Vault = {
+    id: nextId,
+    name: vaultData.name,
+    status: "active",
+    amount: vaultData.amount,
+    currency: vaultData.currency,
+    createdAt: new Date().toISOString(),
+    deadline: vaultData.deadline,
+    creatorAddress: vaultData.creatorAddress,
+    successAddress: vaultData.successAddress,
+    failureAddress: vaultData.failureAddress,
+    contractAddress: `GCONT${nextId}KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK`,
+    milestones: vaultData.milestones.map((m, index) => ({
+      ...m,
+      id: `m${nextId}_${index + 1}`,
+      status: "pending"
+    })),
+    transactions: [
+      {
+        id: `tx${nextId}_1`,
+        type: "create",
+        hash: `mockhash${nextId}234567890abcdef123456`,
+        timestamp: new Date().toISOString(),
+        amount: vaultData.amount,
+      }
+    ]
+  };
+  MASTER_VAULTS[nextId] = newVault;
+  return newVault;
 }

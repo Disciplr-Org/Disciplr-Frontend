@@ -83,6 +83,12 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <NavLink to="/transactions" className="mobile-drawer-link" onClick={onClose}>
             Transactions
           </NavLink>
+          <NavLink to="/dashboard" className="mobile-drawer-link" onClick={onClose}>
+            Dashboard
+          </NavLink>
+          <NavLink to="/vaults" className="mobile-drawer-link" onClick={onClose}>
+            Vaults
+          </NavLink>
           <NavLink to="/verifier" className="mobile-drawer-link" onClick={onClose}>
             Verifier
           </NavLink>

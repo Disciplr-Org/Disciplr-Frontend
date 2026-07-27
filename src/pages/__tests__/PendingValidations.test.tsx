@@ -50,6 +50,13 @@ const makeTasks = () => [
 
 const mockedUseVerifierStore = useVerifierStore as unknown as Mock;
 
+/** Helper: make useVerifierStore(selector) work in tests. */
+function mockStore(state: Record<string, unknown>) {
+  mockedUseVerifierStore.mockImplementation((selector: (s: unknown) => unknown) =>
+    selector(state),
+  );
+}
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -63,11 +70,23 @@ describe('PendingValidations', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: makeTasks() });
+    mockStore({
+      pendingValidations: makeTasks(),
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
+    });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('renders without throwing (regression test for #622)', () => {
+    // Ensure that sortLabel, headerSort, and aria-sort expressions all
+    // reference the correct state variable (sortDir, not sortDirection)
+    // and that the page mounts without a ReferenceError.
+    expect(() => renderPage()).not.toThrow();
   });
 
   it('renders the page heading', () => {
@@ -76,14 +95,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -174,20 +193,26 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    mockedUseVerifierStore.mockReturnValue({
+    mockStore({
       pendingValidations: [makeTasks()[0]],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
     });
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + 1 row
   });
 
-  it('handles ties in deadlines (stable relative order preserved)', () => {
-    mockedUseVerifierStore.mockReturnValue({
+  it('handles ties in daysRemaining (stable relative order preserved)', () => {
+    mockStore({
       pendingValidations: [
-        { ...makeTasks()[0], id: 'v-a', deadline: '2026-06-25' },
-        { ...makeTasks()[1], id: 'v-b', deadline: '2026-06-25' },
+        { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
+        { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
       ],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
     });
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
@@ -252,6 +277,28 @@ describe('PendingValidations', () => {
       expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
     });
 
+    it('clicking an inactive column header button activates that column sort and sets aria-sort', () => {
+      renderPage();
+      const amountButton = screen.getByRole('button', { name: /Sort Amount at Stake column/i });
+      fireEvent.click(amountButton);
+
+      expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
+      expect(screen.getByLabelText(/Sort by/i)).toHaveValue('amount');
+    });
+
+    it('clicking the active column header button toggles sort direction', () => {
+      renderPage();
+      const deadlineButton = screen.getByRole('button', { name: /Sort Deadline column/i });
+      fireEvent.click(deadlineButton);
+
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'descending');
+      expect(screen.getByRole('button', { name: /Sort direction: Descending/i })).toBeInTheDocument();
+
+      fireEvent.click(deadlineButton);
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'ascending');
+    });
+
     it('urgent rows (≤3 days) include a non-color sr-only urgency cue', () => {
       renderPage();
       // v-2 is overdue, which is within the critical threshold.
@@ -267,7 +314,7 @@ describe('PendingValidations', () => {
     });
 
     it('empty table state renders no table role', () => {
-      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
       renderPage();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
@@ -536,7 +583,7 @@ describe('PendingValidations', () => {
 
   describe('empty state messaging', () => {
     it('shows "All caught up!" when there are no pending validations', () => {
-      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
       renderPage();
 
       expect(screen.getByText('All caught up!')).toBeInTheDocument();

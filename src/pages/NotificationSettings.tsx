@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
 import { Switch } from "@/components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
+import { isValidQuietTime } from "../utils/quietHours";
 
 
 type SettingsToggleProps = {
@@ -45,12 +46,13 @@ export default function NotificationSettings() {
   // Determine whether the current time falls within the quiet hour window.
   // quietHours is a single "HH:MM" boundary. Quiet is considered active if
   // the current hour:minute matches or is past the stored quiet-hours value.
-  const [quietHoursActive] = useState<boolean>(() => {
-    if (!quietHours) return false;
+  const quietHoursValid = isValidQuietTime(quietHours);
+  const quietHoursActive = useMemo(() => {
+    if (!quietHoursValid) return false;
     const now = new Date();
     const [qh, qm] = quietHours.split(":").map(Number);
     return now.getHours() > qh || (now.getHours() === qh && now.getMinutes() >= qm);
-  });
+  }, [quietHours, quietHoursValid]);
 
   // Per-vault notification toggles (keyed by vault name)
   const [vaultToggles, setVaultToggles] = useState<Record<string, boolean>>(
@@ -139,6 +141,7 @@ export default function NotificationSettings() {
                   type="time"
                   id="quiet-hours"
                   aria-label="Quiet Hours"
+                  aria-invalid={!quietHoursValid}
                   value={quietHours}
                   onChange={(e) => setQuietHours(e.target.value)}
                 />
@@ -199,18 +202,6 @@ export default function NotificationSettings() {
           border-color: var(--accent);
           outline: 2px solid var(--accent-transparent);
           outline-offset: 2px;
-        }
-
-        .notification-settings-reset {
-          background: var(--surface-raised);
-          color: var(--text);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          cursor: pointer;
-        }
-
-        .notification-settings-reset:hover {
-          background: var(--border);
         }
 
         .notification-settings-reset {

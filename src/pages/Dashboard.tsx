@@ -4,7 +4,7 @@ import VaultCard from "../components/VaultCard";
 import UpcomingDeadlines from "../components/UpcomingDeadlines";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
 import type { VaultStatus } from "../types/vault";
@@ -13,6 +13,7 @@ import type { VaultStatus } from "../types/vault";
 // Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
 // vaultService (see Dashboard component below).
 import { SUMMARY, ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
+import { listVaults } from "../services/vaultService";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const ACTIVITY_CFG: Record<
   released: {
     label: "Funds released",
     icon: "↑",
-    color: "var(--info, #60A5FA)",
+    color: "var(--info)",
   },
   redirected: { label: "Funds redirected", icon: "→", color: "var(--warning)" },
 };

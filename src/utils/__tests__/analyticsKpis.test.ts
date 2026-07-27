@@ -196,6 +196,25 @@ describe('analyticsKpis', () => {
       expect(kpis.capitalTrend).toBe(true)
     })
 
+    it('should correctly calculate deltas when previous period has zero values (0 -> N increase)', () => {
+      const prevZeroData: AnalyticsDataPoint[] = [
+        { name: 'Mon', success: 0, failed: 0, capital: 0, milestones: 0 },
+      ]
+      const currentData: AnalyticsDataPoint[] = [
+        { name: 'Mon', success: 80, failed: 20, capital: 2000, milestones: 2 },
+      ]
+
+      const kpis = computeAnalyticsKpis(currentData, prevZeroData)
+
+      expect(kpis.capitalDelta).toBe(2000)
+      expect(kpis.successDelta).toBe(80)
+      expect(kpis.milestoneDelta).toBe(2)
+      
+      expect(kpis.capitalTrend).toBe(true)
+      expect(kpis.successTrend).toBe(true)
+      expect(kpis.milestoneTrend).toBe(true)
+    })
+
     it('should handle large numbers correctly', () => {
       const largeData: AnalyticsDataPoint[] = [
         { name: 'A', success: 90, failed: 10, capital: 1000000, milestones: 100 },

@@ -1,4 +1,5 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
+import { Check, Copy, ExternalLink } from 'lucide-react';
 import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
 import { getExplorerAccountUrl } from '../utils/explorer';
@@ -10,8 +11,6 @@ interface AddressDisplayProps {
     chars?: number;
     tailChars?: number;
 }
-
-
 
 export function AddressDisplay({
     address,
@@ -41,7 +40,7 @@ export function AddressDisplay({
                 style={{ 
                     fontFamily: 'monospace', 
                     fontSize: 'inherit',
-                    color: isValid ? 'inherit' : 'var(--error)',
+                    color: isValid ? 'inherit' : 'var(--danger)',
                     textDecoration: isValid ? 'none' : 'line-through' 
                 }}
             >
@@ -56,9 +55,10 @@ export function AddressDisplay({
                     background: 'none', border: 'none', cursor: 'pointer',
                     color: copied ? 'var(--success)' : 'var(--muted)',
                     padding: '0 2px', fontSize: 13, lineHeight: 1,
+                    display: 'flex', alignItems: 'center'
                 }}
             >
-                {copied ? 'âœ“' : 'âŽ˜'}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
             {network != null && explorerUrl && (
                 <a
@@ -66,12 +66,11 @@ export function AddressDisplay({
                     target="_blank" rel="noopener noreferrer"
                     title="View on Stellar Expert"
                     aria-label={`View ${address} on Stellar Expert`}
-                    style={{ color: 'var(--accent)', fontSize: 12, lineHeight: 1 }}
+                    style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
                 >
-                    â†—
+                    <ExternalLink size={14} />
                 </a>
             )}
         </span>
     );
 }
-

@@ -1,6 +1,6 @@
-﻿// VaultCard component unit tests
+// VaultCard component unit tests
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VaultCard, {
@@ -9,6 +9,7 @@ import VaultCard, {
   URGENCY_CRITICAL_MS,
   URGENCY_SOON_MS,
 } from '../../components/VaultCard';
+import type { VaultStatus } from '../../types/vault';
 
 // Freeze time for consistent deadline calculations
 const fixedNow = new Date('2024-07-01T00:00:00Z');
@@ -73,12 +74,38 @@ describe('VaultCard', () => {
     expect(screen.getByLabelText(/Deadline Jul 15, 2024/)).toHaveTextContent('14d 10h remaining');
   });
 
-  it('displays correct status badge', () => {
+  it('displays the shared status chip', () => {
     renderCard();
     const badge = screen.getByText('Active');
     expect(badge).toBeInTheDocument();
-    // Badge should use the accent color variable
+    expect(badge).toHaveClass('status-chip');
     expect(badge).toHaveStyle({ color: 'var(--accent)' });
+  });
+
+  it.each(['active', 'pending_validation', 'completed', 'failed', 'cancelled'] as const)(
+    'renders a shared status chip for %s',
+    (status) => {
+      const labels: Record<VaultStatus, string> = {
+        active: 'Active',
+        pending_validation: 'Pending Validation',
+        completed: 'Completed',
+        failed: 'Failed',
+        cancelled: 'Cancelled',
+      };
+
+      renderCard({ ...baseProps, status });
+      const chip = screen.getByLabelText(labels[status]);
+      expect(chip).toHaveClass('status-chip');
+      expect(chip).toHaveTextContent(labels[status]);
+    }
+  );
+
+  it('uses the shared cancelled chip styling', () => {
+    renderCard({ ...baseProps, status: 'cancelled' });
+    const chip = screen.getByLabelText('Cancelled');
+    expect(chip).toHaveStyle({
+      background: 'color-mix(in srgb, var(--muted) 10%, transparent)',
+    });
   });
 
   it('renders an accessible vault progress bar', () => {
@@ -130,4 +157,36 @@ describe('VaultCard', () => {
       expect(screen.queryByLabelText(/Critical|Deadline approaching|Overdue/)).not.toBeInTheDocument();
     }
   );
+
+  it('does not re-render when parent component re-renders with unchanged props (React.memo)', () => {
+    const spy = vi.spyOn(VaultCard, 'type');
+
+    function ParentWrapper() {
+      const [count, setCount] = React.useState(0);
+      return (
+        <div>
+          <button onClick={() => setCount((c) => c + 1)}>Trigger Parent Re-render ({count})</button>
+          <VaultCard {...baseProps} />
+        </div>
+      );
+    }
+
+    render(
+      <MemoryRouter>
+        <ParentWrapper />
+      </MemoryRouter>
+    );
+
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+
+    // Because VaultCard is wrapped in React.memo, the parent state update does NOT trigger a VaultCard re-render
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
 });
+
+
+

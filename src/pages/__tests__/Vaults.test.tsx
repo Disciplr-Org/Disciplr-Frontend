@@ -376,3 +376,119 @@ describe("Vaults view toggle", () => {
     localStorageMock.getItem = originalGetItem;
   });
 });
+
+describe("Vaults filter and sort", () => {
+  const vaults: Vault[] = [
+    {
+      id: "1",
+      name: "Alpha Project",
+      amount: 500,
+      currency: "USDC",
+      status: "active",
+      deadline: "2025-06-01T00:00:00Z",
+      milestones: [],
+    },
+    {
+      id: "2",
+      name: "Beta Project",
+      amount: 1500,
+      currency: "USDC",
+      status: "completed",
+      deadline: "2025-03-01T00:00:00Z",
+      milestones: [],
+    },
+    {
+      id: "3",
+      name: "Gamma Project",
+      amount: 800,
+      currency: "USDC",
+      status: "active",
+      deadline: "2025-09-01T00:00:00Z",
+      milestones: [],
+    },
+  ];
+
+  const renderWithRouter = (ui: React.ReactElement) =>
+    render(<MemoryRouter>{ui}</MemoryRouter>);
+
+  beforeEach(() => {
+    localStorageMock.clear();
+  });
+
+  test("renders the filter bar with status select and search input", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+    expect(screen.getByRole("combobox", { name: /status/i })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: /search/i })).toBeInTheDocument();
+  });
+
+  test("renders the sort controls", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+    expect(screen.getByRole("combobox", { name: /sort vaults by/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sort/i })).toBeInTheDocument();
+  });
+
+  test("filters vaults by status", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /status/i }),
+      "completed",
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Alpha Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Gamma Project")).not.toBeInTheDocument();
+      expect(screen.getByText("Beta Project")).toBeInTheDocument();
+    });
+  });
+
+  test("filters vaults by search query", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search/i }),
+      "Alpha",
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha Project")).toBeInTheDocument();
+      expect(screen.queryByText("Beta Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Gamma Project")).not.toBeInTheDocument();
+    });
+  });
+
+  test("sort vaults toggle changes direction", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    const sortButton = screen.getByRole("button", { name: /sort/i });
+    expect(sortButton).toHaveTextContent(/Asc/i);
+
+    await userEvent.click(sortButton);
+    expect(sortButton).toHaveTextContent(/Desc/i);
+  });
+
+  test("combined filter: status + search narrows results", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /status/i }),
+      "active",
+    );
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search/i }),
+      "Gamma",
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Alpha Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Beta Project")).not.toBeInTheDocument();
+      expect(screen.getByText("Gamma Project")).toBeInTheDocument();
+    });
+  });
+});

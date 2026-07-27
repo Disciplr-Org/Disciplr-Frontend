@@ -42,6 +42,7 @@ describe('token-loader', () => {
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
+        if (path.toString().includes('toast.json')) return '{"toast": {"maxVisible": 5}}';
         return '{}';
       });
 
@@ -55,7 +56,8 @@ describe('token-loader', () => {
         "border": "1px",
         "zIndex": 100,
         "opacity": 0.5,
-        "breakpoint": "768px"
+        "breakpoint": "768px",
+        "toast": { "maxVisible": 5 }
       });
     });
 
@@ -70,6 +72,7 @@ describe('token-loader', () => {
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
+        if (path.toString().includes('toast.json')) return '{"toast": {"maxVisible": 5}}';
         return '{}';
       });
 
@@ -83,7 +86,8 @@ describe('token-loader', () => {
         "border": "1px",
         "zIndex": 100,
         "opacity": 0.5,
-        "breakpoint": "768px"
+        "breakpoint": "768px",
+        "toast": { "maxVisible": 5 }
       });
       expect(allTokens).not.toHaveProperty('font');
     });
@@ -114,6 +118,7 @@ describe('token-loader', () => {
         if (path.toString().includes('z-index.json')) return '{"zIndex": 100}';
         if (path.toString().includes('opacity.json')) return '{"opacity": 0.5}';
         if (path.toString().includes('breakpoints.json')) return '{"breakpoint": "768px"}';
+        if (path.toString().includes('toast.json')) return '{"toast": {"maxVisible": 5}}';
         return '{}';
       });
 
@@ -127,7 +132,8 @@ describe('token-loader', () => {
         "border": "1px",
         "zIndex": 100,
         "opacity": 0.5,
-        "breakpoint": "768px"
+        "breakpoint": "768px",
+        "toast": { "maxVisible": 5 }
       });
       expect(console.warn).toHaveBeenCalledWith(
         'Failed to load typography.json:',
