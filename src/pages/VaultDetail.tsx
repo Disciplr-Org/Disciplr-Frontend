@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
 import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
 import Breadcrumb from "../components/Breadcrumb";
+import { ConfirmationModal } from "../components/ConfirmationModal";
 import {
   FundReleaseStatus,
   type FundReleaseStatusProps,
@@ -109,11 +111,55 @@ function Card({
   );
 }
 
+// ── Vault action types ────────────────────────────────────────────────────────
+type VaultAction = "validate_milestone" | "extend_deadline" | "cancel_vault";
+
+const VAULT_ACTION_CONFIG: Record<
+  VaultAction,
+  { title: string; message: string; confirmLabel: string }
+> = {
+  validate_milestone: {
+    title: "Validate Milestone",
+    message:
+      "Are you sure you want to validate the current milestone? This will trigger an on-chain transaction to advance the vault. This action cannot be undone.",
+    confirmLabel: "Validate",
+  },
+  extend_deadline: {
+    title: "Extend Deadline",
+    message:
+      "Are you sure you want to extend the vault deadline? The new deadline must be confirmed by all relevant parties before taking effect.",
+    confirmLabel: "Extend",
+  },
+  cancel_vault: {
+    title: "Cancel Vault",
+    message:
+      "Are you sure you want to cancel this vault? Funds will be redirected to the failure destination address. This action cannot be undone.",
+    confirmLabel: "Cancel Vault",
+  },
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const vault = id ? MOCK_VAULTS[id] : undefined;
   const { network } = useWallet();
+
+  const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
+
+  const handleActionClick = (action: VaultAction) => {
+    setActiveAction(action);
+  };
+
+  const handleModalClose = () => {
+    setActiveAction(null);
+  };
+
+  /** Stub handler — replace with real API calls when the backend is ready. */
+  const handleActionConfirm = (_decision: "approve" | "reject", _notes: string) => {
+    // TODO: dispatch the appropriate service call (validate, extend, cancel)
+    // based on `activeAction` when the backend integration is implemented.
+    setActiveAction(null);
+  };
 
   if (!vault) {
     return (
@@ -240,14 +286,28 @@ export default function VaultDetail() {
             {isActive && (
               <>
                 {vault.status === "pending_validation" && (
-                  <button style={actionBtn("var(--accent)")}>
+                  <button
+                    type="button"
+                    style={actionBtn("var(--accent)")}
+                    onClick={() => handleActionClick("validate_milestone")}
+                  >
                     Validate Milestone
                   </button>
                 )}
-                <button style={actionBtn("var(--warning)")}>
+                <button
+                  type="button"
+                  style={actionBtn("var(--warning)")}
+                  onClick={() => handleActionClick("extend_deadline")}
+                >
                   Extend Deadline
                 </button>
-                <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
+                <button
+                  type="button"
+                  style={actionBtn("var(--danger)")}
+                  onClick={() => handleActionClick("cancel_vault")}
+                >
+                  Cancel Vault
+                </button>
               </>
             )}
           </div>
@@ -492,6 +552,16 @@ export default function VaultDetail() {
         network={network}
         contractAddress={vault.contractAddress}
       />
+
+      {/* ── Vault Action Confirmation Modal ── */}
+      {activeAction && (
+        <ConfirmationModal
+          isOpen={activeAction !== null}
+          onClose={handleModalClose}
+          onConfirm={handleActionConfirm}
+          simpleConfirm={VAULT_ACTION_CONFIG[activeAction]}
+        />
+      )}
     </div>
   );
 }

@@ -250,6 +250,130 @@ describe("VaultDetail", () => {
     });
   });
 
+  // ── Action buttons ────────────────────────────────────────────────────────
+
+  describe("action buttons", () => {
+    it("Extend Deadline button opens a confirmation modal with correct title and message", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /extend deadline/i }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Extend Deadline" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Are you sure you want to extend the vault deadline\?/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("Cancel Vault button opens a confirmation modal with correct title and message", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel vault/i }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Cancel Vault" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Are you sure you want to cancel this vault\?/i),
+      ).toBeInTheDocument();
+    });
+
+    it("confirmation modal closes when the Cancel button is clicked", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /extend deadline/i }));
+      expect(
+        await screen.findByRole("heading", { name: "Extend Deadline" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("heading", { name: "Extend Deadline" }),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("confirmation modal closes after confirming the action", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel vault/i }));
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByRole("heading", { name: "Cancel Vault" }),
+      ).toBeInTheDocument();
+
+      // Click the confirm button inside the modal (distinct from the page-level button)
+      fireEvent.click(within(dialog).getByRole("button", { name: /^cancel vault$/i }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("Extend Deadline and Cancel Vault buttons are present for an active vault", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel vault/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("Validate Milestone button is shown for a pending_validation vault and opens confirmation modal", async () => {
+      renderVaultDetail("5");
+      await screen.findByRole("heading", { name: "Epsilon Pending" });
+
+      const validateBtn = screen.getByRole("button", {
+        name: /validate milestone/i,
+      });
+      expect(validateBtn).toBeInTheDocument();
+
+      fireEvent.click(validateBtn);
+
+      expect(
+        await screen.findByRole("heading", { name: "Validate Milestone" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Are you sure you want to validate the current milestone\?/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("Validate Milestone button is not shown for an active (non-pending_validation) vault", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.queryByRole("button", { name: /validate milestone/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("action buttons are not rendered for a completed vault", async () => {
+      renderVaultDetail("2");
+      await screen.findByRole("heading", { name: "Beta Reserve" });
+
+      expect(
+        screen.queryByRole("button", { name: /extend deadline/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /cancel vault/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   // ── Network footer banner ─────────────────────────────────────────────────
 
   describe("NetworkFooterBanner", () => {
