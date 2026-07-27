@@ -125,7 +125,7 @@ export default function NotificationIcon() {
                           id={item.id}
                           title={item.title}
                           message={item.message}
-                          timeAgo={item.timeAgo}
+                          timestamp={item.timestamp}
                           type={item.type}
                           read={item.isRead}
                           isFullPage={false}

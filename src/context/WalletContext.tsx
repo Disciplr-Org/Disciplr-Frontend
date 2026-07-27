@@ -24,6 +24,12 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 /** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
 export const BALANCE_REFRESH_INTERVAL = 30_000;
 
+/** localStorage key that records an explicit user-initiated disconnect.
+ *  While this key is set, checkConnection will not auto-reconnect even
+ *  if Freighter still reports the site as allowed.
+ */
+export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
+
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [network, setNetwork] = useState<WalletNetwork | null>(null);
@@ -74,6 +80,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     const checkConnection = async () => {
         try {
+            // Skip auto-reconnect if the user explicitly disconnected this session.
+            if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
+                return;
+            }
             if (await isAllowed()) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
@@ -147,6 +157,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             if (access) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
+                    // Clear the explicit-disconnect flag so future page loads
+                    // can auto-reconnect again.
+                    localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
@@ -169,6 +182,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
+        // Record the explicit disconnect so checkConnection does not
+        // silently reconnect on the next page load.
+        localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
         setAddress(null);
         setNetwork(null);
         setBalance(null);
