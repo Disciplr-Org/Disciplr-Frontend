@@ -85,7 +85,7 @@ export function EvidenceUpload({
   }
 
   const processFile = (file: File) => {
-    const effectiveTypes = acceptedFileTypes.length > 0 ? acceptedFileTypes : ACCEPTED_FILE_TYPES
+    const effectiveTypes = acceptedFileTypes
 
     if (!effectiveTypes.includes(file.type)) {
       setDragError(
