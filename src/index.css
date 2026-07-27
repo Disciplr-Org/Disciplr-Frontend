@@ -275,7 +275,8 @@
     --surface-raised: #374151;
     --border: #4b5563;
     --text: #f9fafb;
-    --muted: #9ca3af;
+    /* #D1D5DB on #111827 ≈ 12:1 — AA for normal text at caption sizes (12–14px) */
+    --muted: #d1d5db;
     --accent: #14b8a6;
     --accent-dim: #0d9488;
     --accent-transparent: rgba(20, 184, 166, 0.1);
@@ -313,7 +314,8 @@
   --surface-raised: #374151;
   --border: #4b5563;
   --text: #f9fafb;
-  --muted: #9ca3af;
+  /* #D1D5DB on #111827 ≈ 12:1 — AA for normal text at caption sizes (12–14px) */
+  --muted: #d1d5db;
   --accent: #14b8a6;
   --accent-dim: #0d9488;
   --accent-transparent: rgba(20, 184, 166, 0.1);
