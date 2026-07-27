@@ -209,10 +209,18 @@ export default function VaultTransactions({
       list = list.filter((t) =>
         t.hash.toLowerCase().includes(searchHash.toLowerCase()),
       );
-    if (amountMin !== "")
-      list = list.filter((t) => t.amount >= parseFloat(amountMin));
-    if (amountMax !== "")
-      list = list.filter((t) => t.amount <= parseFloat(amountMax));
+    if (amountMin !== "") {
+      const min = parseFloat(amountMin);
+      if (Number.isFinite(min)) {
+        list = list.filter((t) => t.amount >= min);
+      }
+    }
+    if (amountMax !== "") {
+      const max = parseFloat(amountMax);
+      if (Number.isFinite(max)) {
+        list = list.filter((t) => t.amount <= max);
+      }
+    }
     return sortTransactions(list, sortState.key, sortState.dir);
   }, [
     selectedTypes,
