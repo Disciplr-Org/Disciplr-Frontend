@@ -13,6 +13,7 @@ import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
+import CommandPalette from "./CommandPalette";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -120,6 +121,7 @@ export default function Layout({ children }: LayoutProps) {
             >
               Create Vault
             </Link>
+            <CommandPalette />
             <NotificationBell />
             <ThemeToggle />
             <WalletConnectButton />
