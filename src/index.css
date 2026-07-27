@@ -537,11 +537,6 @@ a:hover {
   background-color: var(--hover);
 }
 
-.modal-content-default {
-  background: var(--surface);
-  box-shadow: var(--shadow-level-4);
-}
-
 /* ── prefers-reduced-motion ─────────────────────────────────────────────────
    Collapse all durations to near-zero so CSS transitions still fire
    (avoids layout jumps) but are imperceptible. JS/framer-motion components
