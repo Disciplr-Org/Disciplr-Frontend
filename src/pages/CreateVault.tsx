@@ -19,6 +19,7 @@ import { useWallet } from "../context/WalletContext";
 import {
   DEADLINE_PRESETS,
   computeFutureDeadline,
+  getPresetDays,
   getPresetLabel,
 } from "../utils/deadlinePresets";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
@@ -356,32 +357,38 @@ export default function CreateVault() {
               </p>
             )}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {DEADLINE_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => {
-                    const days = parseInt(preset, 10);
-                    setDeadline(computeFutureDeadline(days));
-                    setErrors((current) => ({
-                      ...current,
-                      deadline: undefined,
-                    }));
-                  }}
-                  style={{
-                    padding: "0.4rem 0.875rem",
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--muted)",
-                    borderRadius: "var(--radius)",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {getPresetLabel(preset)}
-                </button>
-              ))}
+              {DEADLINE_PRESETS.map((preset) => {
+                const days = getPresetDays(preset);
+                const isActive = deadline === computeFutureDeadline(days);
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setDeadline(computeFutureDeadline(days));
+                      setErrors((current) => ({
+                        ...current,
+                        deadline: undefined,
+                      }));
+                    }}
+                    style={{
+                      padding: "0.4rem 0.875rem",
+                      border: `1px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
+                      background: isActive
+                        ? "color-mix(in srgb, var(--accent) 12%, var(--surface))"
+                        : "var(--surface)",
+                      color: isActive ? "var(--accent)" : "var(--muted)",
+                      borderRadius: "var(--radius)",
+                      fontSize: "0.85rem",
+                      fontWeight: isActive ? 600 : 400,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {getPresetLabel(preset)}
+                  </button>
+                );
+              })}
             </div>
             <Field
               ref={deadlineRef}
