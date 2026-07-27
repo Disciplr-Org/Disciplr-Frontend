@@ -1,22 +1,27 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { Ref, ReactNode } from "react";
 import Notification from "../Notification";
 import NotificationSettings from "../NotificationSettings";
 import { useNotification } from "@/Zustand/Store";
 import { getNotifications } from "@/components/Notification/exampleNotification/example";
 
 vi.mock("framer-motion", () => {
+  // @ts-expect-error -- require is needed inside vi.mock factory (hoisted before imports)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
   return {
     motion: {
-      div: React.forwardRef(({ children, ...props }, ref) => (
-        <div ref={ref} {...props}>
-          {children}
-        </div>
-      )),
+      div: React.forwardRef(
+        ({ children, ...props }: Record<string, unknown>, ref: Ref<HTMLDivElement>) => (
+          <div ref={ref} {...(props as JSX.IntrinsicElements["div"])}>
+            {children as ReactNode}
+          </div>
+        ),
+      ),
     },
-    AnimatePresence: ({ children }) => children,
+    AnimatePresence: ({ children }: { children: ReactNode }) => children,
     useReducedMotion: () => false,
   };
 });
@@ -30,7 +35,6 @@ const initialNotifications = getNotifications();
 function resetStore() {
   useNotification.setState({
     notification: initialNotifications,
-    unreadCount: initialNotifications.filter((n) => !n.isRead).length,
   });
 }
 
@@ -55,7 +59,6 @@ describe("Notification page", () => {
 
   it("displays pagination info", () => {
     renderNotification();
-    const totalPages = Math.ceil(initialNotifications.length / 5);
     expect(
       screen.getByRole("navigation", { name: "Notifications pagination" }),
     ).toBeInTheDocument();
@@ -112,7 +115,6 @@ describe("Notification page", () => {
         ...n,
         isRead: true,
       })),
-      unreadCount: 0,
     });
     renderNotification();
 
@@ -216,7 +218,7 @@ describe("Notification page", () => {
 
     const state = useNotification.getState();
     expect(state.notification).toEqual([]);
-    expect(state.unreadCount).toBe(0);
+    expect(state.notification.filter((n) => !n.isRead).length).toBe(0);
     expect(screen.getByText("No notifications found.")).toBeInTheDocument();
   });
 
@@ -237,7 +239,6 @@ describe("Notification page", () => {
     const smallList = initialNotifications.slice(0, 6);
     useNotification.setState({
       notification: smallList,
-      unreadCount: smallList.filter((n) => !n.isRead).length,
     });
     renderNotification();
 
@@ -319,14 +320,13 @@ describe("Notification page", () => {
     });
 
     it("announces 'No notifications found' when filter matches nothing", () => {
-      useNotification.setState({
-        notification: initialNotifications.map((n) => ({
-          ...n,
-          isRead: true,
-        })),
-        unreadCount: 0,
-      });
-      renderNotification();
+    useNotification.setState({
+      notification: initialNotifications.map((n) => ({
+        ...n,
+        isRead: true,
+      })),
+    });
+    renderNotification();
       const liveRegion = screen.getByRole("status");
 
       // Open filter panel

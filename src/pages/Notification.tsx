@@ -7,7 +7,7 @@ import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion"; // <-- Import the hook
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 import { Pagination } from "@/components/Pagination";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { paginate } from "@/utils/paginate";
@@ -23,6 +23,7 @@ export default function Notification() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const itemsPerPage = 5;
 
   const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
@@ -104,6 +105,40 @@ export default function Notification() {
     setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
+  useEffect(() => {
+    const statusLabel = currentFilterReadSeletion === "all"
+      ? "all"
+      : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+    const categoryLabel = currentFilterTypeSeletion === "all"
+      ? "all categories"
+      : currentFilterTypeSeletion;
+
+    if (currentNotification.length === 0) {
+      setLiveAnnouncement(
+        `No notifications found. Active filters: status ${statusLabel}, category ${categoryLabel}.`,
+      );
+    } else {
+      const countText = currentNotification.length === 1 ? "1 notification" : `${currentNotification.length} notifications`;
+      setLiveAnnouncement(
+        `Showing ${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`,
+      );
+    }
+  }, [currentNotification.length, currentFilterReadSeletion, currentFilterTypeSeletion, currentNotification]);
+
+  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+    setCurrentNotification((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setCurrentNotification([]);
+  };
+
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
@@ -177,7 +212,6 @@ export default function Notification() {
               {isFilterOpen && (
                 <motion.div
                   ref={filterPanelRef}
-                  id="notification-filter-panel"
                   initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
