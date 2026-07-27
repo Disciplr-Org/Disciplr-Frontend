@@ -13,7 +13,7 @@ import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
 import { useWallet } from "../context/WalletContext";
 import { MASTER_VAULTS as MOCK_VAULTS } from "../services/vaultService";
-import { contractExplorerUrl, networkLabel } from "../utils/explorer";
+import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
 import { truncateMiddle } from "../utils/truncate";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
@@ -473,7 +473,7 @@ export default function VaultDetail() {
                     ⎘
                   </button>
                   <a
-                    href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
+                    href={getExplorerTxUrl(tx.hash, network)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "var(--accent)", fontSize: 11 }}
