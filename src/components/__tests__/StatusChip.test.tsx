@@ -57,7 +57,7 @@ describe('StatusChip Component', () => {
 
   it('falls back gracefully to cancelled config on unknown status', () => {
     // We suppress the console error for unknown status (TS would normally catch this, but in pure JS it might happen)
-    // @ts-ignore
+    // @ts-expect-error - unknown status is intentionally exercised for fallback behavior
     render(<StatusChip status="unknown_status" />);
     const chip = screen.getByLabelText('Cancelled');
     expect(chip).toHaveTextContent('Cancelled');

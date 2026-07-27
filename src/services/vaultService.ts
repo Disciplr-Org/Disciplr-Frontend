@@ -14,6 +14,8 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import { MASTER_VAULTS } from "../fixtures/vaults";
 import { MASTER_ACTIVITY } from "../fixtures/transactions";
 
+export { MASTER_VAULTS } from "../fixtures/vaults";
+
 // ── Re-export canonical types for consumers that need them ────────────────────
 export type { Vault, VaultTransaction };
 

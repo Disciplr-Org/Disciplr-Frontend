@@ -48,8 +48,9 @@ describe('WalletBalanceChip', () => {
         walletState.balanceStatus = 'loading';
         renderChip();
 
-        const chip = screen.getByTestId('wallet-balance-chip');
+        const chip = screen.getByRole('status');
         expect(chip).toBeInTheDocument();
+        expect(chip).toHaveAttribute('aria-label', 'Loading balance');
 
         const skeleton = screen.getByTestId('skeleton');
         expect(skeleton).toBeInTheDocument();
@@ -100,11 +101,11 @@ describe('WalletBalanceChip', () => {
         walletState.balanceStatus = 'error';
         renderChip();
 
-        const chip = screen.getByTestId('wallet-balance-chip');
+        const chip = screen.getByRole('status');
         expect(chip).toBeInTheDocument();
         expect(chip).toHaveClass('wallet-balance-chip--error');
         expect(chip).toHaveTextContent('!');
         expect(chip).toHaveTextContent('USDC');
-        expect(chip).toHaveAttribute('role', 'status');
+        expect(chip).toHaveAttribute('aria-label', 'Balance unavailable');
     });
 });

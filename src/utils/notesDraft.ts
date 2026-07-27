@@ -1,4 +1,4 @@
-const NOTES_DRAFT_PREFIX = 'validation-notes-draft:';
+const NOTES_DRAFT_PREFIX = 'disciplr:validation-notes-draft:';
 
 function draftKey(taskId: string): string {
   return `${NOTES_DRAFT_PREFIX}${taskId}`;

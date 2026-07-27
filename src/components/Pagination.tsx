@@ -59,7 +59,7 @@ export function Pagination({
           type="button"
           disabled={isFirstPage}
           onClick={() => onPageChange(currentPage - 1)}
-          className="inline-flex items-center gap-1 rounded bg-[#121a2a] px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Go to previous page"
         >
           <ChevronLeft aria-hidden="true" size={16} />
@@ -85,8 +85,8 @@ export function Pagination({
                 aria-current={page === currentPage ? "page" : undefined}
                 className={`h-9 min-w-9 rounded px-3 text-sm font-medium ${
                   page === currentPage
-                    ? "bg-[#00c389] text-[#121a2a]"
-                    : "bg-white text-[#121a2a] ring-1 ring-gray-300 hover:bg-gray-100"
+                    ? "bg-[var(--accent)] text-[var(--bg)]"
+                    : "bg-[var(--surface)] text-[var(--text)] ring-1 ring-gray-300 hover:bg-gray-100"
                 }`}
               >
                 {page}
@@ -99,7 +99,7 @@ export function Pagination({
           type="button"
           disabled={isLastPage}
           onClick={() => onPageChange(currentPage + 1)}
-          className="inline-flex items-center gap-1 rounded bg-[#00c389] px-3 py-2 text-sm text-[#121a2a] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded bg-[var(--accent)] px-3 py-2 text-sm text-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Go to next page"
         >
           Next
