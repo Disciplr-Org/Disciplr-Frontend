@@ -8,7 +8,8 @@ interface WalletSelectionModalProps {
 }
 
 export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
-    const { connect, isConnecting, error } = useWallet();
+    const { connect, isConnecting, error, address } = useWallet();
+    const isConnected = address !== null;
 
     const handleConnect = async () => {
         await connect();
@@ -58,18 +59,24 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                         <span className="wallet-name">Freighter</span>
                     </div>
                     <span className="wallet-status">
-                        {isConnecting ? <div className="loader" /> : 'Connected'}
+                        {isConnecting ? <div className="loader" /> : isConnected ? 'Connected' : 'Available'}
                     </span>
                 </button>
 
-                {/* Placeholder for other wallets like Albedo */}
-                <button className="wallet-option">
+                {/* Albedo support is not yet implemented */}
+                <button
+                    className="wallet-option"
+                    disabled
+                    aria-disabled="true"
+                    title="Albedo support is coming soon"
+                >
                     <div className="wallet-option-info">
                         <div className="wallet-icon">
                             <ShieldCheck size={20} color="var(--accent)" />
                         </div>
                         <span className="wallet-name">Albedo</span>
                     </div>
+                    <span className="wallet-coming-soon">Coming soon</span>
                 </button>
             </div>
 

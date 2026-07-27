@@ -25,7 +25,6 @@ const makeTasks = () => [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -35,7 +34,6 @@ const makeTasks = () => [
     owner: '0xBBBB',
     amount: '5,000 USDC',
     deadline: '2026-06-20',
-    daysRemaining: 2,
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -45,7 +43,6 @@ const makeTasks = () => [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-07-10',
-    daysRemaining: 20,
     status: 'pending' as const,
     milestone: 'Phase 3',
   },
@@ -85,6 +82,13 @@ describe('PendingValidations', () => {
     vi.useRealTimers();
   });
 
+  it('renders without throwing (regression test for #622)', () => {
+    // Ensure that sortLabel, headerSort, and aria-sort expressions all
+    // reference the correct state variable (sortDir, not sortDirection)
+    // and that the page mounts without a ReferenceError.
+    expect(() => renderPage()).not.toThrow();
+  });
+
   it('renders the page heading', () => {
     renderPage();
     expect(screen.getByText('Pending Validations')).toBeInTheDocument();
@@ -115,7 +119,7 @@ describe('PendingValidations', () => {
     expect(screen.getByLabelText(/Sort by/i)).toHaveValue('deadline');
     expect(screen.getByRole('button', { name: /Ascending/i })).toBeInTheDocument();
 
-    // ascending: v-2 (2 days) → v-1 (10 days) → v-3 (20 days)
+    // ascending: v-2 → v-1 → v-3
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Beta Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
@@ -128,7 +132,7 @@ describe('PendingValidations', () => {
 
     expect(screen.getByRole('button', { name: /Descending/i })).toBeInTheDocument();
 
-    // descending: v-3 (20 days) → v-1 (10 days) → v-2 (2 days)
+    // descending: v-3 → v-1 → v-2
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Gamma Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
@@ -273,16 +277,38 @@ describe('PendingValidations', () => {
       expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
     });
 
+    it('clicking an inactive column header button activates that column sort and sets aria-sort', () => {
+      renderPage();
+      const amountButton = screen.getByRole('button', { name: /Sort Amount at Stake column/i });
+      fireEvent.click(amountButton);
+
+      expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
+      expect(screen.getByLabelText(/Sort by/i)).toHaveValue('amount');
+    });
+
+    it('clicking the active column header button toggles sort direction', () => {
+      renderPage();
+      const deadlineButton = screen.getByRole('button', { name: /Sort Deadline column/i });
+      fireEvent.click(deadlineButton);
+
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'descending');
+      expect(screen.getByRole('button', { name: /Sort direction: Descending/i })).toBeInTheDocument();
+
+      fireEvent.click(deadlineButton);
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'ascending');
+    });
+
     it('urgent rows (≤3 days) include a non-color sr-only urgency cue', () => {
       renderPage();
-      // v-2 has daysRemaining: 2 which is ≤ 3
+      // v-2 is overdue, which is within the critical threshold.
       const urgentCue = screen.getByText('Urgent');
       expect(urgentCue.className).toContain('sr-only');
     });
 
     it('non-urgent rows do not include an urgency cue', () => {
       renderPage();
-      // Only v-2 (daysRemaining: 2) is urgent; v-1 and v-3 are not
+      // Only v-2 is urgent; v-1 and v-3 are not.
       const urgentCues = screen.getAllByText('Urgent');
       expect(urgentCues).toHaveLength(1);
     });
@@ -297,7 +323,7 @@ describe('PendingValidations', () => {
   describe('sort selector', () => {
     it('sorts by amount numerically', () => {
       renderPage();
-      fireEvent.change(screen.getByLabelText(/Sort pending validations/i), {
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
         target: { value: 'amount' },
       });
 
@@ -309,7 +335,7 @@ describe('PendingValidations', () => {
 
     it('sorts by vault name and reverses with the direction toggle', () => {
       renderPage();
-      fireEvent.change(screen.getByLabelText(/Sort pending validations/i), {
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
         target: { value: 'vaultName' },
       });
       fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));

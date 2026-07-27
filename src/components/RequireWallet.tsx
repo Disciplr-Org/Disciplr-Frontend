@@ -1,4 +1,5 @@
-import { useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../context/WalletContext';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
 
@@ -9,6 +10,14 @@ interface RequireWalletProps {
 export default function RequireWallet({ children }: RequireWalletProps) {
   const { address, isConnecting } = useWallet();
   const location = useLocation();
+  const navigate = useNavigate();
+  const destinationRef = useRef(location.pathname + location.search);
+
+  useEffect(() => {
+    if (address) {
+      navigate(destinationRef.current, { replace: true });
+    }
+  }, [address, navigate]);
 
   if (address) return <>{children}</>;
 
@@ -22,8 +31,6 @@ export default function RequireWallet({ children }: RequireWalletProps) {
       <p>You need a connected wallet to access this page.</p>
       {isConnecting && <p aria-live="polite">Connecting…</p>}
       <WalletConnectButton />
-      {/* Preserve destination so redirect can happen after connecting */}
-      <input type="hidden" value={location.pathname + location.search} />
     </div>
   );
 }

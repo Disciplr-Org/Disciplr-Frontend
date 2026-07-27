@@ -219,6 +219,40 @@ describe('WalletContext Horizon USDC balance path', () => {
         error.mockRestore();
     });
 
+    test('full connect -> disconnect flow clears all state without throwing', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '25.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        // Connect
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GCONNECTED'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('network')).toHaveTextContent('TESTNET');
+        expect(screen.getByTestId('balance')).toHaveTextContent('25.0000000');
+
+        // Disconnect — must not throw (previously threw ReferenceError due to missing refs)
+        expect(() => fireEvent.click(screen.getByRole('button', { name: /disconnect/i }))).not.toThrow();
+
+        // All state should be cleared
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('network')).toHaveTextContent('');
+        expect(screen.getByTestId('balance')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        expect(screen.getByTestId('balanceError')).toHaveTextContent('');
+    });
+
     test('disconnect resets the loaded balance state', async () => {
         vi.mocked(globalThis.fetch).mockResolvedValue(
             mockResponse(200, {
@@ -260,6 +294,7 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        localStorage.clear();
         freighterMocks.isAllowed.mockResolvedValue(false);
         freighterMocks.getAddress.mockResolvedValue({ address: null, error: null });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
@@ -268,6 +303,7 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     afterAll(() => {
         globalThis.fetch = originalFetch;
+        localStorage.clear();
     });
 
     test('restores address and balance when isAllowed returns true', async () => {

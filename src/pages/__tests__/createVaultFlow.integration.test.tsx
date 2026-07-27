@@ -6,6 +6,12 @@ vi.mock("../../context/WalletContext", () => ({
   useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
 }));
 
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", () => ({
+  useLocation: () => ({ state: null }),
+  useNavigate: () => mockNavigate,
+}));
+
 import { useWallet } from "../../context/WalletContext";
 const mockUseWallet = vi.mocked(useWallet);
 
@@ -74,6 +80,12 @@ describe("CreateVault Flow - Integration Tests", () => {
         successAddress: validSuccessAddress,
         failureAddress: validFailureAddress,
         evidenceUrl: undefined,
+        milestones: [
+          {
+            title: "Milestone 1",
+            criteria: "Default milestone criteria",
+          },
+        ],
       });
       expect(consoleDebug).toHaveBeenCalledTimes(1);
     });
@@ -334,6 +346,12 @@ describe("CreateVault Flow - Integration Tests", () => {
         successAddress: validSuccessAddress,
         failureAddress: validFailureAddress,
         evidenceUrl: undefined,
+        milestones: [
+          {
+            title: "Milestone 1",
+            criteria: "Default milestone criteria",
+          },
+        ],
       });
     });
 
@@ -537,6 +555,12 @@ describe("CreateVault Flow - Integration Tests", () => {
         successAddress: validSuccessAddress,
         failureAddress: validFailureAddress,
         evidenceUrl: undefined,
+        milestones: [
+          {
+            title: "Milestone 1",
+            criteria: "Default milestone criteria",
+          },
+        ],
       });
     });
   });

@@ -16,12 +16,13 @@ vi.mock('../../Zustand/Store', () => ({
 }));
 
 const mockNavigate = vi.fn();
+let mockVaultId = 'v-101';
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useParams: () => ({ vaultId: 'v-101' }),
+    useParams: () => ({ vaultId: mockVaultId }),
   };
 });
 
@@ -32,7 +33,6 @@ const mockPendingValidations = [
     owner: '0x123',
     amount: '100 USDC',
     deadline: '2026-06-01',
-    daysRemaining: 10,
     status: 'pending',
     milestone: 'Test Milestone',
     evidenceUrl: 'https://example.com/evidence',
@@ -61,6 +61,7 @@ describe('ValidationDetail Page', () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    mockVaultId = 'v-101';
     window.localStorage.clear();
     mockStore({
       pendingValidations: mockPendingValidations,
@@ -592,5 +593,89 @@ describe('ValidationDetail Page', () => {
     );
 
     expect(screen.queryByText('Milestone Criteria')).not.toBeInTheDocument();
+  });
+
+  it('resets checked criteria when navigating to a different validation task', () => {
+    const pendingWithTwoTasks = [
+      ...mockPendingWithCriteria,
+      {
+        id: 'v-202',
+        vaultName: 'Another Vault',
+        owner: '0x456',
+        amount: '200 USDC',
+        deadline: '2026-07-01',
+        status: 'pending' as const,
+        milestone: 'Another Milestone',
+        evidenceUrl: 'https://example.com/evidence2',
+        criteria: ['Criterion X', 'Criterion Y'],
+      },
+    ];
+
+    vi.mocked(useVerifierStore).mockReturnValue({
+      pendingValidations: pendingWithTwoTasks,
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    mockVaultId = 'v-101';
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    // Check all criteria for the first task
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+    fireEvent.click(screen.getByLabelText('Criterion B'));
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
+
+    // Navigate to a different task
+    mockVaultId = 'v-202';
+    rerender(
+      <MemoryRouter initialEntries={['/verifier/v-202']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    // New task's criteria should be unchecked → approve disabled
+    expect(screen.getByLabelText('Criterion X')).not.toBeChecked();
+    expect(screen.getByLabelText('Criterion Y')).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+
+    // Verify old criteria text is not present
+    expect(screen.queryByLabelText('Criterion A')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Criterion B')).not.toBeInTheDocument();
+  });
+
+  it('retains checked state per criterion text when criteria are reordered', () => {
+    const reorderedCriteria = ['Criterion B', 'Criterion A'];
+
+    vi.mocked(useVerifierStore).mockReturnValue({
+      pendingValidations: [{ ...mockPendingWithCriteria[0], criteria: reorderedCriteria }],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    // Check 'Criterion A' — it's now at the second position (index 1)
+    fireEvent.click(screen.getByLabelText('Criterion A'));
+
+    // Only one checkbox should be checked, and it should be 'Criterion A'
+    const checkboxA = screen.getByLabelText('Criterion A') as HTMLInputElement;
+    const checkboxB = screen.getByLabelText('Criterion B') as HTMLInputElement;
+    expect(checkboxA).toBeChecked();
+    expect(checkboxB).not.toBeChecked();
+
+    // The reorder hasn't caused incorrect state — checked stays with 'Criterion A'
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).toBeDisabled();
+
+    // Check both
+    fireEvent.click(screen.getByLabelText('Criterion B'));
+    expect(screen.getByRole('button', { name: /Approve Milestone/i })).not.toBeDisabled();
   });
 });

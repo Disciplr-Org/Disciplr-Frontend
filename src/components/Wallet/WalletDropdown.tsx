@@ -79,7 +79,7 @@ export function WalletDropdown({ onClose, onSwitch }: WalletDropdownProps) {
                 <div className="wallet-dropdown-address-container">
                     <span className="wallet-dropdown-address">{truncateAddress(address)}</span>
                     <button className="wallet-copy-btn" onClick={copyAddress} title="Copy Address">
-                        {copied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                        {copied ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
                     </button>
                 </div>
                 {renderBalance()}

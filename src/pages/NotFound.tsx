@@ -79,27 +79,7 @@ export default function NotFound() {
       >
         <Link
           to="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--spacing-2)',
-            padding: 'var(--spacing-3) var(--spacing-6)',
-            backgroundColor: 'var(--accent)',
-            color: 'white',
-            borderRadius: 'var(--radius-md)',
-            fontWeight: 600,
-            fontSize: 'var(--font-size-body)',
-            textDecoration: 'none',
-            transition: 'background-color 0.2s ease',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.backgroundColor = 'var(--accent-dim)'
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.backgroundColor = 'var(--accent)'
-          }}
+          className="notfound-action notfound-action--primary"
         >
           <Home size={18} />
           Go to Home
@@ -107,26 +87,7 @@ export default function NotFound() {
 
         <button
           onClick={() => window.history.back()}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--spacing-2)',
-            padding: 'var(--spacing-3) var(--spacing-6)',
-            backgroundColor: 'transparent',
-            color: 'var(--text)',
-            borderRadius: 'var(--radius-md)',
-            fontWeight: 600,
-            fontSize: 'var(--font-size-body)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s ease',
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
-            e.currentTarget.style.backgroundColor = 'var(--hover)'
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
-          }}
+          className="notfound-action notfound-action--secondary"
         >
           <ArrowLeft size={18} />
           Go Back
@@ -136,7 +97,7 @@ export default function NotFound() {
       {/* Helpful Links */}
       <div
         style={{
-          marginTop: 'var(--spacing-12)',
+          marginTop: 'var(--spacing-8)',
           paddingTop: 'var(--spacing-6)',
           borderTop: '1px solid var(--border)',
         }}

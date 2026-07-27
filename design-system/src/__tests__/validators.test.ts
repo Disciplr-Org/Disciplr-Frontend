@@ -39,11 +39,13 @@ const validChart = () => ({
 });
 
 describe('standalone color string validators', () => {
-  it('validates six-digit hex colors case-insensitively', () => {
+  it('validates supported hex color lengths', () => {
     expect(isValidHexColor('#ABCDEF')).toBe(true);
     expect(isValidHexColor('#abcdef')).toBe(true);
+    expect(isValidHexColor('#abc')).toBe(true);
+    expect(isValidHexColor('#abcd')).toBe(true);
+    expect(isValidHexColor('#3B82F6AA')).toBe(true);
     expect(isValidHexColor('#123abz')).toBe(false);
-    expect(isValidHexColor('#abc')).toBe(false);
     expect(isValidHexColor('ABCDEF')).toBe(false);
   });
 
@@ -85,22 +87,25 @@ describe('token name validators', () => {
     expect(hasValidTokenPrefix('radius-md')).toBe(true);
     expect(hasValidTokenPrefix('border-default')).toBe(true);
     expect(hasValidTokenPrefix('motion-fast')).toBe(true);
-    expect(hasValidTokenPrefix('chart-accent')).toBe(false);
+    expect(hasValidTokenPrefix('chart-accent')).toBe(true);
     expect(hasValidTokenPrefix('color')).toBe(false);
   });
 });
 
 describe('isValidHexColor boundary table', () => {
-  it('accepts canonical six-digit hex colors', () => {
+  it('accepts supported hex color lengths', () => {
     expect(isValidHexColor('#0A7668')).toBe(true);
     expect(isValidHexColor('#000000')).toBe(true);
     expect(isValidHexColor('#FFFFFF')).toBe(true);
     expect(isValidHexColor('#0a7668')).toBe(true);
+    expect(isValidHexColor('#abc')).toBe(true);
+    expect(isValidHexColor('#ABCD')).toBe(true);
+    expect(isValidHexColor('#0A7668FF')).toBe(true);
   });
 
   it('rejects malformed hex colors', () => {
-    expect(isValidHexColor('#abc')).toBe(false); // 3-digit
-    expect(isValidHexColor('#0A7668FF')).toBe(false); // 8-digit
+    expect(isValidHexColor('#ab')).toBe(false); // too short
+    expect(isValidHexColor('#0A7668FFF')).toBe(false); // too long
     expect(isValidHexColor('0A7668')).toBe(false); // missing #
     expect(isValidHexColor('#12345g')).toBe(false); // non-hex char
     expect(isValidHexColor('')).toBe(false); // empty
@@ -160,17 +165,21 @@ describe('isKebabCase boundary table', () => {
 
 describe('hasValidTokenPrefix boundary table', () => {
   it('accepts each documented prefix', () => {
+    expect(hasValidTokenPrefix('chart-categorical-1')).toBe(true);
+    expect(hasValidTokenPrefix('chart-sequential-3')).toBe(true);
     expect(hasValidTokenPrefix('color-accent')).toBe(true);
+    expect(hasValidTokenPrefix('font-body')).toBe(true);
     expect(hasValidTokenPrefix('spacing-4')).toBe(true);
     expect(hasValidTokenPrefix('typography-title')).toBe(true);
     expect(hasValidTokenPrefix('shadow-card')).toBe(true);
     expect(hasValidTokenPrefix('radius-md')).toBe(true);
     expect(hasValidTokenPrefix('border-default')).toBe(true);
     expect(hasValidTokenPrefix('motion-fast')).toBe(true);
+    expect(hasValidTokenPrefix('z-index-modal')).toBe(true);
   });
 
   it('rejects unknown prefixes and prefixes without a hyphen', () => {
-    expect(hasValidTokenPrefix('chart-foo')).toBe(false); // unknown prefix
+    expect(hasValidTokenPrefix('unknown-foo')).toBe(false); // unknown prefix
     expect(hasValidTokenPrefix('color')).toBe(false); // prefix without hyphen
     expect(hasValidTokenPrefix('colorfoo')).toBe(false); // prefix without hyphen
     expect(hasValidTokenPrefix('')).toBe(false); // empty
@@ -204,6 +213,8 @@ describe('isValidColorToken', () => {
     );
     expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
     expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(false);
+    expect(isValidColorToken({ $type: 'color', $value: '#abc' })).toBe(true);
+    expect(isValidColorToken({ $type: 'color', $value: '#3B82F6AA' })).toBe(true);
   });
 
   it('validates accessibility metadata branches', () => {

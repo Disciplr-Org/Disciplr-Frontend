@@ -1,8 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+import { CRITICAL_DAYS_THRESHOLD } from '../../utils/verifierMetrics';
 
 vi.mock('../../Zustand/Store', () => ({
   useVerifierStore: vi.fn(),
@@ -24,7 +25,6 @@ const pendingTasks = [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -33,8 +33,7 @@ const pendingTasks = [
     vaultName: 'Beta Vault',
     owner: '0xBBBB',
     amount: '5,000 USDC',
-    deadline: '2026-06-20',
-    daysRemaining: 2,
+    deadline: '2026-06-23',
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -47,7 +46,6 @@ const historyTasks = [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-05-01',
-    daysRemaining: 0,
     status: 'approved' as const,
     milestone: 'Phase 3',
     notes: 'Looks good.',
@@ -65,11 +63,30 @@ function renderPage() {
 
 describe('VerifierDashboard', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
     (useVerifierStore as any).mockReturnValue({
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the page heading', () => {
@@ -128,13 +145,13 @@ describe('VerifierDashboard', () => {
     expect(screen.getByText(/2 days left/)).toBeInTheDocument();
   });
 
-  it('applies danger color for tasks with 3 or fewer days remaining', () => {
+  it(`applies danger color for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
     renderPage();
     const urgentText = screen.getByText(/2 days left/);
     expect(urgentText.getAttribute('style')).toContain('var(--danger)');
   });
 
-  it('applies text color for tasks with more than 3 days remaining', () => {
+  it(`applies text color for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
     renderPage();
     const normalText = screen.getByText(/10 days left/);
     expect(normalText.getAttribute('style')).toContain('var(--text)');
@@ -153,13 +170,13 @@ describe('VerifierDashboard', () => {
     expect(screen.getByRole('button', { name: 'Review Beta Vault' })).toBeInTheDocument();
   });
 
-  it('shows urgency text (not just color) for tasks with 3 or fewer days remaining', () => {
+  it(`shows urgency text (not just color) for tasks with ${CRITICAL_DAYS_THRESHOLD} or fewer days remaining`, () => {
     renderPage();
     const urgentContainer = screen.getByText(/2 days left/) as HTMLElement;
     expect(urgentContainer.textContent).toContain('(urgent)');
   });
 
-  it('does not show urgency text for tasks with more than 3 days remaining', () => {
+  it(`does not show urgency text for tasks with more than ${CRITICAL_DAYS_THRESHOLD} days remaining`, () => {
     renderPage();
     const normalContainer = screen.getByText(/10 days left/) as HTMLElement;
     expect(normalContainer.textContent).not.toContain('(urgent)');
@@ -248,7 +265,6 @@ describe('VerifierDashboard', () => {
         owner: '0xCCCC',
         amount: '20,000 USDC',
         deadline: '2026-05-01',
-        daysRemaining: 0,
         status: i % 2 === 0 ? ('approved' as const) : ('rejected' as const),
         milestone: `Phase ${i}`,
         decidedAt: `2026-05-0${i + 1}`,
@@ -267,6 +283,31 @@ describe('VerifierDashboard', () => {
       // Should not show Vault 5 to 7
       expect(screen.queryByText('Vault 5')).not.toBeInTheDocument();
       expect(screen.queryByText('Vault 7')).not.toBeInTheDocument();
+    });
+
+    it('renders a pending task in history with the correct chip label ("Pending Validation")', () => {
+      const pendingHistoryTask = {
+        id: 'h-pending',
+        vaultName: 'Pending Test Vault',
+        owner: '0xDDDD',
+        amount: '15,000 USDC',
+        deadline: '2026-06-01',
+        daysRemaining: 5,
+        status: 'pending' as const,
+        milestone: 'Phase 4',
+        decidedAt: '2026-06-02',
+      };
+
+      (useVerifierStore as any).mockReturnValue({
+        pendingValidations: [],
+        validationHistory: [pendingHistoryTask],
+      });
+
+      renderPage();
+
+      expect(screen.getByText('Pending Test Vault')).toBeInTheDocument();
+      expect(screen.getByText('Pending Validation')).toBeInTheDocument();
+      expect(screen.queryByText('Cancelled')).not.toBeInTheDocument();
     });
   });
 });

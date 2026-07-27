@@ -34,7 +34,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERALPHA',
     amount: '1,000 USDC',
     deadline: '2026-01-01',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Launch',
     notes: 'Approved launch evidence.',
@@ -45,7 +44,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERBETA',
     amount: '2,000 USDC',
     deadline: '2026-01-02',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Audit',
     notes: 'Missing audit proof.',
@@ -56,7 +54,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERGAMMA',
     amount: '3,000 USDC',
     deadline: '2026-01-03',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Delivery',
   },
@@ -66,7 +63,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERDELTA',
     amount: '4,000 USDC',
     deadline: '2026-01-04',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Design',
   },
@@ -76,7 +72,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNEREPSILON',
     amount: '5,000 USDC',
     deadline: '2026-01-05',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Docs',
   },
@@ -86,7 +81,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERZETA',
     amount: '6,000 USDC',
     deadline: '2026-01-06',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Payout',
   },
@@ -100,7 +94,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERETA',
     amount: '7,000 USDC',
     deadline: '2026-01-07',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Review',
   },
@@ -110,7 +103,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERTHETA',
     amount: '8,000 USDC',
     deadline: '2026-01-08',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Scale',
   },
@@ -120,7 +112,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERIOTA',
     amount: '9,000 USDC',
     deadline: '2026-01-09',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Launch',
   },
@@ -130,7 +121,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERKAPPA',
     amount: '10,000 USDC',
     deadline: '2026-01-10',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Ops',
   },
@@ -140,7 +130,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERLAMBDA',
     amount: '11,000 USDC',
     deadline: '2026-01-11',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Quality',
   },
@@ -150,7 +139,6 @@ const longHistory: ValidationTask[] = [
     owner: 'GOWNERMU',
     amount: '12,000 USDC',
     deadline: '2026-01-12',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Payout',
   },
@@ -163,6 +151,21 @@ function renderHistory(history = baseHistory) {
 
   return render(<ValidationHistory />);
 }
+
+// Mock matchMedia for Tooltip/StatusChip components
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
 
 describe('ValidationHistory', () => {
   beforeEach(() => {
@@ -246,7 +249,7 @@ describe('ValidationHistory', () => {
       target: { value: '25' },
     });
 
-    expect(screen.getByText('History Vault 12')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
@@ -326,7 +329,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when from date changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
@@ -363,7 +366,7 @@ describe('ValidationHistory', () => {
     });
 
     it('resets to page 1 when milestone changes', () => {
-      renderHistory();
+      renderHistory(longHistory);
 
       fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
       expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();

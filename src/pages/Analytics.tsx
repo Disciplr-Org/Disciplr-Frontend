@@ -1,21 +1,23 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import {
-  Target, TrendingUp, CheckCircle, AlertTriangle,
-  Download, Flame, Award, Clock, DollarSign,
-  ArrowUpRight, ArrowDownRight, Zap, Flag, BarChart2,
-  Users, Lock, Crown
-} from 'lucide-react'
-import { useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
-import { type ChartLegendEntry } from '../components/ChartLegend'
-import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
-import { toCsv, downloadCsv } from '../utils/csv'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
-
+import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
+import { logger } from '../utils/logger'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type JsPDFCtor = typeof import('jspdf').jsPDF
+
+import {
+  Target, CheckCircle, Award, ArrowUpRight, ArrowDownRight, Clock, DollarSign,
+  Flame, TrendingUp, AlertTriangle, Download, Flag, BarChart2, Crown, Users, Lock,
+} from 'lucide-react'
+
+import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
+import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
+
+const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -34,123 +36,6 @@ function useAnalyticsChartTokens() {
 
   return tokens
 }
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-export const analyticsPeriodData: Record<Period, { name: string; success: number; failed: number; capital: number; milestones: number }[]> = {
-  '7d': [
-    { name: 'Mon', success: 80, failed: 20, capital: 2800, milestones: 2 },
-    { name: 'Tue', success: 85, failed: 15, capital: 2900, milestones: 3 },
-    { name: 'Wed', success: 78, failed: 22, capital: 2750, milestones: 2 },
-    { name: 'Thu', success: 90, failed: 10, capital: 3100, milestones: 4 },
-    { name: 'Fri', success: 88, failed: 12, capital: 3050, milestones: 3 },
-    { name: 'Sat', success: 92, failed: 8,  capital: 3200, milestones: 5 },
-    { name: 'Sun', success: 87, failed: 13, capital: 3150, milestones: 3 },
-  ],
-  '30d': [
-    { name: 'Wk1', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Wk2', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Wk3', success: 80, failed: 20, capital: 2100, milestones: 6 },
-    { name: 'Wk4', success: 88, failed: 12, capital: 3200, milestones: 9 },
-  ],
-  '90d': [
-    { name: 'Jan', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Feb', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Mar', success: 68, failed: 32, capital: 950,  milestones: 4 },
-  ],
-  '1y': [
-    { name: 'Jan', success: 65, failed: 35, capital: 800,  milestones: 3 },
-    { name: 'Feb', success: 70, failed: 30, capital: 1200, milestones: 5 },
-    { name: 'Mar', success: 68, failed: 32, capital: 950,  milestones: 4 },
-    { name: 'Apr', success: 85, failed: 15, capital: 1800, milestones: 7 },
-    { name: 'May', success: 88, failed: 12, capital: 2400, milestones: 6 },
-    { name: 'Jun', success: 92, failed: 8,  capital: 3200, milestones: 9 },
-    { name: 'Jul', success: 89, failed: 11, capital: 3000, milestones: 8 },
-    { name: 'Aug', success: 91, failed: 9,  capital: 3400, milestones: 10 },
-    { name: 'Sep', success: 86, failed: 14, capital: 2900, milestones: 7 },
-    { name: 'Oct', success: 93, failed: 7,  capital: 3800, milestones: 11 },
-    { name: 'Nov', success: 90, failed: 10, capital: 3500, milestones: 9 },
-    { name: 'Dec', success: 95, failed: 5,  capital: 4200, milestones: 13 },
-  ],
-  'All': [
-    { name: '2023', success: 60, failed: 40, capital: 500,  milestones: 2 },
-    { name: '2024', success: 75, failed: 25, capital: 2100, milestones: 6 },
-    { name: '2025', success: 88, failed: 12, capital: 4200, milestones: 9 },
-  ],
-}
-
-// Previous period data for comparison
-const prevPeriodData: Record<Period, AnalyticsDataPoint[]> = {
-  '7d': [
-    { name: 'Mon', success: 60, failed: 40, capital: 2000, milestones: 1 },
-    { name: 'Tue', success: 65, failed: 35, capital: 2100, milestones: 2 },
-    { name: 'Wed', success: 70, failed: 30, capital: 2200, milestones: 2 },
-    { name: 'Thu', success: 72, failed: 28, capital: 2300, milestones: 2 },
-    { name: 'Fri', success: 68, failed: 32, capital: 2150, milestones: 1 },
-    { name: 'Sat', success: 75, failed: 25, capital: 2400, milestones: 3 },
-    { name: 'Sun', success: 71, failed: 29, capital: 2350, milestones: 2 },
-  ],
-  '30d': [
-    { name: 'Wk1', success: 50, failed: 50, capital: 500, milestones: 1 },
-    { name: 'Wk2', success: 58, failed: 42, capital: 750, milestones: 2 },
-    { name: 'Wk3', success: 62, failed: 38, capital: 1100, milestones: 3 },
-    { name: 'Wk4', success: 70, failed: 30, capital: 1800, milestones: 5 },
-  ],
-  '90d': [
-    { name: 'Oct', success: 55, failed: 45, capital: 600, milestones: 2 },
-    { name: 'Nov', success: 60, failed: 40, capital: 800, milestones: 2 },
-    { name: 'Dec', success: 63, failed: 37, capital: 700, milestones: 2 },
-  ],
-  '1y': [
-    { name: 'Jan', success: 45, failed: 55, capital: 400, milestones: 1 },
-    { name: 'Feb', success: 50, failed: 50, capital: 600, milestones: 1 },
-    { name: 'Mar', success: 48, failed: 52, capital: 500, milestones: 1 },
-    { name: 'Apr', success: 65, failed: 35, capital: 900, milestones: 3 },
-    { name: 'May', success: 68, failed: 32, capital: 1200, milestones: 3 },
-    { name: 'Jun', success: 72, failed: 28, capital: 1800, milestones: 5 },
-    { name: 'Jul', success: 70, failed: 30, capital: 1600, milestones: 4 },
-    { name: 'Aug', success: 74, failed: 26, capital: 2000, milestones: 6 },
-    { name: 'Sep', success: 69, failed: 31, capital: 1700, milestones: 4 },
-    { name: 'Oct', success: 78, failed: 22, capital: 2200, milestones: 7 },
-    { name: 'Nov', success: 75, failed: 25, capital: 2000, milestones: 6 },
-    { name: 'Dec', success: 80, failed: 20, capital: 2500, milestones: 8 },
-  ],
-  'All': [
-    { name: '2021', success: 40, failed: 60, capital: 200, milestones: 1 },
-    { name: '2022', success: 52, failed: 48, capital: 800, milestones: 2 },
-    { name: '2023', success: 60, failed: 40, capital: 1200, milestones: 3 },
-  ],
-}
-
-const vaultStatusData = [
-  { name: 'Completed', value: 14 },
-  { name: 'Active', value: 3 },
-  { name: 'Failed', value: 4 },
-]
-const milestoneTypes = [
-  { type: 'Daily Exercise', count: 12 },
-  { type: 'Study Goal', count: 9 },
-  { type: 'No Spending', count: 7 },
-  { type: 'Reading', count: 5 },
-  { type: 'Sleep Schedule', count: 3 },
-]
-
-// Benchmarking data
-const benchmarkData = [
-  { metric: 'Success Rate', you: 85, platform: 68 },
-  { metric: 'Avg Duration', you: 18, platform: 14 },
-  { metric: 'Streak', you: 5, platform: 3 },
-  { metric: 'Milestones/mo', you: 9, platform: 5 },
-]
-
-const TEAM_CHART_DATA = [
-  { name: 'Alice', rate: 94 },
-  { name: 'Bob', rate: 78 },
-  { name: 'Carol', rate: 88 },
-  { name: 'Dave', rate: 65 },
-]
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
@@ -180,60 +65,11 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
       {children}
     </h3>
   )
-} 
+}
 
 function ChartSummary({ children }: { children: React.ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
-
-function SkeletonBox({ height = 220 }: { height?: number }) {
-  return (
-    <div style={{
-      height,
-      background: 'var(--border)',
-      borderRadius: 'var(--radius)',
-      animation: 'disciplr-pulse 1.5s ease-in-out infinite',
-    }} />
-  )
-}
-
-function EmptyState({ message = 'No data yet. Create your first vault to see analytics.' }: { message?: string }) {
-  return (
-    <div
-      data-testid="analytics-empty-state"
-      role="status"
-      style={{
-        padding: '2.5rem',
-        textAlign: 'center',
-        color: 'var(--muted)',
-        border: '1px dashed var(--border)',
-        borderRadius: 'var(--radius)',
-      }}
-    >
-      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
-      <div style={{ fontSize: '0.9rem' }}>{message}</div>
-    </div>
-  )
-}
-
-// ─── Export Helpers ───────────────────────────────────────────────────────────
-
-function exportCSV(data: typeof analyticsPeriodData['30d']) {
-  const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-  const rows = data.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-  const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'disciplr-analytics.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// Note: `jsPDF` is lazy-loaded inside the component to keep the Analytics chunk small.
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Analytics() {
   const chartTokens = useAnalyticsChartTokens()
@@ -248,30 +84,93 @@ export default function Analytics() {
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
-  const [isLoading] = useState(false)
-  const jsPDFRef = useRef<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
-  const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
-  const chartData = analyticsPeriodData[period]
+  const setPeriod = useCallback((p: Period) => {
+    setPeriodInternal(p)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('period', serializePeriod(p))
+    setSearchParams(nextParams)
+  }, [searchParams, setSearchParams])
 
-  // Merge current + previous period for comparison charts
-  const comparisonData = chartData.map((d, i) => ({
-    ...d,
-    prevSuccess: prevPeriodData[period][i]?.success ?? 0,
-    prevCapital: prevPeriodData[period][i]?.capital ?? 0,
-  }))
+  useEffect(() => {
+    const queryPeriod = parsePeriod(searchParams.get('period'))
+    if (queryPeriod !== period) {
+      setPeriodInternal(queryPeriod)
+    }
+  }, [period, searchParams])
 
-  const displayData = showComparison ? comparisonData : chartData
-  
-  // Compute KPIs from the selected period
-  const kpis = useMemo(
-    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevPeriodData[period] as AnalyticsDataPoint[]),
-    [chartData, period]
+  // ─── Custom date range filtering ─────────────────────────────────────────
+  // When both customFrom and customTo are filled and form a valid range, filter
+  // the '1y' monthly series to the months that fall within the chosen dates.
+  // The preset period buttons are visually deactivated while a custom range is active.
+  const customRangeActive = useMemo(() => {
+    if (!customFrom || !customTo) return false
+    const from = new Date(customFrom)
+    const to = new Date(customTo)
+    return !isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to
+  }, [customFrom, customTo])
+
+  // Month abbreviation → 0-based month index used to compare against date inputs
+  const MONTH_INDEX: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  }
+
+  // ─── Memoized data selections ──────────────────────────────────────────────
+  const chartData = useMemo(() => {
+    if (customRangeActive) {
+      const from = new Date(customFrom)
+      const to = new Date(customTo)
+      // Use the '1y' monthly series as the basis for custom filtering.
+      // A data point is included when its month (in the year inferred from the
+      // date inputs) falls between the from and to dates (inclusive).
+      return analyticsPeriodData['1y'].filter((d) => {
+        const monthIdx = MONTH_INDEX[d.name]
+        if (monthIdx === undefined) return true // non-month names (e.g. 'Wk1') pass through
+        // Build a Date for the 1st of that month, using the year from customFrom
+        const pointDate = new Date(from.getFullYear(), monthIdx, 1)
+        // If the range spans into the next year (e.g. Nov → Feb) also check next year
+        const pointDateNextYear = new Date(from.getFullYear() + 1, monthIdx, 1)
+        return (pointDate >= from && pointDate <= to) ||
+          (pointDateNextYear >= from && pointDateNextYear <= to)
+      })
+    }
+    return analyticsPeriodData[period]
+  }, [customRangeActive, customFrom, customTo, period])
+
+  const prevChartData = useMemo(
+    () => prevPeriodData[period],
+    [period]
   )
 
+  const comparisonData = useMemo(
+    () => chartData.map((d, i) => ({
+      ...d,
+      prevSuccess: prevChartData[i]?.success ?? 0,
+      prevCapital: prevChartData[i]?.capital ?? 0,
+    })),
+    [chartData, prevChartData]
+  )
+
+  const displayData = useMemo(
+    () => (showComparison ? comparisonData : chartData),
+    [showComparison, comparisonData, chartData]
+  )
+
+  // ─── Memoized KPI computation ──────────────────────────────────────────────
+  const kpis = useMemo(
+    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevChartData as AnalyticsDataPoint[]),
+    [chartData, prevChartData]
+  )
+
+  const benchmarkData = useMemo(() => computeBenchmarkData(kpis), [kpis])
+
   const chartAnimationEnabled = !prefersReducedMotion
+
   const tooltipStyle = useMemo(() => ({
     contentStyle: {
       background: seriesColors.tooltipBackground,
@@ -284,7 +183,7 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries = showComparison
+  const successLegendEntries = useMemo(() => showComparison
     ? [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
@@ -293,16 +192,206 @@ export default function Analytics() {
     : [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
-      ]
+      ], [showComparison])
 
-  const capitalLegendEntries = showComparison
+  const capitalLegendEntries = useMemo(() => showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
       ]
     : [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
+      ], [showComparison])
+
+  // ─── Stable callback for period buttons ───────────────────────────────────
+  const handlePeriodClick = useCallback((p: Period) => {
+    setPeriod(p)
+  }, [setPeriod])
+
+  // ─── Stable callbacks for AnalyticsCharts ────────────────────
+  const analyticsChartProps = useMemo(() => ({
+    displayData,
+    chartData,
+    period,
+    vaultStatusData,
+    teamChartData: TEAM_CHART_DATA,
+    showComparison,
+    chartAnimationEnabled,
+    tooltipStyle,
+    seriesColors,
+    chartTokens,
+    successLegendEntries,
+    capitalLegendEntries,
+    isLoading,
+  }), [
+    displayData,
+    chartData,
+    period,
+    showComparison,
+    chartAnimationEnabled,
+    tooltipStyle,
+    seriesColors,
+    chartTokens,
+    successLegendEntries,
+    capitalLegendEntries,
+    isLoading,
+  ])
+
+  // ─── Export handlers ───────────────────────────────────────────────────────
+  const handleCsvExport = useCallback(() => {
+    if (chartData.length === 0) return
+    const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
+    const rows = chartData.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = customRangeActive
+      ? `disciplr-analytics-${customFrom}-to-${customTo}.csv`
+      : `disciplr-analytics-${period}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [chartData, period, customRangeActive, customFrom, customTo])
+
+  const handlePdfExport = useCallback(async () => {
+    setExportError(null)
+    setIsExportLoading(true)
+    try {
+      if (!jsPDFRef.current) {
+        const mod = await import('jspdf')
+        jsPDFRef.current = mod?.default ?? mod
+      }
+
+      const jsPDF = jsPDFRef.current
+      const doc = new jsPDF()
+      const accent = [0, 195, 137] as const
+
+      // Header bar
+      doc.setFillColor(...accent)
+      doc.rect(0, 0, 210, 28, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Disciplr Analytics Report', 14, 18)
+
+      // Period & date
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Period: ${customRangeActive ? `${customFrom} → ${customTo}` : period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
+
+      // Key metrics section
+      doc.setTextColor(30, 45, 66)
+      doc.setFontSize(13)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Key Metrics', 14, 42)
+
+      const metrics = [
+        ['Total Capital Locked', `${formatCurrency(kpis.totalCapital)} USDC`],
+        ['Success Rate', formatPercentage(kpis.averageSuccessRate)],
+        ['Total Milestones', `${kpis.totalMilestones}`],
+        ['Period', period],
+        ['vs Previous Period (Capital)', kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)}` : 'No prior data'],
+        ['vs Previous Period (Success)', kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)}` : 'No prior data'],
       ]
+
+      doc.setFontSize(10)
+      metrics.forEach(([label, value], i) => {
+        const col = i % 2 === 0 ? 14 : 110
+        const row = 52 + Math.floor(i / 2) * 14
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 110, 130)
+        doc.text(label as string, col, row)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(20, 20, 30)
+        doc.text(value as string, col, row + 6)
+      })
+
+      // Divider
+      doc.setDrawColor(...accent)
+      doc.setLineWidth(0.5)
+      doc.line(14, 94, 196, 94)
+
+      // Performance data table
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(30, 45, 66)
+      doc.text('Performance Data', 14, 106)
+
+      // Table header
+      doc.setFillColor(240, 250, 247)
+      doc.rect(14, 112, 182, 9, 'F')
+      doc.setFontSize(9)
+      doc.setTextColor(0, 195, 137)
+      doc.text('PERIOD', 17, 118)
+      doc.text('SUCCESS %', 60, 118)
+      doc.text('FAILED %', 100, 118)
+      doc.text('CAPITAL (USDC)', 135, 118)
+      doc.text('MILESTONES', 175, 118)
+
+      // Table rows
+      chartData.forEach((row, i) => {
+        const y = 128 + i * 10
+        if (i % 2 === 0) {
+          doc.setFillColor(249, 252, 251)
+          doc.rect(14, y - 5, 182, 10, 'F')
+        }
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(30, 45, 66)
+        doc.text(row.name, 17, y)
+        doc.setTextColor(0, 155, 110)
+        doc.text(`${row.success}%`, 60, y)
+        doc.setTextColor(200, 60, 55)
+        doc.text(`${row.failed}%`, 100, y)
+        doc.setTextColor(30, 45, 66)
+        doc.text(`$${row.capital.toLocaleString()}`, 135, y)
+        doc.text(`${row.milestones}`, 175, y)
+      })
+
+      // Capital flow
+      const tableEnd = 128 + chartData.length * 10 + 10
+      doc.setDrawColor(...accent)
+      doc.line(14, tableEnd, 196, tableEnd)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(30, 45, 66)
+      doc.text('Capital Flow Summary', 14, tableEnd + 12)
+
+      const flow = [
+        ['Released to Success Destinations', '$8,750 USDC', [0, 155, 110] as const],
+        ['Redirected on Failure', '$2,400 USDC', [200, 60, 55] as const],
+        ['Platform Fee (1%)', '$124 USDC', [100, 110, 130] as const],
+      ]
+
+      flow.forEach(([label, value, color], i) => {
+        const y = tableEnd + 24 + i * 12
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(100, 110, 130)
+        doc.text(label as string, 17, y)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...(color as [number, number, number]))
+        doc.text(value as string, 150, y)
+      })
+
+      // Footer
+      doc.setFillColor(245, 248, 250)
+      doc.rect(0, 278, 210, 20, 'F')
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(150, 160, 175)
+      doc.text('Generated by Disciplr — Accountability on Stellar', 14, 288)
+      doc.text(`Page 1 of 1`, 185, 288)
+
+      doc.save(`disciplr-report-${customRangeActive ? `${customFrom}-to-${customTo}` : period}.pdf`)
+    } catch (err) {
+      logger.error('Failed to load or run jsPDF', err)
+      setExportError('Failed to generate PDF. Please try again.')
+    } finally {
+      setIsExportLoading(false)
+    }
+  }, [chartData, period, customRangeActive, customFrom, customTo])
 
   return (
     <>
@@ -439,8 +528,15 @@ export default function Analytics() {
             {PERIODS.map(p => (
               <button
                 key={p}
-                className={`period-btn${period === p ? ' active' : ''}`}
-                onClick={() => setPeriod(p)}
+                className={`period-btn${period === p && !customRangeActive ? ' active' : ''}`}
+                onClick={() => {
+                  handlePeriodClick(p)
+                  // Clicking a preset clears the custom range
+                  setCustomFrom('')
+                  setCustomTo('')
+                }}
+                style={customRangeActive ? { opacity: 0.45 } : undefined}
+                aria-pressed={period === p && !customRangeActive}
               >
                 {p}
               </button>
@@ -452,10 +548,35 @@ export default function Analytics() {
 
           {/* Custom Date Range */}
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>Custom:</span>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span style={{ color: customRangeActive ? 'var(--accent)' : 'var(--muted)', fontSize: '0.8rem', fontWeight: customRangeActive ? 600 : 400 }}>
+              Custom:
+            </span>
+            <input
+              type="date"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+              aria-label="Custom range start date"
+              style={customRangeActive ? { borderColor: 'var(--accent)' } : undefined}
+            />
             <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>→</span>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={e => setCustomTo(e.target.value)}
+              aria-label="Custom range end date"
+              style={customRangeActive ? { borderColor: 'var(--accent)' } : undefined}
+            />
+            {customRangeActive && (
+              <button
+                className="action-btn"
+                onClick={() => { setCustomFrom(''); setCustomTo('') }}
+                aria-label="Clear custom date range"
+                style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}
+              >
+                ✕ Clear
+              </button>
+            )}
           </div>
 
           {/* Divider */}
@@ -477,156 +598,16 @@ export default function Analytics() {
             {showMovingAverage ? '✓' : ''} Moving Avg
           </button>
 
-{/* Spacer */}
+          {/* Spacer */}
           <div style={{ flex: 1 }} />
 
           {/* Export Buttons */}
-          <button className="action-btn" onClick={() => downloadCsv(toCsv(chartData, 'analytics'), `disciplr-analytics-${period}.csv`)} disabled={chartData.length === 0}>
+          <button className="action-btn" onClick={handleCsvExport} disabled={chartData.length === 0}>
             <Download size={14} /> CSV
           </button>
           <button
             className="action-btn"
-            onClick={() => {
-              // fire-and-forget handler — errors are surfaced inline
-              void (async () => {
-                setExportError(null)
-                setIsExportLoading(true)
-                try {
-                  if (!jsPDFRef.current) {
-                    const mod = await import('jspdf')
-                    jsPDFRef.current = mod?.default ?? mod
-                  }
-
-                  const jsPDF = jsPDFRef.current
-                  const doc = new jsPDF()
-                  const accent = [0, 195, 137] as const
-
-                  // Header bar
-                  doc.setFillColor(...accent)
-                  doc.rect(0, 0, 210, 28, 'F')
-                  doc.setTextColor(255, 255, 255)
-                  doc.setFontSize(20)
-                  doc.setFont('helvetica', 'bold')
-                  doc.text('Disciplr Analytics Report', 14, 18)
-
-                  // Period & date
-                  doc.setFontSize(9)
-                  doc.setFont('helvetica', 'normal')
-                  doc.text(`Period: ${period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
-
-                  // Key metrics section
-                  doc.setTextColor(30, 45, 66)
-                  doc.setFontSize(13)
-                  doc.setFont('helvetica', 'bold')
-                  doc.text('Key Metrics', 14, 42)
-
-                  const metrics = [
-                    ['Total Capital Locked', '$12,450 USDC'],
-                    ['Active Capital', '$3,200 USDC'],
-                    ['Success Rate', '85%'],
-                    ['Total Vaults', '21'],
-                    ['Completed / Failed', '14 / 4'],
-                    ['Accountability Score', '82 / 100'],
-                  ]
-
-                  doc.setFontSize(10)
-                  metrics.forEach(([label, value], i) => {
-                    const col = i % 2 === 0 ? 14 : 110
-                    const row = 52 + Math.floor(i / 2) * 14
-                    doc.setFont('helvetica', 'normal')
-                    doc.setTextColor(100, 110, 130)
-                    doc.text(label as string, col, row)
-                    doc.setFont('helvetica', 'bold')
-                    doc.setTextColor(20, 20, 30)
-                    doc.text(value as string, col, row + 6)
-                  })
-
-                  // Divider
-                  doc.setDrawColor(...accent)
-                  doc.setLineWidth(0.5)
-                  doc.line(14, 94, 196, 94)
-
-                  // Performance data table
-                  doc.setFont('helvetica', 'bold')
-                  doc.setFontSize(13)
-                  doc.setTextColor(30, 45, 66)
-                  doc.text('Performance Data', 14, 106)
-
-                  // Table header
-                  doc.setFillColor(240, 250, 247)
-                  doc.rect(14, 112, 182, 9, 'F')
-                  doc.setFontSize(9)
-                  doc.setTextColor(0, 195, 137)
-                  doc.text('PERIOD', 17, 118)
-                  doc.text('SUCCESS %', 60, 118)
-                  doc.text('FAILED %', 100, 118)
-                  doc.text('CAPITAL (USDC)', 135, 118)
-                  doc.text('MILESTONES', 175, 118)
-
-                  // Table rows
-                  chartData.forEach((row, i) => {
-                    const y = 128 + i * 10
-                    if (i % 2 === 0) {
-                      doc.setFillColor(249, 252, 251)
-                      doc.rect(14, y - 5, 182, 10, 'F')
-                    }
-                    doc.setFont('helvetica', 'normal')
-                    doc.setTextColor(30, 45, 66)
-                    doc.text(row.name, 17, y)
-                    doc.setTextColor(0, 155, 110)
-                    doc.text(`${row.success}%`, 60, y)
-                    doc.setTextColor(200, 60, 55)
-                    doc.text(`${row.failed}%`, 100, y)
-                    doc.setTextColor(30, 45, 66)
-                    doc.text(`$${row.capital.toLocaleString()}`, 135, y)
-                    doc.text(`${row.milestones}`, 175, y)
-                  })
-
-                  // Capital flow
-                  const tableEnd = 128 + chartData.length * 10 + 10
-                  doc.setDrawColor(...accent)
-                  doc.line(14, tableEnd, 196, tableEnd)
-
-                  doc.setFont('helvetica', 'bold')
-                  doc.setFontSize(13)
-                  doc.setTextColor(30, 45, 66)
-                  doc.text('Capital Flow Summary', 14, tableEnd + 12)
-
-                  const flow = [
-                    ['Released to Success Destinations', '$8,750 USDC', [0, 155, 110] as const],
-                    ['Redirected on Failure', '$2,400 USDC', [200, 60, 55] as const],
-                    ['Platform Fee (1%)', '$124 USDC', [100, 110, 130] as const],
-                  ]
-
-                  flow.forEach(([label, value, color], i) => {
-                    const y = tableEnd + 24 + i * 12
-                    doc.setFont('helvetica', 'normal')
-                    doc.setFontSize(10)
-                    doc.setTextColor(100, 110, 130)
-                    doc.text(label as string, 17, y)
-                    doc.setFont('helvetica', 'bold')
-                    doc.setTextColor(...(color as [number, number, number]))
-                    doc.text(value as string, 150, y)
-                  })
-
-                  // Footer
-                  doc.setFillColor(245, 248, 250)
-                  doc.rect(0, 278, 210, 20, 'F')
-                  doc.setFont('helvetica', 'normal')
-                  doc.setFontSize(8)
-                  doc.setTextColor(150, 160, 175)
-                  doc.text('Generated by Disciplr — Accountability on Stellar', 14, 288)
-                  doc.text(`Page 1 of 1`, 185, 288)
-
-                  doc.save(`disciplr-report-${period}.pdf`)
-                } catch (err) {
-                  console.error('Failed to load or run jsPDF', err)
-                  setExportError('Failed to generate PDF. Please try again.')
-                } finally {
-                  setIsExportLoading(false)
-                }
-              })()
-            }}
+            onClick={handlePdfExport}
             disabled={isExportLoading}
           >
             <Download size={14} /> {isExportLoading ? 'Loading...' : 'PDF Report'}
@@ -642,26 +623,26 @@ export default function Analytics() {
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}
           >
             {[
-              { 
-                label: 'Total Capital Locked', 
-                value: formatCurrency(kpis.totalCapital), 
+              {
+                label: 'Total Capital Locked',
+                value: formatCurrency(kpis.totalCapital),
                 sub: kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)} vs prev` : 'USDC',
-                icon: <Target size={17} color={seriesColors.success} />, 
-                up: kpis.capitalTrend 
+                icon: <Target size={17} color={seriesColors.success} />,
+                up: kpis.capitalTrend,
               },
-              { 
-                label: 'Success Rate', 
+              {
+                label: 'Success Rate',
                 value: formatPercentage(kpis.averageSuccessRate),
                 sub: kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)} vs prev` : 'Average',
-                icon: <CheckCircle size={17} color={seriesColors.success} />, 
-                up: kpis.successTrend 
+                icon: <CheckCircle size={17} color={seriesColors.success} />,
+                up: kpis.successTrend,
               },
-              { 
-                label: 'Total Milestones', 
+              {
+                label: 'Total Milestones',
                 value: `${kpis.totalMilestones}`,
                 sub: kpis.milestoneDelta !== 0 ? `${kpis.milestoneDelta > 0 ? '+' : ''}${kpis.milestoneDelta} vs prev` : 'All time',
-                icon: <Award size={17} color={seriesColors.success} />, 
-                up: kpis.milestoneTrend 
+                icon: <Award size={17} color={seriesColors.success} />,
+                up: kpis.milestoneTrend,
               },
             ].map((stat, i) => (
               <Card key={i}>
@@ -682,22 +663,10 @@ export default function Analytics() {
         {/* ── SECTION 2: Performance Charts ── */}
         <div style={{ marginBottom: '2rem' }}>
           <SectionTitle>Performance Charts {showComparison && <span style={{ color: seriesColors.comparison, fontSize: '0.75rem', fontWeight: 400, marginLeft: '0.5rem' }}>Comparing with previous period</span>}</SectionTitle>
-          <Suspense fallback={<SkeletonBox height={300} />}>
+          <Suspense fallback={<Skeleton height={300} data-testid="chart-skeleton" />}>
             <AnalyticsCharts
               section="performance"
-              displayData={displayData}
-              chartData={chartData}
-              period={period}
-              vaultStatusData={vaultStatusData}
-              teamChartData={TEAM_CHART_DATA}
-              showComparison={showComparison}
-              chartAnimationEnabled={chartAnimationEnabled}
-              tooltipStyle={tooltipStyle}
-              seriesColors={seriesColors}
-              chartTokens={chartTokens}
-              successLegendEntries={successLegendEntries}
-              capitalLegendEntries={capitalLegendEntries}
-              isLoading={isLoading}
+              {...analyticsChartProps}
             />
           </Suspense>
         </div>
@@ -713,22 +682,10 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={180} />}>
+              <Suspense fallback={<Skeleton height={180} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="donut"
-                  displayData={displayData}
-                  chartData={chartData}
-                  period={period}
-                  vaultStatusData={vaultStatusData}
-                  teamChartData={TEAM_CHART_DATA}
-                  showComparison={showComparison}
-                  chartAnimationEnabled={chartAnimationEnabled}
-                  tooltipStyle={tooltipStyle}
-                  seriesColors={seriesColors}
-                  chartTokens={chartTokens}
-                  successLegendEntries={successLegendEntries}
-                  capitalLegendEntries={capitalLegendEntries}
-                  isLoading={isLoading}
+                  {...analyticsChartProps}
                 />
               </Suspense>
             </Card>
@@ -853,7 +810,7 @@ export default function Analytics() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
                     <span style={{ color: 'var(--muted)' }}>{item.metric}</span>
                     <span style={{ color: item.you >= item.platform ? seriesColors.success : seriesColors.failed, fontWeight: 700 }}>
-                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{i === 0 || i === 2 ? (i === 0 ? '%' : '') : (i === 3 ? '' : 'd')}
+                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{item.unit}
                     </span>
                   </div>
                   {/* Your bar */}
@@ -895,21 +852,21 @@ export default function Analytics() {
                   onChange={e => setGoalRate(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: 85%</span>
-                    <span style={{ color: Number(goalRate) <= 85 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatPercentage(kpis.averageSuccessRate)}</span>
+                    <span style={{ color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: {goalRate}%
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(85, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(kpis.averageSuccessRate, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2, left: `${Math.min(Number(goalRate), 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2,
                       transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalRate) <= 85 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalRate) <= 85 ? '✓ Goal achieved!' : `${Number(goalRate) - 85}% to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.averageSuccessRate >= Number(goalRate) ? '✓ Goal achieved!' : `${(Number(goalRate) - kpis.averageSuccessRate).toFixed(1)}% to go`}
                   </div>
                 </div>
               </div>
@@ -923,21 +880,21 @@ export default function Analytics() {
                   onChange={e => setGoalCapital(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: $3,200</span>
-                    <span style={{ color: Number(goalCapital) <= 3200 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatCurrency(kpis.totalCapital)}</span>
+                    <span style={{ color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: ${Number(goalCapital).toLocaleString()}
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((3200 / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((kpis.totalCapital / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2,
-                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`,
+                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2, transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalCapital) <= 3200 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalCapital) <= 3200 ? '✓ Goal achieved!' : `$${(Number(goalCapital) - 3200).toLocaleString()} to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.totalCapital >= Number(goalCapital) ? '✓ Goal achieved!' : `$${(Number(goalCapital) - kpis.totalCapital).toLocaleString()} to go`}
                   </div>
                 </div>
               </div>
@@ -1001,7 +958,9 @@ export default function Analytics() {
                 Monitor your entire organization's accountability performance, compare members, and export team-wide reports.
               </div>
             </div>
-            <button style={{
+            <button
+              onClick={() => window.open('mailto:sales@disciplr.app?subject=Enterprise%20Upgrade%20Inquiry', '_blank')}
+              style={{
               background: seriesColors.warning,
               color: 'var(--bg)',
               border: 'none',
@@ -1068,22 +1027,10 @@ export default function Analytics() {
               <ChartSummary>
                 Locked enterprise preview bar chart showing example team member success rates.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={160} />}>
+              <Suspense fallback={<Skeleton height={160} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="team"
-                  displayData={displayData}
-                  chartData={chartData}
-                  period={period}
-                  vaultStatusData={vaultStatusData}
-                  teamChartData={TEAM_CHART_DATA}
-                  showComparison={showComparison}
-                  chartAnimationEnabled={chartAnimationEnabled}
-                  tooltipStyle={tooltipStyle}
-                  seriesColors={seriesColors}
-                  chartTokens={chartTokens}
-                  successLegendEntries={successLegendEntries}
-                  capitalLegendEntries={capitalLegendEntries}
-                  isLoading={isLoading}
+                  {...analyticsChartProps}
                 />
               </Suspense>
             </Card>

@@ -1,9 +1,19 @@
 /**
- * Minimal Node-compatible logger for the design-system package.
- * Suppresses non-error levels when NODE_ENV=production.
+ * Minimal logger for the design-system package.
+ * Suppresses non-error levels when running in a production build.
  */
 
-const isProd = () => process.env.NODE_ENV === 'production';
+const isProd = () => {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
+    return true;
+  }
+
+  const viteEnv = (import.meta as ImportMeta & {
+    env?: { MODE?: string; PROD?: boolean };
+  }).env;
+
+  return viteEnv?.MODE === 'production' || viteEnv?.PROD === true;
+};
 
 /* eslint-disable no-console */
 export const logger = {

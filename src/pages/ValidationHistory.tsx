@@ -23,7 +23,7 @@ export default function ValidationHistory() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState('');
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(() => readValidationHistoryPageSize());
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
@@ -35,7 +35,10 @@ export default function ValidationHistory() {
     () => filterValidationHistory(validationHistory, { status: statusFilter, query: searchQuery, from: fromDate || undefined, to: toDate || undefined, milestone: milestoneFilter || undefined }),
     [validationHistory, statusFilter, searchQuery, fromDate, toDate, milestoneFilter],
   );
-  const pagination = paginate(filteredHistory, page, pageSize);
+  const pagination = useMemo(
+    () => paginate(filteredHistory, page, pageSize),
+    [filteredHistory, page, pageSize]
+  );
 
   const updateStatusFilter = (status: ValidationHistoryStatusFilter) => {
     setStatusFilter(status);

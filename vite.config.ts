@@ -1,23 +1,10 @@
-/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import { configDefaults } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  test: {
-    globals: true,
-    environment: "happy-dom",
-    setupFiles: "./src/setupTests.ts",
-    css: true,
-    include: ["src/**/*.test.{tsx,ts}"],
-    coverage: {
-      reporter: ['text', 'html'],
-    },
-    exclude: [...configDefaults.exclude, 'node_modules', 'dist'],
-  },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },

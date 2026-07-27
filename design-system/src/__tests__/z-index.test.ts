@@ -1,7 +1,7 @@
 import { loadTokens } from '../utils/token-loader';
 
-// Documented stacking order: base < header < drawer < modal < toast.
-const LAYER_ORDER = ['base', 'header', 'drawer', 'modal', 'toast'] as const;
+// Documented stacking order: base < header < tooltip < drawer < modal < toast.
+const LAYER_ORDER = ['base', 'header', 'tooltip', 'drawer', 'modal', 'toast'] as const;
 
 interface NumberToken {
   $type: string;

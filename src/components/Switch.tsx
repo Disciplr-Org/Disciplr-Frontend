@@ -81,7 +81,7 @@ export function Switch({ checked, onChange, label, disabled = false, id }: Switc
           borderRadius: 'var(--radius-full)',
           background: checked ? 'var(--surface)' : 'var(--bg)',
           border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+          boxShadow: 'var(--shadow-level-1)',
           transition: 'transform 150ms ease, background 150ms ease',
         }}
       />

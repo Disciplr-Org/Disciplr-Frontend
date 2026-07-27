@@ -4,6 +4,10 @@
 
 The project uses **two separate test runners** that must not be mixed.
 
+### Configuration authority
+
+App tests are configured exclusively in [`vitest.config.ts`](./vitest.config.ts). This is the authoritative Vitest configuration: it assigns `jsdom` to `.test.tsx` files, `node` to `.test.ts` files, loads `src/setupTests.ts`, and enforces the documented coverage thresholds. `vite.config.ts` is reserved for the development server and production build and intentionally contains no `test` block. Keep test-runner changes in `vitest.config.ts` so there is one source of truth.
+
 ### App tests — Vitest
 
 Covers all files under `src/` (`*.test.ts` and `*.test.tsx`).

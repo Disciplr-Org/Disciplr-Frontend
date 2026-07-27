@@ -10,11 +10,11 @@ import type { Vault, VaultStatus } from '../types/vault';
 /**
  * Filter options for vault list.
  */
-export interface VaultFilterOptions {
+export interface VaultFilters {
   /** Status to filter by; undefined or 'all' returns all statuses */
-  status?: VaultStatus | 'all';
+  status: VaultStatus | 'all';
   /** Search query to match against vault name (case-insensitive) */
-  query?: string;
+  query: string;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface VaultSortOptions {
  */
 export function filterVaults(
   vaults: Vault[],
-  options: VaultFilterOptions = {},
+  options: Partial<VaultFilters> = {},
 ): Vault[] {
   const { status, query = '' } = options;
   const normalizedQuery = query.trim().toLowerCase();

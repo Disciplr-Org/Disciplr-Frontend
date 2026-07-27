@@ -64,6 +64,12 @@ export interface ZIndexToken {
   $description?: string;
 }
 
+export interface OpacityToken {
+  $type: 'number';
+  $value: number;
+  $description?: string;
+}
+
 export interface BorderToken {
   $type: 'dimension' | 'color';
   $value: string;
@@ -71,6 +77,12 @@ export interface BorderToken {
 }
 
 export type ColorTokenNode = ColorToken | { [key: string]: ColorTokenNode };
+
+export interface ToastToken {
+  $type: 'number';
+  $value: number;
+  $description?: string;
+}
 
 export interface DesignTokens {
   color?: Record<string, ColorTokenNode>;
@@ -80,5 +92,9 @@ export interface DesignTokens {
   motion?: Record<string, MotionToken>;
   border?: Record<string, BorderToken>;
   zIndex?: Record<string, ZIndexToken>;
+  opacity?: Record<string, OpacityToken>;
+  breakpoint?: Record<string, SpacingToken>;
+  /** Timing / capacity tokens from tokens/toast.json (DTCG number leaves). */
+  toast?: Record<string, ToastToken>;
 }
 

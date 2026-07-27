@@ -14,6 +14,12 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button>Connect Wallet</button>,
 }));
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
 function renderInRouter(ui: React.ReactNode, initialEntry = '/vaults/create') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>{ui}</MemoryRouter>
@@ -60,19 +66,6 @@ describe('RequireWallet', () => {
     expect(screen.queryByText(/connecting/i)).not.toBeInTheDocument();
   });
 
-  it('preserves the destination path in the hidden input', () => {
-    mockUseWallet.mockReturnValue({ address: null, isConnecting: false });
-
-    const { container } = renderInRouter(
-      <RequireWallet><div>Protected content</div></RequireWallet>,
-      '/vaults/create?ref=123'
-    );
-
-    const hidden = container.querySelector('input[type="hidden"]') as HTMLInputElement;
-    expect(hidden).not.toBeNull();
-    expect(hidden.value).toBe('/vaults/create?ref=123');
-  });
-
   it('has an accessible landmark with labelled heading', () => {
     mockUseWallet.mockReturnValue({ address: null, isConnecting: false });
 
@@ -88,5 +81,13 @@ describe('RequireWallet', () => {
     renderInRouter(<RequireWallet><span>Child</span></RequireWallet>);
 
     expect(screen.getByText('Child')).toBeInTheDocument();
+  });
+
+  it('navigates to the original destination once address becomes truthy', () => {
+    mockUseWallet.mockReturnValue({ address: 'GABC', isConnecting: false });
+
+    renderInRouter(<RequireWallet><span>Child</span></RequireWallet>, '/vaults/create?ref=123');
+
+    expect(mockNavigate).toHaveBeenCalledWith('/vaults/create?ref=123', { replace: true });
   });
 });

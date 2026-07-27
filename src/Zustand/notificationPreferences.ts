@@ -18,7 +18,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
     (set) => ({
       email: true,
       push: false,
-      frequency: "",
+      frequency: "1",
       quietHours: "12:00",
       setEmail: (value) => set({ email: value }),
       setPush: (value) => set({ push: value }),
@@ -28,7 +28,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
         set({
           email: true,
           push: false,
-          frequency: "",
+          frequency: "1",
           quietHours: "12:00",
         }),
     }),

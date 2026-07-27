@@ -1,14 +1,15 @@
 import Message from "@/components/Notification/Messages";
 import { groupNotificationsByDate } from "../utils/groupNotifications";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
-import { Link } from "react-router-dom";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion"; // <-- Import the hook
 import { Pagination } from "@/components/Pagination";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { paginate } from "@/utils/paginate";
 
 export default function Notification() {
@@ -16,29 +17,49 @@ export default function Notification() {
   const setNotifications = useNotification((state) => state.setNotification);
   const dismiss = useNotification((state) => state.dismiss);
   const clearAll = useNotification((state) => state.clearAll);
-  const [currentNotification, setCurrentNotification] = useState(notifications);
-  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] =
-    useState("all");
-  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] =
-    useState("all");
+  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] = useState("all");
+  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const itemsPerPage = 5;
 
-  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
+  const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
+
+  // Define a clean transition config that zero-durations motion elements when flag is on
+  const activeTransition = prefersReducedMotion 
+    ? { duration: 0 } 
+    : transitionEnter;
+
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
+    if (!filtered) return [];
+
+    if (currentFilterReadSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
+      );
+    }
+
+    if (currentFilterTypeSeletion !== "all") {
+      filtered = filtered.filter(
+        (noti) => noti.category === currentFilterTypeSeletion,
+      );
+    }
+
+    return filtered;
+  }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
+
+  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
   const currentData = pagination.items;
 
-  const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   useEffect(() => {
-    // 2. Function to handle clicks
     const handleClickOutside = (event: MouseEvent) => {
-      // If the clicked element is NOT inside our container, close it
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -71,11 +92,8 @@ export default function Notification() {
       }
     };
 
-    // 3. Attach listener to the whole document
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
-
-    // 4. Cleanup listener when component unmounts
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
@@ -83,82 +101,41 @@ export default function Notification() {
   }, []);
 
   useEffect(() => {
-    let filtered = notifications;
-
-    if (!filtered) return;
-
-    if (currentFilterReadSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.isRead === Boolean(Number(currentFilterReadSeletion)),
-      );
-    }
-
-    if (currentFilterTypeSeletion !== "all") {
-      filtered = filtered.filter(
-        (noti) => noti.category === currentFilterTypeSeletion,
-      );
-    }
-    setCurrentNotification(filtered);
     setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
-
-  // Reset to page 1 when the underlying notification list changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [notifications.length]);
-
-  useEffect(() => {
-    const readLabel =
-      currentFilterReadSeletion === "all"
-        ? "all"
-        : currentFilterReadSeletion === "0"
-        ? "unread"
-        : "read";
-    const typeLabel =
-      currentFilterTypeSeletion === "all"
-        ? "all categories"
-        : currentFilterTypeSeletion;
-
-    const count = currentNotification.length;
-    const countText = count === 1 ? "1 notification" : `${count} notifications`;
-
-    if (count === 0) {
-      setLiveAnnouncement(
-        `No notifications found. Active filters: status ${readLabel}, category ${typeLabel}.`
-      );
-    } else {
-      setLiveAnnouncement(
-        `Showing ${countText}. Active filters: status ${readLabel}, category ${typeLabel}.`
-      );
-    }
-  }, [currentFilterReadSeletion, currentFilterTypeSeletion, currentNotification.length]);
-
-  const handleDismiss = (id: string) => {
-    dismiss(id);
-    setCurrentNotification((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const handleClearAll = () => {
-    clearAll();
-    setCurrentNotification([]);
-    setShowClearModal(false);
-    setCurrentPage(1);
-  };
 
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-    setCurrentNotification((prev) =>
-      prev.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
   };
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setShowClearModal(false);
+  };
+
+  const statusLabel =
+    currentFilterReadSeletion === "all"
+      ? "all"
+      : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+  const categoryLabel =
+    currentFilterTypeSeletion === "all" ? "all categories" : currentFilterTypeSeletion;
+  const resultCount = filteredNotifications.length;
+  const countText =
+    resultCount === 0
+      ? "No notifications found"
+      : `Showing ${resultCount === 1 ? "1 notification" : `${resultCount} notifications`}`;
+  const liveAnnouncement = `${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`;
+
   return (
     <>
       <div ref={containerRef} className="flex justify-between items-center">
@@ -166,7 +143,7 @@ export default function Notification() {
         <div className="flex gap-5 items-center justify-center">
           <div className="relative">
             <Link
-              to="/notification/settings"
+              to="/notifications/settings"
               aria-label="Notification Preferences"
               style={{
                 padding: "0.5rem 1rem",
@@ -192,7 +169,7 @@ export default function Notification() {
                 }
                 setIsFilterOpen((prev) => !prev);
               }}
-              className="bg-[#00c389] px-3 py-2 rounded-md"
+              className="bg-[var(--accent)] px-3 py-2 rounded-md"
             >
               Filter
             </button>
@@ -201,10 +178,10 @@ export default function Notification() {
                 <motion.div
                   ref={filterPanelRef}
                   id="notification-filter-panel"
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={transitionEnter}
+                  exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
+                  transition={activeTransition} // <-- Assign the guarded duration here
                   className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md"
                   style={{ zIndex: 'var(--z-index-drawer)' }}
                 >
@@ -267,7 +244,7 @@ export default function Notification() {
               {group.items.map((items) => (
                 <div
                   key={items.id}
-                  className="w-full px-2 border-[#00c389] border-1 rounded-md mb-3"
+                  className="w-full px-2 border-[var(--accent)] border-1 rounded-md mb-3"
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
@@ -275,7 +252,7 @@ export default function Notification() {
                         id={items.id}
                         title={items.title}
                         message={items.message}
-                        timeAgo={items.timeAgo}
+                        timestamp={items.timestamp}
                         type={items.type}
                         read={items.isRead}
                         isFullPage={true}

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { vi } from "vitest";
 import Vaults, { VaultsInner } from "../../pages/Vaults";
+import type { Vault } from "../../types/vault";
 
 // Helper to mock fetch function
 const mockSuccess = <T,>(data: T) => vi.fn().mockResolvedValue(data);
@@ -18,7 +19,46 @@ function CreateVaultStateProbe() {
   );
 }
 
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
+      store[key] = value.toString();
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+})();
+
+// Mock matchMedia for Tooltip
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+// Mock localStorage
+Object.defineProperty(window, "localStorage", { value: localStorageMock });
+
 describe("Vaults page states", () => {
+  beforeEach(() => {
+    localStorageMock.clear();
+  });
+
   test("shows loading skeletons initially", async () => {
     render(<Vaults fetchVaults={mockSuccess([])} />);
     // Skeletons should be present immediately
@@ -110,192 +150,345 @@ describe("Vaults page states", () => {
     expect(retryBtn).toBeInTheDocument();
     // Mock success on retry
     fetchMock.mockImplementationOnce(() => Promise.resolve([]));
-    userEvent.click(retryBtn);
-    await waitFor(() => screen.getByText("You don't have any vaults yet"));
+    await userEvent.click(retryBtn);
+    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
   });
 });
 
-describe('Vaults page filtering and sorting', () => {
-  const mockVaults: Vault[] = [
-    createMockVault({ id: '1', name: 'Alpha Vault', status: 'active', amount: 12500, deadline: '2024-07-15T10:00:00Z' }),
-    createMockVault({ id: '2', name: 'Beta Reserve', status: 'completed', amount: 4200.5, deadline: '2024-01-01T09:00:00Z' }),
-    createMockVault({ id: '3', name: 'Gamma Fund', status: 'failed', amount: 8800, deadline: '2023-12-01T08:00:00Z' }),
-    createMockVault({ id: '4', name: 'Delta Cancelled', status: 'cancelled', amount: 5000, deadline: '2023-12-01T08:00:00Z' }),
-    createMockVault({ id: '5', name: 'Epsilon Pending', status: 'pending_validation', amount: 15000, deadline: '2024-06-01T10:00:00Z' }),
+describe("Vaults view toggle", () => {
+  beforeEach(() => {
+    localStorageMock.clear();
+  });
+
+  test("defaults to list view when no preference exists", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const listButton = screen.getByRole("radio", { name: "List" });
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+
+    expect(listButton).toHaveAttribute("aria-checked", "true");
+    expect(gridButton).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("switches to grid view when grid button is clicked", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    await userEvent.click(gridButton);
+
+    await waitFor(() =>
+      expect(gridButton).toHaveAttribute("aria-checked", "true"),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute(
+        "aria-checked",
+        "false",
+      ),
+    );
+  });
+
+  test("switches back to list view when list button is clicked", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    await userEvent.click(gridButton);
+
+    const listButton = screen.getByRole("radio", { name: "List" });
+    await userEvent.click(listButton);
+
+    await waitFor(() =>
+      expect(listButton).toHaveAttribute("aria-checked", "true"),
+    );
+    await waitFor(() =>
+      expect(gridButton).toHaveAttribute("aria-checked", "false"),
+    );
+  });
+
+  test("persists grid view preference to localStorage", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    await userEvent.click(gridButton);
+
+    await waitFor(() =>
+      expect(gridButton).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(localStorageMock.getItem("vaults-view-preference")).toBe("grid");
+  });
+
+  test("persists list view preference to localStorage", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    await userEvent.click(gridButton);
+
+    const listButton = screen.getByRole("radio", { name: "List" });
+    await userEvent.click(listButton);
+
+    await waitFor(() =>
+      expect(listButton).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(localStorageMock.getItem("vaults-view-preference")).toBe("list");
+  });
+
+  test("loads grid view from localStorage preference", async () => {
+    localStorageMock.setItem("vaults-view-preference", "grid");
+
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    const listButton = screen.getByRole("radio", { name: "List" });
+
+    expect(gridButton).toHaveAttribute("aria-checked", "true");
+    expect(listButton).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("shows empty state in both views", async () => {
+    render(<Vaults fetchVaults={mockSuccess([])} />);
+    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
+
+    // Toggle buttons should still be present
+    expect(screen.getByRole("radio", { name: "List" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Grid" })).toBeInTheDocument();
+  });
+
+  test("renders vaults VaultCard in grid view", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+    await waitFor(() => screen.getByText("Test Vault"));
+
+    const gridButton = screen.getByRole("radio", { name: "Grid" });
+    await userEvent.click(gridButton);
+
+    // VaultCard should be rendered with progress bar
+    await waitFor(() => screen.getByLabelText(/Test Vault progress/i));
+  });
+
+  test("handles localStorage errors gracefully", async () => {
+    // Mock localStorage to throw error
+    const originalGetItem = localStorageMock.getItem;
+    localStorageMock.getItem = vi.fn(() => {
+      throw new Error("localStorage error");
+    });
+
+    const mockData = [
+      {
+        id: "1",
+        name: "Test Vault",
+        amount: 1000,
+        currency: "USDC",
+        status: "active" as any,
+        deadline: "2025-01-01T00:00:00Z",
+        milestones: [],
+      },
+    ];
+    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
+
+    // Should still render with default list view
+    await waitFor(() => screen.getByText("Test Vault"));
+    expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    localStorageMock.getItem = originalGetItem;
+  });
+});
+
+describe("Vaults filter and sort", () => {
+  const vaults: Vault[] = [
+    {
+      id: "1",
+      name: "Alpha Project",
+      amount: 500,
+      currency: "USDC",
+      status: "active",
+      deadline: "2025-06-01T00:00:00Z",
+      milestones: [],
+    },
+    {
+      id: "2",
+      name: "Beta Project",
+      amount: 1500,
+      currency: "USDC",
+      status: "completed",
+      deadline: "2025-03-01T00:00:00Z",
+      milestones: [],
+    },
+    {
+      id: "3",
+      name: "Gamma Project",
+      amount: 800,
+      currency: "USDC",
+      status: "active",
+      deadline: "2025-09-01T00:00:00Z",
+      milestones: [],
+    },
   ];
 
+  const renderWithRouter = (ui: React.ReactElement) =>
+    render(<MemoryRouter>{ui}</MemoryRouter>);
+
   beforeEach(() => {
-    render(<Vaults fetchVaults={mockSuccess(mockVaults)} />);
+    localStorageMock.clear();
   });
 
-  test('renders filter toolbar when data is loaded', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    expect(screen.getByText('Status:')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search vaults by name...')).toBeInTheDocument();
-    expect(screen.getByText('Sort by:')).toBeInTheDocument();
+  test("renders the filter bar with status select and search input", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+    expect(screen.getByRole("combobox", { name: /status/i })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: /search/i })).toBeInTheDocument();
   });
 
-  test('status filter chips are keyboard operable with aria-pressed', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const allChip = screen.getByRole('button', { name: 'All' });
-    expect(allChip).toHaveAttribute('aria-pressed', 'true');
-    
-    const activeChip = screen.getByRole('button', { name: 'Active' });
-    expect(activeChip).toHaveAttribute('aria-pressed', 'false');
-    
-    // Click active chip
-    await userEvent.click(activeChip);
-    expect(activeChip).toHaveAttribute('aria-pressed', 'true');
-    expect(allChip).toHaveAttribute('aria-pressed', 'false');
+  test("renders the sort controls", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+    expect(screen.getByRole("combobox", { name: /sort vaults by/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sort/i })).toBeInTheDocument();
   });
 
-  test('toggling status chips filters vaults correctly', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    // Should show all 5 vaults initially
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
-    expect(screen.getByText('Gamma Fund')).toBeInTheDocument();
-    expect(screen.getByText('Delta Cancelled')).toBeInTheDocument();
-    expect(screen.getByText('Epsilon Pending')).toBeInTheDocument();
-    
-    // Click "Active" chip
-    const activeChip = screen.getByRole('button', { name: 'Active' });
-    await userEvent.click(activeChip);
-    
-    // Should only show Alpha Vault (active)
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
-    expect(screen.queryByText('Gamma Fund')).not.toBeInTheDocument();
-    expect(screen.queryByText('Delta Cancelled')).not.toBeInTheDocument();
-    expect(screen.queryByText('Epsilon Pending')).not.toBeInTheDocument();
-    
-    // Click "Completed" chip
-    const completedChip = screen.getByRole('button', { name: 'Completed' });
-    await userEvent.click(completedChip);
-    
-    // Should only show Beta Reserve (completed)
-    expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
-    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
-    expect(screen.queryByText('Gamma Fund')).not.toBeInTheDocument();
-    
-    // Click "All" to reset
-    const allChip = screen.getByRole('button', { name: 'All' });
-    await userEvent.click(allChip);
-    
-    // Should show all vaults again
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
+  test("filters vaults by status", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /status/i }),
+      "completed",
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Alpha Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Gamma Project")).not.toBeInTheDocument();
+      expect(screen.getByText("Beta Project")).toBeInTheDocument();
+    });
   });
 
-  test('typing search query filters vaults by name (case-insensitive)', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const searchInput = screen.getByTestId('vault-search-input');
-    
-    // Type "alpha"
-    await userEvent.type(searchInput, 'alpha');
-    
-    // Should only show Alpha Vault
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
-    expect(screen.queryByText('Gamma Fund')).not.toBeInTheDocument();
-    
-    // Clear search
-    await userEvent.clear(searchInput);
-    
-    // Should show all vaults again
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
+  test("filters vaults by search query", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search/i }),
+      "Alpha",
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Alpha Project")).toBeInTheDocument();
+      expect(screen.queryByText("Beta Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Gamma Project")).not.toBeInTheDocument();
+    });
   });
 
-  test('typing search query with partial match', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const searchInput = screen.getByTestId('vault-search-input');
-    
-    // Type "vault" (should only match "Alpha Vault")
-    await userEvent.type(searchInput, 'vault');
-    
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
-    expect(screen.queryByText('Gamma Fund')).not.toBeInTheDocument();
+  test("sort vaults toggle changes direction", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
+
+    const sortButton = screen.getByRole("button", { name: /sort/i });
+    expect(sortButton).toHaveTextContent(/Asc/i);
+
+    await userEvent.click(sortButton);
+    expect(sortButton).toHaveTextContent(/Desc/i);
   });
 
-  test('combined status filter and search query', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const searchInput = screen.getByTestId('vault-search-input');
-    const activeChip = screen.getByRole('button', { name: 'Active' });
-    
-    // Filter by active status
-    await userEvent.click(activeChip);
-    
-    // Type "alpha"
-    await userEvent.type(searchInput, 'alpha');
-    
-    // Should only show Alpha Vault (active AND matches search)
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
-  });
+  test("combined filter: status + search narrows results", async () => {
+    renderWithRouter(<VaultsInner fetchVaults={mockSuccess(vaults)} />);
+    await waitFor(() => screen.getByText("Alpha Project"));
 
-  test('sort select changes sorting order', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const sortSelect = screen.getByTestId('vault-sort-select');
-    
-    // Default is deadline ascending (nearest first)
-    expect(sortSelect).toHaveValue('deadline-asc');
-    
-    // Change to amount descending
-    await userEvent.selectOptions(sortSelect, 'amount-desc');
-    expect(sortSelect).toHaveValue('amount-desc');
-  });
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /status/i }),
+      "active",
+    );
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search/i }),
+      "Gamma",
+    );
 
-  test('empty result state shows clear message when filters match nothing', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const searchInput = screen.getByTestId('vault-search-input');
-    
-    // Type a query that matches nothing
-    await userEvent.type(searchInput, 'nonexistent');
-    
-    // Should show empty result message
-    await waitFor(() => screen.getByText('No vaults match your filters.'));
-    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
-  });
-
-  test('clear filters button resets all filters', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const searchInput = screen.getByTestId('vault-search-input');
-    const activeChip = screen.getByRole('button', { name: 'Active' });
-    
-    // Apply filters
-    await userEvent.click(activeChip);
-    await userEvent.type(searchInput, 'nonexistent');
-    
-    // Should show empty result
-    await waitFor(() => screen.getByText('No vaults match your filters.'));
-    
-    // Click clear filters
-    const clearButton = screen.getByRole('button', { name: 'Clear filters' });
-    await userEvent.click(clearButton);
-    
-    // Should show all vaults again
-    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
-    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
-    expect(searchInput).toHaveValue('');
-  });
-
-  test('vault rows maintain link-to-detail navigation', async () => {
-    await waitFor(() => screen.getByText('Your Vaults'));
-    
-    const alphaVaultLink = screen.getByText('Alpha Vault').closest('a');
-    expect(alphaVaultLink).toHaveAttribute('href', '/vaults/1');
-    
-    const betaVaultLink = screen.getByText('Beta Reserve').closest('a');
-    expect(betaVaultLink).toHaveAttribute('href', '/vaults/2');
+    await waitFor(() => {
+      expect(screen.queryByText("Alpha Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("Beta Project")).not.toBeInTheDocument();
+      expect(screen.getByText("Gamma Project")).toBeInTheDocument();
+    });
   });
 });

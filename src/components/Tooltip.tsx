@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 
 export type TooltipPosition = "top" | "bottom";
 
@@ -35,10 +36,7 @@ export function Tooltip({
   const [visible, setVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const prefersReducedMotion =
-    typeof window !== "undefined"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false;
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const show = useCallback(() => {
     if (hideTimerRef.current) {
@@ -114,7 +112,7 @@ export function Tooltip({
         style={{
           position: "absolute",
           ...positionStyle,
-          zIndex: 9999,
+          zIndex: "var(--z-index-tooltip, 150)",
           pointerEvents: "none",
           whiteSpace: "nowrap",
           padding: "4px 10px",

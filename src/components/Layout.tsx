@@ -9,6 +9,10 @@ import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
+import { ShortcutsHelp } from "./ShortcutsHelp";
+import ErrorBoundary from "./ErrorBoundary";
+import { ToastViewport } from "./ToastViewport";
+import ThemeToggle from "./ThemeToggle";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -45,7 +49,6 @@ export default function Layout({ children }: LayoutProps) {
             <span
               aria-hidden="true"
               className="header-transactions-icon"
-              style={{ display: "none" }}
             >
               ↗
             </span>
@@ -68,6 +71,18 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
+            <NavLink to="/dashboard" className="header-link">
+              <Text role="caption" as="span">
+                Dashboard
+              </Text>
+            </NavLink>
+
+            <NavLink to="/vaults" className="header-link">
+              <Text role="caption" as="span">
+                Vaults
+              </Text>
+            </NavLink>
+
             <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
                 Verifier
@@ -86,6 +101,16 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
+            <NavLink
+              to="/help"
+              className="header-link"
+              aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
+            >
+              <Text role="caption" as="span">
+                Help
+              </Text>
+            </NavLink>
+
             <Link
               to="/vaults/create"
               className="header-link header-cta"
@@ -96,11 +121,13 @@ export default function Layout({ children }: LayoutProps) {
               Create Vault
             </Link>
             <NotificationBell />
+            <ThemeToggle />
             <WalletConnectButton />
           </div>
         </nav>
         <div className="mobile-bell-wrapper" {...backgroundA11yProps}>
           <NotificationBell />
+          <ThemeToggle />
         </div>
         <button
           type="button"
@@ -129,9 +156,10 @@ export default function Layout({ children }: LayoutProps) {
           width: "100%",
         }}
       >
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </main>
       <ShortcutsHelp />
+      <ToastViewport />
     </div>
   );
 }
