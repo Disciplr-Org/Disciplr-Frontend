@@ -14,7 +14,7 @@ interface WalletContextType {
     balanceError: string | null;
     isConnecting: boolean;
     error: string | null;
-    connect: () => Promise<void>;
+    connect: () => Promise<boolean>;
     disconnect: () => void;
     checkConnection: () => Promise<void>;
 }
@@ -147,7 +147,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, [address]);
 
-    const connect = async () => {
+    const connect = async (): Promise<boolean> => {
         setIsConnecting(true);
         setError(null);
         try {
@@ -163,6 +163,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
+                    return true;
                 } else {
                     setError(addrError || 'Failed to get wallet address.');
                 }
@@ -176,6 +177,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsConnecting(false);
         }
+        return false;
     };
 
     const disconnect = () => {
