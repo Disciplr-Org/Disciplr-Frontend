@@ -71,6 +71,18 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
+            <NavLink to="/dashboard" className="header-link">
+              <Text role="caption" as="span">
+                Dashboard
+              </Text>
+            </NavLink>
+
+            <NavLink to="/vaults" className="header-link">
+              <Text role="caption" as="span">
+                Vaults
+              </Text>
+            </NavLink>
+
             <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
                 Verifier
