@@ -97,7 +97,7 @@ export default function NotFound() {
       {/* Helpful Links */}
       <div
         style={{
-          marginTop: 'var(--spacing-12)',
+          marginTop: 'var(--spacing-8)',
           paddingTop: 'var(--spacing-6)',
           borderTop: '1px solid var(--border)',
         }}
