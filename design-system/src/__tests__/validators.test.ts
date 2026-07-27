@@ -87,7 +87,7 @@ describe('token name validators', () => {
     expect(hasValidTokenPrefix('radius-md')).toBe(true);
     expect(hasValidTokenPrefix('border-default')).toBe(true);
     expect(hasValidTokenPrefix('motion-fast')).toBe(true);
-    expect(hasValidTokenPrefix('chart-accent')).toBe(false);
+    expect(hasValidTokenPrefix('chart-accent')).toBe(true);
     expect(hasValidTokenPrefix('color')).toBe(false);
   });
 });
@@ -165,17 +165,21 @@ describe('isKebabCase boundary table', () => {
 
 describe('hasValidTokenPrefix boundary table', () => {
   it('accepts each documented prefix', () => {
+    expect(hasValidTokenPrefix('chart-categorical-1')).toBe(true);
+    expect(hasValidTokenPrefix('chart-sequential-3')).toBe(true);
     expect(hasValidTokenPrefix('color-accent')).toBe(true);
+    expect(hasValidTokenPrefix('font-body')).toBe(true);
     expect(hasValidTokenPrefix('spacing-4')).toBe(true);
     expect(hasValidTokenPrefix('typography-title')).toBe(true);
     expect(hasValidTokenPrefix('shadow-card')).toBe(true);
     expect(hasValidTokenPrefix('radius-md')).toBe(true);
     expect(hasValidTokenPrefix('border-default')).toBe(true);
     expect(hasValidTokenPrefix('motion-fast')).toBe(true);
+    expect(hasValidTokenPrefix('z-index-modal')).toBe(true);
   });
 
   it('rejects unknown prefixes and prefixes without a hyphen', () => {
-    expect(hasValidTokenPrefix('chart-foo')).toBe(false); // unknown prefix
+    expect(hasValidTokenPrefix('unknown-foo')).toBe(false); // unknown prefix
     expect(hasValidTokenPrefix('color')).toBe(false); // prefix without hyphen
     expect(hasValidTokenPrefix('colorfoo')).toBe(false); // prefix without hyphen
     expect(hasValidTokenPrefix('')).toBe(false); // empty

@@ -4,7 +4,7 @@ import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
-import { computeVerifierMetrics } from '../utils/verifierMetrics';
+import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
@@ -285,10 +285,10 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: remaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
                           {remaining} days left
                         </span>
-                        {remaining <= 3 && (
+                        {remaining <= CRITICAL_DAYS_THRESHOLD && (
                           <span className="sr-only">Urgent</span>
                         )}
                         <CountdownDeadline deadline={task.deadline} />

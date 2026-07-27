@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useEffect, memo } from "react";
 import { useParams } from "react-router-dom";
 import { windowRange } from "../utils/windowRange";
 import { toCsv, downloadCsv } from "../utils/csv";
@@ -151,7 +151,9 @@ export default function VaultTransactions({
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
-  const [anchorIndex, setAnchorIndex] = useState(0);
+  const [pendingAnchor, setPendingAnchor] = useState(0);
+  const [failedAnchor, setFailedAnchor] = useState(0);
+  const [restAnchor, setRestAnchor] = useState(0);
 
   const transactions = useMemo(
     () => providedTransactions ?? getCachedActivity(),
@@ -194,7 +196,9 @@ export default function VaultTransactions({
             : "desc"
           : "asc",
     }));
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
@@ -209,10 +213,18 @@ export default function VaultTransactions({
       list = list.filter((t) =>
         t.hash.toLowerCase().includes(searchHash.toLowerCase()),
       );
-    if (amountMin !== "")
-      list = list.filter((t) => t.amount >= parseFloat(amountMin));
-    if (amountMax !== "")
-      list = list.filter((t) => t.amount <= parseFloat(amountMax));
+    if (amountMin !== "") {
+      const min = parseFloat(amountMin);
+      if (Number.isFinite(min)) {
+        list = list.filter((t) => t.amount >= min);
+      }
+    }
+    if (amountMax !== "") {
+      const max = parseFloat(amountMax);
+      if (Number.isFinite(max)) {
+        list = list.filter((t) => t.amount <= max);
+      }
+    }
     return sortTransactions(list, sortState.key, sortState.dir);
   }, [
     selectedTypes,
@@ -239,19 +251,25 @@ export default function VaultTransactions({
   );
 
   // Reset window anchor when filters change so the user always sees the top.
+  // sort changes are handled inside updateSort(); this effect covers the six
+  // filter controls that filtered() depends on.
+  useEffect(() => {
+    setAnchorIndex(0);
+  }, [selectedTypes, filterVault, filterStatus, searchHash, amountMin, amountMax]);
+
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
   const pendingWindow = useMemo(
-    () => windowRange(pending, anchorIndex),
-    [pending, anchorIndex],
+    () => windowRange(pending, pendingAnchor),
+    [pending, pendingAnchor],
   );
   const failedWindow = useMemo(
-    () => windowRange(failed, anchorIndex),
-    [failed, anchorIndex],
+    () => windowRange(failed, failedAnchor),
+    [failed, failedAnchor],
   );
   const restWindow = useMemo(
-    () => windowRange(rest, anchorIndex),
-    [rest, anchorIndex],
+    () => windowRange(rest, restAnchor),
+    [rest, restAnchor],
   );
 
   const stats = useMemo(
@@ -284,7 +302,9 @@ export default function VaultTransactions({
     setSearchHash("");
     setAmountMin("");
     setAmountMax("");
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   };
 
   const hasFilters =
@@ -512,9 +532,9 @@ export default function VaultTransactions({
                   start={pendingWindow.startIndex}
                   end={pendingWindow.endIndex}
                   total={pending.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setPendingAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(pending.length - 1, a + 10))
+                    setPendingAnchor((a) => Math.min(pending.length - 1, a + 10))
                   }
                 />
               )}
@@ -546,9 +566,9 @@ export default function VaultTransactions({
                   start={failedWindow.startIndex}
                   end={failedWindow.endIndex}
                   total={failed.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setFailedAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(failed.length - 1, a + 10))
+                    setFailedAnchor((a) => Math.min(failed.length - 1, a + 10))
                   }
                 />
               )}
@@ -581,9 +601,9 @@ export default function VaultTransactions({
                     start={restWindow.startIndex}
                     end={restWindow.endIndex}
                     total={rest.length}
-                    onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                    onPrev={() => setRestAnchor((a) => Math.max(0, a - 10))}
                     onNext={() =>
-                      setAnchorIndex((a) => Math.min(rest.length - 1, a + 10))
+                      setRestAnchor((a) => Math.min(rest.length - 1, a + 10))
                     }
                   />
                 )}
@@ -1479,7 +1499,7 @@ const CSS = `
   .vt-empty-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .vt-empty-sub { font-size: 13px; color: var(--muted); }
   .vt-modal-backdrop {
-    position: fixed; inset: 0; z-index: 100;
+    position: fixed; inset: 0; z-index: var(--z-index-modal);
     background: var(--overlay-backdrop); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; padding: 24px;
     animation: vt-fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));

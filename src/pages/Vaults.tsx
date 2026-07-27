@@ -7,9 +7,8 @@ import { VaultFilterBar } from "../components/VaultFilterBar";
 import { listVaults } from "../services/vaultService";
 import type { Vault } from "../types/vault";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
-import type { VaultFilters } from "../utils/filterVaults";
 import { filterVaults, sortVaults } from "../utils/vaultFilter";
-import type { VaultSortOptions } from "../utils/vaultFilter";
+import type { VaultFilters, VaultSortOptions } from "../utils/vaultFilter";
 
 const STORAGE_KEY = "vaults-view-preference";
 const DEFAULT_VIEW: "list" | "grid" = "list";
@@ -48,9 +47,9 @@ function Skeleton() {
       data-testid="skeleton"
       style={{
         height: 72,
-        background: "var(--surface, #1e293b)",
-        border: "1px solid var(--border, #334155)",
-        borderRadius: "var(--radius, 8px)",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
         animation: "pulse 1.5s ease-in-out infinite",
       }}
     />

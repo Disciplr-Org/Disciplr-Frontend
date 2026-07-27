@@ -9,49 +9,19 @@ import {
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
 import { VaultMetaPanel } from "../components/VaultMetaPanel";
+import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
 import { useWallet } from "../context/WalletContext";
 import { MASTER_VAULTS as MOCK_VAULTS } from "../services/vaultService";
 import { contractExplorerUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import { truncateMiddle } from "../utils/truncate";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
-import type { Vault, VaultStatus } from "../types/vault";
+import type { Vault } from "../types/vault";
 
 // ── Types imported from canonical source ─────────────────────────────────────
 // Vault and VaultStatus are imported from "../types/vault" above.
 // MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CONFIG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "var(--muted)",
-    bg: "rgba(156,163,175,0.1)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-};
 
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",
@@ -59,10 +29,6 @@ const TX_LABELS: Record<string, string> = {
   release: "Funds Released",
   redirect: "Funds Redirected",
 };
-
-function truncHash(hash: string): string {
-  return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
-}
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -169,7 +135,6 @@ export default function VaultDetail() {
     );
   }
 
-  const statusCfg = STATUS_CONFIG[vault.status];
   const progress = timelineProgress(vault.createdAt, vault.deadline);
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
@@ -238,19 +203,7 @@ export default function VaultDetail() {
               <Text role="title" as="h1" style={{ margin: 0 }}>
                 {vault.name}
               </Text>
-              <span
-                style={{
-                  background: statusCfg.bg,
-                  color: statusCfg.color,
-                  border: `var(--border-width-1) solid ${statusCfg.color}`,
-                  borderRadius: "var(--radius-full)",
-                  padding: "2px 12px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {statusCfg.label}
-              </span>
+              <StatusChip status={vault.status} size="lg" />
             </div>
             <Text
               role="display"
@@ -337,13 +290,7 @@ export default function VaultDetail() {
           {isActive ? (
             <CountdownDeadline deadline={vault.deadline} />
           ) : (
-            <Text
-              role="caption"
-              as="span"
-              style={{ color: statusCfg.color, fontWeight: 600 }}
-            >
-              {statusCfg.label}
-            </Text>
+            <StatusChip status={vault.status} />
           )}
           <div
             style={{
@@ -505,7 +452,7 @@ export default function VaultDetail() {
                     as="span"
                     style={{ color: "var(--muted)", fontSize: 11 }}
                   >
-                    {truncHash(tx.hash)}
+                    {truncateMiddle(tx.hash, 8, 6)}
                   </Text>
                   <button
                     type="button"
