@@ -198,4 +198,38 @@ export const MASTER_VAULTS: Record<string, Vault> = {
       },
     ],
   },
+  // Vault 5: pending_validation vault — used to test Validate Milestone button
+  "5": {
+    id: "5",
+    name: "Epsilon Pending",
+    status: "pending_validation",
+    amount: 7500,
+    currency: "USDC",
+    createdAt: "2024-03-01T09:00:00Z",
+    deadline: "2025-03-01T09:00:00Z",
+    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+    verifierAddress: "GVERIF3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+    contractAddress: "GCONT6KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
+    milestones: [
+      {
+        id: "m1",
+        title: "Milestone Alpha",
+        description: "First deliverable",
+        criteria: "Submitted and under review",
+        status: "pending",
+        evidenceUrl: "https://example.com/evidence/1",
+      },
+    ],
+    transactions: [
+      {
+        id: "tx1",
+        type: "create",
+        hash: "e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6",
+        timestamp: "2024-03-01T09:00:00Z",
+        amount: 7500,
+      },
+    ],
+  },
 };
