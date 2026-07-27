@@ -7,9 +7,8 @@ import { VaultFilterBar } from "../components/VaultFilterBar";
 import { listVaults } from "../services/vaultService";
 import type { Vault } from "../types/vault";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
-import type { VaultFilters } from "../utils/filterVaults";
 import { filterVaults, sortVaults } from "../utils/vaultFilter";
-import type { VaultSortOptions } from "../utils/vaultFilter";
+import type { VaultFilters, VaultSortOptions } from "../utils/vaultFilter";
 
 const STORAGE_KEY = "vaults-view-preference";
 const DEFAULT_VIEW: "list" | "grid" = "list";
