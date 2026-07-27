@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
-import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
+import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
 
@@ -144,6 +144,8 @@ export default function Analytics() {
     () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevChartData as AnalyticsDataPoint[]),
     [chartData, prevChartData]
   )
+
+  const benchmarkData = useMemo(() => computeBenchmarkData(kpis), [kpis])
 
   const chartAnimationEnabled = !prefersReducedMotion
 
@@ -752,7 +754,7 @@ export default function Analytics() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
                     <span style={{ color: 'var(--muted)' }}>{item.metric}</span>
                     <span style={{ color: item.you >= item.platform ? seriesColors.success : seriesColors.failed, fontWeight: 700 }}>
-                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{i === 0 || i === 2 ? (i === 0 ? '%' : '') : (i === 3 ? '' : 'd')}
+                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{item.unit}
                     </span>
                   </div>
                   {/* Your bar */}
