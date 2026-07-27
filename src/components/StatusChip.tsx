@@ -84,6 +84,11 @@ export const StatusChip: React.FC<StatusChipProps> = ({
   const sizeStyle = SIZE_STYLES[size];
   const displayLabel = label ?? config.defaultLabel;
   const tooltipContent = tooltip ?? config.description;
+  
+  // Only make focusable if a custom tooltip was explicitly provided.
+  // The aria-label already exposes the status to screen readers, so keyboard
+  // users don't need a tab stop just to read the default description.
+  const shouldBeFocusable = tooltip !== undefined;
 
   const chip = (
     <span
@@ -102,8 +107,7 @@ export const StatusChip: React.FC<StatusChipProps> = ({
         ...sizeStyle,
       }}
       aria-label={displayLabel}
-      // tabIndex allows focus trigger for the tooltip without a focusable wrapper
-      tabIndex={0}
+      {...(shouldBeFocusable && { tabIndex: 0 })}
     >
       {displayLabel}
     </span>
