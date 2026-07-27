@@ -50,7 +50,7 @@ export default function Message({
                   {title}
                 </h2>
                 <p className="text-sm text-[#667589]">
-                  {message.slice(0, 30)} ...
+                  {message.length > 30 ? `${message.slice(0, 30)}...` : message}
                 </p>
               </div>
               {isFullPage && (

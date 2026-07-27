@@ -1479,7 +1479,7 @@ const CSS = `
   .vt-empty-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .vt-empty-sub { font-size: 13px; color: var(--muted); }
   .vt-modal-backdrop {
-    position: fixed; inset: 0; z-index: 100;
+    position: fixed; inset: 0; z-index: var(--z-index-modal);
     background: var(--overlay-backdrop); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; padding: 24px;
     animation: vt-fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
