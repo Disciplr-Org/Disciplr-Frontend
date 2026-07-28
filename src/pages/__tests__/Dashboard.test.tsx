@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, test, expect, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -19,7 +20,6 @@ describe("Dashboard page", () => {
 
     // Verify cards and sections
     expect(screen.getByText(/Total Locked/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Active Vaults/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Active Vaults/i, { selector: '.text-caption' }).parentElement).toHaveTextContent('3');
     expect(screen.getByText(/Pending Milestones/i)).toBeInTheDocument();
     expect(

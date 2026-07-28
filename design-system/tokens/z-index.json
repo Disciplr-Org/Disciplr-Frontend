@@ -11,6 +11,11 @@
       "$value": 100,
       "$description": "Sticky site header"
     },
+    "tooltip": {
+      "$type": "number",
+      "$value": 150,
+      "$description": "Non-blocking context information popups"
+    },
     "drawer": {
       "$type": "number",
       "$value": 200,

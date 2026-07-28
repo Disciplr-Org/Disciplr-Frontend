@@ -1,6 +1,7 @@
 import React from 'react';
 import { useVerifierStore } from '../Zustand/Store';
 import { computeVerifierMetrics } from '../utils/verifierMetrics';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 // Color tokens are global CSS variables (no import needed) — same pattern as
 // StatusChip.tsx and VerifierDashboard.tsx in this codebase.
@@ -19,9 +20,9 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, accentColor, aria
       background: 'var(--bg)',
       border: `1px solid var(--border)`,
       borderLeft: `4px solid ${accentColor}`,
-      borderRadius: 'var(--radius-md, 8px)',
+      borderRadius: 'var(--radius-md)',
       padding: '1.25rem 1.5rem',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      boxShadow: 'var(--shadow-level-1)',
       display: 'flex',
       flexDirection: 'column',
       gap: '0.25rem',
@@ -54,13 +55,13 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, accentColor, aria
 );
 
 const VerifierMetrics: React.FC = () => {
-  // Exact hook pattern used in VerifierDashboard.tsx
-  const { pendingValidations, validationHistory } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
   const { approvalRate, overdueCount, urgentCount, totalResolved } =
-    computeVerifierMetrics(pendingValidations, validationHistory);
+    computeVerifierMetrics(pendingValidations, validationHistory, now);
 
-  const approvalDisplay = `${Math.round(approvalRate)}%`;
+  const approvalDisplay = `${Math.round(approvalRate * 100)}%`;
 
   return (
     <section
@@ -76,7 +77,7 @@ const VerifierMetrics: React.FC = () => {
         label="Approval Rate"
         value={approvalDisplay}
         accentColor="var(--success)"
-        ariaLabel={`Approval rate: ${Math.round(approvalRate)} percent`}
+        ariaLabel={`Approval rate: ${Math.round(approvalRate * 100)} percent`}
       />
       <MetricCard
         label="Overdue"

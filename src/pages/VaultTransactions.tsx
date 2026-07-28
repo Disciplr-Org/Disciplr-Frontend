@@ -1,13 +1,21 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { AddressDisplay } from "../components/AddressDisplay";
-import { Tooltip } from "../components/Tooltip";
-import type { VaultActivityRecord } from "../services/vaultService";
-import { listAllActivity } from "../services/vaultService";
-import type { TxStatus, TxType } from "../types/vault";
-import { downloadCsv, toCsv } from "../utils/csv";
-import { formatRelativeTime } from "../utils/relativeTime";
-import { computeTxTotals } from "../utils/txTotals";
+import { useState, useMemo, useCallback, useEffect, memo } from "react";
+import { useParams } from "react-router-dom";
 import { windowRange } from "../utils/windowRange";
+import { toCsv, downloadCsv } from "../utils/csv";
+import { computeTxTotals } from "../utils/txTotals";
+import { AddressDisplay } from "../components/AddressDisplay";
+import { truncateMiddle } from "../utils/truncate";
+import { Tooltip } from "../components/Tooltip";
+import Breadcrumb from "../components/Breadcrumb";
+import { MASTER_VAULTS } from "../fixtures/vaults";
+import { getCachedActivity, type VaultActivityRecord } from "../services/vaultService";
+import { formatRelativeTime } from "../utils/relativeTime";
+import {
+  sortTransactions,
+  type TransactionSortDir,
+  type TransactionSortKey,
+} from "../utils/sortTransactions";
+import type { TxType, TxStatus } from "../types/vault";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type Transaction = VaultActivityRecord;
@@ -90,16 +98,8 @@ const STATUS_META: Record<TxStatus, StatusMeta> = {
   },
 };
 
-const VAULTS = [
-  "All Vaults",
-  ...Array.from(new Set(MOCK_TRANSACTIONS.map((t) => t.vault))),
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function truncHash(hash: string, head = 8, tail = 6): string {
-  if (!hash) return "";
-  return `${hash.slice(0, head)}...${hash.slice(-tail)}`;
-}
 
 function fmtTime(date: Date): string {
   return formatRelativeTime(date);
@@ -124,29 +124,24 @@ function fmtAmount(n: number): string {
   });
 }
 
+interface VaultTransactionsProps {
+  transactions?: Transaction[];
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────────
-export default function VaultTransactions() {
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+interface SortState {
+  key: TransactionSortKey;
+  dir: TransactionSortDir;
+}
 
-  useEffect(() => {
-    listAllActivity().then((data) => {
-      setAllTransactions(data);
-      setLoading(false);
-    });
-  }, []);
+const DEFAULT_SORT: SortState = { key: "timestamp", dir: "desc" };
 
-  // Derive vault filter options from loaded transactions
-  const VAULTS = useMemo(
-    () => [
-      "All Vaults",
-      ...Array.from(new Set(allTransactions.map((t) => t.vault))),
-    ],
-    [allTransactions],
-  );
-
-  const transactions = allTransactions;
-
+export default function VaultTransactions({
+  transactions: providedTransactions,
+}: VaultTransactionsProps = {}) {
+  const { id } = useParams<{ id?: string }>();
+  const routeVault = id ? MASTER_VAULTS[id] : undefined;
+  const routeVaultName = routeVault?.name ?? (id ? `Vault ${id}` : undefined);
   const [selectedTypes, setSelectedTypes] = useState<TxType[]>([...ALL_TYPES]);
   const [filterVault, setFilterVault] = useState<string>("All Vaults");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -155,13 +150,55 @@ export default function VaultTransactions() {
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [anchorIndex, setAnchorIndex] = useState(0);
+  const [sortState, setSortState] = useState<SortState>(DEFAULT_SORT);
+  const [pendingAnchor, setPendingAnchor] = useState(0);
+  const [failedAnchor, setFailedAnchor] = useState(0);
+  const [restAnchor, setRestAnchor] = useState(0);
+
+  const transactions = useMemo(
+    () => providedTransactions ?? getCachedActivity(),
+    [providedTransactions],
+  );
+
+  const vaultOptions = useMemo(
+    () => [
+      "All Vaults",
+      ...Array.from(new Set(transactions.map((tx) => tx.vault))).sort(),
+    ],
+    [transactions],
+  );
+
+  const breadcrumbSegments = routeVaultName
+    ? [
+        { label: "Home", to: "/" },
+        { label: "Vaults", to: "/vaults" },
+        { label: routeVaultName, to: `/vaults/${id}` },
+        { label: "Transactions" },
+      ]
+    : [
+        { label: "Home", to: "/" },
+        { label: "Transactions" },
+      ];
 
   const copy = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1800);
+  }, []);
+
+  const updateSort = useCallback((key: TransactionSortKey) => {
+    setSortState((current) => ({
+      key,
+      dir:
+        current.key === key
+          ? current.dir === "desc"
+            ? "asc"
+            : "desc"
+          : "asc",
+    }));
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   }, []);
 
   const filtered = useMemo<Transaction[]>(() => {
@@ -176,16 +213,19 @@ export default function VaultTransactions() {
       list = list.filter((t) =>
         t.hash.toLowerCase().includes(searchHash.toLowerCase()),
       );
-    if (amountMin !== "")
-      list = list.filter((t) => t.amount >= parseFloat(amountMin));
-    if (amountMax !== "")
-      list = list.filter((t) => t.amount <= parseFloat(amountMax));
-    list.sort((a, b) =>
-      sortDir === "desc"
-        ? b.timestamp.getTime() - a.timestamp.getTime()
-        : a.timestamp.getTime() - b.timestamp.getTime(),
-    );
-    return list;
+    if (amountMin !== "") {
+      const min = parseFloat(amountMin);
+      if (Number.isFinite(min)) {
+        list = list.filter((t) => t.amount >= min);
+      }
+    }
+    if (amountMax !== "") {
+      const max = parseFloat(amountMax);
+      if (Number.isFinite(max)) {
+        list = list.filter((t) => t.amount <= max);
+      }
+    }
+    return sortTransactions(list, sortState.key, sortState.dir);
   }, [
     selectedTypes,
     filterVault,
@@ -193,7 +233,7 @@ export default function VaultTransactions() {
     searchHash,
     amountMin,
     amountMax,
-    sortDir,
+    sortState,
     transactions,
   ]);
 
@@ -211,19 +251,27 @@ export default function VaultTransactions() {
   );
 
   // Reset window anchor when filters change so the user always sees the top.
+  // sort changes are handled inside updateSort(); this effect covers the six
+  // filter controls that filtered() depends on.
+  useEffect(() => {
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
+  }, [selectedTypes, filterVault, filterStatus, searchHash, amountMin, amountMax]);
+
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
   const pendingWindow = useMemo(
-    () => windowRange(pending, anchorIndex),
-    [pending, anchorIndex],
+    () => windowRange(pending, pendingAnchor),
+    [pending, pendingAnchor],
   );
   const failedWindow = useMemo(
-    () => windowRange(failed, anchorIndex),
-    [failed, anchorIndex],
+    () => windowRange(failed, failedAnchor),
+    [failed, failedAnchor],
   );
   const restWindow = useMemo(
-    () => windowRange(rest, anchorIndex),
-    [rest, anchorIndex],
+    () => windowRange(rest, restAnchor),
+    [rest, restAnchor],
   );
 
   const stats = useMemo(
@@ -235,7 +283,6 @@ export default function VaultTransactions() {
     [transactions],
   );
 
-
   // Live counts reflect the current filtered (visible) set
   const filteredTypeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -245,7 +292,10 @@ export default function VaultTransactions() {
     return counts;
   }, [filtered]);
 
-  const filteredTotals = useMemo(() => computeTxTotals(filtered), [filtered]);
+  const filteredTotals = useMemo(
+    () => computeTxTotals(filtered),
+    [filtered],
+  );
 
   const clearFilters = () => {
     setSelectedTypes([...ALL_TYPES]);
@@ -254,7 +304,9 @@ export default function VaultTransactions() {
     setSearchHash("");
     setAmountMin("");
     setAmountMax("");
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   };
 
   const hasFilters =
@@ -271,6 +323,11 @@ export default function VaultTransactions() {
       <div className="vt-root">
         <div className="vt-grid-bg" />
         <div className="vt-wrap">
+          <Breadcrumb
+            segments={breadcrumbSegments}
+            style={{ marginBottom: "var(--spacing-5)" }}
+          />
+
           {/* Header */}
           <header className="vt-header">
             <div>
@@ -326,18 +383,12 @@ export default function VaultTransactions() {
           </div>
 
           {/* Type Filter Toolbar */}
-          <div
-            className="vt-type-toolbar"
-            role="group"
-            aria-label="Filter by transaction type"
-          >
+          <div className="vt-type-toolbar" role="group" aria-label="Filter by transaction type">
             <button
               className={`vt-type-chip ${selectedTypes.length === ALL_TYPES.length ? "vt-type-chip--active-all" : ""}`}
               onClick={() =>
                 setSelectedTypes(
-                  selectedTypes.length === ALL_TYPES.length
-                    ? []
-                    : [...ALL_TYPES],
+                  selectedTypes.length === ALL_TYPES.length ? [] : [...ALL_TYPES],
                 )
               }
               aria-pressed={selectedTypes.length === ALL_TYPES.length}
@@ -370,14 +421,9 @@ export default function VaultTransactions() {
                   }
                   aria-pressed={active}
                 >
-                  <meta.icon
-                    size={13}
-                    color={active ? meta.color : undefined}
-                  />
+                  <meta.icon size={13} color={active ? meta.color : undefined} />
                   <span className="vt-type-chip-label">{meta.label}</span>
-                  <span className="vt-type-chip-count">
-                    {filteredTypeCounts[type] ?? 0}
-                  </span>
+                  <span className="vt-type-chip-count">{filteredTypeCounts[type] ?? 0}</span>
                 </button>
               );
             })}
@@ -415,7 +461,7 @@ export default function VaultTransactions() {
               <Select
                 value={filterVault}
                 onChange={setFilterVault}
-                options={VAULTS}
+                options={vaultOptions}
               />
               <Select
                 value={filterStatus}
@@ -446,12 +492,16 @@ export default function VaultTransactions() {
               </div>
               <button
                 className="vt-sort-btn"
-                onClick={() =>
-                  setSortDir((d) => (d === "desc" ? "asc" : "desc"))
-                }
+                onClick={() => updateSort("timestamp")}
               >
-                <SortIcon dir={sortDir} />
-                {sortDir === "desc" ? "Newest" : "Oldest"}
+                <SortIcon
+                  dir={
+                    sortState.key === "timestamp" ? sortState.dir : "desc"
+                  }
+                />
+                {sortState.key === "timestamp" && sortState.dir === "asc"
+                  ? "Oldest"
+                  : "Newest"}
               </button>
               {hasFilters && (
                 <button className="vt-clear-btn" onClick={clearFilters}>
@@ -463,7 +513,13 @@ export default function VaultTransactions() {
 
           {/* Pending */}
           {pending.length > 0 && (
-            <Section title="Pending" accent="#fcd34d" count={pending.length}>
+            <Section
+              title="Pending"
+              accent="#fcd34d"
+              count={pending.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {pendingWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -478,9 +534,9 @@ export default function VaultTransactions() {
                   start={pendingWindow.startIndex}
                   end={pendingWindow.endIndex}
                   total={pending.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setPendingAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(pending.length - 1, a + 10))
+                    setPendingAnchor((a) => Math.min(pending.length - 1, a + 10))
                   }
                 />
               )}
@@ -489,7 +545,13 @@ export default function VaultTransactions() {
 
           {/* Failed */}
           {failed.length > 0 && (
-            <Section title="Failed" accent="#fca5a5" count={failed.length}>
+            <Section
+              title="Failed"
+              accent="#fca5a5"
+              count={failed.length}
+              sortState={sortState}
+              onSort={updateSort}
+            >
               {failedWindow.items.map((tx) => (
                 <TxRow
                   key={tx.id}
@@ -506,9 +568,9 @@ export default function VaultTransactions() {
                   start={failedWindow.startIndex}
                   end={failedWindow.endIndex}
                   total={failed.length}
-                  onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                  onPrev={() => setFailedAnchor((a) => Math.max(0, a - 10))}
                   onNext={() =>
-                    setAnchorIndex((a) => Math.min(failed.length - 1, a + 10))
+                    setFailedAnchor((a) => Math.min(failed.length - 1, a + 10))
                   }
                 />
               )}
@@ -516,7 +578,13 @@ export default function VaultTransactions() {
           )}
 
           {/* Confirmed */}
-          <Section title="Confirmed" accent="#6ee7b7" count={rest.length}>
+          <Section
+            title="Confirmed"
+            accent="#6ee7b7"
+            count={rest.length}
+            sortState={sortState}
+            onSort={updateSort}
+          >
             {rest.length === 0 ? (
               <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
             ) : (
@@ -535,9 +603,9 @@ export default function VaultTransactions() {
                     start={restWindow.startIndex}
                     end={restWindow.endIndex}
                     total={rest.length}
-                    onPrev={() => setAnchorIndex((a) => Math.max(0, a - 10))}
+                    onPrev={() => setRestAnchor((a) => Math.max(0, a - 10))}
                     onNext={() =>
-                      setAnchorIndex((a) => Math.min(rest.length - 1, a + 10))
+                      setRestAnchor((a) => Math.min(rest.length - 1, a + 10))
                     }
                   />
                 )}
@@ -564,10 +632,27 @@ interface SectionProps {
   title: string;
   accent: string;
   count: number;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
   children: React.ReactNode;
 }
 
-function Section({ title, accent, count, children }: SectionProps) {
+function ariaSortFor(
+  sortState: SortState,
+  key: TransactionSortKey,
+): "ascending" | "descending" | "none" {
+  if (sortState.key !== key) return "none";
+  return sortState.dir === "asc" ? "ascending" : "descending";
+}
+
+function Section({
+  title,
+  accent,
+  count,
+  sortState,
+  onSort,
+  children,
+}: SectionProps) {
   const hasRows = count > 0;
   return (
     <section className="vt-section">
@@ -587,17 +672,81 @@ function Section({ title, accent, count, children }: SectionProps) {
       >
         {hasRows && (
           <div role="rowgroup">
-            <div role="row" className="vt-sr-only">
-              <span role="columnheader">Transaction Type</span>
-              <span role="columnheader">Vault &amp; Details</span>
-              <span role="columnheader">Amount</span>
-              <span role="columnheader">Status</span>
+            <div role="row" className="vt-tx-header-row">
+              <SortableColumnHeader
+                label="Transaction Type"
+                sortKey="type"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Vault &amp; Details
+              </span>
+              <SortableColumnHeader
+                label="Amount"
+                sortKey="amount"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <SortableColumnHeader
+                label="Fee"
+                sortKey="fee"
+                sortState={sortState}
+                onSort={onSort}
+              />
+              <span role="columnheader" aria-sort="none">
+                Status
+              </span>
+              <SortableColumnHeader
+                label="Timestamp"
+                sortKey="timestamp"
+                sortState={sortState}
+                onSort={onSort}
+              />
             </div>
           </div>
         )}
         <div role={hasRows ? "rowgroup" : undefined}>{children}</div>
       </div>
     </section>
+  );
+}
+
+interface SortableColumnHeaderProps {
+  label: string;
+  sortKey: TransactionSortKey;
+  sortState: SortState;
+  onSort: (key: TransactionSortKey) => void;
+}
+
+function SortableColumnHeader({
+  label,
+  sortKey,
+  sortState,
+  onSort,
+}: SortableColumnHeaderProps) {
+  const active = sortState.key === sortKey;
+  const nextDirection =
+    active && sortState.dir === "desc"
+      ? "ascending"
+      : active
+        ? "descending"
+        : "ascending";
+
+  return (
+    <span role="columnheader" aria-sort={ariaSortFor(sortState, sortKey)}>
+      <button
+        type="button"
+        className="vt-column-sort-btn"
+        onClick={() => onSort(sortKey)}
+        aria-label={`Sort by ${label} ${nextDirection}`}
+      >
+        {label}
+        <span aria-hidden="true" className="vt-column-sort-indicator">
+          {active ? (sortState.dir === "asc" ? "ASC" : "DESC") : "SORT"}
+        </span>
+      </button>
+    </span>
   );
 }
 
@@ -642,13 +791,12 @@ const TxRow = memo(function TxRow({
           <Tooltip content={tx.hash} position="top">
             <button
               className="vt-tx-hash"
-              title="Copy hash"
               onClick={(e) => {
                 e.stopPropagation();
                 onCopy(tx.hash, tx.id + "-hash");
               }}
             >
-              {copiedId === tx.id + "-hash" ? "Copied!" : truncHash(tx.hash)}
+              {copiedId === tx.id + "-hash" ? "Copied!" : truncateMiddle(tx.hash, 8, 6)}
               <CopyIcon small />
             </button>
           </Tooltip>
@@ -1075,6 +1223,35 @@ function ExportIcon() {
     </svg>
   );
 }
+function SortIcon({ dir }: { dir: TransactionSortDir }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      style={{ marginRight: 4, verticalAlign: "middle" }}
+    >
+      {dir === "asc" ? (
+        <path
+          d="M8 3v10M4 7l4-4 4 4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <path
+          d="M8 13V3M4 9l4 4 4-4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+}
 function ChevronIcon() {
   return (
     <svg
@@ -1101,42 +1278,21 @@ function ChevronIcon() {
     </svg>
   );
 }
-function SortIcon({ dir }: { dir: "asc" | "desc" }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      style={{ marginRight: 5 }}
-    >
-      <path
-        d={dir === "desc" ? "M2 3h8M3 6h6M4 9h4" : "M4 3h4M3 6h6M2 9h8"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
   .vt-root {
     min-height: 100vh;
-    background: #080b12;
-    color: #e2e8f0;
-    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
     position: relative;
     overflow-x: hidden;
   }
   .vt-grid-bg {
     position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background-image:
-      linear-gradient(rgba(110,231,183,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(110,231,183,0.03) 1px, transparent 1px);
+      linear-gradient(var(--success-transparent) 1px, transparent 1px),
+      linear-gradient(90deg, var(--success-transparent) 1px, transparent 1px);
     background-size: 40px 40px;
   }
   .vt-wrap {
@@ -1151,147 +1307,159 @@ const CSS = `
   .vt-eyebrow {
     display: flex; align-items: center; gap: 8px;
     font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
-    color: #6ee7b7; margin-bottom: 10px; font-weight: 600;
+    color: var(--success); margin-bottom: 10px; font-weight: 600;
   }
   .vt-eyebrow-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #6ee7b7;
-    box-shadow: 0 0 8px #6ee7b7;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+    box-shadow: 0 0 8px var(--success);
     animation: vt-pulse 2s infinite;
   }
   @keyframes vt-pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
   .vt-title {
     font-size: clamp(28px, 4vw, 44px); font-weight: 800;
-    color: #fff; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 6px;
+    color: var(--text); letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 6px;
   }
-  .vt-subtitle { font-size: 14px; color: #64748b; margin: 0; }
+  .vt-subtitle { font-size: 14px; color: var(--muted); margin: 0; }
   .vt-export-btn {
     display: flex; align-items: center;
-    background: rgba(110,231,183,0.08); border: 1px solid rgba(110,231,183,0.2);
-    color: #6ee7b7; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+    background: var(--success-transparent); border: 1px solid var(--success);
+    color: var(--success); font-family: var(--font-sans); font-size: 13px; font-weight: 600;
     padding: 10px 18px; border-radius: var(--radius-md); cursor: pointer;
-    transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
+    transition: background var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-export-btn:hover:not(:disabled) { background: rgba(110,231,183,0.14); border-color: rgba(110,231,183,0.4); }
+  .vt-export-btn:hover:not(:disabled) { background: var(--success-transparent); border-color: var(--success); }
   .vt-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .vt-stats {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px;
   }
   .vt-stat-card {
-    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: var(--radius-lg); padding: 20px 22px; transition: border-color var(--duration-normal) var(--ease-in-out);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px; transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-stat-card:hover { border-color: rgba(110,231,183,0.2); }
-  .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; font-weight: 600; margin-bottom: 8px; }
-  .vt-stat-value { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
-  .vt-stat-sub   { font-size: 12px; color: #475569; }
+  .vt-stat-card:hover { border-color: var(--success); }
+  .vt-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .vt-stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .vt-stat-sub   { font-size: 12px; color: var(--muted); }
   .vt-type-toolbar {
     display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;
   }
   .vt-type-chip {
     display: inline-flex; align-items: center; gap: 5px;
-    background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);
-    color: #64748b; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
     padding: 6px 12px; border-radius: var(--radius-full); cursor: pointer;
-    transition: all var(--duration-fast) var(--ease-in-out);
+    transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
     user-select: none;
   }
-  .vt-type-chip:hover { color: #94a3b8; border-color: rgba(255,255,255,0.18); }
-  .vt-type-chip--active { color: #6ee7b7; }
+  .vt-type-chip:hover { color: var(--text); border-color: var(--text); }
+  .vt-type-chip--active { color: var(--success); }
   .vt-type-chip--active-all {
-    background: rgba(110,231,183,0.1); border-color: rgba(110,231,183,0.25);
-    color: #6ee7b7;
+    background: var(--success-transparent); border-color: var(--success);
+    color: var(--success);
   }
-  .vt-type-chip--active-all:hover { background: rgba(110,231,183,0.15); }
+  .vt-type-chip--active-all:hover { background: var(--success-transparent); }
   .vt-type-chip-label { line-height: 1; }
   .vt-type-chip-count {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    background: rgba(255,255,255,0.07); border-radius: var(--radius-full);
+    font-family: var(--font-family-mono); font-size: 11px;
+    background: var(--surface-raised); border-radius: var(--radius-full);
     padding: 1px 6px; line-height: 1.4;
   }
   .vt-type-chip--active .vt-type-chip-count {
-    background: rgba(255,255,255,0.12);
+    background: var(--surface-raised);
   }
   .vt-type-chip--active-all .vt-type-chip-count {
-    background: rgba(110,231,183,0.15);
+    background: var(--success-transparent);
   }
   .vt-totals-strip {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     margin-bottom: 18px; padding: 10px 16px;
-    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-md);
   }
   .vt-totals-item {
-    font-size: 12px; color: #94a3b8; font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    font-family: var(--font-family-mono);
   }
   .vt-totals-sep {
     width: 3px; height: 3px; border-radius: 50%;
-    background: #334155; flex-shrink: 0;
+    background: var(--border); flex-shrink: 0;
   }
   .vt-filters {
-    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; padding: 16px 18px; margin-bottom: 32px;
     display: flex; flex-direction: column; gap: 12px;
   }
   .vt-search-wrap { position: relative; }
-  .vt-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #475569; }
+  .vt-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
   .vt-search {
-    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: var(--radius-md); color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
+    width: 100%; background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text); font-family: var(--font-family-mono);
     font-size: 13px; padding: 9px 12px 9px 34px; outline: none; box-sizing: border-box;
-    transition: border-color var(--duration-normal) var(--ease-in-out);
+    transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-search::placeholder { color: #334155; }
-  .vt-search:focus { border-color: rgba(110,231,183,0.3); }
+  .vt-search::placeholder { color: var(--border); }
+  .vt-search:focus { border-color: var(--success); }
   .vt-filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .vt-select-wrap { position: relative; }
   .vt-select {
     appearance: none;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    color: var(--muted); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
     padding: 8px 30px 8px 12px; border-radius: 7px; cursor: pointer; outline: none;
-    transition: border-color var(--duration-normal) var(--ease-in-out);
+    transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-select:hover, .vt-select:focus { border-color: rgba(110,231,183,0.25); color: #e2e8f0; }
+  .vt-select:hover, .vt-select:focus { border-color: var(--success); color: var(--text); }
   .vt-amount-range { display: flex; align-items: center; gap: 6px; }
   .vt-amount-input {
-    width: 90px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal) var(--ease-in-out);
+    width: 90px; background: var(--surface-raised); border: 1px solid var(--border);
+    color: var(--muted); font-family: var(--font-family-mono); font-size: 12px;
+    padding: 8px 10px; border-radius: 7px; outline: none; transition: border-color var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-amount-input:focus { border-color: rgba(110,231,183,0.25); }
-  .vt-amount-input::placeholder { color: #334155; }
-  .vt-amount-sep { color: #334155; font-size: 13px; }
-  .vt-sort-btn {
-    display: flex; align-items: center;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    padding: 8px 12px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
-  }
-  .vt-sort-btn:hover { color: #e2e8f0; border-color: rgba(110,231,183,0.25); }
+  .vt-amount-input:focus { border-color: var(--success); }
+  .vt-amount-input::placeholder { color: var(--border); }
+  .vt-amount-sep { color: var(--border); font-size: 13px; }
   .vt-clear-btn {
-    background: transparent; border: 1px solid rgba(252,165,165,0.2);
-    color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal) var(--ease-in-out);
+    background: transparent; border: 1px solid var(--danger);
+    color: var(--danger); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+    padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-clear-btn:hover { background: rgba(252,165,165,0.08); }
+  .vt-clear-btn:hover { background: var(--danger-transparent); }
   .vt-clear-btn--lg { padding: 10px 20px; font-size: 13px; margin-top: 12px; }
   .vt-section { margin-bottom: 28px; }
   .vt-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
   .vt-section-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .vt-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
+  .vt-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
   .vt-section-count {
-    font-size: 11px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full);
-    padding: 2px 8px; color: #64748b; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; background: var(--surface-raised); border-radius: var(--radius-full);
+    padding: 2px 8px; color: var(--muted); font-family: var(--font-family-mono);
   }
   .vt-tx-list { display: flex; flex-direction: column; gap: 4px; }
+  .vt-tx-header-row {
+    display: grid; grid-template-columns: 120px minmax(160px, 1fr) 120px 90px 100px 110px;
+    gap: 12px; align-items: center;
+    padding: 0 16px 8px; color: var(--muted);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .vt-column-sort-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: transparent; border: 0; padding: 0;
+    color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit;
+    cursor: pointer;
+  }
+  .vt-column-sort-btn:hover, .vt-column-sort-btn:focus-visible {
+    color: var(--text); outline: none;
+  }
+  .vt-column-sort-indicator {
+    color: var(--success); font-family: var(--font-family-mono); font-size: 9px;
+  }
   .vt-tx-row {
     display: flex; align-items: center; gap: 14px;
-    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 14px 16px; cursor: pointer;
-    transition: background var(--duration-fast) var(--ease-in-out), border-color var(--duration-fast) var(--ease-in-out); min-height: 64px;
+    transition: background var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)), border-color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)); min-height: 64px;
   }
-  .vt-tx-row:hover { background: rgba(255,255,255,0.045); border-color: rgba(110,231,183,0.15); }
+  .vt-tx-row:hover { background: var(--surface-raised); border-color: var(--success); }
   .vt-tx-icon {
     width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
@@ -1299,21 +1467,21 @@ const CSS = `
   .vt-tx-main { flex: 1; min-width: 0; }
   .vt-tx-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
   .vt-tx-type { font-size: 13px; font-weight: 700; }
-  .vt-tx-vault { font-size: 12px; color: #64748b; }
-  .vt-tx-memo { font-size: 11px; color: #334155; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+  .vt-tx-vault { font-size: 12px; color: var(--muted); }
+  .vt-tx-memo { font-size: 11px; color: var(--border); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
   .vt-tx-bottom { display: flex; align-items: center; gap: 10px; }
   .vt-tx-hash {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #475569;
+    font-family: var(--font-family-mono); font-size: 11px; color: var(--muted);
     background: none; border: none; cursor: pointer; padding: 0;
-    display: flex; align-items: center; gap: 3px; transition: color var(--duration-fast) var(--ease-in-out);
+    display: flex; align-items: center; gap: 3px; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-tx-hash:hover { color: #94a3b8; }
-  .vt-tx-explorer { font-size: 11px; color: #334155; text-decoration: none; transition: color var(--duration-fast) var(--ease-in-out); }
-  .vt-tx-explorer:hover { color: #6ee7b7; }
+  .vt-tx-hash:hover { color: var(--text); }
+  .vt-tx-explorer { font-size: 11px; color: var(--border); text-decoration: none; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1)); }
+  .vt-tx-explorer:hover { color: var(--success); }
   .vt-tx-amount { text-align: right; flex-shrink: 0; }
-  .vt-tx-amount-val { display: block; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #f1f5f9; }
-  .vt-tx-xlm { font-size: 10px; color: #475569; margin-left: 4px; }
-  .vt-tx-fee { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #334155; margin-top: 3px; }
+  .vt-tx-amount-val { display: block; font-family: var(--font-family-mono); font-size: 14px; font-weight: 500; color: var(--text); }
+  .vt-tx-xlm { font-size: 10px; color: var(--muted); margin-left: 4px; }
+  .vt-tx-fee { display: block; font-family: var(--font-family-mono); font-size: 10px; color: var(--border); margin-top: 3px; }
   .vt-tx-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
   .vt-tx-status {
     display: inline-flex; align-items: center; gap: 5px;
@@ -1321,94 +1489,95 @@ const CSS = `
     padding: 3px 9px; border-radius: var(--radius-full);
   }
   .vt-status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-  .vt-tx-time { font-size: 11px; color: #334155; }
+  .vt-tx-time { font-size: 11px; color: var(--border); }
   .vt-retry-btn {
-    background: rgba(252,165,165,0.08); border: 1px solid rgba(252,165,165,0.2);
-    color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
-    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal) var(--ease-in-out);
+    background: var(--danger-transparent); border: 1px solid var(--danger);
+    color: var(--danger); font-family: var(--font-sans); font-size: 11px; font-weight: 700;
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-retry-btn:hover { background: rgba(252,165,165,0.15); }
+  .vt-retry-btn:hover { background: var(--danger-transparent); }
   .vt-empty { text-align: center; padding: 56px 24px; }
   .vt-empty-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.2; }
-  .vt-empty-title { font-size: 16px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
-  .vt-empty-sub { font-size: 13px; color: #475569; }
+  .vt-empty-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .vt-empty-sub { font-size: 13px; color: var(--muted); }
   .vt-modal-backdrop {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(8,11,18,0.85); backdrop-filter: blur(6px);
+    position: fixed; inset: 0; z-index: var(--z-index-modal);
+    background: var(--overlay-backdrop); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; padding: 24px;
-    animation: vt-fadeIn var(--duration-normal) var(--ease-out);
+    animation: vt-fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
   }
   @keyframes vt-fadeIn { from { opacity: 0 } to { opacity: 1 } }
   .vt-modal {
-    background: #0e1420; border: 1px solid rgba(255,255,255,0.1);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-xl); padding: 28px; width: 100%; max-width: 580px;
     max-height: 90vh; overflow-y: auto; position: relative;
-    animation: vt-slideUp var(--duration-normal) var(--ease-out);
+    animation: vt-slideUp var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
   }
   @keyframes vt-slideUp { from { transform: translateY(16px); opacity:0 } to { transform: translateY(0); opacity:1 } }
   .vt-modal-close {
     position: absolute; top: 18px; right: 18px;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    color: #64748b; font-size: 13px; width: 28px; height: 28px; border-radius: 6px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast) var(--ease-in-out);
+    background: var(--surface-raised); border: 1px solid var(--border);
+    color: var(--muted); font-size: 13px; width: 28px; height: 28px; border-radius: 6px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-modal-close:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
+  .vt-modal-close:hover { color: var(--text); background: var(--hover); }
   .vt-modal-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
   .vt-modal-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .vt-modal-type { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
-  .vt-modal-vault { font-size: 13px; color: #64748b; }
+  .vt-modal-vault { font-size: 13px; color: var(--muted); }
   .vt-modal-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
   .vt-modal-row2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .vt-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #334155; font-weight: 700; margin-bottom: 5px; }
-  .vt-field-value { font-size: 13px; color: #e2e8f0; word-break: break-all; }
+  .vt-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--border); font-weight: 700; margin-bottom: 5px; }
+  .vt-field-value { font-size: 13px; color: var(--text); word-break: break-all; }
   .vt-modal-hash-row { display: flex; align-items: center; gap: 8px; }
-  .vt-modal-hash { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94a3b8; word-break: break-all; }
-  .vt-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-  .vt-modal-amount { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .vt-modal-hash { font-family: var(--font-family-mono); font-size: 11px; color: var(--muted); word-break: break-all; }
+  .vt-mono { font-family: var(--font-family-mono); font-size: 12px; }
+  .vt-modal-amount { font-family: var(--font-family-mono); font-size: 15px; font-weight: 600; color: var(--text); }
   .vt-copy-btn {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8; padding: 4px 8px; border-radius: 5px; cursor: pointer;
-    flex-shrink: 0; font-size: 12px; transition: all var(--duration-fast) var(--ease-in-out);
+    background: var(--surface-raised); border: 1px solid var(--border);
+    color: var(--muted); padding: 4px 8px; border-radius: 5px; cursor: pointer;
+    flex-shrink: 0; font-size: 12px; transition: all var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-copy-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+  .vt-copy-btn:hover { color: var(--text); background: var(--hover); }
   .vt-raw-section { margin-bottom: 20px; }
   .vt-raw-toggle {
-    background: none; border: none; color: #475569; font-family: 'Syne', sans-serif;
-    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color var(--duration-fast) var(--ease-in-out);
+    background: none; border: none; color: var(--muted); font-family: var(--font-sans);
+    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: color var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-raw-toggle:hover { color: #94a3b8; }
+  .vt-raw-toggle:hover { color: var(--text); }
   .vt-raw-pre {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b;
-    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+    font-family: var(--font-family-mono); font-size: 11px; color: var(--muted);
+    background: var(--overlay-backdrop); border: 1px solid var(--border);
     border-radius: var(--radius-md); padding: 14px; margin-top: 10px; overflow-x: auto; white-space: pre;
   }
-  .vt-modal-footer { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; }
+  .vt-modal-footer { border-top: 1px solid var(--border); padding-top: 16px; }
   .vt-explorer-link {
-    font-size: 13px; color: #6ee7b7; text-decoration: none; font-weight: 600; transition: opacity var(--duration-fast) var(--ease-in-out);
+    font-size: 13px; color: var(--success); text-decoration: none; font-weight: 600; transition: opacity var(--duration-fast, 150ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
   .vt-explorer-link:hover { opacity: 0.75; }
 
   .vt-window-banner {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 14px; margin-top: 8px;
-    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-md); gap: 12px; flex-wrap: wrap;
   }
-  .vt-window-info { font-size: 12px; color: #64748b; font-weight: 600; }
+  .vt-window-info { font-size: 12px; color: var(--muted); font-weight: 600; }
   .vt-window-nav { display: flex; gap: 8px; }
   .vt-window-btn {
-    background: rgba(110,231,183,0.08); border: 1px solid rgba(110,231,183,0.2);
-    color: #6ee7b7; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    background: var(--success-transparent); border: 1px solid var(--success);
+    color: var(--success); font-family: var(--font-sans); font-size: 11px; font-weight: 700;
     padding: 5px 12px; border-radius: 6px; cursor: pointer;
-    transition: all var(--duration-normal) var(--ease-in-out);
+    transition: all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1));
   }
-  .vt-window-btn:hover:not(:disabled) { background: rgba(110,231,183,0.15); }
+  .vt-window-btn:hover:not(:disabled) { background: var(--success-transparent); }
   .vt-window-btn:disabled { opacity: 0.3; cursor: default; }
 
   @media (max-width: 680px) {
     .vt-wrap { padding: 28px 16px 60px; }
     .vt-stats { grid-template-columns: 1fr 1fr; }
     .vt-stats > :last-child { grid-column: span 2; }
+    .vt-tx-header-row { display: none; }
     .vt-tx-memo { display: none; }
     .vt-tx-amount { display: none; }
     .vt-modal-row2 { grid-template-columns: 1fr 1fr; }
@@ -1420,10 +1589,5 @@ const CSS = `
     .vt-stats > :last-child { grid-column: span 1; }
     .vt-header { flex-direction: column; align-items: flex-start; }
     .vt-modal-row2 { grid-template-columns: 1fr; }
-  }
-  .vt-sr-only {
-    position: absolute; width: 1px; height: 1px; padding: 0;
-    margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
-    white-space: nowrap; border: 0;
   }
 `;

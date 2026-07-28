@@ -16,7 +16,6 @@ function resetStore() {
         owner: '0x1234...abcd',
         amount: '50,000 USDC',
         deadline: '2026-05-15',
-        daysRemaining: 16,
         status: 'pending',
         milestone: 'Beta Release Deployment',
         evidenceUrl: 'https://github.com/example/release-v1',
@@ -32,7 +31,6 @@ function resetStore() {
         owner: '0x8888...9999',
         amount: '10,000 USDC',
         deadline: '2026-05-02',
-        daysRemaining: 3,
         status: 'pending',
         milestone: 'Design System Figma Delivery',
         evidenceUrl: 'https://figma.com/example-link',
@@ -49,7 +47,6 @@ function resetStore() {
         owner: '0x7777...4444',
         amount: '5,000 USDC',
         deadline: '2026-04-10',
-        daysRemaining: 0,
         status: 'approved',
         milestone: 'Smart Contract Security Audit',
         notes: 'Audit looks solid, all critical issues addressed.',
@@ -65,7 +62,7 @@ describe('Verifier Flow Integration Tests', () => {
 
   describe('Approve flow', () => {
     it('approves a pending task and it appears in history with correct status and notes', async () => {
-      render(
+      const { container } = render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -92,7 +89,7 @@ describe('Verifier Flow Integration Tests', () => {
       // Check all criteria to enable approve button
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });
@@ -138,7 +135,7 @@ describe('Verifier Flow Integration Tests', () => {
     });
 
     it('pending count decrements after approval', async () => {
-      render(
+      const { container } = render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -164,7 +161,7 @@ describe('Verifier Flow Integration Tests', () => {
       // Actually, let's just check all criteria
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });
@@ -228,12 +225,191 @@ describe('Verifier Flow Integration Tests', () => {
 
       // Verify the rejected task appears in history
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
-      
+
       // Verify status is rejected
-      expect(screen.getByText('rejected')).toBeInTheDocument();
+      expect(screen.getByText('Rejected')).toBeInTheDocument();
 
       // Verify rejection notes are present
       expect(screen.getByText(/Deployment URL not accessible./)).toBeInTheDocument();
+    });
+
+    it('reject without notes is blocked by modal validation', async () => {
+      render(
+        <MemoryRouter initialEntries={['/verifier/queue']}>
+          <Routes>
+            <Route path="/verifier/queue" element={<PendingValidations />} />
+            <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+            <Route path="/verifier/history" element={<ValidationHistory />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Navigate to first task detail
+      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
+      fireEvent.click(reviewButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Review Milestone')).toBeInTheDocument();
+      });
+
+      // Click Reject Milestone
+      fireEvent.click(screen.getByRole('button', { name: /Reject Milestone/i }));
+
+      // Modal opens — confirm button should be disabled without notes
+      const confirmBtn = screen.getByRole('button', { name: /Confirm Reject/i });
+      expect(confirmBtn).toBeDisabled();
+
+      // Verify the validation message is shown
+      expect(screen.getByText(/Notes are required for rejection./)).toBeInTheDocument();
+
+      // Store state should remain unchanged (task still in pending)
+      const pendingCount = useVerifierStore.getState().pendingValidations.length;
+      expect(pendingCount).toBe(2);
+    });
+
+    it('reject button is enabled regardless of criteria gate (no criteria check needed)', async () => {
+      render(
+        <MemoryRouter initialEntries={['/verifier/queue']}>
+          <Routes>
+            <Route path="/verifier/queue" element={<PendingValidations />} />
+            <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+            <Route path="/verifier/history" element={<ValidationHistory />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Navigate to first task detail (has 3 criteria)
+      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
+      fireEvent.click(reviewButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Review Milestone')).toBeInTheDocument();
+      });
+
+      // Approve button should be disabled (criteria not checked)
+      const approveBtn = screen.getByRole('button', { name: /Approve Milestone/i });
+      expect(approveBtn).toBeDisabled();
+
+      // Reject button should be enabled (no criteria gate)
+      const rejectBtn = screen.getByRole('button', { name: /Reject Milestone/i });
+      expect(rejectBtn).not.toBeDisabled();
+    });
+
+    it('pending count decrements after rejection and history record has correct status', async () => {
+      // Get initial state
+      const initialPending = useVerifierStore.getState().pendingValidations.length;
+      expect(initialPending).toBe(2);
+      const initialHistory = useVerifierStore.getState().validationHistory.length;
+      expect(initialHistory).toBe(1);
+
+      render(
+        <MemoryRouter initialEntries={['/verifier/queue']}>
+          <Routes>
+            <Route path="/verifier/queue" element={<PendingValidations />} />
+            <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+            <Route path="/verifier/history" element={<ValidationHistory />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Navigate to second task detail (v-102)
+      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
+      fireEvent.click(reviewButtons[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Task ID: v-102')).toBeInTheDocument();
+      });
+
+      // Reject the task
+      fireEvent.click(screen.getByRole('button', { name: /Reject Milestone/i }));
+
+      const modalNotesArea = screen.getByPlaceholderText(/Reason for rejection is required/i);
+      fireEvent.change(modalNotesArea, { target: { value: 'Figma file not shared with org.' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Reject/i }));
+
+      // Should navigate back to queue
+      await waitFor(() => {
+        expect(screen.getByText('Pending Validations')).toBeInTheDocument();
+      });
+
+      // Verify pending count decremented in store
+      const finalPending = useVerifierStore.getState().pendingValidations.length;
+      expect(finalPending).toBe(initialPending - 1);
+
+      // Verify the rejected task is no longer in pending
+      expect(useVerifierStore.getState().pendingValidations.find(t => t.id === 'v-102')).toBeUndefined();
+
+      // Navigate to history
+      fireEvent.click(screen.getByRole('button', { name: /View History/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Validation History')).toBeInTheDocument();
+      });
+
+      // Verify history count increased
+      const finalHistory = useVerifierStore.getState().validationHistory.length;
+      expect(finalHistory).toBe(initialHistory + 1);
+
+      // Verify the rejected task is at the top of history (most recent)
+      const historyTask = useVerifierStore.getState().validationHistory[0];
+      expect(historyTask.id).toBe('v-102');
+      expect(historyTask.status).toBe('rejected');
+      expect(historyTask.notes).toBe('Figma file not shared with org.');
+
+      // Verify UI shows the rejected task
+      expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
+      expect(screen.getByText('Rejected')).toBeInTheDocument();
+      expect(screen.getByText('Figma file not shared with org.')).toBeInTheDocument();
+    });
+
+    it('rejection notes are persisted on the history record', async () => {
+      const rejectionNotes = 'Deployment URL returns 404. Critical bugs still open.';
+
+      render(
+        <MemoryRouter initialEntries={['/verifier/queue']}>
+          <Routes>
+            <Route path="/verifier/queue" element={<PendingValidations />} />
+            <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+            <Route path="/verifier/history" element={<ValidationHistory />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Navigate to first task and reject
+      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
+      fireEvent.click(reviewButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Review Milestone')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Reject Milestone/i }));
+
+      const modalNotesArea = screen.getByPlaceholderText(/Reason for rejection is required/i);
+      fireEvent.change(modalNotesArea, { target: { value: rejectionNotes } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Reject/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Pending Validations')).toBeInTheDocument();
+      });
+
+      // Navigate to history
+      fireEvent.click(screen.getByRole('button', { name: /View History/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Validation History')).toBeInTheDocument();
+      });
+
+      // Verify notes are rendered in history
+      expect(screen.getByText(rejectionNotes)).toBeInTheDocument();
+
+      // Verify store has the notes persisted
+      const historyRecord = useVerifierStore.getState().validationHistory.find(t => t.id === 'v-101');
+      expect(historyRecord).toBeDefined();
+      expect(historyRecord!.status).toBe('rejected');
+      expect(historyRecord!.notes).toBe(rejectionNotes);
     });
   });
 
@@ -343,7 +519,7 @@ describe('Verifier Flow Integration Tests', () => {
 
       const criteriaCheckboxes = screen.getAllByRole('checkbox');
       criteriaCheckboxes.forEach(checkbox => {
-        if (!(checkbox as HTMLInputElement).checked) {
+        if (!checkbox.checked) {
           fireEvent.click(checkbox);
         }
       });

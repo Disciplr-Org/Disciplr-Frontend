@@ -5,10 +5,15 @@ import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import { WalletBalanceChip } from "./Wallet/WalletBalanceChip";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
+import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
+import ErrorBoundary from "./ErrorBoundary";
+import { ToastViewport } from "./ToastViewport";
+import ThemeToggle from "./ThemeToggle";
+import CommandPalette from "./CommandPalette";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -17,10 +22,12 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
-  const toggleDrawer = () => setDrawerOpen(prev => !prev);
+  const toggleDrawer = () => setDrawerOpen((prev) => !prev);
   const location = useLocation();
   const backgroundA11yProps = isDrawerOpen
-    ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & { inert: "" })
+    ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & {
+        inert: "";
+      })
     : {};
 
   return (
@@ -43,14 +50,17 @@ export default function Layout({ children }: LayoutProps) {
             <span
               aria-hidden="true"
               className="header-transactions-icon"
-              style={{ display: "none" }}
             >
               ↗
             </span>
           </NavLink>
         </div>
 
-        <nav className="desktop-nav" aria-label="Main navigation" {...backgroundA11yProps}>
+        <nav
+          className="desktop-nav"
+          aria-label="Main navigation"
+          {...backgroundA11yProps}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <NavLink
               to="/"
@@ -62,10 +72,19 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
-            <NavLink
-              to="/verifier"
-              className="header-link"
-            >
+            <NavLink to="/dashboard" className="header-link">
+              <Text role="caption" as="span">
+                Dashboard
+              </Text>
+            </NavLink>
+
+            <NavLink to="/vaults" className="header-link">
+              <Text role="caption" as="span">
+                Vaults
+              </Text>
+            </NavLink>
+
+            <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
                 Verifier
               </Text>
@@ -74,27 +93,43 @@ export default function Layout({ children }: LayoutProps) {
             <NavLink
               to="/analytics"
               className="header-link"
-              aria-current={location.pathname === "/analytics" ? "page" : undefined}
+              aria-current={
+                location.pathname === "/analytics" ? "page" : undefined
+              }
             >
               <Text role="caption" as="span">
                 Analytics
               </Text>
             </NavLink>
 
+            <NavLink
+              to="/help"
+              className="header-link"
+              aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
+            >
+              <Text role="caption" as="span">
+                Help
+              </Text>
+            </NavLink>
+
             <Link
               to="/vaults/create"
               className="header-link header-cta"
-              aria-current={location.pathname === "/vaults/create" ? "page" : undefined}
+              aria-current={
+                location.pathname === "/vaults/create" ? "page" : undefined
+              }
             >
               Create Vault
             </Link>
+            <CommandPalette />
             <NotificationBell />
-            <WalletBalanceChip />
+            <ThemeToggle />
             <WalletConnectButton />
           </div>
         </nav>
         <div className="mobile-bell-wrapper" {...backgroundA11yProps}>
           <NotificationBell />
+          <ThemeToggle />
         </div>
         <button
           type="button"
@@ -106,7 +141,10 @@ export default function Layout({ children }: LayoutProps) {
         >
           <Menu size={24} aria-hidden="true" />
         </button>
-        <MobileDrawer isOpen={isDrawerOpen} onClose={() => setDrawerOpen(false)} />
+        <MobileDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
       </header>
       <TrustlineBanner />
 
@@ -120,9 +158,10 @@ export default function Layout({ children }: LayoutProps) {
           width: "100%",
         }}
       >
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </main>
       <ShortcutsHelp />
+      <ToastViewport />
     </div>
   );
 }

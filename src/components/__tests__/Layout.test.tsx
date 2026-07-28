@@ -7,10 +7,6 @@ vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
 }));
 
-vi.mock('../Wallet/WalletBalanceChip', () => ({
-  WalletBalanceChip: () => <span data-testid="balance-chip" />,
-}));
-
 vi.mock('../TrustlineBanner', () => ({
   TrustlineBanner: () => null,
 }));
@@ -148,6 +144,11 @@ describe('Layout header landmarks', () => {
   test('page has a main landmark', () => {
     renderLayout('/');
     expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
+  test('mounts the global network mismatch banner', () => {
+    renderLayout('/');
+    expect(screen.getByTestId('network-mismatch-banner')).toBeInTheDocument();
   });
 });
 

@@ -7,6 +7,7 @@ in Disciplr-Frontend. It covers:
   and Stellar Expert URLs.
 - USDC issuer addresses per network.
 - The `WalletNetwork` type and normalization logic.
+- The expected wallet network used by the global mismatch warning.
 - The Testnet fallback behaviour used by the explorer utilities.
 - A step-by-step checklist for adding or changing a network.
 
@@ -189,7 +190,31 @@ and is `null` until the wallet connects.
 
 ---
 
-## 6. Checklist — Adding or Changing a Network
+## 6. Expected Wallet Network
+
+`src/utils/networkMismatch.ts` defines the deployment network expected by the
+global network mismatch warning:
+
+```ts
+export const APP_EXPECTED_NETWORK = resolveExpectedNetwork(
+  import.meta.env.VITE_DISCIPLR_NETWORK,
+);
+```
+
+`VITE_DISCIPLR_NETWORK` accepts the same supported identifiers as
+`WalletNetwork`: `TESTNET` and `PUBLIC`. Missing or unsupported values fall back
+to `TESTNET`, matching the development-safe fallback used elsewhere in this
+document.
+
+`isNetworkMismatch(walletNetwork, expectedNetwork)` returns `false` while the
+wallet is disconnected or still loading network state, and returns `true` when a
+connected wallet reports a different or unsupported network. `Layout` mounts
+`NetworkMismatchBanner` globally so users see the warning before creating or
+validating vaults.
+
+---
+
+## 7. Checklist — Adding or Changing a Network
 
 Follow these steps when adding a third network or updating an existing URL or
 issuer address.
@@ -209,6 +234,8 @@ issuer address.
   the new identifier (or confirm the Testnet fallback is acceptable).
 - [ ] Update `networkLabel` in `src/utils/explorer.ts` to return a
   human-readable label for the new identifier.
+- [ ] Update `resolveExpectedNetwork` in `src/utils/networkMismatch.ts` if the
+  new network should be a valid expected deployment network.
 - [ ] Update `getExplorerTxUrl` and `getExplorerAccountUrl` if their current
   binary `network === 'PUBLIC'` ternary needs to distinguish more than two
   networks.
@@ -234,11 +261,13 @@ issuer address.
 
 ---
 
-## 7. Related Files
+## 8. Related Files
 
 | File | Role |
 |---|---|
 | [`src/utils/horizon.ts`](../src/utils/horizon.ts) | `HORIZON_URLS`, `USDC_ISSUERS`, `fetchUsdcBalance`, `HorizonBalanceError` |
 | [`src/utils/explorer.ts`](../src/utils/explorer.ts) | `EXPLORER_BASES`, `getExplorerTxUrl`, `getExplorerAccountUrl`, `contractExplorerUrl`, `networkLabel` |
+| [`src/utils/networkMismatch.ts`](../src/utils/networkMismatch.ts) | `APP_EXPECTED_NETWORK`, `resolveExpectedNetwork`, `isNetworkMismatch` |
+| [`src/components/NetworkMismatchBanner.tsx`](../src/components/NetworkMismatchBanner.tsx) | Global warning for connected wallets on the wrong network |
 | [`src/context/WalletContext.tsx`](../src/context/WalletContext.tsx) | `WalletNetwork` type, `normalizeNetwork`, `fetchNetworkAndBalance` |
 | [`src/utils/stellarAddress.ts`](../src/utils/stellarAddress.ts) | `isValidStellarAddress` — used by explorer helpers to guard empty/invalid addresses |

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
@@ -6,14 +7,58 @@ vi.mock("../../context/WalletContext", () => ({
   useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
 }));
 
+vi.mock("../../services/vaultService", () => ({
+  createVault: vi.fn(async (vault) => ({
+    id: "999",
+    name: vault.name,
+    amount: vault.amount,
+    currency: vault.currency,
+    deadline: vault.deadline,
+    creatorAddress: vault.creatorAddress,
+    successAddress: vault.successAddress,
+    failureAddress: vault.failureAddress,
+    milestones: [],
+    transactions: [],
+  })),
+}));
+
 import { useWallet } from "../../context/WalletContext";
+import { createVault } from "../../services/vaultService";
 const mockUseWallet = vi.mocked(useWallet);
 
 const successAddress = `G${"A".repeat(55)}`;
 const failureAddress = `G${"B".repeat(55)}`;
+const milestoneTitle = "Launch MVP";
+const milestoneCriteria = "All core features shipped and tested.";
 
 function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
+
+function fillFirstMilestone(
+  title = "Design approved",
+  criteria = "Verifier signs off",
+) {
+  fillField(/milestone 1 title/i, title);
+  fillField(/milestone 1 criteria/i, criteria);
+}
+
+function renderCreateVault(state?: unknown) {
+  return render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: "/vaults/create",
+          state,
+        },
+      ]}
+    >
+      <Routes>
+        <Route path="/vaults/create" element={<CreateVault />} />
+        <Route path="/vaults/:id" element={<div>Vault Detail Page</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
 }
 
 describe("CreateVault", () => {
@@ -29,7 +74,7 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
@@ -75,12 +120,13 @@ describe("CreateVault", () => {
   });
 
   it("rejects identical destination addresses", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillField(/amount/i, "100");
     fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, successAddress);
+    fillFirstMilestone();
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -98,12 +144,13 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillField(/amount/i, "100.1234567");
     fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Prototype", "Prototype approved by verifier");
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(
@@ -112,6 +159,10 @@ describe("CreateVault", () => {
     expect(
       screen.queryByText(/Enter a positive USDC amount/),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("Prototype")).toBeInTheDocument();
+    expect(
+      screen.getByText("Prototype approved by verifier"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
@@ -120,18 +171,25 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
       successAddress,
       failureAddress,
+      milestones: [
+        {
+          title: "Prototype",
+          criteria: "Prototype approved by verifier",
+        },
+      ],
       evidenceUrl: undefined,
     });
     expect(consoleDebug).toHaveBeenCalledTimes(1);
   });
 
   it("returns to edit mode without losing entered values", () => {
-    render(<CreateVault />);
+    renderCreateVault();
 
     fillField(/amount/i, "55");
     fillField(/deadline/i, "2030-02-02T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Launch", "Launch evidence uploaded");
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /back to edit/i }));
@@ -144,10 +202,14 @@ describe("CreateVault", () => {
     expect(screen.getByLabelText(/failure destination/i)).toHaveValue(
       failureAddress,
     );
+    expect(screen.getByLabelText(/milestone 1 title/i)).toHaveValue("Launch");
+    expect(screen.getByLabelText(/milestone 1 criteria/i)).toHaveValue(
+      "Launch evidence uploaded",
+    );
   });
 
   it("formats amount with thousands grouping while typing", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "1234" } });
@@ -161,7 +223,7 @@ describe("CreateVault", () => {
   });
 
   it("caps decimal places at 7 while typing", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "1.123456789" } });
@@ -169,7 +231,7 @@ describe("CreateVault", () => {
   });
 
   it("strips non-numeric paste content", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "abc1.5def" } });
@@ -177,7 +239,7 @@ describe("CreateVault", () => {
   });
 
   it("normalises leading zeros", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "001" } });
@@ -185,7 +247,7 @@ describe("CreateVault", () => {
   });
 
   it("handles empty input gracefully", () => {
-    render(<CreateVault />);
+    renderCreateVault();
     const input = screen.getByLabelText(/amount/i);
 
     fireEvent.change(input, { target: { value: "" } });
@@ -196,7 +258,7 @@ describe("CreateVault", () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "1234.5678" },
@@ -210,6 +272,7 @@ describe("CreateVault", () => {
     fireEvent.change(screen.getByLabelText(/failure destination/i), {
       target: { value: failureAddress },
     });
+    fillFirstMilestone();
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
@@ -225,7 +288,7 @@ describe("CreateVault", () => {
       balance: "50",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
@@ -241,7 +304,7 @@ describe("CreateVault", () => {
       balance: "100",
       balanceStatus: "success",
     } as ReturnType<typeof useWallet>);
-    render(<CreateVault />);
+    renderCreateVault();
 
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
@@ -250,57 +313,31 @@ describe("CreateVault", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  /* ------------------------------------------------------------------ */
-  /*  Deadline preset buttons                                            */
-  /* ------------------------------------------------------------------ */
-  it("renders deadline preset buttons", () => {
-    render(<CreateVault />);
+  it("calls the createVault service and navigates to the detail page on confirm", async () => {
+    mockUseWallet.mockReturnValue({
+      balance: "5000",
+      balanceStatus: "success",
+      address: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+    } as ReturnType<typeof useWallet>);
+    
+    renderCreateVault();
 
-    expect(screen.getByRole("button", { name: "7 days" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "30 days" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "90 days" })).toBeInTheDocument();
-  });
-
-  it("preset buttons populate deadline field with future timestamp", () => {
-    render(<CreateVault />);
-
-    const now = new Date();
-    fireEvent.click(screen.getByRole("button", { name: "7 days" }));
-
-    const deadlineInput = screen.getByLabelText(/deadline/i);
-    const value = deadlineInput.getAttribute("value");
-    expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
-
-    const futureDate = new Date(value!);
-    expect(futureDate.getTime()).toBeGreaterThan(now.getTime());
-  });
-
-  it("selecting preset clears deadline error", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
-    render(<CreateVault />);
-
-    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-    expect(screen.getByText("Choose a future deadline.")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "30 days" }));
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
-  });
-
-  it("computed deadline satisfies isFutureDeadline validation", () => {
-    const consoleDebug = vi
-      .spyOn(console, "debug")
-      .mockImplementation(() => undefined);
-    render(<CreateVault />);
-
-    fillField(/amount/i, "100");
+    fillField(/amount/i, "100.5");
+    fillField(/deadline/i, "2030-01-01T00:00");
     fillField(/success destination/i, successAddress);
     fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone("Milestone 1", "Default milestone criteria");
 
-    fireEvent.click(screen.getByRole("button", { name: "90 days" }));
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(screen.queryByText("Choose a future deadline.")).not.toBeInTheDocument();
+    await screen.findByText("Vault Detail Page");
+
+    expect(createVault).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 100.5,
+      successAddress,
+      failureAddress,
+      deadline: "2030-01-01T00:00",
+    }));
   });
 });

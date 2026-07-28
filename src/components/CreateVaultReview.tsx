@@ -1,4 +1,10 @@
 import { Text } from "./Text";
+import { AddressDisplay } from "./AddressDisplay";
+
+export interface CreateVaultReviewMilestone {
+  title: string;
+  criteria: string;
+}
 
 interface CreateVaultReviewProps {
   amount: string;
@@ -7,32 +13,9 @@ interface CreateVaultReviewProps {
   failureAddress: string;
   verifierAddress?: string;
   milestone?: string;
+  milestones?: CreateVaultReviewMilestone[];
   onBack?: () => void;
   onConfirm?: () => void;
-}
-
-function AddressDisplay({ value, label }: { value: string; label: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-      <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-        {label}
-      </Text>
-      <Text
-        role="body"
-        as="code"
-        style={{
-          padding: "0.5rem 0.75rem",
-          borderRadius: "var(--radius)",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          color: "var(--accent)",
-          wordBreak: "break-all",
-        }}
-      >
-        {value}
-      </Text>
-    </div>
-  );
 }
 
 export function CreateVaultReview({
@@ -42,9 +25,17 @@ export function CreateVaultReview({
   failureAddress,
   verifierAddress,
   milestone,
+  milestones,
   onBack,
   onConfirm,
 }: CreateVaultReviewProps) {
+  const reviewMilestones =
+    milestones && milestones.length > 0
+      ? milestones
+      : milestone
+        ? [{ title: milestone, criteria: "" }]
+        : [];
+
   return (
     <div
       style={{
@@ -89,8 +80,22 @@ export function CreateVaultReview({
           </Text>
         </div>
 
-        <AddressDisplay value={successAddress} label="Success destination" />
-        <AddressDisplay value={failureAddress} label="Failure destination" />
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Success destination
+          </Text>
+          <AddressDisplay address={successAddress} />
+        </div>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Failure destination
+          </Text>
+          <AddressDisplay address={failureAddress} />
+        </div>
 
         {verifierAddress ? (
           <div
@@ -105,16 +110,39 @@ export function CreateVaultReview({
           </div>
         ) : null}
 
-        {milestone ? (
+        {reviewMilestones.length > 0 ? (
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-              Milestone
+              Milestones
             </Text>
-            <Text role="body" as="p">
-              {milestone}
-            </Text>
+            <ol
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+                margin: 0,
+                paddingLeft: "1.25rem",
+              }}
+            >
+              {reviewMilestones.map((item, index) => (
+                <li key={`${item.title}-${index}`}>
+                  <Text role="body" as="p" style={{ fontWeight: 700 }}>
+                    {item.title}
+                  </Text>
+                  {item.criteria ? (
+                    <Text
+                      role="caption"
+                      as="p"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      {item.criteria}
+                    </Text>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
           </div>
         ) : null}
       </div>

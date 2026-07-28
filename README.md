@@ -27,7 +27,7 @@ notification surfaces.
 - React Router for client-side routes
 - Vitest and Testing Library for frontend tests
 - Freighter wallet integration through `@stellar/freighter-api`
-- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md) and [docs/VERIFIER_FLOW.md](docs/VERIFIER_FLOW.md))
+- Zustand for notification and verifier state (see [docs/STORES.md](docs/STORES.md))
 - Recharts and jsPDF for analytics/charting and export-related UI
 - Lucide React and React Icons for icons
 - A local `design-system/` package with Jest-tested token utilities
@@ -280,18 +280,9 @@ backend migration plan.
   `src/components/Wallet/`.
 - Keep token and validator documentation aligned with the `design-system/`
   package.
-- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md), [docs/VERIFIER_FLOW.md](docs/VERIFIER_FLOW.md), and [Store.ts](src/Zustand/Store.ts).
-- Keep vault validation rules aligned with
-  [docs/CREATE_VAULT_VALIDATION.md](docs/CREATE_VAULT_VALIDATION.md).
-- Keep network configuration (Horizon URLs, USDC issuers, explorer bases)
-  aligned with [docs/NETWORK_CONFIG.md](docs/NETWORK_CONFIG.md).
-- Keep `windowRange` constants and threshold guidance aligned with
-  [docs/WINDOW_RANGE.md](docs/WINDOW_RANGE.md).
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the dual Vitest + Jest test setup, branch naming, and PR conventions.
 
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a summary of notable changes to this project.
+- Keep store contracts documentation aligned with [docs/STORES.md](docs/STORES.md) and [src/Zustand/Store.ts](src/Zustand/Store.ts).

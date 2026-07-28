@@ -1,13 +1,33 @@
 import { useNavigate } from 'react-router-dom';
 import { Text } from '../components/Text';
-import { useVerifierStore } from '../Zustand/Store';
+import { useVerifierStore, type ValidationTask } from '../Zustand/Store';
 import VerifierMetrics from '../components/VerifierMetrics';
 import { StatusChip } from '../components/StatusChip';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
+import { CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
+
+function mapValidationStatusToChipStatus(status: ValidationTask['status']): ChipStatus {
+  switch (status) {
+    case 'pending':
+      return 'pending_validation';
+    case 'approved':
+      return 'approved';
+    case 'rejected':
+      return 'rejected';
+    default: {
+      const exhaustiveCheck: never = status;
+      return exhaustiveCheck;
+    }
+  }
+}
 
 export default function VerifierDashboard() {
   const navigate = useNavigate();
+  const now = useCurrentTime();
   
-  const { pendingValidations, validationHistory } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
   const totalPending = pendingValidations.length;
   const totalCompleted = validationHistory.length;
@@ -41,14 +61,14 @@ export default function VerifierDashboard() {
       <section className="flex gap-4 mt-4">
         <button
           onClick={() => navigate('/verifier/queue')}
-          className="px-6 py-3 font-medium rounded transition"
+          className="px-6 py-3 font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
           style={{ background: 'var(--accent)', color: 'white' }}
         >
           View Pending Queue
         </button>
         <button
           onClick={() => navigate('/verifier/history')}
-          className="px-6 py-3 border font-medium rounded transition"
+          className="px-6 py-3 border font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
           style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'transparent' }}
         >
           View History
@@ -63,37 +83,47 @@ export default function VerifierDashboard() {
               <Text role="body" as="p">You have no pending validations at this time.</Text>
             </div>
           ) : (
-            pendingValidations.slice(0, 3).map((task) => (
-              <div
-                key={task.id}
-                className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center transition gap-4"
-                style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-              >
-                <div>
-                  <Text role="body" as="h3">{task.vaultName}</Text>
-                  <Text role="body" as="p" className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                    Milestone: {task.milestone}
-                  </Text>
+            pendingValidations.slice(0, 3).map((task) => {
+              const remaining = daysRemaining(task.deadline, now);
+              return (
+                <div
+                  key={task.id}
+                  className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between md:items-center transition gap-4"
+                  style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+                >
+                  <div>
+                    <Text role="body" as="h3">{task.vaultName}</Text>
+                    <Text role="body" as="p" className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+                      Milestone: {task.milestone}
+                    </Text>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <Text
+                      role="body"
+                      as="p"
+                      className="font-bold"
+                      style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--text)' }}
+                    >
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
+                        <span aria-hidden="true">⚠ </span>
+                      )}
+                      {remaining} days left
+                      {remaining <= CRITICAL_DAYS_THRESHOLD && (
+                        <span className="sr-only"> (urgent)</span>
+                      )}
+                    </Text>
+                    <button
+                      onClick={() => navigate(`/verifier/queue/${task.id}`)}
+                      aria-label={`Review ${task.vaultName}`}
+                      className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      Review Now &rarr;
+                    </button>
+                  </div>
                 </div>
-                <div className="text-left md:text-right">
-                  <Text
-                    role="body"
-                    as="p"
-                    className="font-bold"
-                    style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--text)' }}
-                  >
-                    {task.daysRemaining} days left
-                  </Text>
-                  <button
-                    onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                    className="font-medium text-sm mt-2 transition"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    Review Now &rarr;
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>
@@ -115,7 +145,7 @@ export default function VerifierDashboard() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Text role="body" as="h3">{task.vaultName}</Text>
-                    <StatusChip status={task.status as any} size="sm" />
+                    <StatusChip status={mapValidationStatusToChipStatus(task.status)} size="sm" />
                   </div>
                   <Text role="body" as="p" className="text-sm" style={{ color: 'var(--muted)' }}>
                     Milestone: {task.milestone}
@@ -127,7 +157,8 @@ export default function VerifierDashboard() {
                   </Text>
                   <button
                     onClick={() => navigate('/verifier/history')}
-                    className="font-medium text-sm mt-2 transition text-left md:text-right"
+                    aria-label={`View ${task.vaultName} in History`}
+                    className="font-medium text-sm mt-2 transition text-left md:text-right focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                     style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >
                     View in History &rarr;

@@ -29,35 +29,30 @@ describe('z-index token layering scale', () => {
   });
 });
 
-describe('focusRing token group', () => {
-  it('loads focusRing tokens from borders.json', () => {
-    const tokens = loadTokens('borders.json');
-    const border = tokens.border as Record<string, unknown>;
+describe('breakpoint token scale', () => {
+  it('loads breakpoint tokens from breakpoints.json', () => {
+    const tokens = loadTokens('breakpoints.json');
 
-    expect(border).toHaveProperty('focusRing');
-    expect(border.focusRing).toMatchObject({
-      width: { $type: 'dimension', $value: '2px' },
-      offset: { $type: 'dimension', $value: '2px' },
-      color: {
-        light: { $type: 'color', $value: '#1E40AF' },
-        dark: { $type: 'color', $value: '#3B82F6' },
-      },
+    expect(tokens).toHaveProperty('breakpoint');
+    expect(tokens.breakpoint).toMatchObject({
+      sm: { $value: '640px' },
+      md: { $value: '768px' },
+      lg: { $value: '1024px' },
+      xl: { $value: '1280px' },
     });
   });
+});
 
-  it('focusRing width and offset are dimension tokens', () => {
-    const tokens = loadTokens('borders.json');
-    const focusRing = (tokens.border as unknown as Record<string, Record<string, { $type: string; $value: string }>>).focusRing;
+describe('opacity token scale', () => {
+  it('loads opacity tokens from opacity.json', () => {
+    const tokens = loadTokens('opacity.json');
 
-    expect(focusRing.width.$type).toBe('dimension');
-    expect(focusRing.offset.$type).toBe('dimension');
-  });
-
-  it('focusRing colors are valid hex color tokens', () => {
-    const tokens = loadTokens('borders.json');
-    const focusRing = (tokens.border as unknown as Record<string, Record<string, Record<string, { $value: string }>>>).focusRing;
-
-    expect(focusRing.color.light.$value).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(focusRing.color.dark.$value).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(tokens).toHaveProperty('opacity');
+    expect(tokens.opacity).toMatchObject({
+      disabled: { $value: 0.5 },
+      backdrop: { $value: 0.5 },
+      hover: { $value: 0.08 },
+      muted: { $value: 0.72 },
+    });
   });
 });

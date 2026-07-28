@@ -4,25 +4,32 @@ import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
-import { computeVerifierMetrics } from '../utils/verifierMetrics';
+import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
+import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
-  const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const batchApprove = useVerifierStore((state) => state.batchApprove);
+  const batchReject = useVerifierStore((state) => state.batchReject);
 
   // Queue-at-a-glance metrics for the strip above the table.
   const metrics = useMemo(
-    () => computeVerifierMetrics(pendingValidations, validationHistory),
-    [pendingValidations, validationHistory],
+    () => computeVerifierMetrics(pendingValidations, validationHistory, now),
+    [pendingValidations, validationHistory, now],
   );
 
   // Filter and sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<PendingSortKey>('deadline');
+  const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
   // Multi-select state for batch actions.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -45,13 +52,8 @@ export default function PendingValidations() {
   }, [pendingValidations, searchQuery, selectedMilestone]);
 
   const sortedValidations = useMemo(
-    () =>
-      [...filteredValidations].sort((a, b) =>
-        sortOrder === 'asc'
-          ? a.daysRemaining - b.daysRemaining
-          : b.daysRemaining - a.daysRemaining,
-      ),
-    [filteredValidations, sortOrder],
+    () => sortPending(filteredValidations, sortKey, sortDir),
+    [filteredValidations, sortDir, sortKey],
   );
 
   // Keep selection in sync with the queue and reset it when the active filters change.
@@ -104,6 +106,15 @@ export default function PendingValidations() {
   };
 
   const hasSelection = selectedIds.length > 0;
+  const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
+  const handleHeaderSort = (key: PendingSortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -122,16 +133,66 @@ export default function PendingValidations() {
           </Text>
         </div>
 
-        <button
-          onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-          className="px-4 py-2 border rounded text-sm font-medium transition"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
-        >
-          Sort by Urgency: {sortOrder === 'asc' ? 'High to Low' : 'Low to High'}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+            Sort by
+            <select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as PendingSortKey)}
+              className="px-3 py-2 border rounded text-sm"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+            >
+              <option value="deadline">Deadline</option>
+              <option value="amount">Amount at stake</option>
+              <option value="vaultName">Vault name</option>
+            </select>
+          </label>
+          <button
+            onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="self-end px-4 py-2 border rounded text-sm font-medium transition"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+          >
+            Sort direction: {sortLabel}
+          </button>
+        </div>
       </header>
 
       <VerifierMetricsBar metrics={metrics} />
+
+      <section
+        aria-label="Pending validation filters"
+        className="grid gap-4 md:grid-cols-2"
+      >
+        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+          Search by Vault Name or Owner
+          <input
+            type="search"
+            aria-label="Search by Vault Name or Owner"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="px-3 py-2 border rounded"
+            placeholder="Search vaults or owners"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+          Filter by Milestone
+          <select
+            aria-label="Filter by Milestone"
+            value={selectedMilestone}
+            onChange={(event) => setSelectedMilestone(event.target.value)}
+            className="px-3 py-2 border rounded"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          >
+            <option value="">All Milestones</option>
+            {availableMilestones.map((milestone) => (
+              <option key={milestone} value={milestone}>
+                {milestone}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       <section className="border rounded-lg shadow-sm overflow-x-auto" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
         {sortedValidations.length === 0 ? (
@@ -164,16 +225,35 @@ export default function PendingValidations() {
                     className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                   />
                 </th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Vault & Milestone</th>
+                <SortableHeader
+                  label="Vault & Milestone"
+                  fieldKey="vaultName"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Owner</th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Amount at Stake</th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }} aria-sort={sortOrder === 'asc' ? 'ascending' : 'descending'}>Deadline</th>
+                <SortableHeader
+                  label="Amount at Stake"
+                  fieldKey="amount"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
+                <SortableHeader
+                  label="Deadline"
+                  fieldKey="deadline"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm text-right" style={{ color: 'var(--muted)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {sortedValidations.map((task) => {
                 const checked = selectedIds.includes(task.id);
+                const remaining = daysRemaining(task.deadline, now);
                 return (
                   <tr
                     key={task.id}
@@ -207,10 +287,10 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
-                          {task.daysRemaining} days left
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
+                          {remaining} days left
                         </span>
-                        {task.daysRemaining <= 3 && (
+                        {remaining <= CRITICAL_DAYS_THRESHOLD && (
                           <span className="sr-only">Urgent</span>
                         )}
                         <CountdownDeadline deadline={task.deadline} />
@@ -273,3 +353,49 @@ export default function PendingValidations() {
     </div>
   );
 }
+
+interface SortableHeaderProps {
+  label: string;
+  fieldKey: PendingSortKey;
+  currentSortKey: PendingSortKey;
+  currentSortDir: SortDirection;
+  onSort: (key: PendingSortKey) => void;
+}
+
+function SortableHeader({
+  label,
+  fieldKey,
+  currentSortKey,
+  currentSortDir,
+  onSort,
+}: SortableHeaderProps) {
+  const active = currentSortKey === fieldKey;
+  const ariaSort = active
+    ? currentSortDir === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : undefined;
+
+  return (
+    <th
+      scope="col"
+      className="p-4 font-medium text-sm"
+      style={{ color: 'var(--muted)' }}
+      aria-sort={ariaSort}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(fieldKey)}
+        className="flex items-center gap-1.5 font-medium text-sm text-left transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] rounded"
+        style={{ color: 'var(--muted)', background: 'transparent', border: 'none', padding: 0 }}
+        aria-label={`Sort ${label} column`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-xs">
+          {active ? (currentSortDir === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+

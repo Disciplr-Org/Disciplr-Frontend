@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 
 export type TooltipPosition = "top" | "bottom";
 
@@ -29,10 +36,7 @@ export function Tooltip({
   const [visible, setVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const prefersReducedMotion =
-    typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false;
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const show = useCallback(() => {
     if (hideTimerRef.current) {
@@ -88,26 +92,16 @@ export function Tooltip({
 
   const positionStyle: React.CSSProperties =
     position === "top"
-      ? {
-          bottom: "calc(100% + 6px)",
-          left: "50%",
-          transform: "translateX(-50%)",
-        }
+      ? { bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" }
       : { top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" };
 
   const transitionStyle: React.CSSProperties = prefersReducedMotion
     ? {}
-    : {
-        transition: `opacity ${ANIMATION_DURATION_MS}ms ease, transform ${ANIMATION_DURATION_MS}ms ease`,
-      };
+    : { transition: `opacity ${ANIMATION_DURATION_MS}ms ease, transform ${ANIMATION_DURATION_MS}ms ease` };
 
   return (
     <span
-      style={{
-        position: "relative",
-        display: "inline-flex",
-        alignItems: "center",
-      }}
+      style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
       className={className}
     >
       {trigger}
@@ -115,11 +109,10 @@ export function Tooltip({
       <span
         id={tooltipId}
         role="tooltip"
-        aria-hidden={!visible}
         style={{
           position: "absolute",
           ...positionStyle,
-          zIndex: 9999,
+          zIndex: "var(--z-index-tooltip, 150)",
           pointerEvents: "none",
           whiteSpace: "nowrap",
           padding: "4px 10px",
@@ -133,12 +126,12 @@ export function Tooltip({
           opacity: visible ? 1 : 0,
           transform: visible
             ? `translateX(-50%)`
-            : `translateX(-50%) ${
-                position === "top" ? "translateY(4px)" : "translateY(-4px)"
-              }`,
+            : `translateX(-50%) ${position === "top" ? "translateY(4px)" : "translateY(-4px)"}`,
           ...transitionStyle,
+          // Visually hidden but in DOM for aria-describedby linkage when not visible.
           visibility: visible ? "visible" : "hidden",
         }}
+        aria-hidden={!visible}
       >
         {content}
       </span>

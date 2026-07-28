@@ -1,7 +1,7 @@
 # Responsive Breakpoints
 
 Canonical breakpoint reference for Disciplr. All values are sourced from
-[`design-system/tokens/spacing.json`](../tokens/spacing.json) under `spacing.breakpoint.*`.
+[`design-system/tokens/breakpoints.json`](../tokens/breakpoints.json) under `breakpoint.*`.
 
 These breakpoints align 1:1 with Tailwind v4 defaults (used via `@tailwindcss/vite` in
 [`vite.config.ts`](../../vite.config.ts)) so a Tailwind class like `md:flex` and a CSS
@@ -21,17 +21,17 @@ These breakpoints align 1:1 with Tailwind v4 defaults (used via `@tailwindcss/vi
 | `2xl`    | 1536 px   | `2xl:`          | Large screens           | No additional layout reflow; content remains centered at `xl` max-width.        |
 
 The `sm` / `md` / `lg` triple is the canonical set referenced by this issue;
-`xl` and `2xl` are documented for completeness and exist in the same token file.
+`xl` is documented for completeness and exists in the same token file.
 
 ### Source of truth
 
 ```jsonc
-// design-system/tokens/spacing.json → spacing.breakpoint
+// design-system/tokens/breakpoints.json → breakpoint
 "sm":  "640px",
 "md":  "768px",
 "lg":  "1024px",
 "xl":  "1280px",
-"2xl": "1536px"
+"xl":  "1280px"
 ```
 
 ### Grid coupling
@@ -235,7 +235,7 @@ occurs — only generous side margins.
 ```
 
 The Tailwind prefixes (`sm:` / `md:` / `lg:` / `xl:` / `2xl:`) resolve to the
-identical pixel values listed in the token table above.
+identical pixel values listed in the token table above. Runtime code can import `useBreakpoint` from `src/utils/useBreakpoint` when it needs the same min-width checks in React.
 
 ### Reading tokens from JS / TS
 

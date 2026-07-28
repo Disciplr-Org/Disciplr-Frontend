@@ -56,4 +56,51 @@ describe('Home page hero', () => {
     expect(dashboardLink).toHaveAttribute('href', '/dashboard');
     expect(vaultsLink).toHaveAttribute('href', '/vaults');
   });
+
+  test('hero heading is rendered as an h1 element', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toBeInTheDocument();
+    expect(h1.tagName).toBe('H1');
+  });
+
+  test('primary CTA has accessible link text and is not a button', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    const cta = screen.getByRole('link', { name: /Create Your First Vault/i });
+    expect(cta.tagName).toBe('A');
+    // The accessible name must be non-empty so screen readers announce it correctly
+    expect(cta).toHaveAccessibleName(/Create Your First Vault/i);
+  });
+
+  test('secondary nav links expose accessible names for screen readers', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    const dashboardLink = screen.getByRole('link', { name: /Dashboard/i });
+    const vaultsLink = screen.getByRole('link', { name: /My Vaults/i });
+    expect(dashboardLink).toHaveAccessibleName(/Dashboard/i);
+    expect(vaultsLink).toHaveAccessibleName(/My Vaults/i);
+  });
+
+  test('hero value proposition copy is visible in the document', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    // Value proposition text should be present as body copy
+    expect(
+      screen.getByText(/Time‑locked capital vaults on Stellar that release on validation or redirect on failure\./i)
+    ).toBeVisible();
+  });
 });

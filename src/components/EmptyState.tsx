@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -14,7 +14,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
       <h3 className="empty-state-title">{title}</h3>
       {description && <p className="empty-state-description">{description}</p>}
       {action && (
-        <button className="empty-state-action" onClick={action.onClick}>
+        <button type="button" className="empty-state-action" onClick={action.onClick}>
           {action.label}
         </button>
       )}

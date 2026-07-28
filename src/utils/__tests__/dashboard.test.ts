@@ -6,9 +6,11 @@ import {
   formatSummary,
   processDeadlines,
   processActivity,
+  computeDashboardSummary,
   type Deadline,
   type Activity,
 } from '../dashboard';
+import type { Vault, VaultStatus } from '../../types/vault';
 
 describe('Dashboard Utility Helpers', () => {
   // A fixed timestamp representing 2026-06-27T12:00:00Z
@@ -21,11 +23,11 @@ describe('Dashboard Utility Helpers', () => {
       expect(daysRemaining(deadline, MOCK_NOW)).toBe(2);
     });
 
-    it('returns 0 when deadline is exactly now or in the past', () => {
+    it('returns 0 when deadline is exactly now, negative when in the past', () => {
       const deadlineNow = '2026-06-27T12:00:00Z';
       const deadlinePast = '2026-06-25T12:00:00Z';
       expect(daysRemaining(deadlineNow, MOCK_NOW)).toBe(0);
-      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(0);
+      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(-2);
     });
 
     it('rounds up partial days remaining', () => {
@@ -133,6 +135,16 @@ describe('Dashboard Utility Helpers', () => {
       expect(processed).toHaveLength(1);
       expect(processed[0].formattedDays).toBe('Today');
     });
+
+    it('formats overdue deadlines with signed daysRemaining and holds urgency at danger', () => {
+      const deadlines: Deadline[] = [
+        { id: '1', name: 'Overdue Vault', deadline: '2026-06-20T12:00:00Z', amount: 500 },
+      ];
+      const processed = processDeadlines(deadlines, MOCK_NOW);
+      expect(processed[0].daysRemaining).toBe(-7);
+      expect(processed[0].formattedDays).toBe('7d overdue');
+      expect(processed[0].urgencyColor).toBe('var(--danger)');
+    });
   });
 
   describe('processActivity', () => {
@@ -168,6 +180,115 @@ describe('Dashboard Utility Helpers', () => {
       const processed = processActivity(activities, MOCK_NOW);
       expect(processed).toHaveLength(1);
       expect(processed[0].relativeTime).toBe('just now');
+    });
+  });
+
+  describe('computeDashboardSummary', () => {
+    const makeVault = (
+      id: string,
+      status: VaultStatus,
+      amount: number,
+      pendingMilestoneCount: number = 0,
+    ): Vault => ({
+      id,
+      name: `Vault ${id}`,
+      amount,
+      currency: 'USDC',
+      status,
+      createdAt: '2026-01-01T00:00:00Z',
+      deadline: '2026-12-31T00:00:00Z',
+      creatorAddress: 'GCREATOR',
+      successAddress: 'GSUCCESS',
+      failureAddress: 'GFAILURE',
+      contractAddress: 'GCONTRACT',
+      milestones: Array.from({ length: pendingMilestoneCount }, (_, i) => ({
+        id: `m${i}`,
+        title: `Milestone ${i}`,
+        description: 'Test milestone',
+        criteria: 'Test criteria',
+        status: 'pending' as const,
+      })),
+      transactions: [],
+    });
+
+    it('returns all zeros for an empty vault list', () => {
+      expect(computeDashboardSummary([])).toEqual({
+        totalLocked: 0,
+        activeVaults: 0,
+        pendingMilestones: 0,
+        completionRate: 0,
+      });
+    });
+
+    it('sums amounts only for active and pending_validation vaults', () => {
+      const vaults = [
+        makeVault('1', 'active', 1000),
+        makeVault('2', 'pending_validation', 500),
+        makeVault('3', 'completed', 200),
+        makeVault('4', 'failed', 300),
+      ];
+      const result = computeDashboardSummary(vaults);
+      expect(result.totalLocked).toBe(1500);
+      expect(result.activeVaults).toBe(2);
+    });
+
+    it('counts pending milestones across all vaults', () => {
+      const vaults = [
+        makeVault('1', 'active', 1000, 3),
+        makeVault('2', 'active', 500, 2),
+        makeVault('3', 'completed', 200, 0),
+      ];
+      const result = computeDashboardSummary(vaults);
+      expect(result.pendingMilestones).toBe(5);
+    });
+
+    it('computes completionRate as completed/(completed+failed+cancelled)*100', () => {
+      const vaults = [
+        makeVault('1', 'completed', 100),
+        makeVault('2', 'completed', 100),
+        makeVault('3', 'failed', 100),
+      ];
+      const result = computeDashboardSummary(vaults);
+      // 2 completed / 3 terminal = 66.67 → rounded to 67
+      expect(result.completionRate).toBe(67);
+    });
+
+    it('returns completionRate 0 when no terminal vaults (divide-by-zero guard)', () => {
+      const vaults = [makeVault('1', 'active', 500)];
+      expect(computeDashboardSummary(vaults).completionRate).toBe(0);
+    });
+
+    it('returns completionRate 100 when all terminal vaults are completed', () => {
+      const vaults = [
+        makeVault('1', 'completed', 100),
+        makeVault('2', 'completed', 200),
+      ];
+      expect(computeDashboardSummary(vaults).completionRate).toBe(100);
+    });
+
+    it('returns completionRate 0 when all terminal vaults are failed', () => {
+      const vaults = [
+        makeVault('1', 'failed', 100),
+        makeVault('2', 'cancelled', 50),
+      ];
+      expect(computeDashboardSummary(vaults).completionRate).toBe(0);
+    });
+
+    it('handles mixed statuses correctly end-to-end', () => {
+      const vaults = [
+        makeVault('1', 'active', 1000, 2),
+        makeVault('2', 'active', 2000, 1),
+        makeVault('3', 'pending_validation', 500, 3),
+        makeVault('4', 'completed', 0, 0),
+        makeVault('5', 'failed', 0, 0),
+        makeVault('6', 'cancelled', 0, 0),
+      ];
+      const result = computeDashboardSummary(vaults);
+      expect(result.totalLocked).toBe(3500);
+      expect(result.activeVaults).toBe(3);
+      expect(result.pendingMilestones).toBe(6);
+      // 1 completed / 3 terminal = 33.33 → rounded to 33
+      expect(result.completionRate).toBe(33);
     });
   });
 });

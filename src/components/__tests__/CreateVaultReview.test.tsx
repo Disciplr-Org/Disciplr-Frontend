@@ -15,7 +15,16 @@ describe("CreateVaultReview", () => {
         successAddress={successAddress}
         failureAddress={failureAddress}
         verifierAddress={verifierAddress}
-        milestone="Deliverables approved"
+        milestones={[
+          {
+            title: "Design approved",
+            criteria: "Verifier signs the design handoff",
+          },
+          {
+            title: "Launch ready",
+            criteria: "Deployment checklist is complete",
+          },
+        ]}
       />,
     );
 
@@ -24,9 +33,32 @@ describe("CreateVaultReview", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("100.1234567")).toBeInTheDocument();
     expect(screen.getByText("2030-01-01T00:00")).toBeInTheDocument();
-    expect(screen.getByText(successAddress)).toBeInTheDocument();
-    expect(screen.getByText(failureAddress)).toBeInTheDocument();
+    expect(screen.getByTitle(successAddress)).toBeInTheDocument();
+    expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
     expect(screen.getByText("Verifier address")).toBeInTheDocument();
-    expect(screen.getByText("Milestone")).toBeInTheDocument();
+    expect(screen.getByText("Milestones")).toBeInTheDocument();
+    expect(screen.getByText("Design approved")).toBeInTheDocument();
+    expect(
+      screen.getByText("Verifier signs the design handoff"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Launch ready")).toBeInTheDocument();
+    expect(
+      screen.getByText("Deployment checklist is complete"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the legacy single milestone prop rendering", () => {
+    render(
+      <CreateVaultReview
+        amount="100"
+        deadline="2030-01-01T00:00"
+        successAddress={`G${"A".repeat(55)}`}
+        failureAddress={`G${"B".repeat(55)}`}
+        milestone="Deliverables approved"
+      />,
+    );
+
+    expect(screen.getByText("Milestones")).toBeInTheDocument();
+    expect(screen.getByText("Deliverables approved")).toBeInTheDocument();
   });
 });

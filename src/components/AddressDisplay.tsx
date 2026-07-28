@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Check, Copy, ExternalLink } from 'lucide-react';
 import { truncateMiddle } from '../utils/truncate';
 import type { WalletNetwork } from '../context/WalletContext';
+import { getExplorerAccountUrl } from '../utils/explorer';
 import { isValidStellarAddress } from '../utils/stellarAddress';
 
 interface AddressDisplayProps {
@@ -17,8 +19,10 @@ export function AddressDisplay({
     tailChars = 4,
 }: AddressDisplayProps) {
     const [copied, setCopied] = useState(false);
-    const isValid = isValidStellarAddress(address);
+
     const display = truncateMiddle(address, chars, tailChars);
+    const isValid = isValidStellarAddress(address);
+    const explorerUrl = getExplorerAccountUrl(address, network);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {
@@ -26,11 +30,6 @@ export function AddressDisplay({
             setTimeout(() => setCopied(false), 1500);
         }).catch(() => {});
     };
-
-    const explorerBase =
-        network === 'PUBLIC'
-            ? 'https://stellar.expert/explorer/public/account'
-            : 'https://stellar.expert/explorer/testnet/account';
 
     return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -41,7 +40,7 @@ export function AddressDisplay({
                 style={{ 
                     fontFamily: 'monospace', 
                     fontSize: 'inherit',
-                    color: isValid ? 'inherit' : 'var(--error)',
+                    color: isValid ? 'inherit' : 'var(--danger)',
                     textDecoration: isValid ? 'none' : 'line-through' 
                 }}
             >
@@ -56,19 +55,20 @@ export function AddressDisplay({
                     background: 'none', border: 'none', cursor: 'pointer',
                     color: copied ? 'var(--success)' : 'var(--muted)',
                     padding: '0 2px', fontSize: 13, lineHeight: 1,
+                    display: 'flex', alignItems: 'center'
                 }}
             >
-                {copied ? '✓' : '⏘'}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
-            {network != null && isValid && (
+            {network != null && explorerUrl && (
                 <a
-                    href={`${explorerBase}/${address}`}
+                    href={explorerUrl}
                     target="_blank" rel="noopener noreferrer"
                     title="View on Stellar Expert"
                     aria-label={`View ${address} on Stellar Expert`}
-                    style={{ color: 'var(--accent)', fontSize: 12, lineHeight: 1 }}
+                    style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
                 >
-                    ↗
+                    <ExternalLink size={14} />
                 </a>
             )}
         </span>

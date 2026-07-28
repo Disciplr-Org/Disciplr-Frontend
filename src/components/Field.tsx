@@ -8,8 +8,9 @@ interface FieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
 }
 
 export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
-  ({ label, hint, error, id, required, ...props }, ref) => {
-  const fieldId = id || `field-${label.toLowerCase().replace(/\s+/g, '-')}`
+  ({ label, hint, error, id, required, disabled, style, ...props }, ref) => {
+  const reactId = React.useId()
+  const fieldId = id || `field-${label.toLowerCase().replace(/\s+/g, '-')}-${reactId.replace(/:/g, '')}`
   const errorId = error ? `${fieldId}-error` : undefined
   const hintId = hint && !error ? `${fieldId}-hint` : undefined
   const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined
@@ -30,6 +31,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
         ref={ref}
         id={fieldId}
         required={required}
+        disabled={disabled}
         aria-label={label}
         aria-describedby={describedBy}
         aria-invalid={error ? 'true' : undefined}
@@ -40,6 +42,9 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
           border: error ? '1px solid var(--danger)' : '1px solid var(--border)',
           background: 'var(--surface)',
           color: 'var(--text)',
+          opacity: disabled ? 'var(--opacity-disabled)' : undefined,
+          cursor: disabled ? 'not-allowed' : undefined,
+          ...style,
         }}
         {...props}
       />
@@ -58,6 +63,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
           role="caption"
           as="span"
           id={errorId}
+          aria-live="polite"
           style={{ color: 'var(--danger)' }}
         >
           {error}

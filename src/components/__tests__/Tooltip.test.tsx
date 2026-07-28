@@ -1,13 +1,6 @@
-import { render, screen, fireEvent, act, configure } from "@testing-library/react";
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Tooltip } from "../Tooltip";
-
-// The tooltip keeps its role="tooltip" node mounted but hidden (aria-hidden +
-// visibility:hidden) for aria linkage, and these tests assert on it via
-// getByRole while hidden. Scope defaultHidden to this file so *ByRole queries
-// include the hidden node without affecting other suites.
-beforeAll(() => configure({ defaultHidden: true }));
-afterAll(() => configure({ defaultHidden: false }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,14 +34,14 @@ describe("Tooltip", () => {
     renderTooltip();
     expect(screen.getByRole("button", { name: "Trigger" })).toBeInTheDocument();
     // tooltip role exists in DOM (for aria linkage) but is not visible
-    const tooltip = screen.getByRole("tooltip");
+    const tooltip = screen.getByRole("tooltip", { hidden: true });
     expect(tooltip).toBeInTheDocument();
     expect(tooltip).toHaveStyle({ visibility: "hidden" });
   });
 
   it("renders the tooltip content string", () => {
     renderTooltip("Full hash value");
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Full hash value");
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Full hash value");
   });
 
   // ── Hover ─────────────────────────────────────────────────────────────────
@@ -67,7 +60,7 @@ describe("Tooltip", () => {
 
     fireEvent.mouseLeave(trigger);
     act(() => vi.runAllTimers());
-    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveStyle({ visibility: "hidden" });
   });
 
   // ── Focus ─────────────────────────────────────────────────────────────────
@@ -86,7 +79,7 @@ describe("Tooltip", () => {
 
     fireEvent.blur(trigger);
     act(() => vi.runAllTimers());
-    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveStyle({ visibility: "hidden" });
   });
 
   // ── Escape key ────────────────────────────────────────────────────────────
@@ -97,7 +90,7 @@ describe("Tooltip", () => {
     expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "hidden" });
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveStyle({ visibility: "hidden" });
   });
 
   it("does not throw when Escape is pressed while tooltip is already hidden", () => {
@@ -140,12 +133,12 @@ describe("Tooltip", () => {
 
   it("tooltip element has role='tooltip'", () => {
     renderTooltip();
-    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByRole("tooltip", { hidden: true })).toBeInTheDocument();
   });
 
   it("tooltip is aria-hidden when not visible", () => {
     renderTooltip();
-    expect(screen.getByRole("tooltip")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveAttribute("aria-hidden", "true");
   });
 
   it("tooltip is not aria-hidden when visible", () => {
@@ -183,5 +176,13 @@ describe("Tooltip", () => {
 
     act(() => vi.runAllTimers());
     expect(screen.getByRole("tooltip")).toHaveStyle({ visibility: "visible" });
+  });
+
+  // ── Styling & Stacking ───────────────────────────────────────────────────
+
+  it("applies the correct design system z-index token", () => {
+    renderTooltip();
+    const tooltip = screen.getByRole("tooltip", { hidden: true });
+    expect(tooltip).toHaveStyle({ zIndex: "var(--z-index-tooltip, 150)" });
   });
 });
