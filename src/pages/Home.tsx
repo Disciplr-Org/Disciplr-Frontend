@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { WalletConnectButton } from '../components/Wallet/WalletConnectButton'
-import { Shield, Zap, Lock } from 'lucide-react'
+import { Zap } from 'lucide-react'
+import { VaultIcon, MilestoneIcon, TimeLockIcon, TreasuryIcon } from '../components/icons'
 
 export default function Home() {
   return (
@@ -9,7 +10,7 @@ export default function Home() {
       {/* Hero Section */}
       <section style={{ textAlign: 'center', marginBottom: '3rem', paddingTop: 'var(--spacing-8)' }}>
         <div style={{ marginBottom: 'var(--spacing-6)' }}>
-          <Shield size={64} style={{ color: 'var(--accent)', marginBottom: 'var(--spacing-4)' }} />
+          <VaultIcon size={64} style={{ color: 'var(--accent)', marginBottom: 'var(--spacing-4)' }} />
         </div>
         <Text role="display" as="h1" style={{ marginBottom: 'var(--spacing-4)', maxWidth: '800px', marginLeft: 'auto', marginRight: 'auto' }}>
           Secure Time‑Locked Capital Vaults on Stellar
@@ -75,7 +76,7 @@ export default function Home() {
           </div>
           <div style={{ textAlign: 'center', padding: 'var(--spacing-6)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
             <div style={{ marginBottom: 'var(--spacing-4)' }}>
-              <Lock size={32} style={{ color: 'var(--accent)' }} />
+              <TimeLockIcon size={32} style={{ color: 'var(--accent)' }} />
             </div>
             <Text role="subtitle" as="h3" style={{ marginBottom: 'var(--spacing-2)' }}>
               2. Create a Vault
@@ -86,7 +87,7 @@ export default function Home() {
           </div>
           <div style={{ textAlign: 'center', padding: 'var(--spacing-6)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
             <div style={{ marginBottom: 'var(--spacing-4)' }}>
-              <Shield size={32} style={{ color: 'var(--accent)' }} />
+              <MilestoneIcon size={32} style={{ color: 'var(--accent)' }} />
             </div>
             <Text role="subtitle" as="h3" style={{ marginBottom: 'var(--spacing-2)' }}>
               3. Achieve or Redirect
@@ -138,15 +139,15 @@ export default function Home() {
         </Text>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-8)', flexWrap: 'wrap', marginBottom: 'var(--spacing-4)' }}>
           <div style={{ padding: 'var(--spacing-4)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <Shield size={24} style={{ color: 'var(--success)' }} />
+            <VaultIcon size={24} style={{ color: 'var(--success)' }} />
             <Text role="body" as="p" style={{ marginTop: 'var(--spacing-2)' }}>Audited Smart Contracts</Text>
           </div>
           <div style={{ padding: 'var(--spacing-4)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <Lock size={24} style={{ color: 'var(--success)' }} />
+            <TimeLockIcon size={24} style={{ color: 'var(--success)' }} />
             <Text role="body" as="p" style={{ marginTop: 'var(--spacing-2)' }}>Non-Custodial</Text>
           </div>
           <div style={{ padding: 'var(--spacing-4)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <Zap size={24} style={{ color: 'var(--success)' }} />
+            <TreasuryIcon size={24} style={{ color: 'var(--success)' }} />
             <Text role="body" as="p" style={{ marginTop: 'var(--spacing-2)' }}>Instant Settlements</Text>
           </div>
         </div>
