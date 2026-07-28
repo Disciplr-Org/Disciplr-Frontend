@@ -254,7 +254,9 @@ export default function VaultTransactions({
   // sort changes are handled inside updateSort(); this effect covers the six
   // filter controls that filtered() depends on.
   useEffect(() => {
-    setAnchorIndex(0);
+    setPendingAnchor(0);
+    setFailedAnchor(0);
+    setRestAnchor(0);
   }, [selectedTypes, filterVault, filterStatus, searchHash, amountMin, amountMax]);
 
   // windowRange is applied per-section; each section independently does not
