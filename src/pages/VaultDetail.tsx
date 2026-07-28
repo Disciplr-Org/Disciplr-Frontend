@@ -580,8 +580,8 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
 
   const isTestnet = network !== 'PUBLIC';
   const networkStatusColor = isTestnet
-    ? "var(--warning, #f59e0b)"
-    : "var(--success, #10b981)";
+    ? "var(--warning)"
+    : "var(--success)";
 
   return (
     <footer
