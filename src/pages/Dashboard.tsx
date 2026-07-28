@@ -4,7 +4,7 @@ import VaultCard from "../components/VaultCard";
 import UpcomingDeadlines from "../components/UpcomingDeadlines";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
 import type { VaultStatus, Vault } from "../types/vault";
@@ -143,27 +143,40 @@ export default function Dashboard({
 } = {}) {
   const [vaults, setVaults] = useState<VaultPreview[]>([]);
   const [fullVaults, setFullVaults] = useState<Vault[]>([]);
-  const [vaultsLoading, setVaultsLoading] = useState(true);
+  const [vaultStatus, setVaultStatus] = useState<
+    "loading" | "empty" | "data" | "error"
+  >("loading");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    listVaults().then((loaded) => {
-      setFullVaults(loaded);
-      setVaults(
-        loaded.map((v) => ({
-          id: v.id,
-          name: v.name,
-          amount: v.amount,
-          currency: v.currency,
-          status: v.status as VaultStatus,
-          deadline: v.deadline,
-          progressPct: timelineProgress(v.createdAt, v.deadline),
-        }))
-      );
-      setVaultsLoading(false);
-    });
-  }, []);
+    let cancelled = false;
+    setVaultStatus("loading");
+    listVaults()
+      .then((loaded) => {
+        if (cancelled) return;
+        setFullVaults(loaded);
+        setVaults(
+          loaded.map((v) => ({
+            id: v.id,
+            name: v.name,
+            amount: v.amount,
+            currency: v.currency,
+            status: v.status as VaultStatus,
+            deadline: v.deadline,
+            progressPct: timelineProgress(v.createdAt, v.deadline),
+          })),
+        );
+        setVaultStatus(loaded.length === 0 ? "empty" : "data");
+      })
+      .catch(() => {
+        if (!cancelled) setVaultStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryCount]);
 
-  const hasVaults = vaults.length > 0;
+  const retryVaults = useCallback(() => setRetryCount((c) => c + 1), []);
 
   const computedSummary = useMemo(
     () => dashboardUtils.computeDashboardSummary(fullVaults),
@@ -307,29 +320,28 @@ export default function Dashboard({
               action="View all →"
               to="/vaults"
             />
-            {hasVaults ? (
+            {vaultStatus === "loading" && (
+              <Text role="body" as="p" style={{ color: "var(--muted)" }}>
+                Loading vaults…
+              </Text>
+            )}
+
+            {vaultStatus === "error" && (
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
+                  textAlign: "center",
+                  padding: "2.5rem 1rem",
+                  color: "var(--muted)",
                 }}
               >
-                {vaults.map((v) => (
-                  <VaultCard
-                    key={v.id}
-                    id={v.id}
-                    name={v.name}
-                    amount={v.amount}
-                    currency={v.currency}
-                    status={v.status}
-                    deadline={v.deadline}
-                    progressPct={v.progressPct}
-                  />
-                ))}
+                <Text role="body" as="p">
+                  Failed to load vaults.
+                </Text>
+                <button onClick={retryVaults}>Retry</button>
               </div>
-            ) : (
-              /* Empty state */
+            )}
+
+            {vaultStatus === "empty" && (
               <div
                 style={{
                   textAlign: "center",
@@ -363,6 +375,29 @@ export default function Dashboard({
                 >
                   Create Vault
                 </Link>
+              </div>
+            )}
+
+            {vaultStatus === "data" && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {vaults.map((v) => (
+                  <VaultCard
+                    key={v.id}
+                    id={v.id}
+                    name={v.name}
+                    amount={v.amount}
+                    currency={v.currency}
+                    status={v.status}
+                    deadline={v.deadline}
+                    progressPct={v.progressPct}
+                  />
+                ))}
               </div>
             )}
           </div>
