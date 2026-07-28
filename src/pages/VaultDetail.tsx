@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -127,8 +128,8 @@ function Card({
   children,
   style,
 }: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
+  children: ReactNode;
+  style?: CSSProperties;
 }) {
   return (
     <div
