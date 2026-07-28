@@ -277,7 +277,8 @@ export default function Dashboard({
         >
           View All Vaults
         </Link>
-        <button
+        <Link
+          to="/verifier/queue"
           style={{
             background: "var(--surface)",
             color: "var(--warning)",
@@ -286,11 +287,11 @@ export default function Dashboard({
             borderRadius: "var(--radius)",
             fontWeight: 500,
             fontSize: 14,
-            cursor: "pointer",
+            textDecoration: "none",
           }}
         >
           Verify Milestone
-        </button>
+        </Link>
       </div>
 
       {/* ── Main grid: vault list + sidebar ── */}
