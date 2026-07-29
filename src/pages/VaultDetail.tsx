@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode, type CSSProperties } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";

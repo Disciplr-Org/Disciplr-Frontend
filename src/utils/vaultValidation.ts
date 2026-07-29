@@ -40,7 +40,8 @@ const USDC_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
 export const MILESTONE_TITLE_MAX = 100;
 export const MILESTONE_CRITERIA_MAX = 500;
 
-export { isValidStellarAddress } from './stellarAddress';
+import { isValidStellarAddress } from './stellarAddress';
+export { isValidStellarAddress };
 
 export function isValidUsdcAmount(amount: string): boolean {
   const normalized = amount.trim();

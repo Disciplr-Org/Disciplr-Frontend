@@ -1,4 +1,4 @@
-import { vi, describe, beforeEach, it, expect, type Mock } from 'vitest';
+import { vi, describe, beforeEach, it, expect } from 'vitest';
 import type { BalanceStatus } from '@/context/WalletContext';
 
 const walletState = vi.hoisted(() => ({
@@ -48,7 +48,9 @@ describe('WalletBalanceChip', () => {
         walletState.balanceStatus = 'loading';
         renderChip();
 
-        const chip = screen.getByRole('status');
+        // The inner Skeleton also renders role="status" (aria-label
+        // "Loading"), so scope the query to the outer chip's own label.
+        const chip = screen.getByRole('status', { name: 'Loading balance' });
         expect(chip).toBeInTheDocument();
         expect(chip).toHaveAttribute('aria-label', 'Loading balance');
 

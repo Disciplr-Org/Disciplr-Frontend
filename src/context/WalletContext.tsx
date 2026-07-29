@@ -84,7 +84,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
                 return;
             }
-            if (await isAllowed()) {
+            // isAllowed() resolves to { isAllowed: boolean }, not a plain
+            // boolean — checking the object itself is always truthy and
+            // would auto-reconnect regardless of the actual permission state.
+            if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);

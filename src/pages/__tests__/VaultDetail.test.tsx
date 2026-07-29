@@ -43,6 +43,17 @@ function renderVaultDetail(id: string) {
   );
 }
 
+// Vault fixtures use deadlines computed relative to "now" (see
+// src/fixtures/vaults.ts), so tests must format the actual fixture value the
+// same way the page does rather than asserting a hardcoded date string.
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function CreateVaultStateProbe() {
   const location = useLocation();
   return (
@@ -64,7 +75,9 @@ describe("VaultDetail", () => {
     expect(screen.getAllByText("USDC").length).toBeGreaterThan(0);
 
     expect(screen.getByText("Status Timeline")).toBeInTheDocument();
-    expect(screen.getByText(/Deadline Jul 15, 2024/)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Deadline ${fmtDate(MASTER_VAULTS["1"].deadline)}`),
+    ).toBeInTheDocument();
     // CountdownDeadline active vault should show time remaining or expired
     expect(screen.getByText(/Overdue|remaining/)).toBeInTheDocument();
 
@@ -115,7 +128,9 @@ describe("VaultDetail", () => {
 
     // Verify Countdown is replaced by status text
     expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
-    expect(screen.getByText("Deadline Jan 1, 2024")).toBeInTheDocument();
+    expect(
+      screen.getByText(`Deadline ${fmtDate(MASTER_VAULTS["2"].deadline)}`),
+    ).toBeInTheDocument();
 
     expect(screen.getByText("Project Delivery")).toBeInTheDocument();
     expect(
@@ -243,7 +258,7 @@ describe("VaultDetail", () => {
     await waitFor(() => {
       expect(mockDownloadIcsEvent).toHaveBeenCalledWith({
         title: 'Alpha Vault deadline',
-        deadline: '2024-07-15T10:00:00Z',
+        deadline: MASTER_VAULTS['1'].deadline,
         description: 'Alpha Vault vault deadline for 12,500 USDC.',
         uid: 'vault-1-deadline',
       });

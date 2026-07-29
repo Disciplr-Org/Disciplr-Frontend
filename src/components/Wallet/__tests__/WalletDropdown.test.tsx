@@ -1,8 +1,8 @@
-import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { vi, describe, beforeEach, expect } from 'vitest';
 import type { BalanceStatus, WalletNetwork } from '@/context/WalletContext';
 
 const walletState = vi.hoisted(() => ({
-    address: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+    address: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW',
     balance: '12.0000000' as string | null,
     balanceStatus: 'success' as BalanceStatus,
     balanceError: null as string | null,
@@ -44,7 +44,7 @@ function mockClipboard(writeText: ReturnType<typeof vi.fn>) {
 
 describe('WalletDropdown balance states', () => {
     beforeEach(() => {
-        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW';
         walletState.balance = '12.0000000';
         walletState.balanceStatus = 'success';
         walletState.balanceError = null;
@@ -111,10 +111,10 @@ describe('WalletDropdown balance states', () => {
     test('calls switch and disconnect actions', () => {
         const { onClose, onSwitch } = renderDropdown();
 
-        screen.getByRole('button', { name: /switch wallet/i }).click();
+        screen.getByRole('menuitem', { name: /switch wallet/i }).click();
         expect(onSwitch).toHaveBeenCalledTimes(1);
 
-        screen.getByRole('button', { name: /disconnect/i }).click();
+        screen.getByRole('menuitem', { name: /disconnect/i }).click();
         expect(walletState.disconnect).toHaveBeenCalledTimes(1);
         expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -122,7 +122,7 @@ describe('WalletDropdown balance states', () => {
 
 describe('WalletDropdown address display', () => {
     beforeEach(() => {
-        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW';
         walletState.balance = '12.0000000';
         walletState.balanceStatus = 'success';
         walletState.balanceError = null;
@@ -134,13 +134,13 @@ describe('WalletDropdown address display', () => {
     test('renders the truncated address format', () => {
         renderDropdown();
 
-        expect(screen.getByText('GABCDE...7890')).toBeInTheDocument();
+        expect(screen.getByText('GABCDE...TUVW')).toBeInTheDocument();
     });
 });
 
 describe('WalletDropdown clipboard copy', () => {
     beforeEach(() => {
-        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW';
         walletState.balance = '12.0000000';
         walletState.balanceStatus = 'success';
         walletState.balanceError = null;
@@ -195,7 +195,7 @@ describe('WalletDropdown clipboard copy', () => {
 
 describe('WalletDropdown explorer link', () => {
     beforeEach(() => {
-        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+        walletState.address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW';
         walletState.balance = '12.0000000';
         walletState.balanceStatus = 'success';
         walletState.balanceError = null;
@@ -209,7 +209,7 @@ describe('WalletDropdown explorer link', () => {
 
         renderDropdown();
 
-        screen.getByRole('button', { name: /view on stellar explorer/i }).click();
+        screen.getByRole('menuitem', { name: /view on stellar explorer/i }).click();
         expect(open).toHaveBeenCalledWith(
             `https://stellar.expert/explorer/testnet/account/${walletState.address}`,
             '_blank',
@@ -225,7 +225,7 @@ describe('WalletDropdown explorer link', () => {
 
         renderDropdown();
 
-        screen.getByRole('button', { name: /view on stellar explorer/i }).click();
+        screen.getByRole('menuitem', { name: /view on stellar explorer/i }).click();
         expect(open).toHaveBeenCalledWith(
             `https://stellar.expert/explorer/public/account/${walletState.address}`,
             '_blank',
@@ -241,7 +241,7 @@ describe('WalletDropdown explorer link', () => {
 
         renderDropdown();
 
-        screen.getByRole('button', { name: /view on stellar explorer/i }).click();
+        screen.getByRole('menuitem', { name: /view on stellar explorer/i }).click();
         expect(open).toHaveBeenCalledWith(
             `https://stellar.expert/explorer/testnet/account/${walletState.address}`,
             '_blank',
@@ -256,7 +256,7 @@ describe('WalletDropdown explorer link', () => {
         const open = vi.spyOn(window, 'open').mockReturnValue(mockWindow);
 
         renderDropdown();
-        screen.getByRole('button', { name: /view on stellar explorer/i }).click();
+        screen.getByRole('menuitem', { name: /view on stellar explorer/i }).click();
 
         expect(mockWindow.opener).toBeNull();
         open.mockRestore();

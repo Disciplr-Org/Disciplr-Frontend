@@ -20,10 +20,10 @@ describe("listVaults()", () => {
     expect(result).toBeInstanceOf(Promise);
   });
 
-  it("resolves to an array of length 4 (matching current mock count)", async () => {
+  it("resolves to an array of length 5 (matching current mock count)", async () => {
     const vaults = await listVaults();
     expect(Array.isArray(vaults)).toBe(true);
-    expect(vaults).toHaveLength(4);
+    expect(vaults).toHaveLength(5);
   });
 
   it("resolves with objects that have the required Vault fields", async () => {
@@ -41,10 +41,10 @@ describe("listVaults()", () => {
     }
   });
 
-  it("includes all four vault ids", async () => {
+  it("includes all five vault ids", async () => {
     const vaults = await listVaults();
     const ids = vaults.map((v) => v.id).sort();
-    expect(ids).toEqual(["1", "2", "3", "4"]);
+    expect(ids).toEqual(["1", "2", "3", "4", "5"]);
   });
 });
 

@@ -23,7 +23,6 @@ export default function Notification() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const itemsPerPage = 5;
 
   const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
@@ -104,40 +103,6 @@ export default function Notification() {
   useEffect(() => {
     setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
-
-  useEffect(() => {
-    const statusLabel = currentFilterReadSeletion === "all"
-      ? "all"
-      : currentFilterReadSeletion === "0"
-        ? "unread"
-        : "read";
-    const categoryLabel = currentFilterTypeSeletion === "all"
-      ? "all categories"
-      : currentFilterTypeSeletion;
-
-    if (currentNotification.length === 0) {
-      setLiveAnnouncement(
-        `No notifications found. Active filters: status ${statusLabel}, category ${categoryLabel}.`,
-      );
-    } else {
-      const countText = currentNotification.length === 1 ? "1 notification" : `${currentNotification.length} notifications`;
-      setLiveAnnouncement(
-        `Showing ${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`,
-      );
-    }
-  }, [currentNotification.length, currentFilterReadSeletion, currentFilterTypeSeletion, currentNotification]);
-
-  const pagination = paginate(currentNotification, currentPage, itemsPerPage);
-
-  const handleDismiss = (id: string) => {
-    dismiss(id);
-    setCurrentNotification((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const handleClearAll = () => {
-    clearAll();
-    setCurrentNotification([]);
-  };
 
   const setRead = (id: string) => {
     setNotifications(

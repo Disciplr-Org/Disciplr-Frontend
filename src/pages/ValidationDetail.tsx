@@ -26,7 +26,7 @@ function useNotesDraft(taskId: string | undefined) {
     }
 
     const timeoutId = window.setTimeout(() => {
-      if (notes.length > 0) {
+      if (notes.trim().length > 0) {
         writeNotesDraft(taskId, notes);
       } else {
         clearNotesDraft(taskId);
