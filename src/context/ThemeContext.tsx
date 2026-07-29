@@ -6,7 +6,7 @@ let memoryPreference: UserPreference | null = null;
 function safeGetItem(key: string): string | null {
   try {
     return localStorage.getItem(key) ?? null;
-  } catch (_) {
+  } catch {
     // fallback to in-memory preference when storage is unavailable
     return memoryPreference;
   }
@@ -15,7 +15,7 @@ function safeGetItem(key: string): string | null {
 function safeSetItem(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
-  } catch (_) {
+  } catch {
     // persist in-memory when storage is unavailable
     memoryPreference = value as UserPreference;
   }

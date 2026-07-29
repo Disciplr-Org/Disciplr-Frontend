@@ -3,6 +3,7 @@ import { useWallet } from '../../context/WalletContext';
 import { Wallet } from 'lucide-react';
 import './wallet.css';
 import { WalletDropdown } from './WalletDropdown';
+import { networkLabel } from '../../utils/explorer';
 import { WalletSelectionModal } from './WalletSelectionModal';
 
 export function WalletConnectButton() {
@@ -38,7 +39,7 @@ export function WalletConnectButton() {
                         <span>{truncateAddress(address)}</span>
                         {network && (
                             <span className="wallet-network-badge">
-                                {network === 'TESTNET' ? 'Testnet' : 'Mainnet'}
+                                {networkLabel(network)}
                             </span>
                         )}
                     </button>

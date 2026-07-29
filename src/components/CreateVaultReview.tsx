@@ -1,4 +1,5 @@
 import { Text } from "./Text";
+import { AddressDisplay } from "./AddressDisplay";
 
 export interface CreateVaultReviewMilestone {
   title: string;
@@ -15,30 +16,6 @@ interface CreateVaultReviewProps {
   milestones?: CreateVaultReviewMilestone[];
   onBack?: () => void;
   onConfirm?: () => void;
-}
-
-function AddressDisplay({ value, label }: { value: string; label: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-      <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-        {label}
-      </Text>
-      <Text
-        role="body"
-        as="code"
-        style={{
-          padding: "0.5rem 0.75rem",
-          borderRadius: "var(--radius)",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          color: "var(--accent)",
-          wordBreak: "break-all",
-        }}
-      >
-        {value}
-      </Text>
-    </div>
-  );
 }
 
 export function CreateVaultReview({
@@ -103,8 +80,22 @@ export function CreateVaultReview({
           </Text>
         </div>
 
-        <AddressDisplay value={successAddress} label="Success destination" />
-        <AddressDisplay value={failureAddress} label="Failure destination" />
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Success destination
+          </Text>
+          <AddressDisplay address={successAddress} />
+        </div>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Failure destination
+          </Text>
+          <AddressDisplay address={failureAddress} />
+        </div>
 
         {verifierAddress ? (
           <div

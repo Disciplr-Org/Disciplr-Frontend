@@ -4,7 +4,7 @@ import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
-import { computeVerifierMetrics } from '../utils/verifierMetrics';
+import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
@@ -14,7 +14,10 @@ import { useCurrentTime } from '../hooks/useCurrentTime';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
-  const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const batchApprove = useVerifierStore((state) => state.batchApprove);
+  const batchReject = useVerifierStore((state) => state.batchReject);
   const now = useCurrentTime();
 
   // Queue-at-a-glance metrics for the strip above the table.
@@ -132,6 +135,13 @@ export default function PendingValidations() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate('/verifier/history')}
+            className="self-start px-4 py-2 border rounded text-sm font-medium transition"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+          >
+            View History
+          </button>
           <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
             Sort by
             <select
@@ -285,10 +295,10 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: remaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
                           {remaining} days left
                         </span>
-                        {remaining <= 3 && (
+                        {remaining <= CRITICAL_DAYS_THRESHOLD && (
                           <span className="sr-only">Urgent</span>
                         )}
                         <CountdownDeadline deadline={task.deadline} />

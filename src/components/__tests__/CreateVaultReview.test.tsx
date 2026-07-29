@@ -33,8 +33,8 @@ describe("CreateVaultReview", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("100.1234567")).toBeInTheDocument();
     expect(screen.getByText("2030-01-01T00:00")).toBeInTheDocument();
-    expect(screen.getByText(successAddress)).toBeInTheDocument();
-    expect(screen.getByText(failureAddress)).toBeInTheDocument();
+    expect(screen.getByTitle(successAddress)).toBeInTheDocument();
+    expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
     expect(screen.getByText("Verifier address")).toBeInTheDocument();
     expect(screen.getByText("Milestones")).toBeInTheDocument();
     expect(screen.getByText("Design approved")).toBeInTheDocument();

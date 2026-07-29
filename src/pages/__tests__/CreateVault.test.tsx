@@ -28,8 +28,6 @@ const mockUseWallet = vi.mocked(useWallet);
 
 const successAddress = `G${"A".repeat(55)}`;
 const failureAddress = `G${"B".repeat(55)}`;
-const milestoneTitle = "Launch MVP";
-const milestoneCriteria = "All core features shipped and tested.";
 
 function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -88,7 +86,7 @@ describe("CreateVault", () => {
     ).toHaveLength(2);
     expect(screen.getAllByText("Choose a future deadline.")).toHaveLength(2);
     expect(
-      screen.getAllByText("Enter a valid Stellar public key starting with G."),
+      screen.getAllByText("Enter a valid Stellar public key starting with G or C."),
     ).toHaveLength(4);
 
     const amount = screen.getByLabelText(/amount/i);

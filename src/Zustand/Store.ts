@@ -5,11 +5,10 @@ import { initialPending, initialHistory } from "../fixtures/validations";
 // --- Existing Notification Store ---
 const n = getNotifications();
 
-type NotificationItem = (typeof n)[number];
+export type NotificationItem = (typeof n)[number];
 
 type notificationsType = {
   notification: NotificationItem[];
-  unreadCount: number;
   setNotification: (value: NotificationItem[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
@@ -19,11 +18,9 @@ type notificationsType = {
 
 export const useNotification = create<notificationsType>((set) => ({
   notification: n,
-  unreadCount: n.filter((item) => !item.isRead).length,
   setNotification: (value: NotificationItem[]) =>
     set(() => ({
       notification: value,
-      unreadCount: value.filter((item) => !item.isRead).length,
     })),
   markRead: (id: string) =>
     set((state) => {
@@ -33,31 +30,28 @@ export const useNotification = create<notificationsType>((set) => ({
       if (item.isRead) return state;
       const notification = [...state.notification];
       notification[idx] = { ...item, isRead: true };
-      return { notification, unreadCount: state.unreadCount - 1 };
+      return { notification };
     }),
   markAllRead: () =>
     set((state) => ({
       notification: state.notification.map((item) =>
         item.isRead ? item : { ...item, isRead: true },
       ),
-      unreadCount: 0,
     })),
   dismiss: (id: string) =>
-    set((state) => {
-      const notification = state.notification.filter(
-        (item) => item.id !== id,
-      );
-      return {
-        notification,
-        unreadCount: notification.filter((item) => !item.isRead).length,
-      };
-    }),
+    set((state) => ({
+      notification: state.notification.filter((item) => item.id !== id),
+    })),
   clearAll: () =>
     set(() => ({
       notification: [],
-      unreadCount: 0,
     })),
 }));
+
+export const useUnreadCount = () =>
+  useNotification((state) =>
+    state.notification.filter((item) => !item.isRead).length,
+  );
 
 
 // --- New Verifier Store ---
@@ -94,7 +88,7 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     const taskIndex = state.pendingValidations.findIndex(t => t.id === id);
     if (taskIndex === -1) return state;
     
-    const task = { ...state.pendingValidations[taskIndex], status: 'approved' as const, notes };
+    const task = { ...state.pendingValidations[taskIndex], status: 'approved' as const, notes, decidedAt: new Date().toISOString() };
     const newPending = [...state.pendingValidations];
     newPending.splice(taskIndex, 1);
     
@@ -108,7 +102,7 @@ export const useVerifierStore = create<VerifierStoreType>((set, get) => ({
     const taskIndex = state.pendingValidations.findIndex(t => t.id === id);
     if (taskIndex === -1) return state;
     
-    const task = { ...state.pendingValidations[taskIndex], status: 'rejected' as const, notes };
+    const task = { ...state.pendingValidations[taskIndex], status: 'rejected' as const, notes, decidedAt: new Date().toISOString() };
     const newPending = [...state.pendingValidations];
     newPending.splice(taskIndex, 1);
     

@@ -48,7 +48,7 @@ export function ChartLegend({ entries, colors, tokens, ariaLabel = 'Chart legend
             style={{
               width: tokens.legendSwatchSize,
               height: tokens.legendSwatchSize,
-              borderRadius: '999px',
+              borderRadius: 'var(--radius-full)',
               backgroundColor: colors[entry.colorKey],
               flex: 'none',
             }}

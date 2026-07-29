@@ -4,7 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +28,20 @@ type CommandItem = {
 };
 
 const QUICK_ACTIONS: CommandItem[] = [
+  {
+    id: "action-dashboard",
+    label: "Dashboard",
+    description: "View vault summary and stats",
+    to: "/dashboard",
+    kind: "action",
+  },
+  {
+    id: "action-vaults",
+    label: "Vaults",
+    description: "Browse all vaults",
+    to: "/vaults",
+    kind: "action",
+  },
   {
     id: "action-create-vault",
     label: "Create Vault",
@@ -153,7 +167,7 @@ export default function CommandPalette({
     [close, navigate],
   );
 
-  const handleKeyDown = (event: KeyboardEvent) => {
+  const handleKeyDown = (event: ReactKeyboardEvent) => {
     if (event.key === "Escape") {
       event.preventDefault();
       close();

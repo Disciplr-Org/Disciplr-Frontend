@@ -5,6 +5,7 @@ import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
 import { logger } from '../utils/logger'
+import Skeleton from '../components/Skeleton'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
@@ -15,8 +16,9 @@ import {
 } from 'lucide-react'
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
-import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
-import Skeleton from '../components/Skeleton'
+import type { ChartLegendEntry } from '../components/ChartLegend'
+import { toCsv, downloadCsv } from '../utils/csv'
+import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
 
@@ -85,7 +87,7 @@ export default function Analytics() {
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
   const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -168,6 +170,30 @@ export default function Analytics() {
     [chartData, prevChartData]
   )
 
+  const benchmarkData = useMemo(() => computeBenchmarkData(kpis), [kpis])
+
+  const bestPeriod = useMemo(() => {
+  if (!chartData.length) return null;
+
+  return chartData.reduce((best, current) =>
+    current.success > best.success ? current : best
+  );
+}, [chartData]);
+
+const currentStreak = useMemo(() => {
+  let streak = 0;
+
+  for (let i = chartData.length - 1; i >= 0; i--) {
+    if (chartData[i].success >= 80) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}, [chartData]);
+
   const chartAnimationEnabled = !prefersReducedMotion
 
   const tooltipStyle = useMemo(() => ({
@@ -182,7 +208,7 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries = useMemo(() => showComparison
+  const successLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
@@ -193,7 +219,7 @@ export default function Analytics() {
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
       ], [showComparison])
 
-  const capitalLegendEntries = useMemo(() => showComparison
+  const capitalLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
@@ -239,18 +265,10 @@ export default function Analytics() {
   // ─── Export handlers ───────────────────────────────────────────────────────
   const handleCsvExport = useCallback(() => {
     if (chartData.length === 0) return
-    const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-    const rows = chartData.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = customRangeActive
+    const filename = customRangeActive
       ? `disciplr-analytics-${customFrom}-to-${customTo}.csv`
       : `disciplr-analytics-${period}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(toCsv(chartData, 'analytics'), filename)
   }, [chartData, period, customRangeActive, customFrom, customTo])
 
   const handlePdfExport = useCallback(async () => {
@@ -735,16 +753,16 @@ export default function Analytics() {
 
             <Card style={{ textAlign: 'center' }}>
               <Flame size={26} color={seriesColors.warning} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>5</div>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>{currentStreak}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Current Streak</div>
               <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>consecutive successes 🔥</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>
               <TrendingUp size={26} color={seriesColors.success} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>June</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>{bestPeriod?.name ?? '—'}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Best Period</div>
-              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>92% success rate</div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{bestPeriod ? `${bestPeriod.success}% success rate` : 'No data yet'}</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>
@@ -809,7 +827,7 @@ export default function Analytics() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
                     <span style={{ color: 'var(--muted)' }}>{item.metric}</span>
                     <span style={{ color: item.you >= item.platform ? seriesColors.success : seriesColors.failed, fontWeight: 700 }}>
-                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{i === 0 || i === 2 ? (i === 0 ? '%' : '') : (i === 3 ? '' : 'd')}
+                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{item.unit}
                     </span>
                   </div>
                   {/* Your bar */}
@@ -957,7 +975,9 @@ export default function Analytics() {
                 Monitor your entire organization's accountability performance, compare members, and export team-wide reports.
               </div>
             </div>
-            <button style={{
+            <button
+              onClick={() => window.open('mailto:sales@disciplr.app?subject=Enterprise%20Upgrade%20Inquiry', '_blank')}
+              style={{
               background: seriesColors.warning,
               color: 'var(--bg)',
               border: 'none',

@@ -26,7 +26,7 @@ function useNotesDraft(taskId: string | undefined) {
     }
 
     const timeoutId = window.setTimeout(() => {
-      if (notes.length > 0) {
+      if (notes.trim().length > 0) {
         writeNotesDraft(taskId, notes);
       } else {
         clearNotesDraft(taskId);
@@ -49,7 +49,9 @@ export default function ValidationDetail() {
   const navigate = useNavigate();
   const now = useCurrentTime();
   
-  const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const approveValidation = useVerifierStore((state) => state.approveValidation);
+  const rejectValidation = useVerifierStore((state) => state.rejectValidation);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());

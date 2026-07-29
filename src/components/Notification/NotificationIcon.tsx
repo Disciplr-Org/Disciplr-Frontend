@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../../utils/motion";
 import { usePrefersReducedMotion } from "../../utils/usePrefersReducedMotion";
 import { Link } from "react-router-dom";
-import { useNotification } from "@/Zustand/Store";
+import { useNotification, useUnreadCount } from "@/Zustand/Store";
 
 export default function NotificationIcon() {
   const [isOpen, setIsOpen] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const notifications = useNotification((state) => state.notification);
-  const unreadCount = useNotification((state) => state.unreadCount);
+  const unreadCount = useUnreadCount();
   const setNotifications = useNotification((state) => state.setNotification);
 
   const unread = unreadCount;
@@ -125,7 +125,7 @@ export default function NotificationIcon() {
                           id={item.id}
                           title={item.title}
                           message={item.message}
-                          timeAgo={item.timeAgo}
+                          timestamp={item.timestamp}
                           type={item.type}
                           read={item.isRead}
                           isFullPage={false}

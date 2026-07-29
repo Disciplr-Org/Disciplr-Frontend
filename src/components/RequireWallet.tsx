@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../context/WalletContext';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
 
 interface RequireWalletProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function RequireWallet({ children }: RequireWalletProps) {

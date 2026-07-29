@@ -7,7 +7,7 @@ import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
 import { X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion"; // <-- Import the hook
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 import { Pagination } from "@/components/Pagination";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { paginate } from "@/utils/paginate";
@@ -177,7 +177,6 @@ export default function Notification() {
               {isFilterOpen && (
                 <motion.div
                   ref={filterPanelRef}
-                  id="notification-filter-panel"
                   initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
@@ -252,7 +251,7 @@ export default function Notification() {
                         id={items.id}
                         title={items.title}
                         message={items.message}
-                        timeAgo={items.timeAgo}
+                        timestamp={items.timestamp}
                         type={items.type}
                         read={items.isRead}
                         isFullPage={true}

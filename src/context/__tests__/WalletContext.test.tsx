@@ -59,7 +59,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
-        freighterMocks.isAllowed.mockResolvedValue(false);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
         freighterMocks.setAllowed.mockResolvedValue(undefined);
         freighterMocks.requestAccess.mockResolvedValue(true);
         freighterMocks.getAddress.mockResolvedValue({ address: 'GCONNECTED', error: null });
@@ -105,7 +105,7 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('marks no-trustline when a connected public account has no Circle USDC balance line', async () => {
-        freighterMocks.isAllowed.mockResolvedValue(true);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
         vi.mocked(globalThis.fetch).mockResolvedValue(
             mockResponse(200, {
@@ -294,7 +294,8 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
-        freighterMocks.isAllowed.mockResolvedValue(false);
+        localStorage.clear();
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
         freighterMocks.getAddress.mockResolvedValue({ address: null, error: null });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
         globalThis.fetch = vi.fn();
@@ -302,10 +303,11 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
     afterAll(() => {
         globalThis.fetch = originalFetch;
+        localStorage.clear();
     });
 
     test('restores address and balance when isAllowed returns true', async () => {
-        freighterMocks.isAllowed.mockResolvedValue(true);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
         freighterMocks.getAddress.mockResolvedValue({ address: 'GAUTO123', error: null });
         vi.mocked(globalThis.fetch).mockResolvedValue(
             mockResponse(200, {
@@ -337,7 +339,7 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
     });
 
     test('does not set address when getAddress returns an error', async () => {
-        freighterMocks.isAllowed.mockResolvedValue(true);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
         freighterMocks.getAddress.mockResolvedValue({ address: null, error: 'Key unavailable.' });
 
         renderWallet();
@@ -372,8 +374,12 @@ describe('WalletContext network/address change listener', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        // A prior test's disconnect() call persists WALLET_DISCONNECTED_KEY in
+        // localStorage, which would otherwise make checkConnection() skip
+        // auto-reconnect on the next test's mount.
+        localStorage.clear();
         intervalCallback = null;
-        freighterMocks.isAllowed.mockResolvedValue(true);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
         freighterMocks.getAddress.mockResolvedValue({ address: 'G123456', error: null });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
         globalThis.fetch = vi.fn();

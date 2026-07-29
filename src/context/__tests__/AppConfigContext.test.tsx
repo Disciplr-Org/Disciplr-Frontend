@@ -62,7 +62,7 @@ describe('AppConfigContext', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
-        freighterMocks.isAllowed.mockResolvedValue(false);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
         freighterMocks.setAllowed.mockResolvedValue(undefined);
         freighterMocks.requestAccess.mockResolvedValue(true);
         freighterMocks.getAddress.mockResolvedValue({ address: 'GCONNECTED', error: null });

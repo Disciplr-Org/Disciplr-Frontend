@@ -43,6 +43,17 @@ function renderVaultDetail(id: string) {
   );
 }
 
+// Vault fixtures use deadlines computed relative to "now" (see
+// src/fixtures/vaults.ts), so tests must format the actual fixture value the
+// same way the page does rather than asserting a hardcoded date string.
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function CreateVaultStateProbe() {
   const location = useLocation();
   return (
@@ -64,7 +75,9 @@ describe("VaultDetail", () => {
     expect(screen.getAllByText("USDC").length).toBeGreaterThan(0);
 
     expect(screen.getByText("Status Timeline")).toBeInTheDocument();
-    expect(screen.getByText(/Deadline Jul 15, 2024/)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Deadline ${fmtDate(MASTER_VAULTS["1"].deadline)}`),
+    ).toBeInTheDocument();
     // CountdownDeadline active vault should show time remaining or expired
     expect(screen.getByText(/Overdue|remaining/)).toBeInTheDocument();
 
@@ -115,7 +128,9 @@ describe("VaultDetail", () => {
 
     // Verify Countdown is replaced by status text
     expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
-    expect(screen.getByText("Deadline Jan 1, 2024")).toBeInTheDocument();
+    expect(
+      screen.getByText(`Deadline ${fmtDate(MASTER_VAULTS["2"].deadline)}`),
+    ).toBeInTheDocument();
 
     expect(screen.getByText("Project Delivery")).toBeInTheDocument();
     expect(
@@ -243,10 +258,154 @@ describe("VaultDetail", () => {
     await waitFor(() => {
       expect(mockDownloadIcsEvent).toHaveBeenCalledWith({
         title: 'Alpha Vault deadline',
-        deadline: '2024-07-15T10:00:00Z',
+        deadline: MASTER_VAULTS['1'].deadline,
         description: 'Alpha Vault vault deadline for 12,500 USDC.',
         uid: 'vault-1-deadline',
       });
+    });
+  });
+
+  it("renders transaction explorer links pointing to the active network", async () => {
+    renderVaultDetail("1");
+
+    await screen.findByRole("heading", { name: "Alpha Vault" });
+
+    const txLinks = screen.getAllByRole("link").filter((a) =>
+      a.getAttribute("href")?.includes("/explorer/") && a.getAttribute("href")?.includes("/tx/"),
+    );
+
+    expect(txLinks.length).toBeGreaterThan(0);
+    txLinks.forEach((link) => {
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("/explorer/testnet/tx/"),
+      );
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    });
+  });
+
+  // ── Action buttons ────────────────────────────────────────────────────────
+
+  describe("action buttons", () => {
+    it("Extend Deadline button opens a confirmation modal with correct title and message", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /extend deadline/i }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Extend Deadline" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Are you sure you want to extend the vault deadline\?/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("Cancel Vault button opens a confirmation modal with correct title and message", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel vault/i }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Cancel Vault" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Are you sure you want to cancel this vault\?/i),
+      ).toBeInTheDocument();
+    });
+
+    it("confirmation modal closes when the Cancel button is clicked", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /extend deadline/i }));
+      expect(
+        await screen.findByRole("heading", { name: "Extend Deadline" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("heading", { name: "Extend Deadline" }),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("confirmation modal closes after confirming the action", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel vault/i }));
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByRole("heading", { name: "Cancel Vault" }),
+      ).toBeInTheDocument();
+
+      // Click the confirm button inside the modal (distinct from the page-level button)
+      fireEvent.click(within(dialog).getByRole("button", { name: /^cancel vault$/i }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("Extend Deadline and Cancel Vault buttons are present for an active vault", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel vault/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("Validate Milestone button is shown for a pending_validation vault and opens confirmation modal", async () => {
+      renderVaultDetail("5");
+      await screen.findByRole("heading", { name: "Epsilon Pending" });
+
+      const validateBtn = screen.getByRole("button", {
+        name: /validate milestone/i,
+      });
+      expect(validateBtn).toBeInTheDocument();
+
+      fireEvent.click(validateBtn);
+
+      expect(
+        await screen.findByRole("heading", { name: "Validate Milestone" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Are you sure you want to validate the current milestone\?/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("Validate Milestone button is not shown for an active (non-pending_validation) vault", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.queryByRole("button", { name: /validate milestone/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("action buttons are not rendered for a completed vault", async () => {
+      renderVaultDetail("2");
+      await screen.findByRole("heading", { name: "Beta Reserve" });
+
+      expect(
+        screen.queryByRole("button", { name: /extend deadline/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /cancel vault/i }),
+      ).not.toBeInTheDocument();
     });
   });
 

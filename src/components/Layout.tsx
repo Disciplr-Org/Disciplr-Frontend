@@ -2,10 +2,8 @@ import React, { useState, type HTMLAttributes } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
-import { WalletBalanceChip } from "./Wallet/WalletBalanceChip";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
-import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import NotificationBell from "./Notification/NotificationBell";
@@ -13,6 +11,7 @@ import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
+import CommandPalette from "./CommandPalette";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -71,6 +70,30 @@ export default function Layout({ children }: LayoutProps) {
               </Text>
             </NavLink>
 
+            <NavLink to="/dashboard" className="header-link">
+              <Text role="caption" as="span">
+                Dashboard
+              </Text>
+            </NavLink>
+
+            <NavLink
+              to="/vaults"
+              className="header-link"
+              aria-current={
+                // "Create Vault" is its own top-level nav item with an exact
+                // match below, so it must not also count as "Vaults" being
+                // active (otherwise two nav links would both be "current").
+                location.pathname.startsWith("/vaults") &&
+                location.pathname !== "/vaults/create"
+                  ? "page"
+                  : undefined
+              }
+            >
+              <Text role="caption" as="span">
+                Vaults
+              </Text>
+            </NavLink>
+
             <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
                 Verifier
@@ -108,6 +131,7 @@ export default function Layout({ children }: LayoutProps) {
             >
               Create Vault
             </Link>
+            <CommandPalette />
             <NotificationBell />
             <ThemeToggle />
             <WalletConnectButton />
