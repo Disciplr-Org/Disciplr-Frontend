@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Layout from '../Layout';
 import MobileDrawer from '../MobileDrawer';
+import { ThemeProvider } from '../../context/ThemeContext';
 
 const focusTrapState = vi.hoisted(() => ({
   options: [] as Array<Record<string, unknown>>,
@@ -148,11 +149,13 @@ describe('Layout drawer integration', () => {
 
   test('marks background content inert while the drawer is open', () => {
     render(
-      <MemoryRouter>
-        <Layout>
-          <p>Page content</p>
-        </Layout>
-      </MemoryRouter>,
+      <ThemeProvider>
+        <MemoryRouter>
+          <Layout>
+            <p>Page content</p>
+          </Layout>
+        </MemoryRouter>
+      </ThemeProvider>,
     );
 
     const trigger = screen.getByRole('button', { name: /open navigation menu/i });

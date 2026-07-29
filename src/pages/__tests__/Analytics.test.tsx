@@ -429,7 +429,7 @@ describe('Analytics memoization stability', () => {
   })
 
   it('skips recomputation entirely when rendering with identical props/state', async () => {
-    const { default: LazyAnalytics, rerender } = await import('../Analytics')
+    const { default: LazyAnalytics } = await import('../Analytics')
 
     const { rerender: r } = render(
       <MemoryRouter>

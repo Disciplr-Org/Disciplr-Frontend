@@ -6,30 +6,6 @@ import { useNotificationPreferences } from "../Zustand/Store";
 import { isValidQuietTime } from "../utils/quietHours";
 
 
-type SettingsToggleProps = {
-  checked?: boolean;
-  label: string;
-  onChange?: (checked: boolean) => void;
-};
-
-function SettingsToggle({ checked, label, onChange }: SettingsToggleProps) {
-  return (
-    <label className="relative inline-flex items-center cursor-pointer">
-      <input
-        type="checkbox"
-        className="sr-only peer"
-        checked={checked}
-        aria-label={label}
-        onChange={(event) => onChange?.(event.target.checked)}
-      />
-      <span
-        className="notification-settings-toggle peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-transparent)]"
-        aria-hidden="true"
-      />
-    </label>
-  );
-}
-
 export default function NotificationSettings() {
   const {
     email: emailNotification,

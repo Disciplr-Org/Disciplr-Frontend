@@ -35,6 +35,14 @@ vi.mock('../components/Notification/NotificationBell', () => ({
   default: () => null,
 }));
 
+vi.mock('../components/ThemeToggle', () => ({
+  default: () => <button type="button">Theme toggle</button>,
+}));
+
+vi.mock('../utils/usePrefersReducedMotion', () => ({
+  usePrefersReducedMotion: () => false,
+}));
+
 vi.mock('../components/NetworkMismatchBanner', () => ({
   NetworkMismatchBanner: () => (
     <div data-testid="network-mismatch-banner" />
@@ -123,6 +131,20 @@ describe('ErrorBoundary — scoped to route content (issue #654)', () => {
       screen.getByRole('button', { name: /connect wallet/i }),
     ).toBeInTheDocument();
     consoleSpy.mockRestore();
+  });
+
+  it('renders the command palette trigger in the shared layout', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Layout>
+          <div>Healthy page</div>
+        </Layout>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /open command palette/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows the "Something went wrong" fallback inside main after a route crash', () => {

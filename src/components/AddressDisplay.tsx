@@ -22,7 +22,7 @@ export function AddressDisplay({
 
     const display = truncateMiddle(address, chars, tailChars);
     const isValid = isValidStellarAddress(address);
-    const explorerUrl = getExplorerAccountUrl(address, network);
+    const explorerUrl = getExplorerAccountUrl(address, network ?? null);
 
     const copy = () => {
         navigator.clipboard.writeText(address).then(() => {

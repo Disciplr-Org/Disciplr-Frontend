@@ -31,18 +31,18 @@
 }
 
 .toast--info {
-  background: var(--info, #2563eb);
-  border-color: var(--info, #2563eb);
+  background: var(--info);
+  border-color: var(--info);
 }
 
 .toast--success {
-  background: var(--success, #059669);
-  border-color: var(--success, #059669);
+  background: var(--success);
+  border-color: var(--success);
 }
 
 .toast--error {
-  background: var(--danger, #dc2626);
-  border-color: var(--danger, #dc2626);
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .toast__message {

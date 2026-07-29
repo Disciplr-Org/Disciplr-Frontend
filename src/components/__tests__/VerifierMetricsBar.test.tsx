@@ -170,14 +170,20 @@ describe('VerifierMetricsBar', () => {
         CRITICAL_DAYS_THRESHOLD: 5,
       };
     });
+    // VerifierMetricsBar (and the real verifierMetrics module) were already
+    // evaluated and cached by the static imports at the top of this file, so
+    // the module cache must be reset for the dynamic re-import below to
+    // actually pick up the mocked threshold.
+    vi.resetModules();
 
     const { VerifierMetricsBar: MockedBar } = await import('../VerifierMetricsBar');
     render(<MockedBar metrics={{ ...baseMetrics, criticalCount: 1 }} />);
-    
+
     expect(screen.getByText(/≤ 5 days to deadline/)).toBeInTheDocument();
-    expect(screen.getByText(/Critical \\(≤5d\\)/)).toBeInTheDocument();
-    
+    expect(screen.getByText(/Critical \(≤5d\)/)).toBeInTheDocument();
+
     vi.doUnmock('../../utils/verifierMetrics');
+    vi.resetModules();
   });
 
   it('renders the calm-description when no tasks are critical', () => {

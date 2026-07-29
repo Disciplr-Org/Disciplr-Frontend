@@ -1,6 +1,7 @@
 import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
+import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 
 interface WalletSelectionModalProps {
@@ -12,12 +13,10 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const isConnected = address !== null;
 
     const handleConnect = async () => {
-        await connect();
-        // Assuming connect throws or handles error internally, we wait for it
-        // If successful, the context will update address, which will re-render
-        // the parent component and unmount this modal automatically usually,
-        // or we can close it manually
-        onClose();
+        const connected = await connect();
+        if (connected) {
+            onClose();
+        }
     };
 
     return (
@@ -49,12 +48,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                 >
                     <div className="wallet-option-info">
                         <div className="wallet-icon">
-                            {/* A placeholder SVG for Freighter */}
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 17L12 22L22 17" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 12L12 17L22 12" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <img src={freighterLogo} alt="Freighter logo" />
                         </div>
                         <span className="wallet-name">Freighter</span>
                     </div>

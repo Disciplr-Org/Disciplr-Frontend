@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../context/WalletContext';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
 

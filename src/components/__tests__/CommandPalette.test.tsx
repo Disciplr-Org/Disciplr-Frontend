@@ -210,13 +210,18 @@ describe("CommandPalette", () => {
 
     expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-0");
 
-    await user.hover(screen.getByRole("option", { name: /Verifier Queue/i }));
+    // Assert against the hovered option's own id rather than a hardcoded
+    // index, since the exact position of each item within the combined
+    // quick-actions + vaults list shifts as quick actions are added/removed.
+    const verifierQueueOption = screen.getByRole("option", { name: /Verifier Queue/i });
+    await user.hover(verifierQueueOption);
 
-    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-1");
+    expect(input).toHaveAttribute("aria-activedescendant", verifierQueueOption.id);
 
-    await user.hover(screen.getByRole("option", { name: /Alpha Vault/i }));
+    const alphaVaultOption = screen.getByRole("option", { name: /Alpha Vault/i });
+    await user.hover(alphaVaultOption);
 
-    expect(input).toHaveAttribute("aria-activedescendant", "command-palette-option-3");
+    expect(input).toHaveAttribute("aria-activedescendant", alphaVaultOption.id);
   });
 
   it("clears aria-activedescendant when no items match", async () => {
