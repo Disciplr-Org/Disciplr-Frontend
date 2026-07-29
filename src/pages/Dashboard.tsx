@@ -9,6 +9,7 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import * as dashboardUtils from "../utils/dashboard";
 import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
 import type { VaultStatus, Vault } from "../types/vault";
+import { timelineProgress } from "../utils/vaultLifecycle";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 // Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
@@ -37,15 +38,7 @@ const ACTIVITY_CFG: Record<
   redirected: { label: "Funds redirected", icon: "→", color: "var(--warning)" },
 };
 
-// Pure formatting functions have been extracted to src/utils/dashboard.ts
-
-/** Same calculation as VaultDetail.tsx’s timelineProgress. */
-function timelineProgress(created: string, deadline: string): number {
-  const start = new Date(created).getTime();
-  const end = new Date(deadline).getTime();
-  const now = Date.now();
-  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
-}
+// Pure formatting functions have been extracted to src/utils/dashboard.ts and src/utils/vaultLifecycle.ts
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 function SummaryCard({
