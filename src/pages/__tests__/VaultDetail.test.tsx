@@ -265,6 +265,26 @@ describe("VaultDetail", () => {
     });
   });
 
+  it("renders transaction explorer links pointing to the active network", async () => {
+    renderVaultDetail("1");
+
+    await screen.findByRole("heading", { name: "Alpha Vault" });
+
+    const txLinks = screen.getAllByRole("link").filter((a) =>
+      a.getAttribute("href")?.includes("/explorer/") && a.getAttribute("href")?.includes("/tx/"),
+    );
+
+    expect(txLinks.length).toBeGreaterThan(0);
+    txLinks.forEach((link) => {
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("/explorer/testnet/tx/"),
+      );
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    });
+  });
+
   // ── Action buttons ────────────────────────────────────────────────────────
 
   describe("action buttons", () => {
