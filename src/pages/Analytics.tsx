@@ -5,6 +5,7 @@ import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
 import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
 import { logger } from '../utils/logger'
+import Skeleton from '../components/Skeleton'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
+import type { ChartLegendEntry } from '../components/ChartLegend'
 import { toCsv, downloadCsv } from '../utils/csv'
 import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
@@ -85,7 +87,7 @@ export default function Analytics() {
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
   const jsPDFRef = useRef<JsPDFCtor | null>(null)
   const [isExportLoading, setIsExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -206,7 +208,7 @@ const currentStreak = useMemo(() => {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries = useMemo(() => showComparison
+  const successLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
@@ -217,7 +219,7 @@ const currentStreak = useMemo(() => {
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
       ], [showComparison])
 
-  const capitalLegendEntries = useMemo(() => showComparison
+  const capitalLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
@@ -751,16 +753,16 @@ const currentStreak = useMemo(() => {
 
             <Card style={{ textAlign: 'center' }}>
               <Flame size={26} color={seriesColors.warning} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>5</div>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>{currentStreak}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Current Streak</div>
               <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>consecutive successes 🔥</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>
               <TrendingUp size={26} color={seriesColors.success} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>June</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>{bestPeriod?.name ?? '—'}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Best Period</div>
-              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>92% success rate</div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{bestPeriod ? `${bestPeriod.success}% success rate` : 'No data yet'}</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>

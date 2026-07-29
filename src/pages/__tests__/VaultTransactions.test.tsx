@@ -6,6 +6,8 @@ import { toCsv, downloadCsv } from '../../utils/csv';
 import { WINDOW_SIZE, WINDOW_THRESHOLD } from '../../utils/windowRange';
 import * as windowRangeMod from '../../utils/windowRange';
 import * as txTotalsMod from '../../utils/txTotals';
+import { truncateMiddle } from '../../utils/truncate';
+import { MASTER_ACTIVITY } from '../../fixtures/transactions';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -350,13 +352,16 @@ describe('VaultTransactions', () => {
     it('shows the from and to addresses when a row is clicked', () => {
       const { container } = renderPage(<VaultTransactions />);
       // Rows render: Pending section first (tx8, tx4), then Failed (tx6), then Confirmed.
-      // rows[0] is tx8 (redirect, Alpha Vault): from "GCVAULT...M3P", to "GBVZ3...QK7L"
+      // rows[0] is tx8 (redirect, Alpha Vault). Addresses render truncated
+      // via AddressDisplay/truncateMiddle, so derive the expected text from
+      // the real fixture data instead of a hardcoded string.
+      const tx8 = MASTER_ACTIVITY.find((tx) => tx.id === 'tx8')!;
       const rows = container.querySelectorAll('.vt-tx-row');
       expect(rows.length).toBeGreaterThan(0);
       fireEvent.click(rows[0]);
 
-      expect(screen.getByText('GCVAULT...M3P')).toBeInTheDocument();
-      expect(screen.getByText('GBVZ3...QK7L')).toBeInTheDocument();
+      expect(screen.getByText(truncateMiddle(tx8.from))).toBeInTheDocument();
+      expect(screen.getByText(truncateMiddle(tx8.to))).toBeInTheDocument();
     });
 
     it('closes the modal when the backdrop is clicked', () => {

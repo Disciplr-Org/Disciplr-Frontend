@@ -72,11 +72,11 @@ export function reportWebVitals(onReport?: MetricCallback): void {
 
       try {
         lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-      } catch (e) {
+      } catch {
         // LCP observation failed, continue silently
       }
     }
-  } catch (e) {
+  } catch {
     // LCP setup failed, continue silently
   }
 
@@ -105,11 +105,11 @@ export function reportWebVitals(onReport?: MetricCallback): void {
 
       try {
         clsObserver.observe({ type: 'layout-shift', buffered: true });
-      } catch (e) {
+      } catch {
         // CLS observation failed, continue silently
       }
     }
-  } catch (e) {
+  } catch {
     // CLS setup failed, continue silently
   }
 
@@ -133,7 +133,7 @@ export function reportWebVitals(onReport?: MetricCallback): void {
 
       try {
         inpObserver.observe({ type: 'event', buffered: true });
-      } catch (e) {
+      } catch {
         // INP observation failed, try FID as fallback
         try {
           const fidObserver = new PerformanceObserver((list) => {
@@ -152,12 +152,12 @@ export function reportWebVitals(onReport?: MetricCallback): void {
           });
 
           fidObserver.observe({ type: 'first-input', buffered: true });
-        } catch (e2) {
+        } catch {
           // FID observation failed, continue silently
         }
       }
     }
-  } catch (e) {
+  } catch {
     // INP/FID setup failed, continue silently
   }
 }

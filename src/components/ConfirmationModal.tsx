@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { X, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { Text } from './Text';

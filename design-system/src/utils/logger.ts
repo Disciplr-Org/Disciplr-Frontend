@@ -19,10 +19,12 @@ const isProd = (): boolean => {
     return true;
   }
 
-  // Node: process.env.NODE_ENV
+  // Node: process.env.NODE_ENV (accessed via globalThis to avoid requiring
+  // @types/node in consumers that don't otherwise depend on Node typings)
+  const nodeProcess = (globalThis as any).process;
   if (
-    typeof process !== 'undefined' &&
-    (process as any).env?.NODE_ENV === 'production'
+    typeof nodeProcess !== 'undefined' &&
+    nodeProcess.env?.NODE_ENV === 'production'
   ) {
     return true;
   }

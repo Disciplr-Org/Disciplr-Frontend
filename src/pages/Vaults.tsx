@@ -403,6 +403,13 @@ export function VaultsInner({ fetchVaults = DEFAULT_FETCH }: VaultsInnerProps) {
   );
 }
 
+// `VaultsInner` renders react-router `<Link>`s, which throw if rendered
+// outside of a Router context. The app always mounts `Vaults` under the
+// top-level router, but this component can also be used standalone (e.g. in
+// isolated tests or embeds), so fall back to a local `MemoryRouter` when no
+// ambient router context is present.
 export default function Vaults(props: VaultsInnerProps) {
-  return <VaultsInner {...props} />;
+  const inRouterContext = useInRouterContext();
+  const content = <VaultsInner {...props} />;
+  return inRouterContext ? content : <MemoryRouter>{content}</MemoryRouter>;
 }

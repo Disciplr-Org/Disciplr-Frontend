@@ -18,6 +18,7 @@ export default function PendingValidations() {
   const validationHistory = useVerifierStore((state) => state.validationHistory);
   const batchApprove = useVerifierStore((state) => state.batchApprove);
   const batchReject = useVerifierStore((state) => state.batchReject);
+  const now = useCurrentTime();
 
   // Queue-at-a-glance metrics for the strip above the table.
   const metrics = useMemo(
@@ -134,6 +135,13 @@ export default function PendingValidations() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate('/verifier/history')}
+            className="self-start px-4 py-2 border rounded text-sm font-medium transition"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+          >
+            View History
+          </button>
           <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
             Sort by
             <select

@@ -12,7 +12,7 @@ import type { VaultStatus, Vault } from "../types/vault";
 // ── Mock Data ─────────────────────────────────────────────────────────────────
 // Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
 // vaultService (see Dashboard component below).
-import { SUMMARY, ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
+import { ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
 import { listVaults } from "../services/vaultService";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,11 +133,9 @@ function SectionHeader({
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard({
-  summary = SUMMARY,
   activity = ACTIVITY,
   deadlines = DEADLINES,
 }: {
-  summary?: typeof SUMMARY;
   activity?: Activity[];
   deadlines?: Deadline[];
 } = {}) {

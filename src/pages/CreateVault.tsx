@@ -74,12 +74,9 @@ export default function CreateVault() {
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
 
-  const errorFieldOrder: Array<keyof CreateVaultErrors> = [
-    "amount",
-    "deadline",
-    "successAddress",
-    "failureAddress",
-  ];
+  const errorFieldOrder: Array<
+    "amount" | "deadline" | "successAddress" | "failureAddress"
+  > = ["amount", "deadline", "successAddress", "failureAddress"];
 
   const fieldRefs = {
     amount: amountRef,
@@ -224,6 +221,10 @@ export default function CreateVault() {
         failureAddress,
         milestones: milestones.map(({ title, criteria }) => ({
           title,
+          // The create-vault form only collects a title and success
+          // criteria; reuse the criteria text as the milestone description
+          // since Milestone.description is required downstream.
+          description: criteria,
           criteria,
         })),
       });
