@@ -70,4 +70,22 @@ describe('StatusChip Component', () => {
     expect(chip).toHaveClass('uppercase');
     expect(chip).toHaveClass('extra-class');
   });
+
+  it('is not focusable by default (no custom tooltip)', () => {
+    render(<StatusChip status="active" />);
+    const chip = screen.getByLabelText('Active');
+    expect(chip).not.toHaveAttribute('tabIndex');
+  });
+
+  it('becomes focusable when a custom tooltip is provided', () => {
+    render(<StatusChip status="active" tooltip="Custom tooltip explanation" />);
+    const chip = screen.getByLabelText('Active');
+    expect(chip).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('remains not focusable when only label is overridden (no custom tooltip)', () => {
+    render(<StatusChip status="pending_validation" label="Awaiting review" />);
+    const chip = screen.getByLabelText('Awaiting review');
+    expect(chip).not.toHaveAttribute('tabIndex');
+  });
 });

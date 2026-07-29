@@ -4,6 +4,11 @@ function draftKey(taskId: string): string {
   return `${NOTES_DRAFT_PREFIX}${taskId}`;
 }
 
+/** Public accessor for the localStorage key a given task's notes draft is stored under. */
+export function getNotesDraftKey(taskId: string): string {
+  return draftKey(taskId);
+}
+
 function storageAvailable(): Storage | null {
   if (typeof window === 'undefined') {
     return null;

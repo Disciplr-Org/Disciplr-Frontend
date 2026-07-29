@@ -79,10 +79,10 @@ describe('VerifierDashboard', () => {
         dispatchEvent: vi.fn(),
       })),
     });
-    (useVerifierStore as any).mockReturnValue({
+    (useVerifierStore as any).mockImplementation((selector: any) => selector({
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
-    });
+    }));
   });
 
   afterEach(() => {
@@ -125,10 +125,10 @@ describe('VerifierDashboard', () => {
   });
 
   it('shows empty message when no pending validations exist', () => {
-    (useVerifierStore as any).mockReturnValue({
+    (useVerifierStore as any).mockImplementation((selector: any) => selector({
       pendingValidations: [],
       validationHistory: [],
-    });
+    }));
     renderPage();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
@@ -232,10 +232,10 @@ describe('VerifierDashboard', () => {
     });
 
     it('shows empty message when no history exists', () => {
-      (useVerifierStore as any).mockReturnValue({
+      (useVerifierStore as any).mockImplementation((selector: any) => selector({
         pendingValidations: [],
         validationHistory: [],
-      });
+      }));
       renderPage();
       expect(screen.getByText('No recent decisions found.')).toBeInTheDocument();
     });
@@ -270,10 +270,10 @@ describe('VerifierDashboard', () => {
         decidedAt: `2026-05-0${i + 1}`,
       }));
 
-      (useVerifierStore as any).mockReturnValue({
+      (useVerifierStore as any).mockImplementation((selector: any) => selector({
         pendingValidations: [],
         validationHistory: manyHistoryTasks,
-      });
+      }));
 
       renderPage();
 
@@ -298,10 +298,10 @@ describe('VerifierDashboard', () => {
         decidedAt: '2026-06-02',
       };
 
-      (useVerifierStore as any).mockReturnValue({
+      (useVerifierStore as any).mockImplementation((selector: any) => selector({
         pendingValidations: [],
         validationHistory: [pendingHistoryTask],
-      });
+      }));
 
       renderPage();
 

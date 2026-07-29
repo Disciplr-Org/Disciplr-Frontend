@@ -4,7 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -167,7 +167,7 @@ export default function CommandPalette({
     [close, navigate],
   );
 
-  const handleKeyDown = (event: KeyboardEvent) => {
+  const handleKeyDown = (event: ReactKeyboardEvent) => {
     if (event.key === "Escape") {
       event.preventDefault();
       close();

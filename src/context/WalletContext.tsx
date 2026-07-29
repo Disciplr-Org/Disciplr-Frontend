@@ -14,7 +14,7 @@ interface WalletContextType {
     balanceError: string | null;
     isConnecting: boolean;
     error: string | null;
-    connect: () => Promise<void>;
+    connect: () => Promise<boolean>;
     disconnect: () => void;
     checkConnection: () => Promise<void>;
 }
@@ -84,7 +84,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
                 return;
             }
-            if (await isAllowed()) {
+            // isAllowed() resolves to { isAllowed: boolean }, not a plain
+            // boolean — checking the object itself is always truthy and
+            // would auto-reconnect regardless of the actual permission state.
+            if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
@@ -147,7 +150,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, [address]);
 
-    const connect = async () => {
+    const connect = async (): Promise<boolean> => {
         setIsConnecting(true);
         setError(null);
         try {
@@ -163,6 +166,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
                     await fetchNetworkAndBalance(pubKey);
+                    return true;
                 } else {
                     setError(addrError || 'Failed to get wallet address.');
                 }
@@ -176,6 +180,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsConnecting(false);
         }
+        return false;
     };
 
     const disconnect = () => {

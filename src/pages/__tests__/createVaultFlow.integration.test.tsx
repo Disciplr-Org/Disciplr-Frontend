@@ -65,10 +65,12 @@ describe("CreateVault Flow - Integration Tests", () => {
       ).not.toBeInTheDocument();
 
       // Step 3: Assert review shows entered values
+      // Addresses are rendered truncated (see AddressDisplay), but the full
+      // value is always present in the element's title attribute.
       expect(screen.getByText(validAmount)).toBeInTheDocument();
       expect(screen.getByText(futureDeadline)).toBeInTheDocument();
-      expect(screen.getByText(validSuccessAddress)).toBeInTheDocument();
-      expect(screen.getByText(validFailureAddress)).toBeInTheDocument();
+      expect(screen.getByTitle(validSuccessAddress)).toBeInTheDocument();
+      expect(screen.getByTitle(validFailureAddress)).toBeInTheDocument();
 
       // Step 4: Confirm vault creation
       fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
@@ -131,7 +133,7 @@ describe("CreateVault Flow - Integration Tests", () => {
       expect(alertText).toContain("Enter a positive USDC amount with up to 7 decimal places.");
       expect(alertText).toContain("Choose a future deadline.");
       // Should have two instances of the Stellar address error in the alert
-      const stellarErrors = (alertText.match(/Enter a valid Stellar public key starting with G\./g) || []).length;
+      const stellarErrors = (alertText.match(/Enter a valid Stellar public key starting with G or C\./g) || []).length;
       expect(stellarErrors).toBe(2);
     });
 
@@ -218,7 +220,7 @@ describe("CreateVault Flow - Integration Tests", () => {
       ).not.toBeInTheDocument();
       
       const alert = screen.getByRole("alert");
-      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G.");
+      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G or C.");
 
       const successField = screen.getByLabelText(/success destination/i);
       expect(successField).toHaveAttribute("aria-invalid", "true");
@@ -239,7 +241,7 @@ describe("CreateVault Flow - Integration Tests", () => {
       ).not.toBeInTheDocument();
       
       const alert = screen.getByRole("alert");
-      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G.");
+      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G or C.");
 
       const failureField = screen.getByLabelText(/failure destination/i);
       expect(failureField).toHaveAttribute("aria-invalid", "true");
@@ -387,7 +389,7 @@ describe("CreateVault Flow - Integration Tests", () => {
 
       // Submit with empty form to trigger errors
       fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-      let alert = screen.getByRole("alert");
+      const alert = screen.getByRole("alert");
       expect(alert.textContent).toContain(
         "Enter a positive USDC amount with up to 7 decimal places.",
       );
@@ -404,7 +406,7 @@ describe("CreateVault Flow - Integration Tests", () => {
 
       // Submit with empty form
       fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-      let alert = screen.getByRole("alert");
+      const alert = screen.getByRole("alert");
       expect(alert.textContent).toContain("Choose a future deadline.");
 
       // Update deadline
@@ -423,8 +425,8 @@ describe("CreateVault Flow - Integration Tests", () => {
       fillField(/failure destination/i, validFailureAddress);
 
       fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
-      let alert = screen.getByRole("alert");
-      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G.");
+      const alert = screen.getByRole("alert");
+      expect(alert.textContent).toContain("Enter a valid Stellar public key starting with G or C.");
 
       // Correct the address
       fillField(/success destination/i, validSuccessAddress);
@@ -619,9 +621,10 @@ describe("CreateVault Flow - Integration Tests", () => {
 
       fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
-      // Both addresses should be visible in the review
-      expect(screen.getByText(altSuccessAddress)).toBeInTheDocument();
-      expect(screen.getByText(altFailureAddress)).toBeInTheDocument();
+      // Both addresses should be visible in the review (rendered truncated,
+      // full value available via the title attribute - see AddressDisplay).
+      expect(screen.getByTitle(altSuccessAddress)).toBeInTheDocument();
+      expect(screen.getByTitle(altFailureAddress)).toBeInTheDocument();
     });
   });
 

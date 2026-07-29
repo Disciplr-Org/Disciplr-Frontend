@@ -57,6 +57,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, accentColor, aria
 const VerifierMetrics: React.FC = () => {
   const pendingValidations = useVerifierStore((state) => state.pendingValidations);
   const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const now = useCurrentTime();
 
   const { approvalRate, overdueCount, urgentCount, totalResolved } =
     computeVerifierMetrics(pendingValidations, validationHistory, now);
