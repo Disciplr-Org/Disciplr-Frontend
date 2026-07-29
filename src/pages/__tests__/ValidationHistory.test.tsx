@@ -33,7 +33,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERALPHA',
     amount: '1,000 USDC',
     deadline: '2026-01-01',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Launch',
     notes: 'Approved launch evidence.',
@@ -44,7 +43,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERBETA',
     amount: '2,000 USDC',
     deadline: '2026-01-02',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Audit',
     notes: 'Missing audit proof.',
@@ -55,7 +53,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERGAMMA',
     amount: '3,000 USDC',
     deadline: '2026-01-03',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Delivery',
   },
@@ -65,7 +62,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERDELTA',
     amount: '4,000 USDC',
     deadline: '2026-01-04',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Design',
   },
@@ -75,7 +71,6 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNEREPSILON',
     amount: '5,000 USDC',
     deadline: '2026-01-05',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Docs',
   },
@@ -85,23 +80,97 @@ const baseHistory: ValidationTask[] = [
     owner: 'GOWNERZETA',
     amount: '6,000 USDC',
     deadline: '2026-01-06',
-    daysRemaining: 0,
+    status: 'approved',
+    milestone: 'Payout',
+  },
+];
+
+const longHistory: ValidationTask[] = [
+  ...baseHistory,
+  {
+    id: 'v-007',
+    vaultName: 'Eta Reserve',
+    owner: 'GOWNERETA',
+    amount: '7,000 USDC',
+    deadline: '2026-01-07',
+    status: 'approved',
+    milestone: 'Review',
+  },
+  {
+    id: 'v-008',
+    vaultName: 'Theta Trust',
+    owner: 'GOWNERTHETA',
+    amount: '8,000 USDC',
+    deadline: '2026-01-08',
+    status: 'rejected',
+    milestone: 'Scale',
+  },
+  {
+    id: 'v-009',
+    vaultName: 'Iota Vault',
+    owner: 'GOWNERIOTA',
+    amount: '9,000 USDC',
+    deadline: '2026-01-09',
+    status: 'approved',
+    milestone: 'Launch',
+  },
+  {
+    id: 'v-010',
+    vaultName: 'Kappa Fund',
+    owner: 'GOWNERKAPPA',
+    amount: '10,000 USDC',
+    deadline: '2026-01-10',
+    status: 'approved',
+    milestone: 'Ops',
+  },
+  {
+    id: 'v-011',
+    vaultName: 'Lambda Pool',
+    owner: 'GOWNERLAMBDA',
+    amount: '11,000 USDC',
+    deadline: '2026-01-11',
+    status: 'rejected',
+    milestone: 'Quality',
+  },
+  {
+    id: 'v-012',
+    vaultName: 'Mu Treasury',
+    owner: 'GOWNERMU',
+    amount: '12,000 USDC',
+    deadline: '2026-01-12',
     status: 'approved',
     milestone: 'Payout',
   },
 ];
 
 function renderHistory(history = baseHistory) {
-  vi.mocked(useVerifierStore).mockReturnValue({
-    validationHistory: history,
-  } as ReturnType<typeof useVerifierStore>);
+  vi.mocked(useVerifierStore).mockImplementation(
+    ((selector: (state: { validationHistory: typeof history }) => unknown) =>
+      selector({ validationHistory: history })) as typeof useVerifierStore,
+  );
 
   return render(<ValidationHistory />);
 }
 
+// Mock matchMedia for Tooltip/StatusChip components
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 describe('ValidationHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it('renders summary stats and first page of validation history', () => {
@@ -115,8 +184,8 @@ describe('ValidationHistory', () => {
 
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
     expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
-    expect(screen.queryByText('Zeta Treasury')).not.toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
   });
 
   it('filters by rejected status', () => {
@@ -151,7 +220,7 @@ describe('ValidationHistory', () => {
   });
 
   it('paginates results with accessible controls', () => {
-    renderHistory();
+    renderHistory(longHistory);
 
     const nav = screen.getByRole('navigation', { name: 'Validation history pagination' });
     const previous = within(nav).getByRole('button', { name: 'Go to previous validation history page' });
@@ -162,7 +231,8 @@ describe('ValidationHistory', () => {
 
     fireEvent.click(next);
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Lambda Pool')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
     expect(next).toBeDisabled();
@@ -170,13 +240,16 @@ describe('ValidationHistory', () => {
   });
 
   it('updates page size and shows no-match empty state', () => {
-    renderHistory();
+    renderHistory(longHistory);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Validation history page size'), {
-      target: { value: '10' },
+      target: { value: '25' },
     });
 
-    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+    expect(screen.getByText('Mu Treasury')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
@@ -187,12 +260,145 @@ describe('ValidationHistory', () => {
     expect(screen.queryByRole('navigation', { name: 'Validation history pagination' })).not.toBeInTheDocument();
   });
 
+  it('persists the selected page size for the next visit', () => {
+    const { unmount } = renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Validation history page size'), {
+      target: { value: '25' },
+    });
+
+    expect(window.localStorage.getItem('validation-history-page-size')).toBe('25');
+
+    unmount();
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('25');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+  });
+
+  it('ignores invalid stored page sizes', () => {
+    window.localStorage.setItem('validation-history-page-size', '999');
+
+    renderHistory();
+
+    expect(screen.getByLabelText('Validation history page size')).toHaveValue('10');
+    expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+  });
+
   it('navigates back to the verifier dashboard', () => {
     renderHistory();
 
     fireEvent.click(screen.getByRole('button', { name: /back to dashboard/i }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/verifier');
+  });
+
+  describe('date range filters', () => {
+    it('filters to only items on or after the from date', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2026-01-05' },
+      });
+
+      expect(screen.getByText('Epsilon Pool')).toBeInTheDocument();
+      expect(screen.getByText('Zeta Treasury')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 2 of 2 matching validations.')).toBeInTheDocument();
+    });
+
+    it('filters to only items on or before the to date', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history to date'), {
+        target: { value: '2026-01-01' },
+      });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+    });
+
+    it('shows no-match state when date range excludes all items', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2030-01-01' },
+      });
+
+      expect(screen.getByText('No matching validations')).toBeInTheDocument();
+    });
+
+    it('resets to page 1 when from date changes', () => {
+      renderHistory(longHistory);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+        target: { value: '2026-01-01' },
+      });
+
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    });
+  });
+
+  describe('milestone filter', () => {
+    it('filters by milestone substring case-insensitively', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'LAUNCH' },
+      });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 1 of 1 matching validations.')).toBeInTheDocument();
+    });
+
+    it('shows no-match state when milestone matches nothing', () => {
+      renderHistory();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'nonexistent' },
+      });
+
+      expect(screen.getByText('No matching validations')).toBeInTheDocument();
+    });
+
+    it('resets to page 1 when milestone changes', () => {
+      renderHistory(longHistory);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next validation history page' }));
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+        target: { value: 'D' },
+      });
+
+      // 'D' matches Delivery (v-003) and Design (v-004) and Docs (v-005) — 3 items, 1 page at default page size 5
+      expect(screen.queryByText('Page 2 of 2')).not.toBeInTheDocument();
+    });
+  });
+
+  it('combines date range and milestone with status/search filters', () => {
+    renderHistory();
+
+    fireEvent.change(screen.getByLabelText('Filter validation history by outcome'), {
+      target: { value: 'approved' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history from date'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history to date'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter validation history by milestone'), {
+      target: { value: 'Launch' },
+    });
+
+    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+    expect(screen.queryByText('Beta Reserve')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 1 of 1 matching validations.')).toBeInTheDocument();
   });
 
   describe('CSV export', () => {

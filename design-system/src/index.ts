@@ -6,3 +6,5 @@
 export * from './types/tokens';
 export * from './utils/token-loader';
 export * from './utils/validators';
+export * from './utils/css-variables';
+export * from './utils/logger';

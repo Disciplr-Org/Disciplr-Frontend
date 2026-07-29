@@ -3,26 +3,6 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 
-vi.mock('focus-trap-react', () => ({
-  default: ({
-    children,
-    focusTrapOptions,
-  }: {
-    children: React.ReactNode;
-    focusTrapOptions?: { onDeactivate?: () => void };
-  }) => (
-    <div
-      data-testid="focus-trap"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          focusTrapOptions?.onDeactivate?.();
-        }
-      }}
-    >
-      {children}
-    </div>
-  ),
-}));
 
 describe('ConfirmationModal', () => {
   const onClose = vi.fn();

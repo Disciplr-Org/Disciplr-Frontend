@@ -10,14 +10,24 @@ export default defineConfig({
     alias: { '@': resolve(__dirname, './src') },
   },
   test: {
-    environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.ts',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Pure TS util tests run in node; TSX component tests use jsdom for RTL/DOM.
+    environmentMatchGlobs: [
+      ['src/**/*.test.tsx', 'jsdom'],
+      ['src/**/*.test.ts', 'node'],
+    ],
     coverage: {
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+      thresholds: {
+        statements: 50,
+        branches: 80,
+        functions: 65,
+        lines: 50,
+      },
     },
-    // Exclude node_modules and lib from test collection
-    exclude: [...configDefaults.exclude, 'node_modules', 'dist']
+    exclude: [...configDefaults.exclude, 'node_modules', 'dist'],
   },
 });

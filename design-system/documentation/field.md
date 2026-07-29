@@ -2,6 +2,8 @@
 
 A reusable form field component that bundles a label, input, hint text, and error state.
 
+When a field is invalid, the input sets `aria-invalid="true"` and its inline error message is referenced via `aria-describedby`. Forms that submit multiple fields together should also expose an error summary and move focus to the first invalid field after validation.
+
 ## Props
 
 | Prop | Type | Required | Description |

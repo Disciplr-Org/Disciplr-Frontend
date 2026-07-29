@@ -1,6 +1,8 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
+import { SafeLink } from './SafeLink';
+import { getExplorerTxUrl } from '../utils/explorer';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -27,8 +29,7 @@ export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4
 }
 
 function explorerUrl(hash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
-  const segment = network === 'PUBLIC' ? 'public' : 'testnet';
-  return `https://stellar.expert/explorer/${segment}/tx/${hash}`;
+  return getExplorerTxUrl(hash, network);
 }
 
 function formatTimestamp(timestamp?: string): string {
@@ -144,16 +145,14 @@ export function FundReleaseStatus({
               Transaction
             </Text>
             {hash ? (
-              <a
+              <SafeLink
                 className="fund-release-status__link"
                 href={explorerUrl(hash, network)}
-                target="_blank"
-                rel="noopener noreferrer"
                 title={hash}
                 aria-label={`View transaction ${hash} on Stellar ${network === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
               >
                 {truncateMiddle(hash, 8, 6)}
-              </a>
+              </SafeLink>
             ) : (
               <Text role="caption" as="span" className="fund-release-status__label">
                 Pending transaction

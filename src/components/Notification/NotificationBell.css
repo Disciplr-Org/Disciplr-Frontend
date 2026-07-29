@@ -1,0 +1,6 @@
+/* existing styles... */
+
+.notification-bell {
+  /* ... */
+  box-shadow: var(--shadow-level-2);  /* subtle elevation for notification bell */
+}

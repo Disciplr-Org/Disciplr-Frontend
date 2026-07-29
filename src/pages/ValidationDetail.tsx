@@ -1,21 +1,68 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Breadcrumb from '../components/Breadcrumb';
 import { Text } from '../components/Text';
 import { useVerifierStore } from '../Zustand/Store';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { SafeLink } from '../components/SafeLink';
+import { isCriteriaGateOpen } from '../utils/criteriaGate';
+import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../utils/evidenceKind';
+import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
+
+const NOTES_DRAFT_WRITE_DELAY_MS = 300;
+
+function useNotesDraft(taskId: string | undefined) {
+  const [notes, setNotes] = useState(() => readNotesDraft(taskId));
+
+  useEffect(() => {
+    setNotes(readNotesDraft(taskId));
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (notes.trim().length > 0) {
+        writeNotesDraft(taskId, notes);
+      } else {
+        clearNotesDraft(taskId);
+      }
+    }, NOTES_DRAFT_WRITE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notes, taskId]);
+
+  const clearDraft = () => {
+    clearNotesDraft(taskId);
+    setNotes('');
+  };
+
+  return { notes, setNotes, clearDraft };
+}
 
 export default function ValidationDetail() {
   const { vaultId } = useParams<{ vaultId: string }>();
   const navigate = useNavigate();
+  const now = useCurrentTime();
   
-  const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
-  
-  const [notes, setNotes] = useState('');
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const approveValidation = useVerifierStore((state) => state.approveValidation);
+  const rejectValidation = useVerifierStore((state) => state.rejectValidation);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());
 
   const task = pendingValidations.find((t) => t.id === vaultId);
+  const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
+  const remaining = task ? daysRemaining(task.deadline, now) : 0;
+
+  useEffect(() => {
+    setCheckedCriteria(new Set());
+  }, [task?.id]);
 
   if (!task) {
     return (
@@ -40,12 +87,27 @@ export default function ValidationDetail() {
     setIsModalOpen(true);
   };
 
+  const toggleCriterion = (criterion: string) => {
+    setCheckedCriteria((prev) => {
+      const next = new Set(prev);
+      if (next.has(criterion)) {
+        next.delete(criterion);
+      } else {
+        next.add(criterion);
+      }
+      return next;
+    });
+  };
+
+  const gateOpen = isCriteriaGateOpen(task.criteria, checkedCriteria);
+
   const executeAction = (decision: 'approve' | 'reject', modalNotes: string) => {
     if (decision === 'approve') {
       approveValidation(task.id, modalNotes);
     } else if (decision === 'reject') {
       rejectValidation(task.id, modalNotes);
     }
+    clearDraft();
     setIsModalOpen(false);
     navigate('/verifier/queue');
   };
@@ -53,6 +115,14 @@ export default function ValidationDetail() {
   return (
     <div className="flex flex-col gap-6 p-6 relative">
       <header>
+        <Breadcrumb
+          segments={[
+            { label: 'Home', to: '/' },
+            { label: 'Verifier Queue', to: '/verifier/queue' },
+            { label: task.vaultName },
+          ]}
+          style={{ marginBottom: 'var(--spacing-4)' }}
+        />
         <button
           onClick={() => navigate('/verifier/queue')}
           className="mb-4 text-sm font-medium transition"
@@ -70,11 +140,11 @@ export default function ValidationDetail() {
           <div
             className="px-4 py-2 rounded font-bold text-sm"
             style={{
-              background: task.daysRemaining <= 3 ? 'var(--danger-transparent)' : 'var(--success-transparent)',
-              color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--success)',
+              background: remaining <= 3 ? 'var(--danger-transparent)' : 'var(--success-transparent)',
+              color: remaining <= 3 ? 'var(--danger)' : 'var(--success)',
             }}
           >
-            Deadline: {task.daysRemaining} days remaining
+            Deadline: {remaining} days remaining
           </div>
         </div>
       </header>
@@ -114,17 +184,49 @@ export default function ValidationDetail() {
             
             <Text role="body" as="p" className="font-bold mb-2">Submitted Proof:</Text>
             {task.evidenceUrl ? (
-              <SafeLink
-                href={task.evidenceUrl}
-                className="inline-block px-4 py-2 border rounded transition font-medium text-sm"
-                style={{
-                  borderColor: 'var(--accent)',
-                  color: 'var(--accent)',
-                  background: 'var(--accent-transparent)',
-                }}
-              >
-                &#128279; View Attached Evidence
-              </SafeLink>
+              <div className="p-4 border rounded-lg" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  {(() => {
+                    const info = classifyEvidenceUrl(task.evidenceUrl);
+                    if (!info) return null;
+                    const kindLabels: Record<typeof info.kind, string> = {
+                      github: 'GitHub',
+                      figma: 'Figma',
+                      ipfs: 'IPFS',
+                      other: 'Other'
+                    };
+                    const brandColor = EVIDENCE_BADGE_COLORS[info.kind];
+                    const colors = {
+                      bg: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
+                      color: brandColor,
+                    };
+                    return (
+                      <>
+                        <span
+                          className="px-3 py-1 rounded-full text-xs font-semibold"
+                          style={{ background: colors.bg, color: colors.color, border: `1px solid ${colors.color}` }}
+                        >
+                          {kindLabels[info.kind]}
+                        </span>
+                        <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
+                          {info.host}
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </div>
+                <SafeLink
+                  href={task.evidenceUrl}
+                  className="inline-block px-4 py-2 border rounded transition font-medium text-sm"
+                  style={{
+                    borderColor: 'var(--accent)',
+                    color: 'var(--accent)',
+                    background: 'var(--accent-transparent)',
+                  }}
+                >
+                  &#128279; View Attached Evidence
+                </SafeLink>
+              </div>
             ) : (
               <Text role="body" as="p" className="italic" style={{ color: 'var(--muted)' }}>No evidence link provided.</Text>
             )}
@@ -134,6 +236,30 @@ export default function ValidationDetail() {
         <div className="flex flex-col gap-4">
           <section className="p-6 border rounded-lg shadow-sm flex flex-col h-full" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
             <Text role="display" as="h2" className="mb-4">Verification Actions</Text>
+
+            {task.criteria && task.criteria.length > 0 && (
+              <fieldset className="mb-6 flex flex-col gap-2">
+                <legend className="font-medium text-sm mb-2">
+                  <Text role="body" as="span">Milestone Criteria</Text>
+                </legend>
+                {task.criteria.map((criterion) => (
+                  <label
+                    key={criterion}
+                    className="flex items-start gap-2 text-sm cursor-pointer"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checkedCriteria.has(criterion)}
+                      onChange={() => toggleCriterion(criterion)}
+                      aria-label={criterion}
+                      className="mt-0.5 accent-[var(--accent)] shrink-0"
+                    />
+                    {criterion}
+                  </label>
+                ))}
+              </fieldset>
+            )}
             
             <label className="flex flex-col gap-2 mb-6 flex-grow">
               <Text role="body" as="span" className="font-medium text-sm">Initial Verification Notes (Optional)</Text>
@@ -153,8 +279,15 @@ export default function ValidationDetail() {
             <div className="flex flex-col gap-3 mt-auto">
               <button
                 onClick={() => handleOpenModal('approve')}
+                disabled={!gateOpen}
+                aria-disabled={!gateOpen}
                 className="w-full py-3 font-bold rounded transition"
-                style={{ background: 'var(--success)', color: 'white' }}
+                style={{
+                  background: gateOpen ? 'var(--success)' : 'var(--muted)',
+                  color: 'white',
+                  cursor: gateOpen ? 'pointer' : 'not-allowed',
+                  opacity: gateOpen ? 1 : 0.5,
+                }}
               >
                 Approve Milestone
               </button>

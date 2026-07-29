@@ -1,71 +1,169 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
-import Dashboard from '../Dashboard';
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { describe, test, expect, vi, beforeEach } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import Dashboard from "../Dashboard";
+import { MASTER_VAULTS } from "../../fixtures/vaults";
+import { computeDashboardSummary } from "../../utils/dashboard";
+import { listVaults } from "../../services/vaultService";
+import type { Vault } from "../../types/vault";
 
-// Freeze time so deadlineUrgency produces consistent results
-const fixedNow = new Date('2026-07-27T00:00:00Z');
-vi.useFakeTimers();
-vi.setSystemTime(fixedNow);
+// Dashboard fetches its vault list asynchronously via vaultService.listVaults()
+// rather than accepting vaults/summary as props, so tests mock that service
+// call and await the resulting render instead of passing data in directly.
+vi.mock("../../services/vaultService", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../services/vaultService")>();
+  return { ...actual, listVaults: vi.fn(actual.listVaults) };
+});
 
-function renderDashboard() {
-  return render(
-    <MemoryRouter>
-      <Dashboard />
-    </MemoryRouter>
-  );
+const mockedListVaults = vi.mocked(listVaults);
+
+function buildVault(overrides: Partial<Vault>): Vault {
+  return {
+    id: "1",
+    name: "Test Vault",
+    status: "active",
+    amount: 1000,
+    currency: "USDC",
+    createdAt: new Date(Date.now() - 10 * 86_400_000).toISOString(),
+    deadline: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+    creatorAddress: "GCREATOR",
+    successAddress: "GSUCCESS",
+    failureAddress: "GFAILURE",
+    contractAddress: "GCONTRACT",
+    milestones: [],
+    transactions: [],
+    ...overrides,
+  };
 }
 
-describe('Dashboard', () => {
-  it('renders the welcome heading', () => {
-    renderDashboard();
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+describe("Dashboard page", () => {
+  beforeEach(() => {
+    mockedListVaults.mockClear();
   });
 
-  it('renders summary cards', () => {
-    renderDashboard();
-    expect(screen.getByText('Total Locked')).toBeInTheDocument();
-    expect(screen.getAllByText('Active Vaults')).toHaveLength(2);
-    expect(screen.getByText('Pending Milestones')).toBeInTheDocument();
-    expect(screen.getByText('Completion Rate')).toBeInTheDocument();
+  test("renders successfully with real vault data once loaded", async () => {
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    // Verify header title
+    expect(
+      screen.getByRole("heading", { level: 1, name: /Dashboard/i }),
+    ).toBeInTheDocument();
+
+    // Verify cards and sections
+    expect(screen.getByText(/Total Locked/i)).toBeInTheDocument();
+    const expectedActiveVaults = computeDashboardSummary(
+      Object.values(MASTER_VAULTS),
+    ).activeVaults;
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Active Vaults/i, { selector: ".text-caption" })
+          .parentElement,
+      ).toHaveTextContent(String(expectedActiveVaults));
+    });
+    expect(screen.getByText(/Pending Milestones/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /Recent Activity/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /Upcoming Deadlines/i }),
+    ).toBeInTheDocument();
   });
 
-  it('renders quick action buttons', () => {
-    renderDashboard();
-    expect(screen.getByText('+ Create Vault')).toBeInTheDocument();
-    expect(screen.getByText('View All Vaults')).toBeInTheDocument();
-    expect(screen.getByText('Verify Milestone')).toBeInTheDocument();
+  test("renders empty state when no vaults are returned", async () => {
+    mockedListVaults.mockResolvedValueOnce([]);
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    // Verify empty state message
+    await waitFor(() => {
+      expect(screen.getByText(/No vaults yet/i)).toBeInTheDocument();
+    });
   });
 
-  it('renders the Active Vaults section with vault cards', () => {
-    renderDashboard();
-    expect(screen.getAllByText('Active Vaults')).toHaveLength(2);
-    expect(screen.getAllByText('Alpha Vault').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Beta Reserve').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Gamma Fund').length).toBeGreaterThanOrEqual(2);
-  });
+  test("renders the at-risk section once vaults with critical or soon deadlines load", async () => {
+    // Soon: pending_validation vault due in 3 days.
+    const soonVault = buildVault({
+      id: "soon-1",
+      name: "Soon Vault",
+      status: "pending_validation",
+      deadline: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    });
+    // Critical: active vault due in 12 hours.
+    const criticalVault = buildVault({
+      id: "critical-1",
+      name: "Critical Vault",
+      status: "active",
+      deadline: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    });
+    // Safe: active vault due far in the future — should be excluded.
+    const safeVault = buildVault({
+      id: "safe-1",
+      name: "Safe Vault",
+      status: "active",
+      deadline: new Date(Date.now() + 60 * 86_400_000).toISOString(),
+    });
 
-  it('renders the at-risk section when vaults have critical or soon deadlines', () => {
-    renderDashboard();
-    // Beta Reserve (2026-07-30) is 3d away → soon, and pending_validation → at risk
-    // Gamma Fund (2026-07-28T06:00:00Z) is ~30h away → soon, and active → at risk
-    // Alpha Vault (2024-07-15) is expired → safe → excluded
-    expect(screen.getByText(/⚠️ At Risk/)).toBeInTheDocument();
-    expect(screen.getByText(/These vaults need immediate attention/)).toBeInTheDocument();
+    mockedListVaults.mockResolvedValueOnce([
+      soonVault,
+      criticalVault,
+      safeVault,
+    ]);
 
-    // Both at-risk vaults should appear in the section
-    const atRiskSection = screen.getByText(/⚠️ At Risk/).closest('div');
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/⚠️ At Risk/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/These vaults need immediate attention/),
+    ).toBeInTheDocument();
+
+    // Scope to the At Risk section itself: Soon/Critical Vault also appear in
+    // the main vault list below, so assert membership within this section only.
+    // The "immediate attention" copy is a <p> whose direct parent is the
+    // section's outer container (the heading's own parent is only the
+    // SectionHeader title row), so anchor on that instead.
+    const atRiskSection = screen
+      .getByText(/These vaults need immediate attention/)
+      .closest("div");
     expect(atRiskSection).toBeInTheDocument();
+    expect(
+      within(atRiskSection as HTMLElement).getByText("Soon Vault"),
+    ).toBeInTheDocument();
+    expect(
+      within(atRiskSection as HTMLElement).getByText("Critical Vault"),
+    ).toBeInTheDocument();
+    expect(
+      within(atRiskSection as HTMLElement).queryByText("Safe Vault"),
+    ).not.toBeInTheDocument();
   });
 
-  it('renders the Upcoming Deadlines sidebar', () => {
-    renderDashboard();
-    expect(screen.getByText('Upcoming Deadlines')).toBeInTheDocument();
-  });
+  test("does not render the at-risk section when no vaults are at risk", async () => {
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
 
-  it('renders the Recent Activity section', () => {
-    renderDashboard();
-    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: /Dashboard/i }),
+      ).toBeInTheDocument();
+    });
+    // MASTER_VAULTS fixture deadlines are all outside the "soon" window.
+    expect(screen.queryByText(/⚠️ At Risk/)).not.toBeInTheDocument();
   });
 });

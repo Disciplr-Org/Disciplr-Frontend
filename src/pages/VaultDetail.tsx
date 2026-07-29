@@ -1,281 +1,29 @@
-import { useState } from "react";
+import { useState, type ReactNode, type CSSProperties } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
+import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
+import Breadcrumb from "../components/Breadcrumb";
+import { ConfirmationModal } from "../components/ConfirmationModal";
 import {
   FundReleaseStatus,
   type FundReleaseStatusProps,
 } from "../components/FundReleaseStatus";
+import { VaultMetaPanel } from "../components/VaultMetaPanel";
+import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
+import { useWallet } from "../context/WalletContext";
+import { MASTER_VAULTS as MOCK_VAULTS } from "../services/vaultService";
+import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
+import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import { truncateMiddle } from "../utils/truncate";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import type { Vault } from "../types/vault";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-type VaultStatus =
-  | "active"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "pending_validation";
-
-type MilestoneStatus = "pending" | "validated" | "failed";
-
-interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  criteria: string;
-  status: MilestoneStatus;
-  validatedAt?: string;
-  evidenceUrl?: string;
-}
-
-interface VaultTransaction {
-  id: string;
-  type: "create" | "validate" | "release" | "redirect";
-  hash: string;
-  timestamp: string;
-  amount?: number;
-}
-
-interface Vault {
-  id: string;
-  name: string;
-  status: VaultStatus;
-  amount: number;
-  currency: string;
-  createdAt: string;
-  deadline: string;
-  creatorAddress: string;
-  verifierAddress?: string;
-  successAddress: string;
-  failureAddress: string;
-  contractAddress: string;
-  milestones: Milestone[];
-  transactions: VaultTransaction[];
-}
-
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_VAULTS: Record<string, Vault> = {
-  // Vault 1: active vault
-  "1": {
-    id: "1",
-    name: "Alpha Vault",
-    status: "active",
-    amount: 12500,
-    currency: "USDC",
-    createdAt: "2024-01-15T10:00:00Z",
-    deadline: "2024-07-15T10:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    verifierAddress: "GVERIF3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Phase 1 Complete",
-        description: "Complete initial development phase",
-        criteria: "All unit tests passing, code reviewed",
-        status: "validated",
-        validatedAt: "2024-02-20T14:30:00Z",
-        evidenceUrl: "https://github.com/org/repo/pull/42",
-      },
-      {
-        id: "m2",
-        title: "Beta Launch",
-        description: "Launch beta version to 100 users",
-        criteria: "Beta deployed, 100 active users onboarded",
-        status: "pending",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d",
-        timestamp: "2024-01-15T10:00:00Z",
-        amount: 12500,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b",
-        timestamp: "2024-02-20T14:30:00Z",
-      },
-    ],
-  },
-  // Vault 2: completed vault (release) without a verifier address
-  "2": {
-    id: "2",
-    name: "Beta Reserve",
-    status: "completed",
-    amount: 4200.5,
-    currency: "USDC",
-    createdAt: "2023-10-01T09:00:00Z",
-    deadline: "2024-01-01T09:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT4KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Project Delivery",
-        description: "Deliver final project",
-        criteria: "All deliverables submitted and approved",
-        status: "validated",
-        validatedAt: "2023-12-28T11:00:00Z",
-        evidenceUrl: "https://docs.example.com/delivery",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e",
-        timestamp: "2023-10-01T09:00:00Z",
-        amount: 4200.5,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-        timestamp: "2023-12-28T11:00:00Z",
-      },
-      {
-        id: "tx3",
-        type: "release",
-        hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c",
-        timestamp: "2024-01-01T09:00:00Z",
-        amount: 4200.5,
-      },
-    ],
-  },
-  // Vault 3: failed vault (redirect)
-  "3": {
-    id: "3",
-    name: "Gamma Fund",
-    status: "failed",
-    amount: 8800,
-    currency: "USDC",
-    createdAt: "2023-08-01T08:00:00Z",
-    deadline: "2023-12-01T08:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT5KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Milestone 1",
-        description: "First milestone",
-        criteria: "Criteria not met",
-        status: "failed",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-        timestamp: "2023-08-01T08:00:00Z",
-        amount: 8800,
-      },
-      {
-        id: "tx2",
-        type: "redirect",
-        hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d",
-        timestamp: "2023-12-01T08:00:00Z",
-        amount: 8800,
-      },
-    ],
-  },
-  // Vault 4: cancelled vault with mixed milestone statuses and redirect destination
-  "4": {
-    id: "4",
-    name: "Delta Cancelled",
-    status: "cancelled",
-    amount: 5000,
-    currency: "USDC",
-    createdAt: "2023-08-01T08:00:00Z",
-    deadline: "2023-12-01T08:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT5KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Milestone 1",
-        description: "First milestone",
-        criteria: "Criteria met",
-        status: "validated",
-      },
-      {
-        id: "m2",
-        title: "Milestone 2",
-        description: "Second milestone",
-        criteria: "Criteria not met",
-        status: "failed",
-      },
-      {
-        id: "m3",
-        title: "Milestone 3",
-        description: "Third milestone",
-        criteria: "Pending criteria",
-        status: "pending",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-        timestamp: "2023-08-01T08:00:00Z",
-        amount: 5000,
-      },
-      {
-        id: "tx2",
-        type: "redirect",
-        hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d",
-        timestamp: "2023-12-01T08:00:00Z",
-        amount: 5000,
-      },
-    ],
-  },
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CONFIG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "var(--muted)",
-    bg: "rgba(156,163,175,0.1)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-};
+// ── Types imported from canonical source ─────────────────────────────────────
+// Vault and VaultStatus are imported from "../types/vault" above.
+// MOCK_VAULTS has moved to "../services/vaultService" as the master dataset.
 
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",
@@ -283,14 +31,6 @@ const TX_LABELS: Record<string, string> = {
   release: "Funds Released",
   redirect: "Funds Redirected",
 };
-
-function truncAddr(addr: string): string {
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
-}
-
-function truncHash(hash: string): string {
-  return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
-}
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -348,70 +88,13 @@ function settlementForVault(vault: Vault): FundReleaseStatusProps {
   };
 }
 
-// ── Copy Button ───────────────────────────────────────────────────────────────
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      title="Copy"
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        color: copied ? "var(--success)" : "var(--muted)",
-        padding: "0 4px",
-        fontSize: 13,
-        lineHeight: 1,
-      }}
-    >
-      {copied ? "✓" : "⎘"}
-    </button>
-  );
-}
-
-// ── Address Row ───────────────────────────────────────────────────────────────
-function AddrRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
-      <Text
-        role="caption"
-        as="span"
-        style={{ color: "var(--muted)", minWidth: 140 }}
-      >
-        {label}
-      </Text>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <Text role="mono" as="span" style={{ color: "var(--text)" }}>
-          {truncAddr(value)}
-        </Text>
-        <CopyButton value={value} />
-      </div>
-    </div>
-  );
-}
-
 // ── Section Card ─────────────────────────────────────────────────────────────
 function Card({
   children,
   style,
 }: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
+  children: ReactNode;
+  style?: CSSProperties;
 }) {
   return (
     <div
@@ -428,10 +111,55 @@ function Card({
   );
 }
 
+// ── Vault action types ────────────────────────────────────────────────────────
+type VaultAction = "validate_milestone" | "extend_deadline" | "cancel_vault";
+
+const VAULT_ACTION_CONFIG: Record<
+  VaultAction,
+  { title: string; message: string; confirmLabel: string }
+> = {
+  validate_milestone: {
+    title: "Validate Milestone",
+    message:
+      "Are you sure you want to validate the current milestone? This will trigger an on-chain transaction to advance the vault. This action cannot be undone.",
+    confirmLabel: "Validate",
+  },
+  extend_deadline: {
+    title: "Extend Deadline",
+    message:
+      "Are you sure you want to extend the vault deadline? The new deadline must be confirmed by all relevant parties before taking effect.",
+    confirmLabel: "Extend",
+  },
+  cancel_vault: {
+    title: "Cancel Vault",
+    message:
+      "Are you sure you want to cancel this vault? Funds will be redirected to the failure destination address. This action cannot be undone.",
+    confirmLabel: "Cancel Vault",
+  },
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const vault = id ? MOCK_VAULTS[id] : undefined;
+  const { network } = useWallet();
+
+  const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
+
+  const handleActionClick = (action: VaultAction) => {
+    setActiveAction(action);
+  };
+
+  const handleModalClose = () => {
+    setActiveAction(null);
+  };
+
+  /** Stub handler — replace with real API calls when the backend is ready. */
+  const handleActionConfirm = (_decision: "approve" | "reject", _notes: string) => {
+    // TODO: dispatch the appropriate service call (validate, extend, cancel)
+    // based on `activeAction` when the backend integration is implemented.
+    setActiveAction(null);
+  };
 
   if (!vault) {
     return (
@@ -453,11 +181,19 @@ export default function VaultDetail() {
     );
   }
 
-  const statusCfg = STATUS_CONFIG[vault.status];
   const progress = timelineProgress(vault.createdAt, vault.deadline);
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
   const settlement = settlementForVault(vault);
+  const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const handleCalendarExport = () => {
+    downloadIcsEvent({
+      title: `${vault.name} deadline`,
+      deadline: vault.deadline,
+      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      uid: `vault-${vault.id}-deadline`,
+    });
+  };
 
   return (
     <div
@@ -467,6 +203,15 @@ export default function VaultDetail() {
         padding: "0 0 3rem",
       }}
     >
+      <Breadcrumb
+        segments={[
+          { label: "Home", to: "/" },
+          { label: "Vaults", to: "/vaults" },
+          { label: vault.name },
+        ]}
+        style={{ marginBottom: "var(--spacing-4)" }}
+      />
+
       {/* Back link */}
       <Link
         to="/vaults"
@@ -504,19 +249,7 @@ export default function VaultDetail() {
               <Text role="title" as="h1" style={{ margin: 0 }}>
                 {vault.name}
               </Text>
-              <span
-                style={{
-                  background: statusCfg.bg,
-                  color: statusCfg.color,
-                  border: `var(--border-width-1) solid ${statusCfg.color}`,
-                  borderRadius: "var(--radius-full)",
-                  padding: "2px 12px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {statusCfg.label}
-              </span>
+              <StatusChip status={vault.status} size="lg" />
             </div>
             <Text
               role="display"
@@ -537,19 +270,47 @@ export default function VaultDetail() {
           </div>
 
           {/* Quick Actions */}
-          {isActive && (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {vault.status === "pending_validation" && (
-                <button style={actionBtn("var(--accent)")}>
-                  Validate Milestone
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link
+              to="/vaults/create"
+              state={createVaultPrefillFromVault(vault)}
+              style={{
+                ...actionBtn("var(--accent)"),
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Duplicate Vault
+            </Link>
+            {isActive && (
+              <>
+                {vault.status === "pending_validation" && (
+                  <button
+                    type="button"
+                    style={actionBtn("var(--accent)")}
+                    onClick={() => handleActionClick("validate_milestone")}
+                  >
+                    Validate Milestone
+                  </button>
+                )}
+                <button
+                  type="button"
+                  style={actionBtn("var(--warning)")}
+                  onClick={() => handleActionClick("extend_deadline")}
+                >
+                  Extend Deadline
                 </button>
-              )}
-              <button style={actionBtn("var(--warning)")}>
-                Extend Deadline
-              </button>
-              <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  style={actionBtn("var(--danger)")}
+                  onClick={() => handleActionClick("cancel_vault")}
+                >
+                  Cancel Vault
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -572,10 +333,14 @@ export default function VaultDetail() {
           label={`${vault.name} timeline progress`}
           showValue={false}
         />
+        <VaultLifecycle status={vault.status} />
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.5rem",
             marginTop: "0.5rem",
           }}
         >
@@ -585,17 +350,29 @@ export default function VaultDetail() {
           {isActive ? (
             <CountdownDeadline deadline={vault.deadline} />
           ) : (
-            <Text
-              role="caption"
-              as="span"
-              style={{ color: statusCfg.color, fontWeight: 600 }}
-            >
-              {statusCfg.label}
-            </Text>
+            <StatusChip status={vault.status} />
           )}
-          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Deadline {fmtDate(vault.deadline)}
-          </Text>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+              Deadline {fmtDate(vault.deadline)}
+            </Text>
+            {canExportDeadline ? (
+              <button
+                type="button"
+                onClick={handleCalendarExport}
+                style={actionBtn("var(--accent)")}
+              >
+                Add to calendar
+              </button>
+            ) : null}
+          </div>
         </div>
       </Card>
 
@@ -638,29 +415,14 @@ export default function VaultDetail() {
         </Card>
 
         <Card>
-          <Text
-            role="caption"
-            as="div"
-            style={{
-              color: "var(--muted)",
-              marginBottom: "1rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Addresses
-          </Text>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
-          >
-            <AddrRow label="Creator" value={vault.creatorAddress} />
-            {vault.verifierAddress && (
-              <AddrRow label="Verifier" value={vault.verifierAddress} />
-            )}
-            <AddrRow label="Success destination" value={vault.successAddress} />
-            <AddrRow label="Failure destination" value={vault.failureAddress} />
-            <AddrRow label="Contract" value={vault.contractAddress} />
-          </div>
+          <VaultMetaPanel
+            network={network}
+            creatorAddress={vault.creatorAddress}
+            verifierAddress={vault.verifierAddress}
+            successAddress={vault.successAddress}
+            failureAddress={vault.failureAddress}
+            contractAddress={vault.contractAddress}
+          />
         </Card>
       </div>
 
@@ -750,11 +512,28 @@ export default function VaultDetail() {
                     as="span"
                     style={{ color: "var(--muted)", fontSize: 11 }}
                   >
-                    {truncHash(tx.hash)}
+                    {truncateMiddle(tx.hash, 8, 6)}
                   </Text>
-                  <CopyButton value={tx.hash} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(tx.hash).catch(() => {});
+                    }}
+                    title="Copy hash"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--muted)",
+                      padding: "0 4px",
+                      fontSize: 13,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ⎘
+                  </button>
                   <a
-                    href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
+                    href={getExplorerTxUrl(tx.hash, network)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "var(--accent)", fontSize: 11 }}
@@ -767,7 +546,118 @@ export default function VaultDetail() {
           ))}
         </div>
       </Card>
+
+      {/* ── Network Footer Banner ── */}
+      <NetworkFooterBanner
+        network={network}
+        contractAddress={vault.contractAddress}
+      />
+
+      {/* ── Vault Action Confirmation Modal ── */}
+      {activeAction && (
+        <ConfirmationModal
+          isOpen={activeAction !== null}
+          onClose={handleModalClose}
+          onConfirm={handleActionConfirm}
+          simpleConfirm={VAULT_ACTION_CONFIG[activeAction]}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Network Footer Banner ─────────────────────────────────────────────────────
+interface NetworkFooterBannerProps {
+  network: string | null | undefined;
+  contractAddress: string;
+}
+
+function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerProps) {
+  const label = networkLabel(network);
+  const explorerUrl = contractAddress
+    ? contractExplorerUrl(contractAddress, network ?? 'TESTNET')
+    : '';
+
+  const isTestnet = network !== 'PUBLIC';
+  const networkStatusColor = isTestnet
+    ? "var(--warning)"
+    : "var(--success)";
+
+  return (
+    <footer
+      aria-label="Network information"
+      style={{
+        marginTop: "1.5rem",
+        padding: "0.75rem 1rem",
+        borderRadius: "var(--radius)",
+        border: `1px solid ${networkStatusColor}`,
+        background: isTestnet
+          ? "rgba(245,158,11,0.07)"
+          : "rgba(16,185,129,0.07)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "0.5rem 1rem",
+      }}
+    >
+      {/* Network badge */}
+      <span
+        aria-label={`Network: ${label}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          fontWeight: 700,
+          fontSize: 12,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: networkStatusColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: networkStatusColor,
+          }}
+        />
+        {label}
+      </span>
+
+      {/* Contract address */}
+      {contractAddress && (
+        <Text
+          role="mono"
+          as="span"
+          style={{ color: "var(--muted)", fontSize: 12, flex: 1, minWidth: 0 }}
+          aria-label={`Contract address: ${contractAddress}`}
+        >
+          {contractAddress}
+        </Text>
+      )}
+
+      {/* Explorer link */}
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View contract ${contractAddress} on Stellar ${label} explorer`}
+          style={{
+            color: networkStatusColor,
+            fontSize: 12,
+            fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          View on Explorer ↗
+        </a>
+      )}
+    </footer>
   );
 }
 

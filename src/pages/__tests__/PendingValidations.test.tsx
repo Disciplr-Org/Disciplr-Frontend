@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import { useVerifierStore } from '../../Zustand/Store';
@@ -24,7 +25,6 @@ const makeTasks = () => [
     owner: '0xAAAA',
     amount: '10,000 USDC',
     deadline: '2026-07-01',
-    daysRemaining: 10,
     status: 'pending' as const,
     milestone: 'Phase 1',
   },
@@ -34,7 +34,6 @@ const makeTasks = () => [
     owner: '0xBBBB',
     amount: '5,000 USDC',
     deadline: '2026-06-20',
-    daysRemaining: 2,
     status: 'pending' as const,
     milestone: 'Phase 2',
   },
@@ -44,11 +43,19 @@ const makeTasks = () => [
     owner: '0xCCCC',
     amount: '20,000 USDC',
     deadline: '2026-07-10',
-    daysRemaining: 20,
     status: 'pending' as const,
     milestone: 'Phase 3',
   },
 ];
+
+const mockedUseVerifierStore = useVerifierStore as unknown as Mock;
+
+/** Helper: make useVerifierStore(selector) work in tests. */
+function mockStore(state: Record<string, unknown>) {
+  mockedUseVerifierStore.mockImplementation((selector: (s: unknown) => unknown) =>
+    selector(state),
+  );
+}
 
 function renderPage() {
   return render(
@@ -63,11 +70,23 @@ describe('PendingValidations', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: makeTasks() });
+    mockStore({
+      pendingValidations: makeTasks(),
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
+    });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('renders without throwing (regression test for #622)', () => {
+    // Ensure that sortLabel, headerSort, and aria-sort expressions all
+    // reference the correct state variable (sortDir, not sortDirection)
+    // and that the page mounts without a ReferenceError.
+    expect(() => renderPage()).not.toThrow();
   });
 
   it('renders the page heading', () => {
@@ -76,14 +95,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -95,36 +114,37 @@ describe('PendingValidations', () => {
     expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
   });
 
-  it('default sort is ascending (most urgent first) and button shows "High to Low"', () => {
+  it('default sort is deadline ascending and direction shows ascending', () => {
     renderPage();
-    expect(screen.getByRole('button', { name: /High to Low/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Sort by/i)).toHaveValue('deadline');
+    expect(screen.getByRole('button', { name: /Ascending/i })).toBeInTheDocument();
 
-    // ascending: v-2 (2 days) → v-1 (10 days) → v-3 (20 days)
+    // ascending: v-2 → v-1 → v-3
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Beta Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
     expect(vaultCells[2].textContent).toBe('Gamma Vault');
   });
 
-  it('toggling sort reverses the order and button shows "Low to High"', () => {
+  it('toggling sort direction reverses the order and shows descending', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: /High to Low/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
 
-    expect(screen.getByRole('button', { name: /Low to High/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Descending/i })).toBeInTheDocument();
 
-    // descending: v-3 (20 days) → v-1 (10 days) → v-2 (2 days)
+    // descending: v-3 → v-1 → v-2
     const vaultCells = screen.getAllByText(/Vault$/);
     expect(vaultCells[0].textContent).toBe('Gamma Vault');
     expect(vaultCells[1].textContent).toBe('Alpha Vault');
     expect(vaultCells[2].textContent).toBe('Beta Vault');
   });
 
-  it('toggling twice returns to original ascending order', () => {
+  it('toggling direction twice returns to original ascending order', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: /High to Low/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Low to High/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Descending/i }));
 
-    expect(screen.getByRole('button', { name: /High to Low/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ascending/i })).toBeInTheDocument();
 
     // back to ascending: v-2 → v-1 → v-3
     const vaultCells = screen.getAllByText(/Vault$/);
@@ -133,10 +153,35 @@ describe('PendingValidations', () => {
     expect(vaultCells[2].textContent).toBe('Gamma Vault');
   });
 
+  it('sorts by amount when the sort selector changes', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/Sort by/i), {
+      target: { value: 'amount' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
+
+    const vaultCells = screen.getAllByText(/Vault$/);
+    expect(vaultCells[0].textContent).toBe('Gamma Vault');
+    expect(vaultCells[1].textContent).toBe('Alpha Vault');
+    expect(vaultCells[2].textContent).toBe('Beta Vault');
+  });
+
+  it('sorts by vault name from the sort selector', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/Sort by/i), {
+      target: { value: 'vaultName' },
+    });
+
+    const vaultCells = screen.getAllByText(/Vault$/);
+    expect(vaultCells[0].textContent).toBe('Alpha Vault');
+    expect(vaultCells[1].textContent).toBe('Beta Vault');
+    expect(vaultCells[2].textContent).toBe('Gamma Vault');
+  });
+
   it('clicking Review navigates to the correct ValidationDetail route', () => {
     renderPage();
     const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-    // first row after asc sort is v-2 (daysRemaining: 2)
+    // first row after deadline ascending sort is v-2.
     fireEvent.click(reviewButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/verifier/queue/v-2');
   });
@@ -148,8 +193,11 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockStore({
       pendingValidations: [makeTasks()[0]],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
     });
     renderPage();
     expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
@@ -157,11 +205,14 @@ describe('PendingValidations', () => {
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    (useVerifierStore as any).mockReturnValue({
+    mockStore({
       pendingValidations: [
         { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
         { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
       ],
+      validationHistory: [],
+      batchApprove: vi.fn(),
+      batchReject: vi.fn(),
     });
     renderPage();
     const rows = screen.getAllByRole('row').slice(1);
@@ -201,39 +252,351 @@ describe('PendingValidations', () => {
       expect(deadlineHeader).toHaveAttribute('aria-sort', 'ascending');
     });
 
-    it('aria-sort becomes "descending" after toggling sort to Low to High', () => {
+    it('aria-sort becomes "descending" after toggling sort direction', () => {
       renderPage();
-      fireEvent.click(screen.getByRole('button', { name: /High to Low/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
       const deadlineHeader = screen.getByRole('columnheader', { name: /Deadline/i });
       expect(deadlineHeader).toHaveAttribute('aria-sort', 'descending');
     });
 
     it('toggling sort twice restores aria-sort to "ascending"', () => {
       renderPage();
-      fireEvent.click(screen.getByRole('button', { name: /High to Low/i }));
-      fireEvent.click(screen.getByRole('button', { name: /Low to High/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Descending/i }));
       const deadlineHeader = screen.getByRole('columnheader', { name: /Deadline/i });
       expect(deadlineHeader).toHaveAttribute('aria-sort', 'ascending');
     });
 
+    it('moves aria-sort to the active sort column', () => {
+      renderPage();
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
+        target: { value: 'amount' },
+      });
+
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
+      expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
+    });
+
+    it('clicking an inactive column header button activates that column sort and sets aria-sort', () => {
+      renderPage();
+      const amountButton = screen.getByRole('button', { name: /Sort Amount at Stake column/i });
+      fireEvent.click(amountButton);
+
+      expect(screen.getByRole('columnheader', { name: /Amount at Stake/i })).toHaveAttribute('aria-sort', 'ascending');
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).not.toHaveAttribute('aria-sort');
+      expect(screen.getByLabelText(/Sort by/i)).toHaveValue('amount');
+    });
+
+    it('clicking the active column header button toggles sort direction', () => {
+      renderPage();
+      const deadlineButton = screen.getByRole('button', { name: /Sort Deadline column/i });
+      fireEvent.click(deadlineButton);
+
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'descending');
+      expect(screen.getByRole('button', { name: /Sort direction: Descending/i })).toBeInTheDocument();
+
+      fireEvent.click(deadlineButton);
+      expect(screen.getByRole('columnheader', { name: /Deadline/i })).toHaveAttribute('aria-sort', 'ascending');
+    });
+
     it('urgent rows (≤3 days) include a non-color sr-only urgency cue', () => {
       renderPage();
-      // v-2 has daysRemaining: 2 which is ≤ 3
+      // v-2 is overdue, which is within the critical threshold.
       const urgentCue = screen.getByText('Urgent');
       expect(urgentCue.className).toContain('sr-only');
     });
 
     it('non-urgent rows do not include an urgency cue', () => {
       renderPage();
-      // Only v-2 (daysRemaining: 2) is urgent; v-1 and v-3 are not
+      // Only v-2 is urgent; v-1 and v-3 are not.
       const urgentCues = screen.getAllByText('Urgent');
       expect(urgentCues).toHaveLength(1);
     });
 
     it('empty table state renders no table role', () => {
-      (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
       renderPage();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('sort selector', () => {
+    it('sorts by amount numerically', () => {
+      renderPage();
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
+        target: { value: 'amount' },
+      });
+
+      const vaultCells = screen.getAllByText(/Vault$/);
+      expect(vaultCells[0].textContent).toBe('Beta Vault');
+      expect(vaultCells[1].textContent).toBe('Alpha Vault');
+      expect(vaultCells[2].textContent).toBe('Gamma Vault');
+    });
+
+    it('sorts by vault name and reverses with the direction toggle', () => {
+      renderPage();
+      fireEvent.change(screen.getByLabelText(/Sort by/i), {
+        target: { value: 'vaultName' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Ascending/i }));
+
+      const vaultCells = screen.getAllByText(/Vault$/);
+      expect(vaultCells[0].textContent).toBe('Gamma Vault');
+      expect(vaultCells[1].textContent).toBe('Beta Vault');
+      expect(vaultCells[2].textContent).toBe('Alpha Vault');
+    });
+  });
+
+  it('does not have hardcoded color classes on the primary container', () => {
+    const { container } = renderPage();
+    const primaryContainer = container.firstChild as HTMLElement;
+    expect(primaryContainer.className).not.toContain('bg-white');
+    expect(primaryContainer.className).not.toContain('text-gray-500');
+    expect(primaryContainer.className).not.toContain('text-red-600');
+  });
+
+  it('uses design tokens for batch action buttons', () => {
+    renderPage();
+    // Rejection button
+    const rejectBtn = screen.getByRole('button', { name: /Reject Selected/i });
+    expect(rejectBtn.getAttribute('style')).toContain('var(--danger)');
+    expect(rejectBtn.getAttribute('style')).toContain('var(--danger-transparent)');
+
+    // Approval button
+    const approveBtn = screen.getByRole('button', { name: /Approve Selected/i });
+    expect(approveBtn.getAttribute('style')).toContain('var(--success)');
+    expect(approveBtn.getAttribute('style')).toContain('white');
+  });
+
+  describe('search and filter controls', () => {
+    it('renders search input and milestone filter', () => {
+      renderPage();
+      expect(screen.getByLabelText(/Search by Vault Name or Owner/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Filter by Milestone/i)).toBeInTheDocument();
+    });
+
+    it('shows all available milestones in dropdown', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      const options = Array.from(milestoneSelect.options).map(opt => opt.value);
+      expect(options).toContain('');
+      expect(options).toContain('Phase 1');
+      expect(options).toContain('Phase 2');
+      expect(options).toContain('Phase 3');
+    });
+  });
+
+  describe('search by vault name', () => {
+    it('filters table rows when searching by vault name', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('search is case-insensitive', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'beta' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('search works with partial vault names', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'Vault' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+    });
+  });
+
+  describe('search by owner', () => {
+    it('filters table rows when searching by owner address', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xAAAA' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('owner search is case-insensitive', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xbbbb' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('search works with partial owner addresses', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '0xC' } });
+
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('milestone filter', () => {
+    it('filters table rows by milestone', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Beta Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows single vault when filtering by Phase 2', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 2' } });
+
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows all results when milestone filter is reset to "All Milestones"', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+      fireEvent.change(milestoneSelect, { target: { value: '' } });
+
+      expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+      expect(screen.getByText('Beta Vault')).toBeInTheDocument();
+      expect(screen.getByText('Gamma Vault')).toBeInTheDocument();
+    });
+  });
+
+  describe('combined search and filter', () => {
+    it('applies both search and milestone filter together', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+
+      fireEvent.change(searchInput, { target: { value: 'Gamma' } });
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.queryByText('Gamma Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows no results when search matches but milestone does not', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+
+      fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 2' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Vault')).not.toBeInTheDocument();
+    });
+
+    it('shows "No results found" when no validations match filters', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.getByText(/Try adjusting your search/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('select-all with filters', () => {
+    it('select-all only selects filtered items', () => {
+      renderPage();
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      const selectedCheckboxes = screen.getAllByRole('checkbox')
+        .filter(cb => (cb as HTMLInputElement).checked);
+      expect(selectedCheckboxes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('clears selection when search filter changes', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+      expect((selectAllCheckbox as HTMLInputElement).checked).toBe(true);
+
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
+      expect(screen.queryByLabelText(/Select all validations/i)).not.toBeInTheDocument();
+      expect(screen.getByText('0 selected')).toBeInTheDocument();
+    });
+  });
+
+  describe('batch actions with filters', () => {
+    it('batch approve button is disabled when no items are selected', () => {
+      renderPage();
+      const approveButton = screen.getByRole('button', { name: /Approve Selected/i });
+      expect(approveButton).toBeDisabled();
+    });
+
+    it('batch reject button is disabled when no items are selected', () => {
+      renderPage();
+      const rejectButton = screen.getByRole('button', { name: /Reject Selected/i });
+      expect(rejectButton).toBeDisabled();
+    });
+
+    it('batch approve button is enabled when items are selected', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      const approveButton = screen.getByRole('button', { name: /Approve Selected/i });
+      expect(approveButton).not.toBeDisabled();
+    });
+
+    it('selection count updates when filtering changes', () => {
+      renderPage();
+      const selectAllCheckbox = screen.getByLabelText(/Select all validations/i) as HTMLInputElement;
+      fireEvent.click(selectAllCheckbox);
+
+      let selectionText = screen.getByText('3 selected');
+      expect(selectionText).toBeInTheDocument();
+
+      const milestoneSelect = screen.getByLabelText(/Filter by Milestone/i) as HTMLSelectElement;
+      fireEvent.change(milestoneSelect, { target: { value: 'Phase 1' } });
+
+      selectionText = screen.getByText('0 selected');
+      expect(selectionText).toBeInTheDocument();
+    });
+  });
+
+  describe('empty state messaging', () => {
+    it('shows "All caught up!" when there are no pending validations', () => {
+      mockStore({ pendingValidations: [], validationHistory: [], batchApprove: vi.fn(), batchReject: vi.fn() });
+      renderPage();
+
+      expect(screen.getByText('All caught up!')).toBeInTheDocument();
+      expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
+    });
+
+    it('shows "No results found" when filters eliminate all items', () => {
+      renderPage();
+      const searchInput = screen.getByLabelText(/Search by Vault Name or Owner/i) as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'ZZZ' } });
+
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+      expect(screen.getByText(/Try adjusting your search/i)).toBeInTheDocument();
     });
   });
 });

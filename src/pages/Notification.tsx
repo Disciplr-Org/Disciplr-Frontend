@@ -1,58 +1,40 @@
 import Message from "@/components/Notification/Messages";
-import { useEffect, useRef, useState } from "react";
+import { groupNotificationsByDate } from "../utils/groupNotifications";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../utils/motion";
 import { useNotification } from "@/Zustand/Store";
 import { MdOutlineSettingsInputComposite } from "react-icons/md";
+import { X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
+import { Pagination } from "@/components/Pagination";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { paginate } from "@/utils/paginate";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
   const setNotifications = useNotification((state) => state.setNotification);
-  const [currentNotification, setCurrentNotification] = useState(notifications);
-  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] =
-    useState("all");
-  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] =
-    useState("all");
+  const dismiss = useNotification((state) => state.dismiss);
+  const clearAll = useNotification((state) => state.clearAll);
+  const [currentFilterReadSeletion, setCurrentFilterReadSeletion] = useState("all");
+  const [currentFilterTypeSeletion, setCurrentFilterTypeSeletion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const itemsPerPage = 5;
 
-  // 1. Calculate the data for the current page
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentData = currentNotification.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
 
-  const containerRef = useRef<HTMLDivElement | null>(null); // 1. Create a reference to the container
+  // Define a clean transition config that zero-durations motion elements when flag is on
+  const activeTransition = prefersReducedMotion 
+    ? { duration: 0 } 
+    : transitionEnter;
 
-  useEffect(() => {
-    // 2. Function to handle clicks
-    const handleClickOutside = (event: MouseEvent) => {
-      // If the clicked element is NOT inside our container, close it
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsFilterOpen(false);
-      }
-    };
-
-    // 3. Attach listener to the whole document
-    document.addEventListener("mousedown", handleClickOutside);
-
-    // 4. Cleanup listener when component unmounts
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const filterNotification = () => {
+  const filteredNotifications = useMemo(() => {
     let filtered = notifications;
-
-    if (!filtered) return;
+    if (!filtered) return [];
 
     if (currentFilterReadSeletion !== "all") {
       filtered = filtered.filter(
@@ -65,29 +47,95 @@ export default function Notification() {
         (noti) => noti.category === currentFilterTypeSeletion,
       );
     }
-    setCurrentNotification(filtered);
-    setCurrentPage(1);
-  };
+
+    return filtered;
+  }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
+
+  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
+  const currentData = pagination.items;
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    filterNotification();
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsFilterOpen((open) => {
+          if (open) {
+            // Restore focus to filter button if focus is currently inside the filter panel
+            if (filterPanelRef.current?.contains(document.activeElement)) {
+              filterButtonRef.current?.focus();
+            }
+            return false;
+          }
+          return open;
+        });
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFilterOpen((open) => {
+          if (open) {
+            // Restore focus to filter button if focus is currently inside the filter panel
+            if (filterPanelRef.current?.contains(document.activeElement)) {
+              filterButtonRef.current?.focus();
+            }
+            return false;
+          }
+          return open;
+        });
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
-  // 2. Calculate total pages
-  const totalPages = Math.ceil(currentNotification.length / itemsPerPage);
   const setRead = (id: string) => {
     setNotifications(
       notifications.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
-    setCurrentNotification((prev) =>
-      prev.map((n) =>
-        // If this is the one we clicked, update isRead. Otherwise, return as is.
         n.id === id ? { ...n, isRead: true } : n,
       ),
     );
   };
+
+  const handleDismiss = (id: string) => {
+    dismiss(id);
+  };
+
+  const handleClearAll = () => {
+    clearAll();
+    setShowClearModal(false);
+  };
+
+  const statusLabel =
+    currentFilterReadSeletion === "all"
+      ? "all"
+      : currentFilterReadSeletion === "0"
+        ? "unread"
+        : "read";
+  const categoryLabel =
+    currentFilterTypeSeletion === "all" ? "all categories" : currentFilterTypeSeletion;
+  const resultCount = filteredNotifications.length;
+  const countText =
+    resultCount === 0
+      ? "No notifications found"
+      : `Showing ${resultCount === 1 ? "1 notification" : `${resultCount} notifications`}`;
+  const liveAnnouncement = `${countText}. Active filters: status ${statusLabel}, category ${categoryLabel}.`;
+
   return (
     <>
       <div ref={containerRef} className="flex justify-between items-center">
@@ -95,7 +143,8 @@ export default function Notification() {
         <div className="flex gap-5 items-center justify-center">
           <div className="relative">
             <Link
-              to="/notification/settings"
+              to="/notifications/settings"
+              aria-label="Notification Preferences"
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "var(--radius-full)",
@@ -110,24 +159,30 @@ export default function Notification() {
 
           <div className="relative">
             <button
+              ref={filterButtonRef}
+              aria-label="Filter notifications"
+              aria-expanded={isFilterOpen}
+              aria-controls="notification-filter-panel"
               onClick={() => {
                 if (isPreferenceOpen) {
                   setIsPreferenceOpen(false);
                 }
                 setIsFilterOpen((prev) => !prev);
               }}
-              className="bg-[#00c389] px-3 py-2 rounded-md"
+              className="bg-[var(--accent)] px-3 py-2 rounded-md"
             >
               Filter
             </button>
             <AnimatePresence>
               {isFilterOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  ref={filterPanelRef}
+                  initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={transitionEnter}
-                  className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md z-20"
+                  exit={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -10, scale: 0.95 }}
+                  transition={activeTransition} // <-- Assign the guarded duration here
+                  className="absolute w-[300px] h-[200px] translate-x-[-100%] bg-white text-black px-3 py-2 rounded-md"
+                  style={{ zIndex: 'var(--z-index-drawer)' }}
                 >
                   <h2>Filter By : </h2>
                   <div className="flex justify-between">
@@ -163,56 +218,84 @@ export default function Notification() {
               )}
             </AnimatePresence>
           </div>
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setShowClearModal(true)}
+              className="bg-red-500 px-3 py-2 rounded-md text-white text-sm"
+            >
+              Clear all
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex w-full flex-col gap-5 mt-5">
-        {currentData.length > 0 ? (
-          currentData.map((items) => (
-            <div
-              key={items.id}
-              className="w-full px-2 border-[#00c389] border-1 rounded-md "
-            >
-              <Message
-                id={items.id}
-                title={items.title}
-                message={items.message}
-                timeAgo={items.timeAgo}
-                type={items.type}
-                read={items.isRead}
-                isFullPage={true}
-                setRead={setRead}
-              />
+        {currentData.length > 0 ? (() => {
+          const groups = groupNotificationsByDate(currentData);
+          return groups.map((group) => (
+            <div key={group.bucket}>
+              <div
+                className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2 mt-1"
+                style={{ letterSpacing: '0.08em' }}
+              >
+                {group.bucket}
+              </div>
+              {group.items.map((items) => (
+                <div
+                  key={items.id}
+                  className="w-full px-2 border-[var(--accent)] border-1 rounded-md mb-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <Message
+                        id={items.id}
+                        title={items.title}
+                        message={items.message}
+                        timestamp={items.timestamp}
+                        type={items.type}
+                        read={items.isRead}
+                        isFullPage={true}
+                        setRead={setRead}
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleDismiss(items.id)}
+                      className="mt-2 p-1 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-100"
+                      aria-label={`Dismiss notification ${items.id}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))
-        ) : (
+          ));
+        })() : (
           <p>No notifications found.</p>
         )}
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col justify-end">
-        <div className="flex justify-center gap-4 mt-8">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((prev) => prev - 1)}
-            className="px-4 py-2 bg-[#121a2a] rounded disabled:opacity-50 text-white"
-          >
-            Previous
-          </button>
+      <Pagination
+        pagination={pagination}
+        onPageChange={setCurrentPage}
+        ariaLabel="Notifications pagination"
+        className="mt-8"
+      />
 
-          <span className="flex items-center">
-            Page {currentPage} of {totalPages}
-          </span>
+      <ConfirmationModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearAll}
+        simpleConfirm={{
+          title: "Clear all notifications",
+          message: `Are you sure you want to clear all ${notifications.length} notifications? This action cannot be undone.`,
+          confirmLabel: "Clear all",
+        }}
+      />
 
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((prev) => prev + 1)}
-            className="px-4 py-2 bg-[#00c389] rounded disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
+      {/* Screen Reader Announcements for filter updates and notification counts */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {liveAnnouncement}
       </div>
     </>
   );

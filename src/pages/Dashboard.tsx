@@ -1,145 +1,23 @@
-import { Link } from 'react-router-dom'
-import { Text } from '../components/Text';
-import VaultCard from '../components/VaultCard';
-import { getAtRiskVaults } from '../utils/atRiskVaults';
+import { Link } from "react-router-dom";
+import { Text } from "../components/Text";
+import VaultCard from "../components/VaultCard";
+import UpcomingDeadlines from "../components/UpcomingDeadlines";
+import { getAtRiskVaults } from "../utils/atRiskVaults";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
-
-interface VaultPreview {
-  id: string;
-  name: string;
-  amount: number;
-  currency: string;
-  status: VaultStatus;
-  progressPct: number; // 0-100 time elapsed
-  deadline: string;
-}
-
-interface Activity {
-  id: string;
-  type: "created" | "validated" | "released" | "redirected";
-  vault: string;
-  timestamp: string;
-  amount?: number;
-}
-
-interface Deadline {
-  id: string;
-  name: string;
-  deadline: string;
-  amount: number;
-}
+import { useCallback, useMemo, useState, useEffect } from "react";
+import * as dashboardUtils from "../utils/dashboard";
+import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
+import type { VaultStatus, Vault } from "../types/vault";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
-const SUMMARY = {
-  totalLocked: 25500,
-  activeVaults: 3,
-  pendingMilestones: 2,
-  completionRate: 67,
-};
-
-const VAULTS: VaultPreview[] = [
-  {
-    id: "1",
-    name: "Alpha Vault",
-    amount: 12500,
-    currency: "USDC",
-    status: "active",
-    progressPct: 42,
-    deadline: "2024-07-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Beta Reserve",
-    amount: 8800,
-    currency: "USDC",
-    status: "pending_validation",
-    progressPct: 78,
-    deadline: "2026-07-30T10:00:00Z",
-  },
-  {
-    id: "3",
-    name: "Gamma Fund",
-    amount: 4200,
-    currency: "USDC",
-    status: "active",
-    progressPct: 25,
-    deadline: "2026-07-28T06:00:00Z",
-  },
-];
-
-const ACTIVITY: Activity[] = [
-  {
-    id: "a1",
-    type: "validated",
-    vault: "Alpha Vault",
-    timestamp: "2024-04-28T14:30:00Z",
-  },
-  {
-    id: "a2",
-    type: "created",
-    vault: "Gamma Fund",
-    timestamp: "2024-04-27T09:00:00Z",
-    amount: 4200,
-  },
-  {
-    id: "a3",
-    type: "released",
-    vault: "Delta Safe",
-    timestamp: "2024-04-25T16:45:00Z",
-    amount: 15000,
-  },
-  {
-    id: "a4",
-    type: "redirected",
-    vault: "Epsilon Pool",
-    timestamp: "2024-04-24T11:20:00Z",
-    amount: 3300,
-  },
-];
-
-const DEADLINES: Deadline[] = [
-  {
-    id: "2",
-    name: "Beta Reserve",
-    deadline: "2024-05-20T10:00:00Z",
-    amount: 8800,
-  },
-  {
-    id: "1",
-    name: "Alpha Vault",
-    deadline: "2024-07-15T10:00:00Z",
-    amount: 12500,
-  },
-];
+// Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
+// vaultService (see Dashboard component below).
+import { ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
+import { listVaults } from "../services/vaultService";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-};
+
 
 const ACTIVITY_CFG: Record<
   Activity["type"],
@@ -154,30 +32,19 @@ const ACTIVITY_CFG: Record<
   released: {
     label: "Funds released",
     icon: "↑",
-    color: "var(--info, #60A5FA)",
+    color: "var(--info)",
   },
   redirected: { label: "Funds redirected", icon: "→", color: "var(--warning)" },
 };
 
-function daysRemaining(deadline: string): number {
-  return Math.max(
-    0,
-    Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000),
-  );
-}
+// Pure formatting functions have been extracted to src/utils/dashboard.ts
 
-function urgencyColor(days: number): string {
-  if (days <= 7) return "var(--danger)";
-  if (days <= 30) return "var(--warning)";
-  return "var(--success)";
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(diff / 3600000);
-  if (h < 1) return "just now";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+/** Same calculation as VaultDetail.tsx’s timelineProgress. */
+function timelineProgress(created: string, deadline: string): number {
+  const start = new Date(created).getTime();
+  const end = new Date(deadline).getTime();
+  const now = Date.now();
+  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -234,25 +101,6 @@ function SummaryCard({
   );
 }
 
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const cfg = STATUS_CFG[status];
-  return (
-    <span
-      style={{
-        background: cfg.bg,
-        color: cfg.color,
-        border: `var(--border-width-1) solid ${cfg.color}`,
-        borderRadius: "var(--radius-full)",
-        padding: "2px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cfg.label}
-    </span>
-  );
-}
 
 function SectionHeader({
   title,
@@ -328,8 +176,62 @@ function AtRiskSection({ vaults }: { vaults: VaultPreview[] }) {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-export default function Dashboard() {
-  const hasVaults = VAULTS.length > 0;
+export default function Dashboard({
+  activity = ACTIVITY,
+  deadlines = DEADLINES,
+}: {
+  activity?: Activity[];
+  deadlines?: Deadline[];
+} = {}) {
+  const [vaults, setVaults] = useState<VaultPreview[]>([]);
+  const [fullVaults, setFullVaults] = useState<Vault[]>([]);
+  const [vaultStatus, setVaultStatus] = useState<
+    "loading" | "empty" | "data" | "error"
+  >("loading");
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setVaultStatus("loading");
+    listVaults()
+      .then((loaded) => {
+        if (cancelled) return;
+        setFullVaults(loaded);
+        setVaults(
+          loaded.map((v) => ({
+            id: v.id,
+            name: v.name,
+            amount: v.amount,
+            currency: v.currency,
+            status: v.status as VaultStatus,
+            deadline: v.deadline,
+            progressPct: timelineProgress(v.createdAt, v.deadline),
+          })),
+        );
+        setVaultStatus(loaded.length === 0 ? "empty" : "data");
+      })
+      .catch(() => {
+        if (!cancelled) setVaultStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryCount]);
+
+  const retryVaults = useCallback(() => setRetryCount((c) => c + 1), []);
+
+  const computedSummary = useMemo(
+    () => dashboardUtils.computeDashboardSummary(fullVaults),
+    [fullVaults],
+  );
+  const memoizedSummary = useMemo(
+    () => dashboardUtils.formatSummary(computedSummary),
+    [computedSummary],
+  );
+  const memoizedActivity = useMemo(
+    () => dashboardUtils.processActivity(activity),
+    [activity],
+  );
 
   return (
     <div
@@ -360,21 +262,21 @@ export default function Dashboard() {
       >
         <SummaryCard
           label="Total Locked"
-          value={`$${SUMMARY.totalLocked.toLocaleString()}`}
+          value={memoizedSummary.totalLocked}
           sub="USDC"
           accent
         />
         <SummaryCard
           label="Active Vaults"
-          value={String(SUMMARY.activeVaults)}
+          value={memoizedSummary.activeVaults}
         />
         <SummaryCard
           label="Pending Milestones"
-          value={String(SUMMARY.pendingMilestones)}
+          value={memoizedSummary.pendingMilestones}
         />
         <SummaryCard
           label="Completion Rate"
-          value={`${SUMMARY.completionRate}%`}
+          value={memoizedSummary.completionRate}
           sub="all time"
         />
       </div>
@@ -417,7 +319,8 @@ export default function Dashboard() {
         >
           View All Vaults
         </Link>
-        <button
+        <Link
+          to="/verifier/queue"
           style={{
             background: "var(--surface)",
             color: "var(--warning)",
@@ -426,15 +329,15 @@ export default function Dashboard() {
             borderRadius: "var(--radius)",
             fontWeight: 500,
             fontSize: 14,
-            cursor: "pointer",
+            textDecoration: "none",
           }}
         >
           Verify Milestone
-        </button>
+        </Link>
       </div>
 
       {/* ── At Risk Vaults ── */}
-      <AtRiskSection vaults={VAULTS} />
+      <AtRiskSection vaults={vaults} />
 
       {/* ── Main grid: vault list + sidebar ── */}
       <div
@@ -463,23 +366,28 @@ export default function Dashboard() {
               action="View all →"
               to="/vaults"
             />
-            {hasVaults ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {VAULTS.map(v => (
-                  <VaultCard
-                    key={v.id}
-                    id={v.id}
-                    name={v.name}
-                    amount={v.amount}
-                    currency={v.currency}
-                    status={v.status}
-                    deadline={v.deadline}
-                    progressPct={v.progressPct}
-                  />
-                ))}
+            {vaultStatus === "loading" && (
+              <Text role="body" as="p" style={{ color: "var(--muted)" }}>
+                Loading vaults…
+              </Text>
+            )}
+
+            {vaultStatus === "error" && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "2.5rem 1rem",
+                  color: "var(--muted)",
+                }}
+              >
+                <Text role="body" as="p">
+                  Failed to load vaults.
+                </Text>
+                <button onClick={retryVaults}>Retry</button>
               </div>
-            ) : (
-              /* Empty state */
+            )}
+
+            {vaultStatus === "empty" && (
               <div
                 style={{
                   textAlign: "center",
@@ -515,6 +423,29 @@ export default function Dashboard() {
                 </Link>
               </div>
             )}
+
+            {vaultStatus === "data" && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {vaults.map((v) => (
+                  <VaultCard
+                    key={v.id}
+                    id={v.id}
+                    name={v.name}
+                    amount={v.amount}
+                    currency={v.currency}
+                    status={v.status}
+                    deadline={v.deadline}
+                    progressPct={v.progressPct}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Recent Activity */}
@@ -534,7 +465,7 @@ export default function Dashboard() {
                 gap: "0.5rem",
               }}
             >
-              {ACTIVITY.map((a) => {
+              {memoizedActivity.map((a) => {
                 const cfg = ACTIVITY_CFG[a.type];
                 return (
                   <div
@@ -574,13 +505,13 @@ export default function Dashboard() {
                           {a.vault}
                         </span>
                       </Text>
-                      {a.amount != null && (
+                      {a.formattedAmount != null && (
                         <Text
                           role="caption"
                           as="div"
                           style={{ color: "var(--muted)" }}
                         >
-                          {a.amount.toLocaleString()} USDC
+                          {a.formattedAmount}
                         </Text>
                       )}
                     </div>
@@ -589,7 +520,7 @@ export default function Dashboard() {
                       as="span"
                       style={{ color: "var(--muted)", whiteSpace: "nowrap" }}
                     >
-                      {relativeTime(a.timestamp)}
+                      {a.relativeTime}
                     </Text>
                   </div>
                 );
@@ -602,85 +533,7 @@ export default function Dashboard() {
         <div
           style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
         >
-          {/* Upcoming Deadlines */}
-          <div
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius)",
-              padding: "1.25rem",
-            }}
-          >
-            <SectionHeader title="Upcoming Deadlines" />
-            {DEADLINES.length === 0 ? (
-              <Text role="caption" as="div" style={{ color: "var(--muted)" }}>
-                No upcoming deadlines.
-              </Text>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
-                }}
-              >
-                {DEADLINES.map((d) => {
-                  const days = daysRemaining(d.deadline);
-                  const color = urgencyColor(days);
-                  return (
-                    <div
-                      key={d.id}
-                      style={{
-                        background: "var(--bg)",
-                        border: `1px solid var(--border)`,
-                        borderLeft: `3px solid ${color}`,
-                        borderRadius: "var(--radius)",
-                        padding: "0.75rem",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <Text
-                          role="caption"
-                          as="div"
-                          style={{ fontWeight: 600 }}
-                        >
-                          {d.name}
-                        </Text>
-                        <span
-                          style={{
-                            color,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {days === 0 ? "Today" : `${days}d`}
-                        </span>
-                      </div>
-                      <Text
-                        role="caption"
-                        as="div"
-                        style={{ color: "var(--muted)", marginTop: 2 }}
-                      >
-                        {d.amount.toLocaleString()} USDC ·{" "}
-                        {new Date(d.deadline).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </Text>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <UpcomingDeadlines deadlines={deadlines} />
 
           {/* Success Rate Chart (sparkline bars) */}
           <div
@@ -708,14 +561,7 @@ export default function Dashboard() {
 }
 
 // ── Success Rate Sparkline ────────────────────────────────────────────────────
-const CHART_DATA = [
-  { month: "Nov", rate: 50 },
-  { month: "Dec", rate: 60 },
-  { month: "Jan", rate: 55 },
-  { month: "Feb", rate: 75 },
-  { month: "Mar", rate: 70 },
-  { month: "Apr", rate: 67 },
-];
+// CHART_DATA lives in src/fixtures/dashboard.ts (imported at top of file).
 
 function SuccessChart() {
   return (

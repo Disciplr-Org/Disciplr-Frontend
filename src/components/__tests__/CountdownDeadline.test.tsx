@@ -19,9 +19,9 @@ describe('timeRemaining', () => {
     });
   });
 
-  it('marks exactly-now and past deadlines as expired', () => {
+  it('marks exactly-now and past deadlines as overdue', () => {
     expect(timeRemaining('2026-06-18T12:00:00Z', now).tone).toBe('expired');
-    expect(timeRemaining('2026-06-18T11:59:00Z', now).label).toBe('Expired');
+    expect(timeRemaining('2026-06-18T11:59:00Z', now).label).toBe('Overdue');
   });
 
   it('handles invalid deadline strings', () => {
@@ -42,10 +42,10 @@ describe('CountdownDeadline', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-18T12:00:00Z'));
 
-    render(<CountdownDeadline deadline="2026-06-18T23:45:00Z" />);
+    render(<CountdownDeadline deadline="2026-06-19T00:00:00Z" />);
 
     const countdown = screen.getByLabelText(/Deadline Jun 19, 2026/);
-    expect(countdown).toHaveTextContent('11h 45m remaining');
+    expect(countdown).toHaveTextContent('12h 0m remaining');
     expect(countdown).toHaveAttribute('aria-live', 'off');
     expect(countdown).toHaveAttribute('data-tone', 'urgent');
     expect(countdown).toHaveStyle({ color: 'var(--warning)' });
@@ -80,5 +80,54 @@ describe('CountdownDeadline', () => {
     unmount();
 
     expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it('shows "Overdue" label with danger color when deadline has passed', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-18T12:00:00Z'));
+
+    render(<CountdownDeadline deadline="2026-06-17T00:00:00Z" />);
+
+    const el = screen.getByText('Overdue');
+    expect(el).toHaveAttribute('data-tone', 'expired');
+    expect(el).toHaveStyle({ color: 'var(--danger)' });
+  });
+
+  it('does not fire onExpire when already expired on mount', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-18T12:00:00Z'));
+    const onExpire = vi.fn();
+
+    render(<CountdownDeadline deadline="2026-06-17T00:00:00Z" onExpire={onExpire} />);
+
+    expect(onExpire).not.toHaveBeenCalled();
+  });
+
+  it('fires onExpire exactly once when countdown crosses zero', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-18T12:00:00Z'));
+    const onExpire = vi.fn();
+
+    render(
+      <CountdownDeadline
+        deadline="2026-06-18T12:01:00Z"
+        intervalMs={60000}
+        onExpire={onExpire}
+      />
+    );
+
+    expect(onExpire).not.toHaveBeenCalled();
+
+    act(() => { vi.advanceTimersByTime(60000); });
+    expect(onExpire).toHaveBeenCalledTimes(1);
+
+    act(() => { vi.advanceTimersByTime(60000); });
+    expect(onExpire).toHaveBeenCalledTimes(1); // still once
+  });
+
+  it('handles an invalid deadline without crashing', () => {
+    vi.useFakeTimers();
+    render(<CountdownDeadline deadline="not-a-date" />);
+    expect(screen.getByText('Invalid deadline')).toBeInTheDocument();
   });
 });

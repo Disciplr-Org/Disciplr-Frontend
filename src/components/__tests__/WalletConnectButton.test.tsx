@@ -18,6 +18,10 @@ vi.mock('@stellar/freighter-api', () => ({
   getNetworkDetails: vi.fn(),
 }));
 
+vi.mock('../../utils/horizon', () => ({
+  fetchUsdcBalance: vi.fn().mockResolvedValue({ balance: '0.00', hasTrustline: false }),
+}));
+
 const mockIsAllowed = vi.mocked(isAllowed);
 const mockSetAllowed = vi.mocked(setAllowed);
 const mockRequestAccess = vi.mocked(requestAccess);
@@ -45,12 +49,17 @@ function getConnectedButton() {
 describe('WalletConnectButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsAllowed.mockResolvedValue(false);
-    mockSetAllowed.mockResolvedValue(undefined);
-    mockRequestAccess.mockResolvedValue(true);
+    // A prior test's disconnect() persists WALLET_DISCONNECTED_KEY in
+    // localStorage, which would otherwise make checkConnection() skip
+    // auto-reconnect on the next test's mount.
+    localStorage.clear();
+    mockIsAllowed.mockResolvedValue({ isAllowed: false });
+    mockSetAllowed.mockResolvedValue({ isAllowed: false });
+    mockRequestAccess.mockResolvedValue({ address: walletAddress });
     mockGetAddress.mockResolvedValue({ address: walletAddress, error: undefined });
     mockGetNetworkDetails.mockResolvedValue({
       network: 'TESTNET',
+      networkUrl: 'https://horizon-testnet.stellar.org',
       networkPassphrase: 'Test SDF Network ; September 2015',
     });
   });
@@ -61,15 +70,28 @@ describe('WalletConnectButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
 
     expect(screen.getByRole('heading', { name: /connect wallet/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /freighter connected/i })).toBeInTheDocument();
+    // Wallet is not yet connected at this point, so the option shows "Available".
+    expect(screen.getByRole('button', { name: /freighter available/i })).toBeInTheDocument();
     expect(screen.getByText('Albedo')).toBeInTheDocument();
+  });
+
+  it('renders the Albedo button as disabled with a Coming soon badge', () => {
+    renderWalletButton();
+
+    fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
+
+    const albedoButton = screen.getByRole('button', { name: /albedo/i });
+    expect(albedoButton).toBeDisabled();
+    expect(albedoButton).toHaveAttribute('aria-disabled', 'true');
+    expect(albedoButton).toHaveAttribute('title', 'Albedo support is coming soon');
+    expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
   });
 
   it('connects Freighter, renders the truncated address, and disconnects from the dropdown', async () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter connected/i }));
+    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
 
     await waitFor(() => {
       expect(getConnectedButton()).toBeInTheDocument();
@@ -84,14 +106,14 @@ describe('WalletConnectButton', () => {
     expect(screen.getByText('GBVZ3K...QK7L')).toBeInTheDocument();
     expect(screen.getByText('0.00')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /disconnect/i }));
 
     expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
     expect(screen.queryByText('GBVZ3K...QK7L')).not.toBeInTheDocument();
   });
 
   it('closes the connected dropdown when clicking outside', async () => {
-    mockIsAllowed.mockResolvedValue(true);
+    mockIsAllowed.mockResolvedValue({ isAllowed: true });
     renderWalletButton();
 
     await waitFor(() => {
@@ -99,11 +121,11 @@ describe('WalletConnectButton', () => {
     });
 
     fireEvent.click(getConnectedButton());
-    expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /disconnect/i })).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByTestId('outside-target'));
 
-    expect(screen.queryByRole('button', { name: /disconnect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /disconnect/i })).not.toBeInTheDocument();
   });
 
   it('renders Freighter error state after a rejected connection attempt', async () => {
@@ -112,17 +134,16 @@ describe('WalletConnectButton', () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter connected/i }));
+    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
 
+    // On failure the modal stays open (so the user can retry) and shows the
+    // error inline, rather than closing and requiring the trigger to be
+    // clicked again.
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: /connect wallet/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Freighter is locked')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-
-    expect(screen.getByText('Freighter is locked')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /connect wallet/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
     expect(consoleError).toHaveBeenCalledWith('Connection error', expect.any(Error));
     consoleError.mockRestore();
   });

@@ -59,7 +59,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
-        freighterMocks.isAllowed.mockResolvedValue(false);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
         freighterMocks.setAllowed.mockResolvedValue(undefined);
         freighterMocks.requestAccess.mockResolvedValue(true);
         freighterMocks.getAddress.mockResolvedValue({ address: 'GCONNECTED', error: null });
@@ -101,11 +101,11 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(screen.getByTestId('address')).toHaveTextContent('GCONNECTED');
         expect(screen.getByTestId('network')).toHaveTextContent('TESTNET');
         expect(screen.getByTestId('balance')).toHaveTextContent('42.2500000');
-        expect(globalThis.fetch).toHaveBeenCalledWith('https://horizon-testnet.stellar.org/accounts/GCONNECTED');
+        expect(globalThis.fetch).toHaveBeenCalledWith('https://horizon-testnet.stellar.org/accounts/GCONNECTED', expect.any(Object));
     });
 
     test('marks no-trustline when a connected public account has no Circle USDC balance line', async () => {
-        freighterMocks.isAllowed.mockResolvedValue(true);
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
         freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
         vi.mocked(globalThis.fetch).mockResolvedValue(
             mockResponse(200, {
@@ -219,6 +219,40 @@ describe('WalletContext Horizon USDC balance path', () => {
         error.mockRestore();
     });
 
+    test('full connect -> disconnect flow clears all state without throwing', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '25.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        // Connect
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GCONNECTED'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('network')).toHaveTextContent('TESTNET');
+        expect(screen.getByTestId('balance')).toHaveTextContent('25.0000000');
+
+        // Disconnect — must not throw (previously threw ReferenceError due to missing refs)
+        expect(() => fireEvent.click(screen.getByRole('button', { name: /disconnect/i }))).not.toThrow();
+
+        // All state should be cleared
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('network')).toHaveTextContent('');
+        expect(screen.getByTestId('balance')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        expect(screen.getByTestId('balanceError')).toHaveTextContent('');
+    });
+
     test('disconnect resets the loaded balance state', async () => {
         vi.mocked(globalThis.fetch).mockResolvedValue(
             mockResponse(200, {
@@ -252,5 +286,251 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(() => render(<UnsafeProbe />)).toThrow('useWallet must be used within a WalletProvider');
 
         error.mockRestore();
+    });
+});
+
+describe('WalletContext mount-time auto-restore (checkConnection)', () => {
+    const originalFetch = globalThis.fetch;
+
+    beforeEach(() => {
+        vi.resetAllMocks();
+        localStorage.clear();
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
+        freighterMocks.getAddress.mockResolvedValue({ address: null, error: null });
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+        globalThis.fetch = vi.fn();
+    });
+
+    afterAll(() => {
+        globalThis.fetch = originalFetch;
+        localStorage.clear();
+    });
+
+    test('restores address and balance when isAllowed returns true', async () => {
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
+        freighterMocks.getAddress.mockResolvedValue({ address: 'GAUTO123', error: null });
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '55.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GAUTO123'));
+        expect(screen.getByTestId('balance')).toHaveTextContent('55.0000000');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success');
+    });
+
+    test('stays disconnected when isAllowed returns false', async () => {
+        renderWallet();
+
+        // Let the mount effect settle
+        await waitFor(() => expect(freighterMocks.isAllowed).toHaveBeenCalledTimes(1));
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+    });
+
+    test('does not set address when getAddress returns an error', async () => {
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
+        freighterMocks.getAddress.mockResolvedValue({ address: null, error: 'Key unavailable.' });
+
+        renderWallet();
+
+        await waitFor(() => expect(freighterMocks.getAddress).toHaveBeenCalledTimes(1));
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+    });
+
+    test('swallows a thrown error from checkConnection and logs it', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        freighterMocks.isAllowed.mockRejectedValue(new Error('Freighter crashed.'));
+
+        renderWallet();
+
+        await waitFor(() =>
+            expect(consoleSpy).toHaveBeenCalledWith('Check connection error', expect.any(Error)),
+        );
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+
+        consoleSpy.mockRestore();
+    });
+});
+
+describe('WalletContext network/address change listener', () => {
+    const originalFetch = globalThis.fetch;
+    const originalSetInterval = globalThis.setInterval;
+    const originalClearInterval = globalThis.clearInterval;
+    const clearIntervalMock = vi.fn();
+    let intervalCallback: (() => void) | null = null;
+
+    beforeEach(() => {
+        vi.resetAllMocks();
+        // A prior test's disconnect() call persists WALLET_DISCONNECTED_KEY in
+        // localStorage, which would otherwise make checkConnection() skip
+        // auto-reconnect on the next test's mount.
+        localStorage.clear();
+        intervalCallback = null;
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
+        freighterMocks.getAddress.mockResolvedValue({ address: 'G123456', error: null });
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+        globalThis.fetch = vi.fn();
+
+        // Store the callback to invoke it manually in tests
+        globalThis.setInterval = vi.fn((callback: () => void) => {
+            intervalCallback = callback;
+            const id = originalSetInterval(() => {}, 100000);
+            return id;
+        }) as unknown as typeof setInterval;
+        globalThis.clearInterval = clearIntervalMock;
+    });
+
+    afterAll(() => {
+        globalThis.fetch = originalFetch;
+        globalThis.setInterval = originalSetInterval;
+        globalThis.clearInterval = originalClearInterval;
+    });
+
+    test('refreshes state when Freighter network changes', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '100.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        await waitFor(() => expect(screen.getByTestId('network')).toHaveTextContent('TESTNET'));
+        expect(screen.getByTestId('balance')).toHaveTextContent('100.0000000');
+
+        // Simulate network switch
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.PUBLIC,
+                        balance: '200.0000000',
+                    },
+                ],
+            }),
+        );
+
+        // Trigger the interval callback to check for changes
+        intervalCallback?.();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('network')).toHaveTextContent('PUBLIC');
+            expect(screen.getByTestId('balance')).toHaveTextContent('200.0000000');
+        });
+    });
+
+    test('refreshes state when Freighter address changes', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '50.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('G123456'));
+
+        // Simulate address switch
+        freighterMocks.getAddress.mockResolvedValue({ address: 'GNEWADDR', error: null });
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '75.0000000',
+                    },
+                ],
+            }),
+        );
+
+        // Trigger the interval callback to check for changes
+        intervalCallback?.();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('address')).toHaveTextContent('GNEWADDR');
+            expect(screen.getByTestId('balance')).toHaveTextContent('75.0000000');
+        });
+    });
+
+    test('disconnect stops the watcher and clears refs', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [{ asset_type: 'native', balance: '10.0000000' }],
+            }),
+        );
+
+        renderWallet();
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('G123456'));
+
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+
+        // Verify clearInterval was called to stop the polling
+        await waitFor(() => expect(clearIntervalMock).toHaveBeenCalled());
+    });
+
+    test('refresh error sets balanceStatus to error', async () => {
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '100.0000000',
+                    },
+                ],
+            }),
+        );
+
+        renderWallet();
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+
+        // Simulate network change with fetch error
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
+        vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse(500, {}));
+
+        // Trigger the interval callback to check for changes
+        intervalCallback?.();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error');
+        });
     });
 });

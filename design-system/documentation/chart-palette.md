@@ -72,6 +72,16 @@ Fully integrated tooltip surfaces that float over visualization widgets:
 * **`color-chart-tooltipLabel`**:
   * **Light**: `#6B7280` | **Dark**: `#6B7A8F` (Subtle label and time-stamp text)
 
+## 🧭 Legend Tokens
+
+Legend rows should use the same tokenized presentation across every chart that opts into a custom legend.
+
+* **`legend-gap`**: spacing between legend items.
+* **`legend-swatch-size`**: diameter of the swatch or marker shown next to each label.
+* **`legend-label-role`**: typography role used for legend text, so labels stay aligned with the shared `Text` component scale.
+
+The Analytics page consumes these values through `src/pages/analyticsTheme.ts` and renders legend labels with `src/components/ChartLegend.tsx`.
+
 ---
 
 ## 💻 Technical Usage Guidelines
