@@ -61,4 +61,35 @@ describe("CreateVaultReview", () => {
     expect(screen.getByText("Milestones")).toBeInTheDocument();
     expect(screen.getByText("Deliverables approved")).toBeInTheDocument();
   });
+
+  it("disables buttons and shows Submitting... when isSubmitting is true", () => {
+    render(
+      <CreateVaultReview
+        amount="100"
+        deadline="2030-01-01T00:00"
+        successAddress={`G${"A".repeat(55)}`}
+        failureAddress={`G${"B".repeat(55)}`}
+        isSubmitting={true}
+      />,
+    );
+    const confirmBtn = screen.getByRole("button", { name: /submitting\.\.\./i });
+    expect(confirmBtn).toBeDisabled();
+    
+    const backBtn = screen.getByRole("button", { name: /back to edit/i });
+    expect(backBtn).toBeDisabled();
+  });
+
+  it("shows error alert when error prop is provided", () => {
+    const errorMsg = "Wrong network";
+    render(
+      <CreateVaultReview
+        amount="100"
+        deadline="2030-01-01T00:00"
+        successAddress={`G${"A".repeat(55)}`}
+        failureAddress={`G${"B".repeat(55)}`}
+        error={errorMsg}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(errorMsg);
+  });
 });

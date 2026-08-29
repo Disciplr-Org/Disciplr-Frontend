@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  MAX_MILESTONES_RENDERED,
   Milestone,
   MilestoneTracker,
 } from "../../components/MilestoneTracker";
@@ -235,6 +236,98 @@ describe("MilestoneTracker", () => {
     expect(link).toHaveAttribute("href", "http://example.com/evidence");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("caps the number of milestones rendered and shows a truncation notice", () => {
+    const manyMilestones: Milestone[] = Array.from(
+      { length: MAX_MILESTONES_RENDERED + 5 },
+      (_, i) => ({
+        id: `m${i}`,
+        title: `Milestone ${i}`,
+        description: "Description",
+        criteria: "Criteria",
+        status: "pending" as const,
+      }),
+    );
+
+    render(<MilestoneTracker milestones={manyMilestones} />);
+
+    const listItems = screen.getAllByRole("listitem");
+    // MAX_MILESTONES_RENDERED rendered + 1 truncation notice
+    expect(listItems).toHaveLength(MAX_MILESTONES_RENDERED + 1);
+    expect(
+      screen.getByText(/5 additional milestone\(s\) not shown\./),
+    ).toBeInTheDocument();
+  });
+
+  it("truncates over-long title, description, and criteria text", () => {
+    const longMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "T".repeat(300),
+        description: "D".repeat(600),
+        criteria: "C".repeat(600),
+        status: "pending",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={longMilestones} />);
+
+    // Title truncated to 200 chars with ellipsis
+    expect(screen.getByText(/^T{199}\u2026$/)).toBeInTheDocument();
+    // Description truncated to 500 chars with ellipsis
+    expect(screen.getByText(/^D{499}\u2026$/)).toBeInTheDocument();
+    // Criteria truncated to 500 chars with ellipsis
+    expect(screen.getByText(/^C{499}\u2026$/)).toBeInTheDocument();
+  });
+
+  it("logs a warning when a validated milestone is missing validatedAt", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const invalidMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "No Timestamp",
+        description: "Test",
+        criteria: "Test",
+        status: "validated",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={invalidMilestones} />);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[MilestoneTracker] milestone invariant violation"),
+      expect.objectContaining({
+        milestoneId: "m1",
+        violations: expect.arrayContaining(["validated-missing-validatedAt"]),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("logs a warning when a pending milestone carries validatedAt", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const invalidMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Unexpected Timestamp",
+        description: "Test",
+        criteria: "Test",
+        status: "pending",
+        validatedAt: "2024-02-20T14:30:00Z",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={invalidMilestones} />);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[MilestoneTracker] milestone invariant violation"),
+      expect.objectContaining({
+        milestoneId: "m1",
+        violations: expect.arrayContaining(["non-validated-has-validatedAt"]),
+      }),
+    );
+    warnSpy.mockRestore();
   });
 });
 

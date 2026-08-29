@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import type { WalletNetwork } from '../context/WalletContext';
@@ -29,6 +30,20 @@ export interface FundReleaseStatusProps {
    *  an explorer link for the wrong network. */
   network?: WalletNetwork;
 }
+
+/**
+ * Explicit bounds for the fund-release state.
+ *
+ * - `MAX_AMOUNT` guards against absurd numeric values that would overflow
+ *   locale formatting or mislead users.
+ * - `MAX_CURRENCY_LENGTH` bounds the currency symbol/name.
+ * - `MAX_ADDRESS_LENGTH` and `MAX_HASH_LENGTH` bound the strings we render
+ *   and pass to SafeLink / explorer URL builders.
+ */
+export const MAX_AMOUNT = 1_000_000_000_000; // 1e12
+export const MAX_CURRENCY_LENGTH = 16;
+export const MAX_ADDRESS_LENGTH = 128;
+export const MAX_HASH_LENGTH = 128;
 
 export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
   if (typeof value !== 'string' || value.length === 0) {
