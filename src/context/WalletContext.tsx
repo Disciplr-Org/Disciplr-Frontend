@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
@@ -21,13 +21,9 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-/** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
 export const BALANCE_REFRESH_INTERVAL = 30_000;
+export const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
 
-/** localStorage key that records an explicit user-initiated disconnect.
- *  While this key is set, checkConnection will not auto-reconnect even
- *  if Freighter still reports the site as allowed.
- */
 export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -41,12 +37,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
+    const checkConnectionInProgress = useRef(false);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
     };
 
-    const fetchNetworkAndBalance = async (pubKey: string) => {
+    const fetchNetworkAndBalance = useCallback(async (pubKey: string) => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -76,29 +73,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setBalanceStatus('error');
             setBalanceError(message);
         }
-    };
+    }, []);
 
-    const checkConnection = async () => {
+    const checkConnection = useCallback(async () => {
+        if (checkConnectionInProgress.current) return;
+        checkConnectionInProgress.current = true;
         try {
-            // Skip auto-reconnect if the user explicitly disconnected this session.
             if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
                 return;
             }
-            // isAllowed() resolves to { isAllowed: boolean }, not a plain
-            // boolean — checking the object itself is always truthy and
-            // would auto-reconnect regardless of the actual permission state.
             if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
                     setAddress(pubKey);
-                    lastKnownAddressRef.current = pubKey;
-                    await fetchNetworkAndBalance(pubKey);
+                    
+                    // Skip redundant fetch if address hasn't changed
+                    if (pubKey !== lastKnownAddressRef.current) {
+                        lastKnownAddressRef.current = pubKey;
+                        await fetchNetworkAndBalance(pubKey);
+                    }
                 }
             }
         } catch (err) {
             logger.error('Check connection error', err);
+        } finally {
+            checkConnectionInProgress.current = false;
         }
-    };
+    }, [fetchNetworkAndBalance]);
 
     useEffect(() => {
         checkConnection();
@@ -107,38 +108,43 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 abortControllerRef.current.abort();
             }
         };
-    }, []);
+    }, [checkConnection]);
 
-    // ── Balance auto-refresh ──────────────────────────────────────────────────
-    // Polls the balance at a configurable interval; pauses when the tab is
-    // hidden to avoid wasted Horizon calls. Never overlaps in-flight requests
-    // (fetchNetworkAndBalance already cancels the previous one via AbortController).
-    // No polling when disconnected (address is null).
-    // Also detects address changes via Freighter and updates state accordingly.
+    // Fast polling for account changes & standard polling for balance
     useEffect(() => {
         if (!address) return;
 
+        let lastBalanceCheck = Date.now();
+        
         const tick = async () => {
             if (document.hidden) return;
             try {
                 const { address: currentAddr, error: addrError } = await getAddress();
                 if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
-                    // Address changed — update the ref and re-fetch everything
+                    // Account changed! Update state and fetch immediately
                     setAddress(currentAddr);
                     lastKnownAddressRef.current = currentAddr;
+                    lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(currentAddr);
-                } else {
-                    await fetchNetworkAndBalance(lastKnownAddressRef.current ?? address);
+                } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
+                    // Refresh balance on the existing account
+                    lastBalanceCheck = Date.now();
+                    await fetchNetworkAndBalance(currentAddr || address);
                 }
             } catch {
-                await fetchNetworkAndBalance(address);
+                // If it fails, fallback
+                if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
+                    lastBalanceCheck = Date.now();
+                    await fetchNetworkAndBalance(address);
+                }
             }
         };
 
-        const id = setInterval(tick, BALANCE_REFRESH_INTERVAL);
+        const id = setInterval(tick, ACCOUNT_POLL_INTERVAL);
 
         const onVisibilityChange = () => {
             if (!document.hidden && address) {
+                lastBalanceCheck = Date.now();
                 fetchNetworkAndBalance(address);
             }
         };
@@ -148,20 +154,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [address]);
+    }, [address, fetchNetworkAndBalance]);
 
     const connect = async (): Promise<boolean> => {
         setIsConnecting(true);
         setError(null);
         try {
-            // Prompt user to allow access
             await setAllowed();
             const access = await requestAccess();
             if (access) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (pubKey && !addrError) {
-                    // Clear the explicit-disconnect flag so future page loads
-                    // can auto-reconnect again.
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
@@ -187,8 +190,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
-        // Record the explicit disconnect so checkConnection does not
-        // silently reconnect on the next page load.
         localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
         setAddress(null);
         setNetwork(null);
