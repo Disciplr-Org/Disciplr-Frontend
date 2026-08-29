@@ -87,7 +87,7 @@ describe('FundReleaseStatus', () => {
     expect(screen.getByText(/Settlement transaction details will appear/)).toBeInTheDocument();
   });
 
-  it('handles missing transaction details for final outcomes', () => {
+  it('throws invariant error for missing transaction details on released outcome', () => {
     render(
       <FundReleaseStatus
         outcome="released"
@@ -97,17 +97,45 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText('Pending confirmation')).toBeInTheDocument();
-    expect(screen.getByText('Pending transaction')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Cannot load settlement status')).toBeInTheDocument();
+    expect(screen.getByText(/Settlement transaction details are required for released funds/)).toBeInTheDocument();
   });
 
-  it('handles a missing destination address for final outcomes', () => {
+  it('throws invariant error for pending outcome with transaction details', () => {
+    render(
+      <FundReleaseStatus
+        outcome="pending"
+        amount={100}
+        currency="USDC"
+        transaction={{ hash: 'hash', timestamp: 'time' }}
+      />
+    );
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/Pending settlement cannot have transaction details/)).toBeInTheDocument();
+  });
+
+  it('renders loading state', () => {
+    render(
+      <FundReleaseStatus
+        outcome="pending"
+        amount={100}
+        currency="USDC"
+        isLoading
+      />
+    );
+
+    expect(screen.getByText('Loading settlement status...')).toBeInTheDocument();
+  });
+
+  it('handles a missing destination address for final outcomes when transaction exists', () => {
     render(
       <FundReleaseStatus
         outcome="redirected"
         amount={50}
         currency="USDC"
-        transaction={{ hash: 'hashwithdestinationmissing' }}
+        transaction={{ hash: 'hash', timestamp: 'time' }}
       />
     );
 

@@ -1,10 +1,17 @@
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
 import type { Milestone, MilestoneStatus } from "../types/vault";
+import { EmptyState } from "./EmptyState";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import "./MilestoneTracker.css";
 
 export interface MilestoneTrackerProps {
   milestones: Milestone[];
+  isLoading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
+  canManage?: boolean;
+  onManageMilestone?: (milestone: Milestone) => void;
 }
 
 const MILESTONE_STATUS_CONFIG: Record<
@@ -26,7 +33,59 @@ function formatValidatedAt(iso: string): string {
   });
 }
 
-export function MilestoneTracker({ milestones }: MilestoneTrackerProps) {
+function checkInvariants(milestones: Milestone[]): Error | null {
+  let hasPendingOrFailed = false;
+
+  for (const m of milestones) {
+    if (m.status === 'validated' && !m.validatedAt) {
+      return new Error(`Milestone '${m.id}' is validated but missing validatedAt timestamp.`);
+    }
+    if (m.status !== 'validated' && (m.validatedAt || m.evidenceUrl)) {
+      return new Error(`Milestone '${m.id}' is ${m.status} but contains validation evidence.`);
+    }
+    if (hasPendingOrFailed && m.status === 'validated') {
+      return new Error(`Impossible transition: validated milestone '${m.id}' appears after a pending or failed milestone.`);
+    }
+    if (m.status === 'pending' || m.status === 'failed') {
+      hasPendingOrFailed = true;
+    }
+  }
+  return null;
+}
+
+export function MilestoneTracker({
+  milestones,
+  isLoading,
+  error,
+  onRetry,
+  canManage,
+  onManageMilestone,
+}: MilestoneTrackerProps) {
+  if (isLoading) {
+    return (
+      <div className="milestone-tracker-loading" aria-busy="true" aria-live="polite">
+        <Loader2 className="milestone-tracker-spinner" aria-hidden="true" size={24} />
+        <Text role="body" as="p">Loading milestones...</Text>
+      </div>
+    );
+  }
+
+  const invariantError = checkInvariants(milestones);
+  const activeError = error || invariantError;
+
+  if (activeError) {
+    return (
+      <div className="milestone-tracker-error" role="alert" aria-live="assertive">
+        <EmptyState
+          icon={<AlertTriangle size={32} style={{ color: 'var(--danger, red)' }} />}
+          title="Cannot load milestones"
+          description={activeError.message}
+          action={onRetry ? { label: "Retry", onClick: onRetry } : undefined}
+        />
+      </div>
+    );
+  }
+
   if (milestones.length === 0) {
     return (
       <Text
@@ -93,6 +152,17 @@ export function MilestoneTracker({ milestones }: MilestoneTrackerProps) {
                   </SafeLink>
                 )}
               </div>
+
+              {canManage && milestone.status === 'pending' && isCurrent && onManageMilestone && (
+                <button
+                  type="button"
+                  className="milestone-tracker-action"
+                  onClick={() => onManageMilestone(milestone)}
+                  aria-label={`Manage milestone: ${milestone.title}`}
+                >
+                  Manage Milestone
+                </button>
+              )}
             </div>
           </li>
         );

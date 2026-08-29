@@ -236,4 +236,75 @@ describe("MilestoneTracker", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
+
+  it("renders loading state when isLoading is true", () => {
+    render(<MilestoneTracker milestones={milestones} isLoading />);
+    expect(screen.getByText("Loading milestones...")).toBeInTheDocument();
+    expect(document.querySelector('.milestone-tracker-loading')).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("renders error state when validated milestone is missing validatedAt", () => {
+    const invalidMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Invalid",
+        description: "Missing timestamp",
+        criteria: "Test",
+        status: "validated",
+      },
+    ];
+    render(<MilestoneTracker milestones={invalidMilestones} />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/missing validatedAt timestamp/)).toBeInTheDocument();
+  });
+
+  it("renders error state when pending milestone has validation evidence", () => {
+    const invalidMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Invalid",
+        description: "Pending with evidence",
+        criteria: "Test",
+        status: "pending",
+        validatedAt: "2024-02-20T14:30:00Z",
+      },
+    ];
+    render(<MilestoneTracker milestones={invalidMilestones} />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/contains validation evidence/)).toBeInTheDocument();
+  });
+
+  it("renders error state for impossible transition (validated after pending)", () => {
+    const invalidMilestones: Milestone[] = [
+      {
+        id: "m1",
+        title: "Pending First",
+        description: "",
+        criteria: "",
+        status: "pending",
+      },
+      {
+        id: "m2",
+        title: "Validated Second",
+        description: "",
+        criteria: "",
+        status: "validated",
+        validatedAt: "2024-02-20T14:30:00Z",
+      },
+    ];
+    render(<MilestoneTracker milestones={invalidMilestones} />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/appears after a pending or failed milestone/)).toBeInTheDocument();
+  });
+
+  it("renders manage milestone button when canManage is true and milestone is current", () => {
+    const onManageMilestone = vi.fn();
+    render(<MilestoneTracker milestones={milestones} canManage onManageMilestone={onManageMilestone} />);
+    
+    const manageButton = screen.getByRole("button", { name: /Manage milestone: Beta Launch/ });
+    expect(manageButton).toBeInTheDocument();
+
+    manageButton.click();
+    expect(onManageMilestone).toHaveBeenCalledWith(milestones[1]);
+  });
 });

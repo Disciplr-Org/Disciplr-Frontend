@@ -1,7 +1,8 @@
-import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
+import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
 import './FundReleaseStatus.css';
 
@@ -18,6 +19,9 @@ export interface FundReleaseStatusProps {
   amount: number;
   currency: string;
   transaction?: SettlementTransaction;
+  isLoading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
 }
 
 export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
@@ -46,6 +50,20 @@ function formatTimestamp(timestamp?: string): string {
   });
 }
 
+function checkInvariants(outcome: FundReleaseOutcome, transaction?: SettlementTransaction): Error | null {
+  const hasTx = !!(transaction?.hash || transaction?.timestamp);
+  
+  if ((outcome === 'released' || outcome === 'redirected') && !hasTx) {
+    return new Error(`Settlement transaction details are required for ${outcome} funds.`);
+  }
+  
+  if (outcome === 'pending' && hasTx) {
+    return new Error(`Pending settlement cannot have transaction details.`);
+  }
+
+  return null;
+}
+
 const OUTCOME_COPY = {
   released: {
     title: 'Funds released',
@@ -70,8 +88,37 @@ export function FundReleaseStatus({
   amount,
   currency,
   transaction,
+  isLoading,
+  error,
+  onRetry,
 }: FundReleaseStatusProps) {
   const { network } = useWallet();
+
+  if (isLoading) {
+    return (
+      <div className="fund-release-status-loading" aria-busy="true" aria-live="polite">
+        <Loader2 className="fund-release-status-spinner" aria-hidden="true" size={24} />
+        <Text role="body" as="p">Loading settlement status...</Text>
+      </div>
+    );
+  }
+
+  const invariantError = checkInvariants(outcome, transaction);
+  const activeError = error || invariantError;
+
+  if (activeError) {
+    return (
+      <div className="fund-release-status-error" role="alert" aria-live="assertive">
+        <EmptyState
+          icon={<AlertTriangle size={32} style={{ color: 'var(--danger, red)' }} />}
+          title="Cannot load settlement status"
+          description={activeError.message}
+          action={onRetry ? { label: "Retry", onClick: onRetry } : undefined}
+        />
+      </div>
+    );
+  }
+
   const copy = OUTCOME_COPY[outcome];
   const Icon = copy.icon;
   const hash = transaction?.hash;
