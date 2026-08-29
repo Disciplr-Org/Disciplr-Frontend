@@ -338,4 +338,70 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
     }));
   });
+  it("shows error and prevents submit when wallet is disconnected on confirm", async () => {
+    mockUseWallet.mockReturnValue({
+      balance: null,
+      balanceStatus: "idle",
+      address: null,
+      network: "TESTNET"
+    } as ReturnType<typeof useWallet>);
+    
+    renderCreateVault();
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
+    
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+    
+    expect(await screen.findByRole("alert")).toHaveTextContent(/wallet disconnected/i);
+    expect(createVault).not.toHaveBeenCalled();
+  });
+
+  it("shows error and prevents submit on wrong network", async () => {
+    mockUseWallet.mockReturnValue({
+      balance: "5000",
+      balanceStatus: "success",
+      address: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+      network: "PUBLIC" // assuming default TESTNET in test env
+    } as ReturnType<typeof useWallet>);
+    
+    renderCreateVault();
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
+    
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+    
+    expect(await screen.findByRole("alert")).toHaveTextContent(/wrong network/i);
+    expect(createVault).not.toHaveBeenCalled();
+  });
+
+  it("handles malformed response from server", async () => {
+    mockUseWallet.mockReturnValue({
+      balance: "5000",
+      balanceStatus: "success",
+      address: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+      network: "TESTNET"
+    } as ReturnType<typeof useWallet>);
+    
+    vi.mocked(createVault).mockResolvedValueOnce({} as any);
+    
+    renderCreateVault();
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
+    
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+    
+    expect(await screen.findByRole("alert")).toHaveTextContent(/malformed response/i);
+  });
 });
