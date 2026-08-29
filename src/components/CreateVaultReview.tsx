@@ -14,6 +14,8 @@ interface CreateVaultReviewProps {
   verifierAddress?: string;
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
+  isSubmitting?: boolean;
+  error?: string | null;
   onBack?: () => void;
   onConfirm?: () => void;
 }
@@ -26,6 +28,8 @@ export function CreateVaultReview({
   verifierAddress,
   milestone,
   milestones,
+  isSubmitting,
+  error,
   onBack,
   onConfirm,
 }: CreateVaultReviewProps) {
@@ -147,17 +151,37 @@ export function CreateVaultReview({
         ) : null}
       </div>
 
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            padding: "0.75rem",
+            background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius)",
+            color: "var(--danger)",
+            marginTop: "0.5rem",
+          }}
+        >
+          <Text role="caption" as="p">
+            {error}
+          </Text>
+        </div>
+      ) : null}
+
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
         <button
           type="button"
           onClick={onBack}
+          disabled={isSubmitting}
           style={{
             background: "transparent",
             color: "var(--text)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "1px solid var(--border)",
-            cursor: "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+            opacity: isSubmitting ? 0.7 : 1,
           }}
         >
           <Text role="caption" as="span">
@@ -167,18 +191,23 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
+          disabled={isSubmitting}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
             fontWeight: 600,
+            opacity: isSubmitting ? 0.7 : 1,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
           }}
         >
           <Text role="caption" as="span">
-            Confirm Vault
+            {isSubmitting ? "Submitting..." : "Confirm Vault"}
           </Text>
         </button>
       </div>
