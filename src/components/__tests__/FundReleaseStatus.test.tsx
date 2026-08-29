@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FundReleaseStatus, truncateMiddle } from '../FundReleaseStatus';
+import {
+  FundReleaseStatus,
+  MAX_AMOUNT,
+  truncateMiddle,
+} from '../FundReleaseStatus';
 
 let mockNetwork: 'TESTNET' | 'PUBLIC' | null = 'TESTNET';
 
@@ -146,6 +150,100 @@ describe('FundReleaseStatus', () => {
 
       rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" />);
       expect(document.querySelector('.fund-release-status--redirected')).not.toBeNull();
+    });
+  });
+
+  describe('bounds and invariants', () => {
+    it('caps the amount at MAX_AMOUNT', () => {
+      render(
+        <FundReleaseStatus
+          outcome="pending"
+          amount={MAX_AMOUNT + 5000}
+          currency="USDC"
+        />
+      );
+
+      expect(screen.getByText(`${MAX_AMOUNT.toLocaleString()} USDC`)).toBeInTheDocument();
+    });
+
+    it('renders zero for a negative or non-finite amount', () => {
+      render(<FundReleaseStatus outcome="pending" amount={-100} currency="USDC" />);
+      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+
+      render(<FundReleaseStatus outcome="pending" amount={NaN} currency="USDC" />);
+      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+    });
+
+    it('truncates over-long currency strings', () => {
+      render(
+        <FundReleaseStatus
+          outcome="pending"
+          amount={100}
+          currency={'X'.repeat(40)}
+        />
+      );
+
+      expect(screen.getByText(`100 ${'X'.repeat(16)}`)).toBeInTheDocument();
+    });
+
+    it('logs a warning when a final outcome is missing a destination address', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      render(<FundReleaseStatus outcome="released" amount={100} currency="USDC" />);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[FundReleaseStatus] invariant violation'),
+        expect.objectContaining({
+          outcome: 'released',
+          violations: expect.arrayContaining(['final-outcome-missing-destination']),
+        }),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('logs a warning when a pending outcome carries settlement details', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      render(
+        <FundReleaseStatus
+          outcome="pending"
+          amount={100}
+          currency="USDC"
+          destinationAddress="GSUCCESSDESTINATION1234567890"
+          transaction={{ hash: 'somehash' }}
+        />
+      );
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[FundReleaseStatus] invariant violation'),
+        expect.objectContaining({
+          outcome: 'pending',
+          violations: expect.arrayContaining(['pending-has-settlement-details']),
+        }),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('logs a warning for an over-long destination address', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      render(
+        <FundReleaseStatus
+          outcome="released"
+          destinationAddress={'G'.repeat(200)}
+          amount={100}
+          currency="USDC"
+          transaction={{ hash: 'hash123' }}
+        />
+      );
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[FundReleaseStatus] invariant violation'),
+        expect.objectContaining({
+          violations: expect.arrayContaining(['destination-overflow']),
+        }),
+      );
+      warnSpy.mockRestore();
     });
   });
 });
