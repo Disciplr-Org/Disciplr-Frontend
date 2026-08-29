@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
@@ -12,10 +13,28 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const { connect, isConnecting, error, address } = useWallet();
     const isConnected = address !== null;
 
+    const isMounted = useRef(true);
+    const connectPending = useRef(false);
+
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     const handleConnect = async () => {
-        const connected = await connect();
-        if (connected) {
-            onClose();
+        if (connectPending.current || isConnecting) return;
+        connectPending.current = true;
+        try {
+            const connected = await connect();
+            if (isMounted.current && connected) {
+                onClose();
+            }
+        } finally {
+            if (isMounted.current) {
+                connectPending.current = false;
+            }
         }
     };
 

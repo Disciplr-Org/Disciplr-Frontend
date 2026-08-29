@@ -8,6 +8,11 @@ import "./MilestoneTracker.css";
 
 export interface MilestoneTrackerProps {
   milestones: Milestone[];
+  isLoading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
+  canManage?: boolean;
+  onManageMilestone?: (milestone: Milestone) => void;
 }
 
 /**
@@ -50,80 +55,60 @@ function formatValidatedAt(iso: string): string {
   });
 }
 
-/** Truncate a string to `max` characters, appending an ellipsis when cut. */
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 1)}\u2026`;
-}
+function checkInvariants(milestones: Milestone[]): Error | null {
+  let hasPendingOrFailed = false;
 
-/**
- * Validate milestone invariants and emit structured diagnostics for any
- * violation. Returns a sanitized copy of the milestone.
- *
- * Invariants enforced:
- * - `validated` milestones must carry a `validatedAt` timestamp.
- * - `pending` / `failed` milestones must NOT carry a `validatedAt` timestamp.
- * - Text fields are bounded by the constants above.
- */
-function sanitizeMilestone(milestone: Milestone, index: number): Milestone {
-  const violations: string[] = [];
-
-  if (milestone.status === "validated" && !milestone.validatedAt) {
-    violations.push("validated-missing-validatedAt");
-  }
-  if (milestone.status !== "validated" && milestone.validatedAt) {
-    violations.push("non-validated-has-validatedAt");
-  }
-  if (milestone.title.length > MAX_TITLE_LENGTH) {
-    violations.push("title-overflow");
-  }
-  if (milestone.description.length > MAX_DESCRIPTION_LENGTH) {
-    violations.push("description-overflow");
-  }
-  if (milestone.criteria.length > MAX_CRITERIA_LENGTH) {
-    violations.push("criteria-overflow");
-  }
-  if (milestone.evidenceUrl && milestone.evidenceUrl.length > MAX_EVIDENCE_URL_LENGTH) {
-    violations.push("evidence-url-overflow");
-  }
-
-  if (violations.length > 0) {
-    logger.warn("[MilestoneTracker] milestone invariant violation", {
-      milestoneId: milestone.id,
-      index,
-      violations,
-    });
-  }
-
-  return {
-    ...milestone,
-    title: truncate(milestone.title, MAX_TITLE_LENGTH),
-    description: truncate(milestone.description, MAX_DESCRIPTION_LENGTH),
-    criteria: truncate(milestone.criteria, MAX_CRITERIA_LENGTH),
-    evidenceUrl:
-      milestone.evidenceUrl && milestone.evidenceUrl.length > MAX_EVIDENCE_URL_LENGTH
-        ? milestone.evidenceUrl.slice(0, MAX_EVIDENCE_URL_LENGTH)
-        : milestone.evidenceUrl,
-  };
-}
-
-export function MilestoneTracker({ milestones }: MilestoneTrackerProps) {
-  const { boundedMilestones, truncated } = useMemo(() => {
-    const total = milestones.length;
-    const bounded = milestones.slice(0, MAX_MILESTONES_RENDERED);
-    if (total > MAX_MILESTONES_RENDERED) {
-      logger.warn("[MilestoneTracker] milestone list truncated", {
-        total,
-        rendered: MAX_MILESTONES_RENDERED,
-      });
+  for (const m of milestones) {
+    if (m.status === 'validated' && !m.validatedAt) {
+      return new Error(`Milestone '${m.id}' is validated but missing validatedAt timestamp.`);
     }
-    return {
-      boundedMilestones: bounded.map(sanitizeMilestone),
-      truncated: total > MAX_MILESTONES_RENDERED,
-    };
-  }, [milestones]);
+    if (m.status !== 'validated' && (m.validatedAt || m.evidenceUrl)) {
+      return new Error(`Milestone '${m.id}' is ${m.status} but contains validation evidence.`);
+    }
+    if (hasPendingOrFailed && m.status === 'validated') {
+      return new Error(`Impossible transition: validated milestone '${m.id}' appears after a pending or failed milestone.`);
+    }
+    if (m.status === 'pending' || m.status === 'failed') {
+      hasPendingOrFailed = true;
+    }
+  }
+  return null;
+}
 
-  if (boundedMilestones.length === 0) {
+export function MilestoneTracker({
+  milestones,
+  isLoading,
+  error,
+  onRetry,
+  canManage,
+  onManageMilestone,
+}: MilestoneTrackerProps) {
+  if (isLoading) {
+    return (
+      <div className="milestone-tracker-loading" aria-busy="true" aria-live="polite">
+        <Loader2 className="milestone-tracker-spinner" aria-hidden="true" size={24} />
+        <Text role="body" as="p">Loading milestones...</Text>
+      </div>
+    );
+  }
+
+  const invariantError = checkInvariants(milestones);
+  const activeError = error || invariantError;
+
+  if (activeError) {
+    return (
+      <div className="milestone-tracker-error" role="alert" aria-live="assertive">
+        <EmptyState
+          icon={<AlertTriangle size={32} style={{ color: 'var(--danger, red)' }} />}
+          title="Cannot load milestones"
+          description={activeError.message}
+          action={onRetry ? { label: "Retry", onClick: onRetry } : undefined}
+        />
+      </div>
+    );
+  }
+
+  if (milestones.length === 0) {
     return (
       <Text
         role="body"
