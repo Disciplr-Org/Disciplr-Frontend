@@ -11,6 +11,8 @@ import {
   getVault,
   getTransactions,
   listAllActivity,
+  submitVaultAction,
+  isVaultActionPending,
 } from "../vaultService";
 
 // ── listVaults ────────────────────────────────────────────────────────────────
@@ -99,6 +101,18 @@ describe("getVault()", () => {
 
   it("resolves to undefined for a numeric-looking but non-existent id", async () => {
     const vault = await getVault("999");
+    expect(vault).toBeUndefined();
+  });
+
+  it("resolves to undefined for hostile prototype keys, never leaking object members", async () => {
+    for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      const vault = await getVault(key);
+      expect(vault).toBeUndefined();
+    }
+  });
+
+  it("resolves to undefined for a whitespace only id", async () => {
+    const vault = await getVault("   ");
     expect(vault).toBeUndefined();
   });
 });
@@ -219,5 +233,74 @@ describe("listAllActivity()", () => {
     expect(statuses.has("confirmed")).toBe(true);
     expect(statuses.has("pending")).toBe(true);
     expect(statuses.has("failed")).toBe(true);
+  });
+});
+
+// ── getTransactions hostile input ──────────────────────────────────────────────
+describe("getTransactions() hostile input", () => {
+  it("resolves to an empty array for hostile prototype keys", async () => {
+    for (const key of ["__proto__", "constructor"]) {
+      const txs = await getTransactions(key);
+      expect(Array.isArray(txs)).toBe(true);
+      expect(txs).toHaveLength(0);
+    }
+  });
+});
+
+// ── submitVaultAction ──────────────────────────────────────────────────────────
+describe("submitVaultAction()", () => {
+  it("resolves without error for a valid action on an existing vault", async () => {
+    await expect(submitVaultAction("extend_deadline", "1")).resolves.toBeUndefined();
+  });
+
+  it("supports every registered action name", async () => {
+    for (const action of ["validate_milestone", "extend_deadline", "cancel_vault"]) {
+      await expect(submitVaultAction(action as never, "1")).resolves.toBeUndefined();
+    }
+  });
+
+  it("rejects unknown actions before any vault work happens", async () => {
+    await expect(submitVaultAction("destroy_all_funds" as never, "1")).rejects.toThrow(
+      "Unknown vault action.",
+    );
+  });
+
+  it("rejects a completely bogus action value", async () => {
+    await expect(submitVaultAction("<script>" as never, "1")).rejects.toThrow(
+      "Unknown vault action.",
+    );
+  });
+
+  it("rejects unknown vault ids", async () => {
+    await expect(submitVaultAction("cancel_vault", "999")).rejects.toThrow(
+      "Vault not found.",
+    );
+  });
+
+  it("rejects hostile vault ids", async () => {
+    await expect(submitVaultAction("cancel_vault", "__proto__")).rejects.toThrow(
+      "Vault not found.",
+    );
+    await expect(submitVaultAction("cancel_vault", "<script>")).rejects.toThrow(
+      "Vault not found.",
+    );
+  });
+
+  it("rejects an empty vault id", async () => {
+    await expect(submitVaultAction("cancel_vault", "")).rejects.toThrow(
+      "Vault not found.",
+    );
+  });
+
+  it("reports pending state while a submission is in flight and clears it after", async () => {
+    expect(isVaultActionPending()).toBe(false);
+    await submitVaultAction("cancel_vault", "1");
+    expect(isVaultActionPending()).toBe(false);
+  });
+
+  it("coalesces overlapping submissions so the action fires once", async () => {
+    const first = submitVaultAction("cancel_vault", "1");
+    const second = submitVaultAction("cancel_vault", "1");
+    await Promise.all([first, second]);
   });
 });

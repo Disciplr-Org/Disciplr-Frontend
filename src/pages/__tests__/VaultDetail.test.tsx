@@ -6,17 +6,40 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MASTER_VAULTS } from "../../fixtures/vaults";
 import VaultDetail from "../VaultDetail";
+
+const CREATOR_ADDRESS = "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L";
 
 const { mockDownloadIcsEvent } = vi.hoisted(() => ({
   mockDownloadIcsEvent: vi.fn(),
 }));
 
-vi.mock("../../context/WalletContext", () => ({
-  useWallet: () => ({ network: "TESTNET" }),
+const { mockWallet } = vi.hoisted(() => ({
+  mockWallet: {
+    address: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+    network: "TESTNET",
+  },
 }));
+
+const { mockGetVault, mockSubmitVaultAction } = vi.hoisted(() => ({
+  mockGetVault: vi.fn(),
+  mockSubmitVaultAction: vi.fn(),
+}));
+
+vi.mock("../../context/WalletContext", () => ({
+  useWallet: () => mockWallet,
+}));
+
+vi.mock("../../services/vaultService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/vaultService")>();
+  return {
+    ...actual,
+    getVault: mockGetVault,
+    submitVaultAction: mockSubmitVaultAction,
+  };
+});
 
 vi.mock("../../utils/ics", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../utils/ics")>();
@@ -27,6 +50,20 @@ vi.mock("../../utils/ics", async (importOriginal) => {
 });
 
 const ORIGINAL_VAULT_1_CONTRACT = MASTER_VAULTS["1"].contractAddress;
+
+beforeEach(() => {
+  mockWallet.address = CREATOR_ADDRESS;
+  mockWallet.network = "TESTNET";
+  mockGetVault.mockClear();
+  mockGetVault.mockImplementation(async (id: string) => {
+    if (Object.prototype.hasOwnProperty.call(MASTER_VAULTS, id)) {
+      return MASTER_VAULTS[id];
+    }
+    return undefined;
+  });
+  mockSubmitVaultAction.mockReset();
+  mockSubmitVaultAction.mockResolvedValue(undefined);
+});
 
 afterEach(() => {
   MASTER_VAULTS["1"].contractAddress = ORIGINAL_VAULT_1_CONTRACT;
@@ -469,26 +506,27 @@ describe("VaultDetail", () => {
   // ── Network footer banner ─────────────────────────────────────────────────
 
   describe('NetworkFooterBanner', () => {
-    it('renders the network footer banner with an accessible landmark', () => {
+    it('renders the network footer banner with an accessible landmark', async () => {
       renderVaultDetail('1');
-      expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+      expect(await screen.findByRole('contentinfo')).toBeInTheDocument();
     });
 
-    it('shows the "Testnet" label when network is TESTNET', () => {
+    it('shows the "Testnet" label when network is TESTNET', async () => {
       renderVaultDetail('1');
-      const footer = screen.getByRole('contentinfo');
+      const footer = await screen.findByRole('contentinfo');
       expect(within(footer).getByText('Testnet')).toBeInTheDocument();
     });
 
-    it('displays the contract address text in the footer', () => {
+    it('displays the contract address text in the footer', async () => {
       renderVaultDetail('1');
-      const footer = screen.getByRole('contentinfo');
+      const footer = await screen.findByRole('contentinfo');
       // Vault 1 contract address
       expect(within(footer).getByText('GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK')).toBeInTheDocument();
     });
 
-    it('renders the explorer link pointing to the testnet contract URL', () => {
+    it('renders the explorer link pointing to the testnet contract URL', async () => {
       renderVaultDetail('1');
+      await screen.findByRole('contentinfo');
       const link = screen.getByRole('link', { name: /View contract.*on Stellar Testnet explorer/i });
       expect(link).toHaveAttribute(
         'href',
@@ -506,9 +544,163 @@ describe("VaultDetail", () => {
       }));
     });
 
-    it('does not render the footer banner on the not-found page', () => {
+    it('does not render the footer banner on the not-found page', async () => {
       renderVaultDetail('999');
-      expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+      await screen.findByRole('heading', { name: 'Vault not found' });
+      await waitFor(() => {
+        expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  // ── Async boundary ─────────────────────────────────────────────────────────
+
+  describe('async load boundary', () => {
+    it("renders an invalid-identifier state for a hostile route id", async () => {
+      renderVaultDetail("__proto__");
+
+      expect(
+        await screen.findByRole("heading", { name: "Invalid vault identifier" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Alpha Vault" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("refuses to render unverified vault state for a malformed response", async () => {
+      mockGetVault.mockResolvedValueOnce({ id: "1" } as never);
+
+      renderVaultDetail("1");
+
+      expect(
+        await screen.findByRole("heading", {
+          name: "Vault data could not be verified",
+        }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText(/must be/).length).toBeGreaterThan(0);
+      expect(
+        screen.queryByRole("heading", { name: "Alpha Vault" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows an error state and recovers via Retry", async () => {
+      mockGetVault.mockRejectedValueOnce(new Error("network down"));
+
+      renderVaultDetail("1");
+
+      expect(
+        await screen.findByRole("heading", { name: "Failed to load vault" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Alpha Vault" }),
+      ).toBeInTheDocument();
+    });
+
+    it("flags a completed vault whose settlement amount does not match the principal", async () => {
+      const releaseTx = MASTER_VAULTS["2"].transactions.find(
+        (tx) => tx.type === "release",
+      );
+      const originalAmount = releaseTx?.amount;
+      if (releaseTx) releaseTx.amount = 9876;
+
+      try {
+        renderVaultDetail("2");
+        await screen.findByRole("heading", { name: "Beta Reserve" });
+
+        const notice = screen.getByRole("alert", {
+          name: "Fund release inconsistency notice",
+        });
+        expect(
+          within(notice).getByText(
+            /does not match the vault principal/i,
+          ),
+        ).toBeInTheDocument();
+      } finally {
+        if (releaseTx) releaseTx.amount = originalAmount;
+      }
+    });
+  });
+
+  // ── Authorization gate on sensitive actions ───────────────────────────────
+
+  describe("action authorization gate", () => {
+    it("disables sensitive actions for a disconnected wallet", async () => {
+      mockWallet.address = null;
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /cancel vault/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getAllByText(/Connect your wallet to authorize this action/).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("disables sensitive actions for a wallet that is not the vault creator", async () => {
+      mockWallet.address = "GBOTH3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L";
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getAllByText(/not authorized to extend/i).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("disables sensitive actions when the wallet is on the wrong network", async () => {
+      mockWallet.network = "PUBLIC";
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getAllByText(/wrong network/i).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("leaves actions enabled for an authorized creator on the expected network", async () => {
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      expect(
+        screen.getByRole("button", { name: /extend deadline/i }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: /cancel vault/i }),
+      ).toBeEnabled();
+    });
+
+    it("locks the confirmation while the action is submitting so it cannot fire twice", async () => {
+      mockSubmitVaultAction.mockReturnValueOnce(new Promise(() => {}));
+
+      renderVaultDetail("1");
+      await screen.findByRole("heading", { name: "Alpha Vault" });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel vault/i }));
+      const dialog = await screen.findByRole("dialog");
+
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: /^cancel vault$/i }),
+      );
+      expect(mockSubmitVaultAction).toHaveBeenCalledTimes(1);
+
+      const submittingBtn = within(dialog).getByRole("button", {
+        name: /submitting/i,
+      });
+      expect(submittingBtn).toBeDisabled();
+      fireEvent.click(submittingBtn);
+      expect(mockSubmitVaultAction).toHaveBeenCalledTimes(1);
     });
   });
 });
