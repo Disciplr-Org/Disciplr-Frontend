@@ -4,6 +4,7 @@ import { Text } from './Text';
 import { SafeLink } from './SafeLink';
 import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
+import { logger } from '../utils/logger';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -23,6 +24,20 @@ export interface FundReleaseStatusProps {
   error?: Error | null;
   onRetry?: () => void;
 }
+
+/**
+ * Explicit bounds for the fund-release state.
+ *
+ * - `MAX_AMOUNT` guards against absurd numeric values that would overflow
+ *   locale formatting or mislead users.
+ * - `MAX_CURRENCY_LENGTH` bounds the currency symbol/name.
+ * - `MAX_ADDRESS_LENGTH` and `MAX_HASH_LENGTH` bound the strings we render
+ *   and pass to SafeLink / explorer URL builders.
+ */
+export const MAX_AMOUNT = 1_000_000_000_000; // 1e12
+export const MAX_CURRENCY_LENGTH = 16;
+export const MAX_ADDRESS_LENGTH = 128;
+export const MAX_HASH_LENGTH = 128;
 
 export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
   if (value.length <= prefixLength + suffixLength + 3) {
@@ -155,15 +170,15 @@ export function FundReleaseStatus({
             <Text role="caption" as="span" className="fund-release-status__label">
               Destination
             </Text>
-            {destinationAddress ? (
+            {boundedDestination ? (
               <Text
                 role="mono"
                 as="span"
                 className="fund-release-status__value"
-                title={destinationAddress}
-                aria-label={`Destination address ${destinationAddress}`}
+                title={boundedDestination}
+                aria-label={`Destination address ${boundedDestination}`}
               >
-                {truncateMiddle(destinationAddress)}
+                {truncateMiddle(boundedDestination)}
               </Text>
             ) : (
               <Text role="caption" as="span" className="fund-release-status__label">
@@ -176,7 +191,7 @@ export function FundReleaseStatus({
               Amount
             </Text>
             <Text role="mono" as="span" className="fund-release-status__value">
-              {amount.toLocaleString()} {currency}
+              {boundedAmount.toLocaleString()} {boundedCurrency}
             </Text>
           </div>
           <div className="fund-release-status__field">
@@ -191,14 +206,14 @@ export function FundReleaseStatus({
             <Text role="caption" as="span" className="fund-release-status__label">
               Transaction
             </Text>
-            {hash ? (
+            {boundedHash ? (
               <SafeLink
                 className="fund-release-status__link"
-                href={explorerUrl(hash, network)}
-                title={hash}
-                aria-label={`View transaction ${hash} on Stellar ${network === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
+                href={explorerUrl(boundedHash, network)}
+                title={boundedHash}
+                aria-label={`View transaction ${boundedHash} on Stellar ${network === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
               >
-                {truncateMiddle(hash, 8, 6)}
+                {truncateMiddle(boundedHash, 8, 6)}
               </SafeLink>
             ) : (
               <Text role="caption" as="span" className="fund-release-status__label">
