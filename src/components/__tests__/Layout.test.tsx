@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import Layout from '../Layout';
 import { ThemeProvider } from '../../context/ThemeContext';
 
@@ -340,5 +340,158 @@ describe('Layout mobile nav controls', () => {
     expect(brandRegion).not.toHaveAttribute('inert');
     expect(main).not.toHaveAttribute('aria-hidden');
     expect(main).not.toHaveAttribute('inert');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Drawer state machine integration — recovery on route change and resize
+// ---------------------------------------------------------------------------
+function NavigateButton({ targetPath }: { targetPath: string }) {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(targetPath)}>
+      Navigate
+    </button>
+  );
+}
+
+function LayoutNavigationHarness({ targetPath = '/dashboard' }: { targetPath?: string }) {
+  return (
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/']}>
+        <NavigateButton targetPath={targetPath} />
+        <Layout>
+          <div>Page content</div>
+        </Layout>
+      </MemoryRouter>
+    </ThemeProvider>
+  );
+}
+
+type MediaQueryListener = (event: { matches: boolean; media: string }) => void;
+
+function createMatchMediaMock() {
+  const listenersByQuery = new Map<string, Set<MediaQueryListener>>();
+  let desktop = false;
+
+  return {
+    setDesktop(next: boolean) {
+      desktop = next;
+      listenersByQuery.forEach((listeners, query) => {
+        listeners.forEach((listener) => listener({ matches: next, media: query }));
+      });
+    },
+    install() {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('min-width: 768px') ? desktop : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: (_event: string, listener: MediaQueryListener) => {
+          if (!listenersByQuery.has(query)) {
+            listenersByQuery.set(query, new Set());
+          }
+          listenersByQuery.get(query)!.add(listener);
+        },
+        removeEventListener: (_event: string, listener: MediaQueryListener) => {
+          listenersByQuery.get(query)?.delete(listener);
+        },
+        dispatchEvent: vi.fn(),
+      }));
+    },
+  };
+}
+
+describe('Layout drawer state machine integration', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+
+  test('closes the drawer when navigating to a new route (deep-link / back recovery)', async () => {
+    render(<LayoutNavigationHarness />);
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^navigate$/i }));
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('navigating to the same route does not close a freshly opened drawer (stale-route guard)', () => {
+    render(<LayoutNavigationHarness targetPath="/" />);
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /^navigate$/i }));
+
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+  });
+
+  test('rapid hamburger clicks keep aria-expanded consistent with the rendered drawer', async () => {
+    renderLayout('/');
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    fireEvent.click(hamburger);
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+
+    fireEvent.click(hamburger);
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'true'));
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+    expect(screen.getByRole('main', { hidden: true })).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('closing the drawer with Escape releases scroll lock and restores focus', async () => {
+    renderLayout('/');
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    hamburger.focus();
+    fireEvent.click(hamburger);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(hamburger).toHaveFocus();
+  });
+
+  test('closes the drawer when the viewport crosses into the desktop breakpoint', async () => {
+    const originalMatchMedia = window.matchMedia;
+    const mediaQuery = createMatchMediaMock();
+    mediaQuery.install();
+
+    try {
+      renderLayout('/');
+      const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+      fireEvent.click(hamburger);
+      expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+      expect(document.body.style.overflow).toBe('hidden');
+
+      act(() => mediaQuery.setDesktop(true));
+
+      await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+      expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+      expect(document.body.style.overflow).toBe('');
+      expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });
