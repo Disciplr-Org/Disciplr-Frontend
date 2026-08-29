@@ -1,4 +1,4 @@
-import React, { useState, type HTMLAttributes } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, type HTMLAttributes } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
@@ -12,6 +12,13 @@ import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
 import CommandPalette from "./CommandPalette";
+import {
+  DRAWER_INITIAL_STATE,
+  isDrawerOpen,
+  reduceDrawerState,
+  shouldCloseDrawerOnRouteChange,
+} from "../utils/drawerState";
+import { useBreakpoint } from "../utils/useBreakpoint";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -19,10 +26,42 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const [isDrawerOpen, setDrawerOpen] = useState(false);
-  const toggleDrawer = () => setDrawerOpen((prev) => !prev);
+  // All drawer transitions flow through the reducer so open/close/toggle and
+  // the route-change/resize recovery events are deterministic and idempotent
+  // (see src/utils/drawerState.ts for the state machine and its invariants).
+  const [drawerState, dispatchDrawer] = useReducer(
+    reduceDrawerState,
+    DRAWER_INITIAL_STATE,
+  );
+  const drawerIsOpen = isDrawerOpen(drawerState);
+  const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
+  const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE" });
   const location = useLocation();
-  const backgroundA11yProps = isDrawerOpen
+
+  // Deep-link / navigation recovery: close the drawer whenever the route
+  // actually changes (in-app navigation, browser back/forward, deep links).
+  // Guarded by shouldCloseDrawerOnRouteChange so a stale location object with
+  // an unchanged pathname can never close a freshly opened drawer.
+  const prevPathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    prevPathnameRef.current = location.pathname;
+    if (shouldCloseDrawerOnRouteChange(prevPathname, location.pathname)) {
+      dispatchDrawer({ type: "ROUTE_CHANGE" });
+    }
+  }, [location.pathname]);
+
+  // Resize recovery: the drawer is a mobile-only surface. When the viewport
+  // crosses into the desktop breakpoint (768px+), close the drawer and release
+  // the scroll lock so the desktop nav is never trapped behind a hidden drawer.
+  const isDesktop = useBreakpoint("md");
+  useEffect(() => {
+    if (isDesktop) {
+      dispatchDrawer({ type: "RESIZE_DESKTOP" });
+    }
+  }, [isDesktop]);
+
+  const backgroundA11yProps = drawerIsOpen
     ? ({ "aria-hidden": true, inert: "" } as HTMLAttributes<HTMLElement> & {
         inert: "";
       })
@@ -146,15 +185,12 @@ export default function Layout({ children }: LayoutProps) {
           className="mobile-hamburger"
           aria-label="Open navigation menu"
           aria-controls="mobile-drawer"
-          aria-expanded={isDrawerOpen}
+          aria-expanded={drawerIsOpen}
           onClick={toggleDrawer}
         >
           <Menu size={24} aria-hidden="true" />
         </button>
-        <MobileDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        />
+        <MobileDrawer isOpen={drawerIsOpen} onClose={closeDrawer} />
       </header>
       <TrustlineBanner />
 
