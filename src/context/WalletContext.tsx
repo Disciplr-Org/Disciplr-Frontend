@@ -1,19 +1,76 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, ReactNode, useReducer, useCallback } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
+export type WalletStatus = 'disconnected' | 'restoring' | 'connecting' | 'connected' | 'error';
 
-interface WalletContextType {
+interface WalletState {
+    status: WalletStatus;
     address: string | null;
     network: WalletNetwork | null;
     balance: string | null;
     balanceStatus: BalanceStatus;
     balanceError: string | null;
-    isConnecting: boolean;
     error: string | null;
+}
+
+const initialState: WalletState = {
+    status: 'disconnected',
+    address: null,
+    network: null,
+    balance: null,
+    balanceStatus: 'idle',
+    balanceError: null,
+    error: null,
+};
+
+type Action =
+    | { type: 'RESTORE_START' }
+    | { type: 'RESTORE_ABORT' }
+    | { type: 'CONNECT_START' }
+    | { type: 'CONNECT_SUCCESS'; payload: { address: string; network: WalletNetwork } }
+    | { type: 'CONNECT_ERROR'; payload: { error: string } }
+    | { type: 'DISCONNECT' }
+    | { type: 'BALANCE_FETCH_START' }
+    | { type: 'BALANCE_FETCH_SUCCESS'; payload: { balance: string | null; status: BalanceStatus; network: WalletNetwork } }
+    | { type: 'BALANCE_FETCH_ERROR'; payload: { error: string } }
+    | { type: 'UPDATE_NETWORK'; payload: { network: WalletNetwork } }
+    | { type: 'UPDATE_ADDRESS'; payload: { address: string } };
+
+function walletReducer(state: WalletState, action: Action): WalletState {
+    switch (action.type) {
+        case 'RESTORE_START':
+            return state.status === 'disconnected' || state.status === 'error' ? { ...state, status: 'restoring', error: null } : state;
+        case 'RESTORE_ABORT':
+            return state.status === 'restoring' ? { ...state, status: 'disconnected' } : state;
+        case 'CONNECT_START':
+            return { ...state, status: 'connecting', error: null };
+        case 'CONNECT_SUCCESS':
+            return { ...state, status: 'connected', address: action.payload.address, network: action.payload.network, error: null };
+        case 'CONNECT_ERROR':
+            return { ...state, status: 'error', error: action.payload.error };
+        case 'DISCONNECT':
+            return initialState;
+        case 'BALANCE_FETCH_START':
+            return { ...state, balanceStatus: 'loading', balanceError: null };
+        case 'BALANCE_FETCH_SUCCESS':
+            return { ...state, balance: action.payload.balance, balanceStatus: action.payload.status, network: action.payload.network };
+        case 'BALANCE_FETCH_ERROR':
+            return { ...state, balance: null, balanceStatus: 'error', balanceError: action.payload.error };
+        case 'UPDATE_NETWORK':
+            return { ...state, network: action.payload.network };
+        case 'UPDATE_ADDRESS':
+            return { ...state, address: action.payload.address };
+        default:
+            return state;
+    }
+}
+
+interface WalletContextType extends WalletState {
+    isConnecting: boolean;
     connect: () => Promise<boolean>;
     disconnect: () => void;
     checkConnection: () => Promise<void>;
@@ -21,84 +78,91 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-/** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
 export const BALANCE_REFRESH_INTERVAL = 30_000;
-
-/** localStorage key that records an explicit user-initiated disconnect.
- *  While this key is set, checkConnection will not auto-reconnect even
- *  if Freighter still reports the site as allowed.
- */
 export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-    const [address, setAddress] = useState<string | null>(null);
-    const [network, setNetwork] = useState<WalletNetwork | null>(null);
-    const [balance, setBalance] = useState<string | null>(null);
-    const [balanceStatus, setBalanceStatus] = useState<BalanceStatus>('idle');
-    const [balanceError, setBalanceError] = useState<string | null>(null);
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [state, dispatch] = useReducer(walletReducer, initialState);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
+    const operationSeqRef = useRef(0);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
     };
 
-    const fetchNetworkAndBalance = async (pubKey: string) => {
+    const fetchNetworkAndBalance = useCallback(async (pubKey: string, seq: number) => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         abortControllerRef.current = new AbortController();
 
-        setBalanceStatus('loading');
-        setBalanceError(null);
+        dispatch({ type: 'BALANCE_FETCH_START' });
 
         try {
             const netDetails = await getNetworkDetails();
+            if (seq !== operationSeqRef.current) return;
             const activeNetwork = normalizeNetwork(netDetails.network);
-            setNetwork(activeNetwork);
             lastKnownNetworkRef.current = activeNetwork;
 
             const usdcBalance = await fetchUsdcBalance(pubKey, activeNetwork, fetch, {
                 signal: abortControllerRef.current.signal,
             });
-            setBalance(usdcBalance.balance);
-            setBalanceStatus(usdcBalance.hasTrustline ? 'success' : 'no_trustline');
+            if (seq !== operationSeqRef.current) return;
+            
+            dispatch({
+                type: 'BALANCE_FETCH_SUCCESS',
+                payload: {
+                    balance: usdcBalance.balance,
+                    status: usdcBalance.hasTrustline ? 'success' : 'no_trustline',
+                    network: activeNetwork,
+                },
+            });
         } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') {
-                return;
-            }
+            if (err instanceof Error && err.name === 'AbortError') return;
+            if (seq !== operationSeqRef.current) return;
             logger.error('Failed to get network details', err);
             const message = err instanceof Error ? err.message : 'Unable to load USDC balance.';
-            setBalance(null);
-            setBalanceStatus('error');
-            setBalanceError(message);
+            dispatch({ type: 'BALANCE_FETCH_ERROR', payload: { error: message } });
         }
-    };
+    }, []);
 
-    const checkConnection = async () => {
+    const checkConnection = useCallback(async () => {
+        if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') return;
+        
+        const seq = ++operationSeqRef.current;
+        dispatch({ type: 'RESTORE_START' });
+        
         try {
-            // Skip auto-reconnect if the user explicitly disconnected this session.
-            if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
-                return;
-            }
-            // isAllowed() resolves to { isAllowed: boolean }, not a plain
-            // boolean — checking the object itself is always truthy and
-            // would auto-reconnect regardless of the actual permission state.
-            if ((await isAllowed()).isAllowed) {
+            const allowed = await isAllowed();
+            if (seq !== operationSeqRef.current) return;
+            
+            if (allowed && allowed.isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
+                if (seq !== operationSeqRef.current) return;
+                
                 if (pubKey && !addrError) {
-                    setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
-                    await fetchNetworkAndBalance(pubKey);
+                    const netDetails = await getNetworkDetails();
+                    if (seq !== operationSeqRef.current) return;
+                    const activeNetwork = normalizeNetwork(netDetails.network);
+                    lastKnownNetworkRef.current = activeNetwork;
+                    
+                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
+                    await fetchNetworkAndBalance(pubKey, seq);
+                } else {
+                    dispatch({ type: 'RESTORE_ABORT' });
                 }
+            } else {
+                dispatch({ type: 'RESTORE_ABORT' });
             }
         } catch (err) {
+            if (seq !== operationSeqRef.current) return;
             logger.error('Check connection error', err);
+            dispatch({ type: 'RESTORE_ABORT' });
         }
-    };
+    }, [fetchNetworkAndBalance]);
 
     useEffect(() => {
         checkConnection();
@@ -106,40 +170,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
+            operationSeqRef.current++;
         };
-    }, []);
+    }, [checkConnection]);
 
-    // ── Balance auto-refresh ──────────────────────────────────────────────────
-    // Polls the balance at a configurable interval; pauses when the tab is
-    // hidden to avoid wasted Horizon calls. Never overlaps in-flight requests
-    // (fetchNetworkAndBalance already cancels the previous one via AbortController).
-    // No polling when disconnected (address is null).
-    // Also detects address changes via Freighter and updates state accordingly.
     useEffect(() => {
-        if (!address) return;
+        if (!state.address) return;
 
         const tick = async () => {
             if (document.hidden) return;
+            const seq = ++operationSeqRef.current;
             try {
                 const { address: currentAddr, error: addrError } = await getAddress();
+                if (seq !== operationSeqRef.current) return;
+                
                 if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
-                    // Address changed — update the ref and re-fetch everything
-                    setAddress(currentAddr);
                     lastKnownAddressRef.current = currentAddr;
-                    await fetchNetworkAndBalance(currentAddr);
+                    dispatch({ type: 'UPDATE_ADDRESS', payload: { address: currentAddr } });
+                    await fetchNetworkAndBalance(currentAddr, seq);
                 } else {
-                    await fetchNetworkAndBalance(lastKnownAddressRef.current ?? address);
+                    await fetchNetworkAndBalance(lastKnownAddressRef.current ?? state.address!, seq);
                 }
             } catch {
-                await fetchNetworkAndBalance(address);
+                if (seq !== operationSeqRef.current) return;
+                await fetchNetworkAndBalance(state.address!, seq);
             }
         };
 
         const id = setInterval(tick, BALANCE_REFRESH_INTERVAL);
 
         const onVisibilityChange = () => {
-            if (!document.hidden && address) {
-                fetchNetworkAndBalance(address);
+            if (!document.hidden && state.address) {
+                const seq = ++operationSeqRef.current;
+                fetchNetworkAndBalance(state.address, seq);
             }
         };
         document.addEventListener('visibilitychange', onVisibilityChange);
@@ -148,67 +211,66 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [address]);
+    }, [state.address, fetchNetworkAndBalance]);
 
     const connect = async (): Promise<boolean> => {
-        setIsConnecting(true);
-        setError(null);
+        const seq = ++operationSeqRef.current;
+        dispatch({ type: 'CONNECT_START' });
         try {
-            // Prompt user to allow access
             await setAllowed();
+            if (seq !== operationSeqRef.current) return false;
+            
             const access = await requestAccess();
+            if (seq !== operationSeqRef.current) return false;
+            
             if (access) {
                 const { address: pubKey, error: addrError } = await getAddress();
+                if (seq !== operationSeqRef.current) return false;
+                
                 if (pubKey && !addrError) {
-                    // Clear the explicit-disconnect flag so future page loads
-                    // can auto-reconnect again.
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
-                    setAddress(pubKey);
                     lastKnownAddressRef.current = pubKey;
-                    await fetchNetworkAndBalance(pubKey);
+                    const netDetails = await getNetworkDetails();
+                    if (seq !== operationSeqRef.current) return false;
+                    const activeNetwork = normalizeNetwork(netDetails.network);
+                    lastKnownNetworkRef.current = activeNetwork;
+                    
+                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
+                    await fetchNetworkAndBalance(pubKey, seq);
                     return true;
                 } else {
-                    setError(addrError || 'Failed to get wallet address.');
+                    dispatch({ type: 'CONNECT_ERROR', payload: { error: addrError || 'Failed to get wallet address.' } });
                 }
             } else {
-                setError('Wallet access denied.');
+                dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Wallet access denied.' } });
             }
         } catch (err: unknown) {
+            if (seq !== operationSeqRef.current) return false;
             logger.error('Connection error', err);
             const message = err instanceof Error ? err.message : undefined;
-            setError(message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.');
-        } finally {
-            setIsConnecting(false);
+            dispatch({ type: 'CONNECT_ERROR', payload: { error: message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.' } });
         }
         return false;
     };
 
-    const disconnect = () => {
+    const disconnect = useCallback(() => {
+        operationSeqRef.current++;
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
-        // Record the explicit disconnect so checkConnection does not
-        // silently reconnect on the next page load.
         localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
-        setAddress(null);
-        setNetwork(null);
-        setBalance(null);
-        setBalanceStatus('idle');
-        setBalanceError(null);
         lastKnownAddressRef.current = null;
         lastKnownNetworkRef.current = null;
-    };
+        dispatch({ type: 'DISCONNECT' });
+    }, []);
+
+    const isConnecting = state.status === 'connecting' || state.status === 'restoring';
 
     return (
         <WalletContext.Provider
             value={{
-                address,
-                network,
-                balance,
-                balanceStatus,
-                balanceError,
+                ...state,
                 isConnecting,
-                error,
                 connect,
                 disconnect,
                 checkConnection,
