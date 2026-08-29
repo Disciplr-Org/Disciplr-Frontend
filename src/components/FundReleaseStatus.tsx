@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
+import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
 import { logger } from '../utils/logger';
 import './FundReleaseStatus.css';
@@ -20,6 +20,9 @@ export interface FundReleaseStatusProps {
   amount: number;
   currency: string;
   transaction?: SettlementTransaction;
+  isLoading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
 }
 
 /**
@@ -62,6 +65,20 @@ function formatTimestamp(timestamp?: string): string {
   });
 }
 
+function checkInvariants(outcome: FundReleaseOutcome, transaction?: SettlementTransaction): Error | null {
+  const hasTx = !!(transaction?.hash || transaction?.timestamp);
+  
+  if ((outcome === 'released' || outcome === 'redirected') && !hasTx) {
+    return new Error(`Settlement transaction details are required for ${outcome} funds.`);
+  }
+  
+  if (outcome === 'pending' && hasTx) {
+    return new Error(`Pending settlement cannot have transaction details.`);
+  }
+
+  return null;
+}
+
 const OUTCOME_COPY = {
   released: {
     title: 'Funds released',
@@ -86,62 +103,40 @@ export function FundReleaseStatus({
   amount,
   currency,
   transaction,
+  isLoading,
+  error,
+  onRetry,
 }: FundReleaseStatusProps) {
   const { network } = useWallet();
 
-  const { copy, Icon, hash, boundedAmount, boundedCurrency, boundedDestination, boundedHash } =
-    useMemo(() => {
-      const violations: string[] = [];
+  if (isLoading) {
+    return (
+      <div className="fund-release-status-loading" aria-busy="true" aria-live="polite">
+        <Loader2 className="fund-release-status-spinner" aria-hidden="true" size={24} />
+        <Text role="body" as="p">Loading settlement status...</Text>
+      </div>
+    );
+  }
 
-      // Invariant: final outcomes must carry a destination address.
-      if (outcome !== 'pending' && !destinationAddress) {
-        violations.push('final-outcome-missing-destination');
-      }
-      // Invariant: pending outcome must not carry settlement details.
-      if (outcome === 'pending' && (destinationAddress || transaction?.hash)) {
-        violations.push('pending-has-settlement-details');
-      }
-      // Invariant: amount must be a finite, non-negative number within bounds.
-      if (!Number.isFinite(amount) || amount < 0) {
-        violations.push('invalid-amount');
-      } else if (amount > MAX_AMOUNT) {
-        violations.push('amount-overflow');
-      }
-      // Invariant: currency must be a non-empty bounded string.
-      if (!currency || currency.length > MAX_CURRENCY_LENGTH) {
-        violations.push('currency-overflow');
-      }
-      // Invariant: address and hash must be bounded.
-      if (destinationAddress && destinationAddress.length > MAX_ADDRESS_LENGTH) {
-        violations.push('destination-overflow');
-      }
-      if (transaction?.hash && transaction.hash.length > MAX_HASH_LENGTH) {
-        violations.push('hash-overflow');
-      }
+  const invariantError = checkInvariants(outcome, transaction);
+  const activeError = error || invariantError;
 
-      if (violations.length > 0) {
-        logger.warn('[FundReleaseStatus] invariant violation', {
-          outcome,
-          violations,
-        });
-      }
+  if (activeError) {
+    return (
+      <div className="fund-release-status-error" role="alert" aria-live="assertive">
+        <EmptyState
+          icon={<AlertTriangle size={32} style={{ color: 'var(--danger, red)' }} />}
+          title="Cannot load settlement status"
+          description={activeError.message}
+          action={onRetry ? { label: "Retry", onClick: onRetry } : undefined}
+        />
+      </div>
+    );
+  }
 
-      const copy = OUTCOME_COPY[outcome];
-      const Icon = copy.icon;
-      const hash = transaction?.hash;
-
-      return {
-        copy,
-        Icon,
-        hash,
-        boundedAmount: Number.isFinite(amount) && amount >= 0 ? Math.min(amount, MAX_AMOUNT) : 0,
-        boundedCurrency: currency ? currency.slice(0, MAX_CURRENCY_LENGTH) : '',
-        boundedDestination: destinationAddress
-          ? destinationAddress.slice(0, MAX_ADDRESS_LENGTH)
-          : undefined,
-        boundedHash: hash ? hash.slice(0, MAX_HASH_LENGTH) : undefined,
-      };
-    }, [outcome, destinationAddress, amount, currency, transaction]);
+  const copy = OUTCOME_COPY[outcome];
+  const Icon = copy.icon;
+  const hash = transaction?.hash;
 
   return (
     <section

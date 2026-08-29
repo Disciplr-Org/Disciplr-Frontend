@@ -114,4 +114,52 @@ describe('WalletSelectionModal', () => {
         rerender(<WalletSelectionModal onClose={onClose} />);
         expect(screen.getByText('Wallet access denied.')).toBeInTheDocument();
     });
+
+    test('prevents multiple connect calls on double click', async () => {
+        let resolveConnect: (value: boolean) => void;
+        walletState.connect.mockImplementation(() => new Promise((resolve) => {
+            resolveConnect = resolve;
+        }));
+        const { onClose } = renderModal();
+
+        const btn = screen.getByText('Freighter').closest('button')!;
+        
+        await act(async () => {
+            btn.click();
+            btn.click();
+            btn.click();
+        });
+
+        expect(walletState.connect).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+            resolveConnect(true);
+        });
+        
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not call onClose if unmounted before connect resolves', async () => {
+        let resolveConnect: (value: boolean) => void;
+        walletState.connect.mockImplementation(() => new Promise((resolve) => {
+            resolveConnect = resolve;
+        }));
+        
+        const onClose = vi.fn();
+        const { unmount } = render(<WalletSelectionModal onClose={onClose} />);
+        
+        const btn = screen.getByText('Freighter').closest('button')!;
+        
+        await act(async () => {
+            btn.click();
+        });
+
+        unmount();
+
+        await act(async () => {
+            resolveConnect(true);
+        });
+
+        expect(onClose).not.toHaveBeenCalled();
+    });
 });
