@@ -1,8 +1,14 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
+import type { WalletNetwork } from '../context/WalletContext';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
 import { getExplorerTxUrl } from '../utils/explorer';
+import {
+  isPlausibleStellarAddress,
+  isValidCurrency,
+  isValidTxHash,
+} from '../utils/vaultState';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -18,9 +24,16 @@ export interface FundReleaseStatusProps {
   amount: number;
   currency: string;
   transaction?: SettlementTransaction;
+  /** The network the vault contract lives on. When provided alongside the
+   *  wallet's network, a mismatch is surfaced instead of silently generating
+   *  an explorer link for the wrong network. */
+  network?: WalletNetwork;
 }
 
 export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return 'Unavailable';
+  }
   if (value.length <= prefixLength + suffixLength + 3) {
     return value;
   }
@@ -28,8 +41,8 @@ export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4
   return `${value.slice(0, prefixLength)}...${value.slice(-suffixLength)}`;
 }
 
-function explorerUrl(hash: string, network: 'TESTNET' | 'PUBLIC' | null): string {
-  return getExplorerTxUrl(hash, network);
+function networkLabel(network: WalletNetwork | null | undefined): string {
+  return network === 'PUBLIC' ? 'mainnet' : 'testnet';
 }
 
 function formatTimestamp(timestamp?: string): string {
@@ -37,7 +50,12 @@ function formatTimestamp(timestamp?: string): string {
     return 'Pending confirmation';
   }
 
-  return new Date(timestamp).toLocaleString('en-US', {
+  const parsed = new Date(timestamp);
+  if (!Number.isFinite(parsed.getTime())) {
+    return 'Unknown';
+  }
+
+  return parsed.toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -70,11 +88,29 @@ export function FundReleaseStatus({
   amount,
   currency,
   transaction,
+  network,
 }: FundReleaseStatusProps) {
-  const { network } = useWallet();
-  const copy = OUTCOME_COPY[outcome];
+  const { network: walletNetwork } = useWallet();
+  const copy = OUTCOME_COPY[outcome] ?? OUTCOME_COPY.pending;
   const Icon = copy.icon;
   const hash = transaction?.hash;
+  const validHash = isValidTxHash(hash);
+  const explorerNetwork = network ?? walletNetwork;
+  const walletNetworkMismatch =
+    network !== undefined &&
+    walletNetwork !== null &&
+    network !== walletNetwork;
+
+  const displayAmount =
+    typeof amount === 'number' && Number.isFinite(amount) && amount >= 0
+      ? amount.toLocaleString()
+      : 'Unavailable';
+  const displayCurrency = isValidCurrency(currency) ? currency : 'UNKNOWN';
+  const safeDestination =
+    typeof destinationAddress === 'string' && destinationAddress.length > 0
+      ? destinationAddress
+      : undefined;
+  const destinationVerified = isPlausibleStellarAddress(safeDestination);
 
   return (
     <section
@@ -103,64 +139,88 @@ export function FundReleaseStatus({
           Settlement transaction details will appear after funds are released or redirected.
         </Text>
       ) : (
-        <div className="fund-release-status__grid">
-          <div className="fund-release-status__field">
-            <Text role="caption" as="span" className="fund-release-status__label">
-              Destination
-            </Text>
-            {destinationAddress ? (
-              <Text
-                role="mono"
-                as="span"
-                className="fund-release-status__value"
-                title={destinationAddress}
-                aria-label={`Destination address ${destinationAddress}`}
-              >
-                {truncateMiddle(destinationAddress)}
-              </Text>
-            ) : (
+        <>
+          {walletNetworkMismatch && (
+            <p
+              className="fund-release-status__network-warning"
+              role="status"
+              aria-label="Network mismatch notice"
+            >
+              This settlement belongs to the {networkLabel(network)} contract, but your wallet is
+              connected to {networkLabel(walletNetwork)}. Transaction explorer links may not match
+              the network your wallet expects.
+            </p>
+          )}
+          <div className="fund-release-status__grid">
+            <div className="fund-release-status__field">
               <Text role="caption" as="span" className="fund-release-status__label">
-                Not available
+                Destination
               </Text>
-            )}
-          </div>
-          <div className="fund-release-status__field">
-            <Text role="caption" as="span" className="fund-release-status__label">
-              Amount
-            </Text>
-            <Text role="mono" as="span" className="fund-release-status__value">
-              {amount.toLocaleString()} {currency}
-            </Text>
-          </div>
-          <div className="fund-release-status__field">
-            <Text role="caption" as="span" className="fund-release-status__label">
-              Settled
-            </Text>
-            <Text role="caption" as="span" className="fund-release-status__value">
-              {formatTimestamp(transaction?.timestamp)}
-            </Text>
-          </div>
-          <div className="fund-release-status__field">
-            <Text role="caption" as="span" className="fund-release-status__label">
-              Transaction
-            </Text>
-            {hash ? (
-              <SafeLink
-                className="fund-release-status__link"
-                href={explorerUrl(hash, network)}
-                title={hash}
-                aria-label={`View transaction ${hash} on Stellar ${network === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
-              >
-                {truncateMiddle(hash, 8, 6)}
-              </SafeLink>
-            ) : (
+              {safeDestination ? (
+                <Text
+                  role="mono"
+                  as="span"
+                  className="fund-release-status__value"
+                  title={safeDestination}
+                  aria-label={`Destination address ${safeDestination}`}
+                >
+                  {truncateMiddle(safeDestination)}
+                  {!destinationVerified && (
+                    <span className="fund-release-status__unverified"> (unverified)</span>
+                  )}
+                </Text>
+              ) : (
+                <Text role="caption" as="span" className="fund-release-status__label">
+                  Not available
+                </Text>
+              )}
+            </div>
+            <div className="fund-release-status__field">
               <Text role="caption" as="span" className="fund-release-status__label">
-                Pending transaction
+                Amount
               </Text>
-            )}
+              <Text role="mono" as="span" className="fund-release-status__value">
+                {displayAmount} {displayCurrency}
+              </Text>
+            </div>
+            <div className="fund-release-status__field">
+              <Text role="caption" as="span" className="fund-release-status__label">
+                Settled
+              </Text>
+              <Text role="caption" as="span" className="fund-release-status__value">
+                {formatTimestamp(transaction?.timestamp)}
+              </Text>
+            </div>
+            <div className="fund-release-status__field">
+              <Text role="caption" as="span" className="fund-release-status__label">
+                Transaction
+              </Text>
+              {validHash && hash ? (
+                <SafeLink
+                  className="fund-release-status__link"
+                  href={explorerUrl(hash, explorerNetwork)}
+                  title={hash}
+                  aria-label={`View transaction ${hash} on Stellar ${explorerNetwork === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
+                >
+                  {truncateMiddle(hash, 8, 6)}
+                </SafeLink>
+              ) : hash ? (
+                <Text role="caption" as="span" className="fund-release-status__label">
+                  Invalid transaction hash
+                </Text>
+              ) : (
+                <Text role="caption" as="span" className="fund-release-status__label">
+                  Pending transaction
+                </Text>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
   );
+}
+
+function explorerUrl(hash: string, network: WalletNetwork | null | undefined): string {
+  return getExplorerTxUrl(hash, network ?? null);
 }

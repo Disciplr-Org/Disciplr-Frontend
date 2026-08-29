@@ -237,3 +237,135 @@ describe("MilestoneTracker", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 });
+
+describe("MilestoneTracker hostile input boundary", () => {
+  it("renders an unknown-status badge instead of crashing on an unrecognized status", () => {
+    const bad: Milestone[] = [
+      {
+        id: "m1",
+        title: "Weird",
+        description: "Test",
+        criteria: "Test",
+        status: "delivered" as never,
+      },
+    ];
+
+    render(<MilestoneTracker milestones={bad} />);
+
+    expect(screen.getByText("Weird")).toBeInTheDocument();
+    expect(screen.getByText("Unknown status")).toBeInTheDocument();
+  });
+
+  it("surfaces a data-inconsistency notice for an unrecognized status", () => {
+    const bad: Milestone[] = [
+      {
+        id: "m1",
+        title: "Weird",
+        description: "Test",
+        criteria: "Test",
+        status: "delivered" as never,
+      },
+    ];
+
+    render(<MilestoneTracker milestones={bad} />);
+
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveAttribute(
+      "aria-label",
+      "Milestone data inconsistency notice",
+    );
+    expect(notice.textContent).toMatch(/unrecognized status/);
+  });
+
+  it("renders 'Validated Unknown' for an unparseable validatedAt instead of NaN garbage", () => {
+    const bad: Milestone[] = [
+      {
+        id: "m1",
+        title: "T",
+        description: "Test",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "not a real timestamp" as string,
+      },
+    ];
+
+    render(<MilestoneTracker milestones={bad} />);
+
+    expect(screen.getByText(/Validated Unknown/)).toBeInTheDocument();
+  });
+
+  it("does not render a validated-at line for an empty validatedAt", () => {
+    const bad: Milestone[] = [
+      {
+        id: "m1",
+        title: "T",
+        description: "Test",
+        criteria: "Test",
+        status: "validated",
+        validatedAt: "",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={bad} />);
+
+    expect(document.querySelector(".milestone-tracker-validated-at")).toBeNull();
+  });
+
+  it("uses unique keys and still renders all milestones when ids are duplicated", () => {
+    const dup: Milestone[] = [
+      { ...milestones[0], id: "dup" },
+      { ...milestones[1], id: "dup" },
+    ];
+
+    render(<MilestoneTracker milestones={dup} />);
+
+    expect(document.querySelectorAll(".milestone-tracker-step")).toHaveLength(2);
+    expect(screen.getByText("Phase 1 Complete")).toBeInTheDocument();
+    expect(screen.getByText("Beta Launch")).toBeInTheDocument();
+  });
+
+  it("flags duplicated ids in the inconsistency notice", () => {
+    const dup: Milestone[] = [
+      { ...milestones[0], id: "dup" },
+      { ...milestones[1], id: "dup" },
+    ];
+
+    render(<MilestoneTracker milestones={dup} />);
+
+    expect(screen.getByRole("status").textContent).toMatch(/appears more than once/);
+  });
+
+  it("renders milestones with a missing id without crashing", () => {
+    const missingId: Milestone[] = [
+      {
+        id: "",
+        title: "Missing Id Title",
+        description: "Test",
+        criteria: "Test",
+        status: "pending",
+      },
+    ];
+
+    render(<MilestoneTracker milestones={missingId} />);
+
+    expect(screen.getByText("Missing Id Title")).toBeInTheDocument();
+  });
+
+  it("flags impossible transitions where a resolved milestone follows the pending step", () => {
+    const impossible: Milestone[] = [
+      { ...milestones[0], id: "m1", status: "validated", validatedAt: "2024-02-20T14:30:00Z" },
+      { ...milestones[1], id: "m2" },
+      { ...milestones[1], id: "m3", status: "validated", validatedAt: "2024-03-01T00:00:00Z" },
+    ];
+
+    render(<MilestoneTracker milestones={impossible} />);
+
+    expect(screen.getByRole("status").textContent).toMatch(/validated before the current pending/);
+  });
+
+  it("does not flag a coherent validated-then-pending sequence", () => {
+    render(<MilestoneTracker milestones={milestones} />);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
