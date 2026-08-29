@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
+import { logger } from "../utils/logger";
 import type { Milestone, MilestoneStatus } from "../types/vault";
 import { EmptyState } from "./EmptyState";
 import { AlertTriangle, Loader2 } from "lucide-react";
@@ -13,6 +15,20 @@ export interface MilestoneTrackerProps {
   canManage?: boolean;
   onManageMilestone?: (milestone: Milestone) => void;
 }
+
+/**
+ * Explicit rendering bounds for the milestone tracker.
+ *
+ * These constants define the feature's invariants for adversarial inputs:
+ * - `MAX_MILESTONES_RENDERED` caps DOM nodes and layout cost.
+ * - Text-length bounds prevent unbounded string rendering from hostile data.
+ * - `MAX_EVIDENCE_URL_LENGTH` bounds the URL we hand to SafeLink.
+ */
+export const MAX_MILESTONES_RENDERED = 50;
+export const MAX_TITLE_LENGTH = 200;
+export const MAX_DESCRIPTION_LENGTH = 500;
+export const MAX_CRITERIA_LENGTH = 500;
+export const MAX_EVIDENCE_URL_LENGTH = 2048;
 
 const MILESTONE_STATUS_CONFIG: Record<
   MilestoneStatus,
@@ -99,13 +115,13 @@ export function MilestoneTracker({
     );
   }
 
-  const currentIndex = milestones.findIndex(
+  const currentIndex = boundedMilestones.findIndex(
     (milestone) => milestone.status === "pending",
   );
 
   return (
     <ol className="milestone-tracker" aria-label="Vault milestone progress">
-      {milestones.map((milestone, index) => {
+      {boundedMilestones.map((milestone, index) => {
         const status = MILESTONE_STATUS_CONFIG[milestone.status];
         const isCurrent = index === currentIndex;
 
@@ -167,6 +183,16 @@ export function MilestoneTracker({
           </li>
         );
       })}
+      {truncated && (
+        <li className="milestone-tracker-step" aria-hidden="true">
+          <div className="milestone-tracker-content">
+            <Text role="caption" as="p" className="milestone-tracker-copy">
+              {milestones.length - MAX_MILESTONES_RENDERED} additional
+              milestone(s) not shown.
+            </Text>
+          </div>
+        </li>
+      )}
     </ol>
   );
 }

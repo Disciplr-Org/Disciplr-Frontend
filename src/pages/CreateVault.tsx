@@ -24,6 +24,7 @@ import {
 } from "../utils/deadlinePresets";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
 import { createVault } from "../services/vaultService";
+import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
 
 interface MilestoneFormRow extends CreateVaultMilestoneInput {
   id: string;
@@ -41,7 +42,7 @@ export default function CreateVault() {
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = getCreateVaultPrefill(location.state);
-  const { balance, balanceStatus, address } = useWallet();
+  const { balance, balanceStatus, address, network } = useWallet();
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
   const successAddressRef = useRef<HTMLInputElement>(null);
@@ -73,6 +74,8 @@ export default function CreateVault() {
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const errorFieldOrder: Array<
     "amount" | "deadline" | "successAddress" | "failureAddress"
@@ -198,6 +201,38 @@ export default function CreateVault() {
   };
 
   const handleConfirm = async () => {
+    if (isSubmitting) return;
+
+    if (!address) {
+      setSubmitError("Wallet disconnected. Please reconnect your wallet.");
+      return;
+    }
+
+    if (isNetworkMismatch(network)) {
+      setSubmitError(`Wrong network. Please switch your wallet to ${APP_EXPECTED_NETWORK}.`);
+      return;
+    }
+
+    const nextErrors = validateCreateVault({
+      amount,
+      deadline,
+      successAddress,
+      failureAddress,
+      milestones,
+    });
+    if (hasCreateVaultErrors(nextErrors)) {
+      setSubmitError("Form data is invalid or was tampered with.");
+      return;
+    }
+
+    if (balanceStatus === 'success' && exceedsBalance(amount, balance)) {
+      setSubmitError("Amount exceeds your available USDC balance.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
     logger.debug("CreateVault confirm", {
       amount,
       deadline,
@@ -216,22 +251,25 @@ export default function CreateVault() {
         amount: Number(amount),
         currency: "USDC",
         deadline,
-        creatorAddress: address ?? "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+        creatorAddress: address,
         successAddress,
         failureAddress,
         milestones: milestones.map(({ title, criteria }) => ({
           title,
-          // The create-vault form only collects a title and success
-          // criteria; reuse the criteria text as the milestone description
-          // since Milestone.description is required downstream.
           description: criteria,
           criteria,
         })),
       });
+      
+      if (!newVault || !newVault.id) {
+        throw new Error("Malformed response from server.");
+      }
 
       navigate(`/vaults/${newVault.id}`);
     } catch (err) {
       logger.error("Failed to create vault", err);
+      setSubmitError(err instanceof Error ? err.message : "Failed to create vault.");
+      setIsSubmitting(false);
     }
   };
 
@@ -260,6 +298,8 @@ export default function CreateVault() {
           successAddress={successAddress}
           failureAddress={failureAddress}
           milestones={milestones}
+          isSubmitting={isSubmitting}
+          error={submitError}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
         />
