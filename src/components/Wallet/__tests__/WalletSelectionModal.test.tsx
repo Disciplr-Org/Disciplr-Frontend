@@ -10,6 +10,14 @@ vi.mock('@/context/WalletContext', () => ({
     useWallet: () => walletState,
 }));
 
+const telemetryMocks = vi.hoisted(() => ({
+    recordWalletTelemetry: vi.fn(),
+}));
+
+vi.mock('../../../utils/walletTelemetry', () => ({
+    recordWalletTelemetry: telemetryMocks.recordWalletTelemetry,
+}));
+
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { WalletSelectionModal } from '../WalletSelectionModal';
 
@@ -22,6 +30,7 @@ describe('WalletSelectionModal', () => {
         walletState.connect = vi.fn().mockResolvedValue(true);
         walletState.isConnecting = false;
         walletState.error = null;
+        telemetryMocks.recordWalletTelemetry.mockClear();
     });
 
     test('renders the title and Freighter option', () => {
@@ -137,6 +146,30 @@ describe('WalletSelectionModal', () => {
         });
         
         expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    test('records an ignored telemetry event when a second click arrives while pending', async () => {
+        let resolveConnect: (value: boolean) => void;
+        walletState.connect.mockImplementation(() => new Promise((resolve) => {
+            resolveConnect = resolve;
+        }));
+        renderModal();
+
+        const btn = screen.getByText('Freighter').closest('button')!;
+
+        await act(async () => {
+            btn.click();
+            btn.click();
+        });
+
+        expect(walletState.connect).toHaveBeenCalledTimes(1);
+        expect(telemetryMocks.recordWalletTelemetry).toHaveBeenCalledWith(
+            expect.objectContaining({ event: 'wallet.connect.ignored', reason: 'button_pending' }),
+        );
+
+        await act(async () => {
+            resolveConnect(true);
+        });
     });
 
     test('does not call onClose if unmounted before connect resolves', async () => {

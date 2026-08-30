@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet } from '../WalletContext';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WalletProvider, useWallet, CONNECT_TIMEOUT_MS } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
@@ -11,6 +11,15 @@ const freighterMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@stellar/freighter-api', () => freighterMocks);
+
+const telemetryMock = vi.hoisted(() => ({
+    recordWalletTelemetry: vi.fn(),
+}));
+
+vi.mock('../../utils/walletTelemetry', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../utils/walletTelemetry')>();
+    return { ...actual, recordWalletTelemetry: telemetryMock.recordWalletTelemetry };
+});
 
 function mockResponse(status: number, body: unknown) {
     return {
