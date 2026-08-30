@@ -2,6 +2,11 @@ import { createContext, useContext, useState, useEffect, useRef, ReactNode } fro
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
+import {
+    recordWalletTelemetry,
+    resolveConnectTimeoutMs,
+    type ConnectErrorCode,
+} from '../utils/walletTelemetry';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
@@ -24,6 +29,16 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 /** Polling interval in milliseconds. Override in tests via module augmentation or dependency injection. */
 export const BALANCE_REFRESH_INTERVAL = 30_000;
 
+/**
+ * Upper bound for a single wallet connect attempt. A hung Freighter prompt
+ * must not leave the user stuck in an indeterminate connecting state
+ * forever. Configurable via VITE_WALLET_CONNECT_TIMEOUT_MS, clamped to
+ * [5_000, 120_000]ms (see resolveConnectTimeoutMs).
+ */
+export const CONNECT_TIMEOUT_MS = resolveConnectTimeoutMs(
+    import.meta.env.VITE_WALLET_CONNECT_TIMEOUT_MS as string | undefined,
+);
+
 /** localStorage key that records an explicit user-initiated disconnect.
  *  While this key is set, checkConnection will not auto-reconnect even
  *  if Freighter still reports the site as allowed.
@@ -41,6 +56,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
+    // Single-flight guard: at most one Freighter authorization prompt and one
+    // set of balance fetches may be in flight at a time, even when several
+    // UI surfaces call connect() during the same tick.
+    const connectInFlightRef = useRef<Promise<boolean> | null>(null);
+    const connectAttemptRef = useRef(0);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -150,37 +170,140 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         };
     }, [address]);
 
-    const connect = async (): Promise<boolean> => {
+    type ConnectResult =
+        | { ok: true; pubKey: string }
+        | { ok: false; code: ConnectErrorCode; message: string };
+
+    class ConnectTimeoutError extends Error {
+        constructor() {
+            super('Wallet connect timed out');
+            this.name = 'ConnectTimeoutError';
+        }
+    }
+
+    const performConnect = async (attempt: number): Promise<boolean> => {
+        const startedAt = Date.now();
         setIsConnecting(true);
         setError(null);
+        recordWalletTelemetry({ event: 'wallet.connect.attempt', ts: startedAt, wallet: 'freighter', attempt });
+
+        // Guard against late Freighter resolutions clobbering state after a
+        // timeout or a previous attempt already settled.
+        let settled = false;
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
         try {
-            // Prompt user to allow access
-            await setAllowed();
-            const access = await requestAccess();
-            if (access) {
-                const { address: pubKey, error: addrError } = await getAddress();
-                if (pubKey && !addrError) {
-                    // Clear the explicit-disconnect flag so future page loads
-                    // can auto-reconnect again.
-                    localStorage.removeItem(WALLET_DISCONNECTED_KEY);
-                    setAddress(pubKey);
-                    lastKnownAddressRef.current = pubKey;
-                    await fetchNetworkAndBalance(pubKey);
-                    return true;
-                } else {
-                    setError(addrError || 'Failed to get wallet address.');
-                }
-            } else {
-                setError('Wallet access denied.');
+            const result = await Promise.race<ConnectResult>([
+                (async (): Promise<ConnectResult> => {
+                    // Prompt user to allow access
+                    await setAllowed();
+                    const access = await requestAccess();
+                    if (access) {
+                        const { address: pubKey, error: addrError } = await getAddress();
+                        if (pubKey && !addrError) {
+                            return { ok: true, pubKey };
+                        }
+                        return { ok: false, code: 'address_unavailable', message: addrError || 'Failed to get wallet address.' };
+                    }
+                    return { ok: false, code: 'access_denied', message: 'Wallet access denied.' };
+                })(),
+                new Promise<never>((_, reject) => {
+                    timeoutHandle = setTimeout(() => reject(new ConnectTimeoutError()), CONNECT_TIMEOUT_MS);
+                }),
+            ]);
+
+            if (settled) return result.ok;
+            settled = true;
+
+            if (result.ok) {
+                // Clear the explicit-disconnect flag so future page loads
+                // can auto-reconnect again.
+                localStorage.removeItem(WALLET_DISCONNECTED_KEY);
+                setAddress(result.pubKey);
+                lastKnownAddressRef.current = result.pubKey;
+                await fetchNetworkAndBalance(result.pubKey);
+                setIsConnecting(false);
+                recordWalletTelemetry({
+                    event: 'wallet.connect.success',
+                    ts: Date.now(),
+                    wallet: 'freighter',
+                    durationMs: Date.now() - startedAt,
+                    attempt,
+                });
+                return true;
             }
+
+            setError(result.message);
+            setIsConnecting(false);
+            recordWalletTelemetry({
+                event: 'wallet.connect.failure',
+                ts: Date.now(),
+                wallet: 'freighter',
+                durationMs: Date.now() - startedAt,
+                attempt,
+                errorCode: result.code,
+            });
+            return false;
         } catch (err: unknown) {
+            if (settled) return false;
+            settled = true;
+            setIsConnecting(false);
+            if (err instanceof ConnectTimeoutError) {
+                setError(`Connection attempt timed out after ${CONNECT_TIMEOUT_MS}ms. Please retry.`);
+                recordWalletTelemetry({
+                    event: 'wallet.connect.timeout',
+                    ts: Date.now(),
+                    wallet: 'freighter',
+                    durationMs: Date.now() - startedAt,
+                    timeoutMs: CONNECT_TIMEOUT_MS,
+                    attempt,
+                });
+                return false;
+            }
             logger.error('Connection error', err);
             const message = err instanceof Error ? err.message : undefined;
             setError(message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.');
+            recordWalletTelemetry({
+                event: 'wallet.connect.failure',
+                ts: Date.now(),
+                wallet: 'freighter',
+                durationMs: Date.now() - startedAt,
+                attempt,
+                errorCode: 'wallet_error',
+            });
+            return false;
         } finally {
-            setIsConnecting(false);
+            if (timeoutHandle !== null) {
+                clearTimeout(timeoutHandle);
+            }
         }
-        return false;
+    };
+
+    const connect = (): Promise<boolean> => {
+        // Bounded concurrency: a second connect() call while one is already in
+        // flight returns the in-flight promise instead of prompting Freighter
+        // again, so rapid user interaction never stacks authorization prompts.
+        if (connectInFlightRef.current) {
+            recordWalletTelemetry({
+                event: 'wallet.connect.ignored',
+                ts: Date.now(),
+                wallet: 'freighter',
+                reason: 'already_in_flight',
+            });
+            return connectInFlightRef.current;
+        }
+        connectAttemptRef.current += 1;
+        const promise = performConnect(connectAttemptRef.current);
+        connectInFlightRef.current = promise;
+        void promise.then(
+            () => {
+                connectInFlightRef.current = null;
+            },
+            () => {
+                connectInFlightRef.current = null;
+            },
+        );
+        return promise;
     };
 
     const disconnect = () => {

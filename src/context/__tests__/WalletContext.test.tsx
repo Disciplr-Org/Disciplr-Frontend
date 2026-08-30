@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet } from '../WalletContext';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WalletProvider, useWallet, CONNECT_TIMEOUT_MS } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
@@ -11,6 +11,15 @@ const freighterMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@stellar/freighter-api', () => freighterMocks);
+
+const telemetryMock = vi.hoisted(() => ({
+    recordWalletTelemetry: vi.fn(),
+}));
+
+vi.mock('../../utils/walletTelemetry', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../utils/walletTelemetry')>();
+    return { ...actual, recordWalletTelemetry: telemetryMock.recordWalletTelemetry };
+});
 
 function mockResponse(status: number, body: unknown) {
     return {
@@ -532,5 +541,106 @@ describe('WalletContext network/address change listener', () => {
         await waitFor(() => {
             expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error');
         });
+    });
+});
+
+describe('WalletContext bounded connect (single-flight + timeout)', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        localStorage.clear();
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
+        freighterMocks.setAllowed.mockResolvedValue(undefined);
+        freighterMocks.requestAccess.mockResolvedValue(true);
+        freighterMocks.getAddress.mockResolvedValue({ address: 'GCONNECTED', error: null });
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+        globalThis.fetch = vi.fn();
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        balance: '10.0000000',
+                    },
+                ],
+            }),
+        );
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    test('single-flights concurrent connect calls into one Freighter prompt', async () => {
+        let resolveRequest: (value: boolean) => void = () => undefined;
+        freighterMocks.requestAccess.mockImplementation(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    resolveRequest = resolve;
+                }),
+        );
+
+        renderWallet();
+        const connectButton = screen.getByRole('button', { name: /^connect$/i });
+
+        fireEvent.click(connectButton);
+        fireEvent.click(connectButton);
+        fireEvent.click(connectButton);
+
+        // Let the Freighter chain advance past setAllowed so requestAccess is
+        // pending and its resolver is assigned before we settle it.
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+        // Only the first click may reach Freighter; the rest are absorbed.
+        expect(freighterMocks.setAllowed).toHaveBeenCalledTimes(1);
+        expect(telemetryMock.recordWalletTelemetry).toHaveBeenCalledWith(
+            expect.objectContaining({ event: 'wallet.connect.ignored', reason: 'already_in_flight' }),
+        );
+
+        await act(async () => {
+            resolveRequest(true);
+        });
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GCONNECTED'));
+        expect(freighterMocks.setAllowed).toHaveBeenCalledTimes(1);
+    });
+
+    test('bounds a hung Freighter prompt with a timeout error and telemetry, then allows a retry', async () => {
+        vi.useFakeTimers();
+        freighterMocks.requestAccess.mockImplementation(() => new Promise<boolean>(() => undefined));
+
+        renderWallet();
+        const connectButton = screen.getByRole('button', { name: /^connect$/i });
+        fireEvent.click(connectButton);
+
+        expect(telemetryMock.recordWalletTelemetry).toHaveBeenCalledWith(
+            expect.objectContaining({ event: 'wallet.connect.attempt' }),
+        );
+
+        // Freighter never answers: the bounded timeout must settle the attempt.
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(CONNECT_TIMEOUT_MS);
+        });
+
+        expect(screen.getByTestId('connectionError')).toHaveTextContent(/timed out/i);
+        expect(telemetryMock.recordWalletTelemetry).toHaveBeenCalledWith(
+            expect.objectContaining({ event: 'wallet.connect.timeout', timeoutMs: CONNECT_TIMEOUT_MS }),
+        );
+
+        // The bound must not deadlock the feature: a retry is allowed afterwards.
+        freighterMocks.requestAccess.mockResolvedValue(true);
+        fireEvent.click(connectButton);
+
+        // Pump the timer queue so the resolved Freighter chain reaches state.
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(0);
+            await vi.advanceTimersByTimeAsync(0);
+            await vi.advanceTimersByTimeAsync(0);
+        });
+
+        expect(screen.getByTestId('address')).toHaveTextContent('GCONNECTED');
     });
 });

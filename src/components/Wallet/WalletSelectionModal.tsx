@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
+import { recordWalletTelemetry } from '../../utils/walletTelemetry';
 import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 
@@ -24,7 +25,19 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     }, []);
 
     const handleConnect = async () => {
-        if (connectPending.current || isConnecting) return;
+        // Bounded interaction: ignore clicks while a connect attempt is
+        // pending so double-clicks never stack Freighter prompts. The
+        // WalletContext additionally single-flights connect() itself, so this
+        // guard and the context guard together cap concurrent prompts at one.
+        if (connectPending.current || isConnecting) {
+            recordWalletTelemetry({
+                event: 'wallet.connect.ignored',
+                ts: Date.now(),
+                wallet: 'freighter',
+                reason: 'button_pending',
+            });
+            return;
+        }
         connectPending.current = true;
         try {
             const connected = await connect();
