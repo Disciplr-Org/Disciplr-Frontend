@@ -75,6 +75,7 @@ export default function CreateVault() {
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const errorFieldOrder: Array<
@@ -201,7 +202,7 @@ export default function CreateVault() {
   };
 
   const handleConfirm = async () => {
-    if (isSubmitting) return;
+    if (isSubmittingRef.current) return;
 
     if (!address) {
       setSubmitError("Wallet disconnected. Please reconnect your wallet.");
@@ -230,6 +231,7 @@ export default function CreateVault() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -269,6 +271,7 @@ export default function CreateVault() {
     } catch (err) {
       logger.error("Failed to create vault", err);
       setSubmitError(err instanceof Error ? err.message : "Failed to create vault.");
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
