@@ -57,7 +57,7 @@ describe('StatusChip Component', () => {
 
   it('falls back gracefully to cancelled config on unknown status', () => {
     // We suppress the console error for unknown status (TS would normally catch this, but in pure JS it might happen)
-    // @ts-ignore
+    // @ts-expect-error - unknown status is intentionally exercised for fallback behavior
     render(<StatusChip status="unknown_status" />);
     const chip = screen.getByLabelText('Cancelled');
     expect(chip).toHaveTextContent('Cancelled');
@@ -69,5 +69,23 @@ describe('StatusChip Component', () => {
     expect(chip).toHaveClass('status-chip');
     expect(chip).toHaveClass('uppercase');
     expect(chip).toHaveClass('extra-class');
+  });
+
+  it('is not focusable by default (no custom tooltip)', () => {
+    render(<StatusChip status="active" />);
+    const chip = screen.getByLabelText('Active');
+    expect(chip).not.toHaveAttribute('tabIndex');
+  });
+
+  it('becomes focusable when a custom tooltip is provided', () => {
+    render(<StatusChip status="active" tooltip="Custom tooltip explanation" />);
+    const chip = screen.getByLabelText('Active');
+    expect(chip).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('remains not focusable when only label is overridden (no custom tooltip)', () => {
+    render(<StatusChip status="pending_validation" label="Awaiting review" />);
+    const chip = screen.getByLabelText('Awaiting review');
+    expect(chip).not.toHaveAttribute('tabIndex');
   });
 });

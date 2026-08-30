@@ -1,10 +1,23 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import ValidationDetail from '../ValidationDetail';
 import ValidationHistory from '../ValidationHistory';
+import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+
+// The pending queue is sorted by deadline (ascending) by default, so the
+// on-screen row order does not match insertion order in the store. Look the
+// Review button up by the row's vault name instead of relying on a fixed
+// index, so tests stay correct regardless of default sort order.
+function clickReviewFor(vaultName: string) {
+  const row = screen.getByText(vaultName).closest('tr');
+  if (!row) {
+    throw new Error(`Could not find a table row for vault "${vaultName}"`);
+  }
+  fireEvent.click(within(row).getByRole('button', { name: /Review/i }));
+}
 
 // Helper to reset the store between tests
 function resetStore() {
@@ -62,7 +75,7 @@ describe('Verifier Flow Integration Tests', () => {
 
   describe('Approve flow', () => {
     it('approves a pending task and it appears in history with correct status and notes', async () => {
-      const { container } = render(
+      render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -76,9 +89,8 @@ describe('Verifier Flow Integration Tests', () => {
       expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
       expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
 
-      // Click Review on the first task (v-101)
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Click Review on the Q3 Development Fund task (v-101)
+      clickReviewFor('Q3 Development Fund');
 
       // Should navigate to ValidationDetail for v-101
       await waitFor(() => {
@@ -111,7 +123,7 @@ describe('Verifier Flow Integration Tests', () => {
       });
 
       // Verify pending count decreased from 2 to 1
-      expect(screen.getByText('Q3 Development Fund')).not.toBeInTheDocument();
+      expect(screen.queryByText('Q3 Development Fund')).not.toBeInTheDocument();
       expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
 
       // Navigate to history
@@ -135,7 +147,7 @@ describe('Verifier Flow Integration Tests', () => {
     });
 
     it('pending count decrements after approval', async () => {
-      const { container } = render(
+      render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
             <Route path="/verifier/queue" element={<PendingValidations />} />
@@ -192,9 +204,8 @@ describe('Verifier Flow Integration Tests', () => {
         </MemoryRouter>
       );
 
-      // Click Review on the first task
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Click Review on the Q3 Development Fund task (v-101)
+      clickReviewFor('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
@@ -224,10 +235,12 @@ describe('Verifier Flow Integration Tests', () => {
       });
 
       // Verify the rejected task appears in history
-      expect(screen.getByText('Q3 Development Fund')).toBeInTheDocument();
+      const historyRow = screen.getByText('Q3 Development Fund').closest('div.p-6');
+      if (!historyRow) throw new Error('Could not find history row for Q3 Development Fund');
 
-      // Verify status is rejected
-      expect(screen.getByText('Rejected')).toBeInTheDocument();
+      // Verify status is rejected (scoped to this row - "Rejected" also
+      // appears in the outcome filter dropdown elsewhere on the page)
+      expect(within(historyRow).getByText('Rejected')).toBeInTheDocument();
 
       // Verify rejection notes are present
       expect(screen.getByText(/Deployment URL not accessible./)).toBeInTheDocument();
@@ -312,9 +325,8 @@ describe('Verifier Flow Integration Tests', () => {
         </MemoryRouter>
       );
 
-      // Navigate to second task detail (v-102)
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[1]);
+      // Navigate to the Community Grant #42 task detail (v-102)
+      clickReviewFor('Community Grant #42');
 
       await waitFor(() => {
         expect(screen.getByText('Task ID: v-102')).toBeInTheDocument();
@@ -358,9 +370,14 @@ describe('Verifier Flow Integration Tests', () => {
       expect(historyTask.notes).toBe('Figma file not shared with org.');
 
       // Verify UI shows the rejected task
-      expect(screen.getByText('Community Grant #42')).toBeInTheDocument();
-      expect(screen.getByText('Rejected')).toBeInTheDocument();
-      expect(screen.getByText('Figma file not shared with org.')).toBeInTheDocument();
+      const historyRow = screen.getByText('Community Grant #42').closest('div.p-6');
+      if (!historyRow) throw new Error('Could not find history row for Community Grant #42');
+      // "Rejected" also appears in the outcome filter dropdown, so scope to this row.
+      expect(within(historyRow).getByText('Rejected')).toBeInTheDocument();
+      // Notes are wrapped in literal quote characters by the UI, so match on substring.
+      expect(
+        screen.getByText((content) => content.includes('Figma file not shared with org.')),
+      ).toBeInTheDocument();
     });
 
     it('rejection notes are persisted on the history record', async () => {
@@ -376,9 +393,8 @@ describe('Verifier Flow Integration Tests', () => {
         </MemoryRouter>
       );
 
-      // Navigate to first task and reject
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Navigate to the Q3 Development Fund task (v-101) and reject
+      clickReviewFor('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();
@@ -402,8 +418,11 @@ describe('Verifier Flow Integration Tests', () => {
         expect(screen.getByText('Validation History')).toBeInTheDocument();
       });
 
-      // Verify notes are rendered in history
-      expect(screen.getByText(rejectionNotes)).toBeInTheDocument();
+      // Verify notes are rendered in history (the UI wraps notes in literal
+      // quote characters, so match on substring rather than exact text).
+      expect(
+        screen.getByText((content) => content.includes(rejectionNotes)),
+      ).toBeInTheDocument();
 
       // Verify store has the notes persisted
       const historyRecord = useVerifierStore.getState().validationHistory.find(t => t.id === 'v-101');
@@ -502,6 +521,7 @@ describe('Verifier Flow Integration Tests', () => {
       render(
         <MemoryRouter initialEntries={['/verifier/queue']}>
           <Routes>
+            <Route path="/verifier" element={<VerifierDashboard />} />
             <Route path="/verifier/queue" element={<PendingValidations />} />
             <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
             <Route path="/verifier/history" element={<ValidationHistory />} />
@@ -509,9 +529,8 @@ describe('Verifier Flow Integration Tests', () => {
         </MemoryRouter>
       );
 
-      // Approve a task
-      const reviewButtons = screen.getAllByRole('button', { name: /Review/i });
-      fireEvent.click(reviewButtons[0]);
+      // Approve the Q3 Development Fund task (v-101)
+      clickReviewFor('Q3 Development Fund');
 
       await waitFor(() => {
         expect(screen.getByText('Review Milestone')).toBeInTheDocument();

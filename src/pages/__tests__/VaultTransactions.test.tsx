@@ -1,10 +1,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VaultTransactions, { Transaction } from '../VaultTransactions';
 import { toCsv, downloadCsv } from '../../utils/csv';
 import { WINDOW_SIZE, WINDOW_THRESHOLD } from '../../utils/windowRange';
 import * as windowRangeMod from '../../utils/windowRange';
 import * as txTotalsMod from '../../utils/txTotals';
+import { truncateMiddle } from '../../utils/truncate';
+import { MASTER_ACTIVITY } from '../../fixtures/transactions';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -49,8 +52,12 @@ function buildConfirmedList(count: number) {
   return Array.from({ length: count }, (_, index) => buildTransaction(index, 'confirmed'));
 }
 
-function renderPage() {
-  return render(<VaultTransactions />);
+function renderPage(ui?: React.ReactElement) {
+  return render(
+    <MemoryRouter>
+      {ui ?? <VaultTransactions />}
+    </MemoryRouter>,
+  );
 }
 
 // ── Clock setup ──────────────────────────────────────────────────────────────
@@ -168,7 +175,7 @@ describe('VaultTransactions', () => {
       ['Release',  '#fcd34d'],
       ['Redirect', '#f9a8d4'],
     ])('renders type label "%s" with color %s', (label, color) => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       const typeSpans = Array.from(container.querySelectorAll('.vt-tx-type'));
       const match = typeSpans.find(el => el.textContent?.trim() === label);
       expect(match, `expected a .vt-tx-type span with text "${label}"`).toBeDefined();
@@ -183,7 +190,7 @@ describe('VaultTransactions', () => {
       ['Pending',   '#fcd34d'],
       ['Failed',    '#fca5a5'],
     ])('renders status label "%s" with color %s', (label, color) => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       // .vt-tx-status spans are the badge elements; section heading spans use
       // .vt-section-title and carry no inline color style, so this query is precise.
       const statusSpans = Array.from(container.querySelectorAll('.vt-tx-status'));
@@ -196,20 +203,20 @@ describe('VaultTransactions', () => {
   // ── Hash truncation (truncHash) ───────────────────────────────────────────
   describe('hash truncation', () => {
     it('shows first-8 + "..." + last-6 for a known 64-char hash', () => {
-      render(<VaultTransactions />);
+      renderPage(<VaultTransactions />);
       // tx1 hash: a3f9d1c8e2b74056af3d9c1b2e8f0a4d7c5e9b3f1a2d4c6e8b0f2a4c6d8e0f2a  (64 chars)
       // truncHash(hash, 8, 6) → slice(0,8) + '...' + slice(-6)
       //   = 'a3f9d1c8' + '...' + '8e0f2a'  →  'a3f9d1c8...8e0f2a'
-      const hashButtons = screen.getAllByTitle('Copy hash');
-      const tx1Btn = hashButtons.find(btn => btn.textContent?.includes('a3f9d1c8...8e0f2a'));
+      const hashButtons = document.querySelectorAll('.vt-tx-hash');
+      const tx1Btn = Array.from(hashButtons).find(btn => btn.textContent?.includes('a3f9d1c8...8e0f2a'));
       expect(tx1Btn, 'expected a hash button displaying "a3f9d1c8...8e0f2a"').toBeDefined();
     });
 
     it('every visible hash button follows the 8-char head + "..." + 6-char tail pattern', () => {
-      render(<VaultTransactions />);
-      const hashButtons = screen.getAllByTitle('Copy hash');
+      renderPage(<VaultTransactions />);
+      const hashButtons = document.querySelectorAll('.vt-tx-hash');
       expect(hashButtons.length).toBeGreaterThan(0);
-      hashButtons.forEach(btn => {
+      Array.from(hashButtons).forEach(btn => {
         // Match any 8 chars, literal '...', then any 6 chars
         expect(btn.textContent).toMatch(/.{8}\.\.\..{6}/);
       });
@@ -265,7 +272,7 @@ describe('VaultTransactions', () => {
         { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
       ];
 
-      render(<VaultTransactions transactions={transactions} />);
+      renderPage(<VaultTransactions transactions={transactions} />);
 
       fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
 
@@ -284,7 +291,7 @@ describe('VaultTransactions', () => {
         { ...buildTransaction(2), id: 'mid-amount', amount: 20 },
       ];
 
-      render(<VaultTransactions transactions={transactions} />);
+      renderPage(<VaultTransactions transactions={transactions} />);
 
       fireEvent.click(screen.getByRole('button', { name: /Sort by Amount ascending/i }));
       fireEvent.click(screen.getByRole('button', { name: /Sort by Amount descending/i }));
@@ -320,21 +327,21 @@ describe('VaultTransactions', () => {
   // ── Relative timestamps (fmtTime) ─────────────────────────────────────────
   describe('relative timestamp display', () => {
     it('renders "Xm ago" labels for transactions within the last hour', () => {
-      render(<VaultTransactions />);
+      renderPage(<VaultTransactions />);
       // MOCK_TRANSACTIONS offsets include 2m, 5m, 10m, 20m, 45m
       const minuteLabels = screen.getAllByText(/^\d+ minutes? ago$/);
       expect(minuteLabels.length).toBeGreaterThan(0);
     });
 
     it('renders "Xh ago" labels for transactions older than 60 minutes', () => {
-      render(<VaultTransactions />);
+      renderPage(<VaultTransactions />);
       // MOCK_TRANSACTIONS offsets include 1.5h (→1h), 2h, 3.5h (→3h), 5h, 8h
       const hourLabels = screen.getAllByText(/^\d+ hours? ago$/);
       expect(hourLabels.length).toBeGreaterThan(0);
     });
 
     it('never exposes raw ISO-8601 strings in transaction rows', () => {
-      render(<VaultTransactions />);
+      renderPage(<VaultTransactions />);
       // ISO strings should only appear in the raw-data section of the modal (closed by default)
       expect(screen.queryByText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/)).not.toBeInTheDocument();
     });
@@ -343,19 +350,22 @@ describe('VaultTransactions', () => {
   // ── From / To address display (modal) ─────────────────────────────────────
   describe('transaction detail modal', () => {
     it('shows the from and to addresses when a row is clicked', () => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       // Rows render: Pending section first (tx8, tx4), then Failed (tx6), then Confirmed.
-      // rows[0] is tx8 (redirect, Alpha Vault): from "GCVAULT...M3P", to "GBVZ3...QK7L"
+      // rows[0] is tx8 (redirect, Alpha Vault). Addresses render truncated
+      // via AddressDisplay/truncateMiddle, so derive the expected text from
+      // the real fixture data instead of a hardcoded string.
+      const tx8 = MASTER_ACTIVITY.find((tx) => tx.id === 'tx8')!;
       const rows = container.querySelectorAll('.vt-tx-row');
       expect(rows.length).toBeGreaterThan(0);
       fireEvent.click(rows[0]);
 
-      expect(screen.getByText('GCVAULT...M3P')).toBeInTheDocument();
-      expect(screen.getByText('GBVZ3...QK7L')).toBeInTheDocument();
+      expect(screen.getByText(truncateMiddle(tx8.from))).toBeInTheDocument();
+      expect(screen.getByText(truncateMiddle(tx8.to))).toBeInTheDocument();
     });
 
     it('closes the modal when the backdrop is clicked', () => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       const rows = container.querySelectorAll('.vt-tx-row');
       fireEvent.click(rows[0]);
       expect(container.querySelector('.vt-modal')).toBeInTheDocument();
@@ -365,7 +375,7 @@ describe('VaultTransactions', () => {
     });
 
     it('displays the full hash in the modal, not the truncated form', () => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       const rows = container.querySelectorAll('.vt-tx-row');
       fireEvent.click(rows[0]);
       // tx8 full hash
@@ -378,7 +388,7 @@ describe('VaultTransactions', () => {
   // ── Filter behaviour (no network dependency) ──────────────────────────────
   describe('filter controls', () => {
     it('shows only confirmed transactions when the Confirmed status filter is applied', () => {
-      const { container } = render(<VaultTransactions />);
+      const { container } = renderPage(<VaultTransactions />);
       const selects = container.querySelectorAll('.vt-select');
       // Third select is the status filter
       fireEvent.change(selects[1], { target: { value: 'confirmed' } });
@@ -393,12 +403,12 @@ describe('VaultTransactions', () => {
     });
 
     it('hash search filters the list to matching transactions only', () => {
-      render(<VaultTransactions />);
+      renderPage(<VaultTransactions />);
       const searchInput = screen.getByPlaceholderText(/search by transaction hash/i);
       // tx1 hash starts with 'a3f9d1c8'; no other hash shares this prefix
       fireEvent.change(searchInput, { target: { value: 'a3f9d1c8' } });
 
-      const hashButtons = screen.getAllByTitle('Copy hash');
+      const hashButtons = document.querySelectorAll('.vt-tx-hash');
       expect(hashButtons).toHaveLength(1);
       expect(hashButtons[0].textContent).toMatch(/^a3f9d1c8/);
     });
@@ -407,24 +417,24 @@ describe('VaultTransactions', () => {
 
 describe('VaultTransactions with small list', () => {
   it('renders header and stats', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     expect(screen.getByText('Transaction History')).toBeInTheDocument();
     expect(screen.getByText('Total Transactions')).toBeInTheDocument();
   });
 
   it('renders all 10 mock transaction rows', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBe(10);
   });
 
   it('does not show window banner for small list (below threshold)', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     expect(document.querySelector('.vt-window-banner')).toBeNull();
   });
 
   it('filters by transaction type via chip buttons', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
     // Deselect "Create" by clicking it → remaining rows = 7 (all non-Create)
     fireEvent.click(within(toolbar).getByText('Create').closest('button')!);
@@ -438,14 +448,14 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('filters by vault', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
     fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(4);
   });
 
   it('toggles timestamp sort direction from the table header', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const timeButton = screen.getAllByRole('button', { name: /Time/i })[0];
     expect(screen.getAllByRole('columnheader', { name: /Time/i })[0]).toHaveAttribute(
       'aria-sort',
@@ -459,14 +469,14 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('opens detail modal on row click', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     fireEvent.click(rows[0]);
     expect(document.querySelector('.vt-modal')).toBeInTheDocument();
   });
 
   it('closes modal on backdrop click', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     fireEvent.click(rows[0]);
     expect(document.querySelector('.vt-modal')).toBeInTheDocument();
@@ -475,7 +485,7 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('shows filters and clear button resets them', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
     fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     expect(screen.getByText('Clear')).toBeInTheDocument();
@@ -484,21 +494,21 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('searches by hash', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const searchInput = document.querySelector('.vt-search') as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'a3f9' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(1);
   });
 
   it('filters by status via select', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
     fireEvent.change(selects[1], { target: { value: 'pending' } });
     expect(document.querySelectorAll('.vt-tx-row').length).toBe(2);
   });
 
   it('filters by amount range', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const amountInputs = document.querySelectorAll('.vt-amount-input');
     fireEvent.change(amountInputs[0], { target: { value: '10000' } });
     const rows = document.querySelectorAll('.vt-tx-row');
@@ -508,7 +518,7 @@ describe('VaultTransactions with small list', () => {
 
   // ── Type filter toolbar chips ─────────────────────────────────────
   it('renders the type filter toolbar with All and per-type chips', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
     expect(toolbar).toBeInTheDocument();
 
@@ -525,13 +535,13 @@ describe('VaultTransactions with small list', () => {
   }
 
   it('chip counts reflect the visible (filtered) set — All chip shows total', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
     expect(countEl.textContent).toBe('10');
   });
 
   it('type chip counts update when vault filter is applied', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
     fireEvent.change(selects[0], { target: { value: 'Alpha Vault' } });
     const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
@@ -539,7 +549,7 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('type chip counts update when status filter is applied', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const selects = document.querySelectorAll('.vt-select');
     fireEvent.change(selects[1], { target: { value: 'pending' } });
     const countEl = getAllChip().querySelector('.vt-type-chip-count')!;
@@ -547,13 +557,13 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('the "All" chip is aria-pressed when all types are selected', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const allBtn = getAllChip();
     expect(allBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('deselecting a type removes it from visible rows and updates chip count', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
     const createBtn = within(toolbar).getByText('Create').closest('button')!;
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(10);
@@ -564,7 +574,7 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('re-selecting a type restores it to visible rows', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
     const createBtn = within(toolbar).getByText('Create').closest('button')!;
     fireEvent.click(createBtn);
@@ -575,7 +585,7 @@ describe('VaultTransactions with small list', () => {
 
   // ── Totals strip ──────────────────────────────────────────────────
   it('renders the totals strip with count, amount and fees for visible set', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     expect(screen.getByText(/10 transactions/i)).toBeInTheDocument();
     expect(screen.getByText(/Amount:/i)).toBeInTheDocument();
     expect(screen.getByText(/Fees:/i)).toBeInTheDocument();
@@ -583,7 +593,7 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('totals strip updates when a type filter is applied', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const toolbar = screen.getByRole('group', { name: /filter by transaction type/i });
     const createBtn = within(toolbar).getByText('Create').closest('button')!;
     fireEvent.click(createBtn);
@@ -591,7 +601,7 @@ describe('VaultTransactions with small list', () => {
   });
 
   it('totals strip is hidden when filtered list is empty', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const allBtn = getAllChip();
     fireEvent.click(allBtn);
     expect(document.querySelector('.vt-totals-strip')).toBeNull();
@@ -612,7 +622,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
   it('renders all rows when the confirmed list is below WINDOW_THRESHOLD', () => {
     const transactions = buildConfirmedList(WINDOW_THRESHOLD - 1);
 
-    render(<VaultTransactions transactions={transactions} />);
+    renderPage(<VaultTransactions transactions={transactions} />);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_THRESHOLD - 1);
     expect(document.querySelector('.vt-window-banner')).toBeNull();
@@ -621,7 +631,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
   it('renders all rows at exactly WINDOW_THRESHOLD without windowing', () => {
     const transactions = buildConfirmedList(WINDOW_THRESHOLD);
 
-    render(<VaultTransactions transactions={transactions} />);
+    renderPage(<VaultTransactions transactions={transactions} />);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_THRESHOLD);
     expect(document.querySelector('.vt-window-banner')).toBeNull();
@@ -630,7 +640,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
   it('renders at most WINDOW_SIZE rows when the confirmed list exceeds the threshold', () => {
     const transactions = buildConfirmedList(WINDOW_THRESHOLD + 5);
 
-    render(<VaultTransactions transactions={transactions} />);
+    renderPage(<VaultTransactions transactions={transactions} />);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
     expect(screen.getByText(`Showing 1–${WINDOW_SIZE} of ${WINDOW_THRESHOLD + 5}`)).toBeInTheDocument();
@@ -639,7 +649,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
   it('keeps section headers and row metadata for windowed rows', () => {
     const transactions = buildConfirmedList(WINDOW_THRESHOLD + 10);
 
-    render(<VaultTransactions transactions={transactions} />);
+    renderPage(<VaultTransactions transactions={transactions} />);
 
     expect(screen.getByRole('table', { name: /Confirmed transactions/i })).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: /Type/i }).length).toBeGreaterThan(0);
@@ -659,7 +669,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
   });
 
   it('renders the empty confirmed state when no transactions are provided', () => {
-    render(<VaultTransactions transactions={[]} />);
+    renderPage(<VaultTransactions transactions={[]} />);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(0);
     expect(document.querySelector('.vt-window-banner')).toBeNull();
@@ -674,23 +684,23 @@ describe('VaultTransactions windowing threshold rendering', () => {
       hash: `bb${String(index).padStart(62, '0')}`,
     }));
 
-    const { rerender } = render(<VaultTransactions transactions={firstBatch} />);
+    const { rerender } = renderPage(<VaultTransactions transactions={firstBatch} />);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
-    expect(screen.getAllByTitle('Copy hash')[0].textContent).toContain('aa000000');
+    expect(Array.from(document.querySelectorAll('.vt-tx-hash'))[0].textContent).toContain('aa000000');
 
-    rerender(<VaultTransactions transactions={secondBatch} />);
+    rerender(<MemoryRouter><VaultTransactions transactions={secondBatch} /></MemoryRouter>);
 
     expect(document.querySelectorAll('.vt-tx-row')).toHaveLength(WINDOW_SIZE);
-    const hashButtons = screen.getAllByTitle('Copy hash');
+    const hashButtons = document.querySelectorAll('.vt-tx-hash');
     expect(hashButtons[0].textContent).toContain('bb000000');
-    expect(hashButtons.some((btn) => btn.textContent?.includes('aa000000'))).toBe(false);
+    expect(Array.from(hashButtons).some((btn) => btn.textContent?.includes('aa000000'))).toBe(false);
   });
 
   it('advances the visible window when Next is clicked', () => {
     const transactions = buildConfirmedList(WINDOW_THRESHOLD + 15);
 
-    render(<VaultTransactions transactions={transactions} />);
+    renderPage(<VaultTransactions transactions={transactions} />);
 
     expect(screen.getByText(`Showing 1–${WINDOW_SIZE} of ${WINDOW_THRESHOLD + 15}`)).toBeInTheDocument();
 
@@ -703,7 +713,7 @@ describe('VaultTransactions windowing threshold rendering', () => {
 
 describe('VaultTransactions large fixture integration', () => {
   it('TxRow is memoized and skips re-render for unchanged props', () => {
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     const rows = document.querySelectorAll('.vt-tx-row');
     expect(rows.length).toBe(10);
   });
@@ -712,7 +722,7 @@ describe('VaultTransactions large fixture integration', () => {
     const windowSpy = vi.spyOn(windowRangeMod, 'windowRange');
     const totalsSpy = vi.spyOn(txTotalsMod, 'computeTxTotals');
     
-    render(<VaultTransactions />);
+    renderPage(<VaultTransactions />);
     
     const initialWindowCalls = windowSpy.mock.calls.length;
     const initialTotalsCalls = totalsSpy.mock.calls.length;

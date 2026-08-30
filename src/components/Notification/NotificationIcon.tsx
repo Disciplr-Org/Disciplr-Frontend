@@ -1,33 +1,21 @@
 import { CiBellOn, CiBellOff } from "react-icons/ci";
 import Message from "./Messages";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { transitionEnter } from "../../utils/motion";
 import { usePrefersReducedMotion } from "../../utils/usePrefersReducedMotion";
 import { Link } from "react-router-dom";
-import { useNotification } from "@/Zustand/Store";
+import { useNotification, useUnreadCount } from "@/Zustand/Store";
 
 export default function NotificationIcon() {
   const [isOpen, setIsOpen] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const notifications = useNotification((state) => state.notification);
+  const unreadCount = useUnreadCount();
   const setNotifications = useNotification((state) => state.setNotification);
-  const [unread, setUnread] = useState(0);
-  const [recentNotifications, setRecentNotifications] = useState<
-    typeof notifications
-  >([]);
 
-  const getNotificationStatus = () => {
-    const recent = notifications.slice(0, 5);
-    setRecentNotifications(recent);
-    const unreadCount = notifications.filter((n) => !n.isRead).length;
-    setUnread(unreadCount);
-  };
-
-  useEffect(() => {
-    if (notifications.length <= 0) return;
-    getNotificationStatus();
-  }, [notifications]);
+  const unread = unreadCount;
+  const recentNotifications = useMemo(() => notifications.slice(0, 5), [notifications]);
 
   const markAllAsRead = () => {
     const updatedNotifications = notifications.map((n) => ({
@@ -97,7 +85,7 @@ export default function NotificationIcon() {
             <CiBellOff size="2rem" />
           )}
 
-          {notifications.length > 0 && (
+          {unread > 0 && (
             <div
               aria-hidden="true"
               className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white flex items-center justify-center rounded-full text-[10px] font-bold transform translate-x-1/2 -translate-y-1/2"
@@ -119,13 +107,13 @@ export default function NotificationIcon() {
             >
               <div className="w-full h-full flex flex-col items-center justify-between pb-5">
                 <div className="w-full flex flex-col justify-center items-center">
-                  <div className="flex justify-between items-center py-3 gap-10 px-2 bg-[#121a2a]">
+                  <div className="flex justify-between items-center py-3 gap-10 px-2" style={{ background: "var(--surface)" }}>
                     <h2 className="text-white font-bold text-xl">
                       Notifications
                     </h2>
                     <button
                       onClick={markAllAsRead}
-                      className="bg-white text-[#00c389] px-3 rounded-lg shadow-lg"
+                      className="bg-white px-3 rounded-lg shadow-lg" style={{ color: "var(--accent)" }}
                     >
                       Mark All As Read
                     </button>
@@ -137,7 +125,7 @@ export default function NotificationIcon() {
                           id={item.id}
                           title={item.title}
                           message={item.message}
-                          timeAgo={item.timeAgo}
+                          timestamp={item.timestamp}
                           type={item.type}
                           read={item.isRead}
                           isFullPage={false}

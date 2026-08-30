@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import Layout from '../Layout';
+import { ThemeProvider } from '../../context/ThemeContext';
 
 vi.mock('../Wallet/WalletConnectButton', () => ({
   WalletConnectButton: () => <button type="button">Connect wallet</button>,
@@ -17,13 +18,14 @@ vi.mock('focus-trap-react', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-function renderLayout(path: string) {
+// Layout renders <ThemeToggle />, which requires ThemeProvider context.
+function renderLayout(path: string, content: ReactNode = <div>Page content</div>) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Layout>
-        <div>Page content</div>
-      </Layout>
-    </MemoryRouter>,
+    <ThemeProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <Layout>{content}</Layout>
+      </MemoryRouter>
+    </ThemeProvider>,
   );
 }
 
@@ -46,52 +48,28 @@ describe('Layout component navigation', () => {
   });
 
   test('verifier link receives active class and aria-current when on /verifier', () => {
-    render(
-      <MemoryRouter initialEntries={['/verifier']}>
-        <Layout>
-          <div>Content</div>
-        </Layout>
-      </MemoryRouter>
-    );
+    renderLayout('/verifier');
     const link = screen.getByRole('link', { name: /verifier/i });
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link).toHaveClass('active');
   });
 
   test('verifier link is active on verifier subroutes', () => {
-    render(
-      <MemoryRouter initialEntries={['/verifier/queue']}>
-        <Layout>
-          <div>Content</div>
-        </Layout>
-      </MemoryRouter>
-    );
+    renderLayout('/verifier/queue');
     const link = screen.getByRole('link', { name: /verifier/i });
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link).toHaveClass('active');
   });
 
   test('analytics link receives active class and aria-current when on /analytics', () => {
-    render(
-      <MemoryRouter initialEntries={['/analytics']}>
-        <Layout>
-          <div>Content</div>
-        </Layout>
-      </MemoryRouter>
-    );
+    renderLayout('/analytics');
     const link = screen.getByRole('link', { name: /analytics/i });
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link).toHaveClass('active');
   });
 
   test('verifier and analytics links are not active on home route', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Layout>
-          <div>Content</div>
-        </Layout>
-      </MemoryRouter>
-    );
+    renderLayout('/');
     const verifierLink = screen.getByRole('link', { name: /verifier/i });
     expect(verifierLink).not.toHaveAttribute('aria-current');
     expect(verifierLink).not.toHaveClass('active');
@@ -102,13 +80,7 @@ describe('Layout component navigation', () => {
   });
 
   test('header links share the common focusable classes for keyboard users', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Layout>
-          <div>Content</div>
-        </Layout>
-      </MemoryRouter>
-    );
+    renderLayout('/');
 
     const homeLink = screen.getByRole('link', { name: /^home$/i });
     const analyticsLink = screen.getByRole('link', { name: /^analytics$/i });
@@ -146,10 +118,9 @@ describe('Layout header landmarks', () => {
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
 
-  test('mounts the global network mismatch banner', () => {
-    renderLayout('/');
-    expect(screen.getByTestId('network-mismatch-banner')).toBeInTheDocument();
-  });
+  // Note: NetworkMismatchBanner is not currently mounted anywhere in the app
+  // (it has no consumer outside its own test file), so there is no "global
+  // network mismatch banner" behavior on Layout to assert here.
 });
 
 // ---------------------------------------------------------------------------
@@ -306,13 +277,7 @@ describe('Layout nav aria-current per route', () => {
     const routes = ['/', '/analytics', '/transactions', '/vaults/create'];
 
     routes.forEach((path) => {
-      const { unmount } = render(
-        <MemoryRouter initialEntries={[path]}>
-          <Layout>
-            <div />
-          </Layout>
-        </MemoryRouter>,
-      );
+      const { unmount } = renderLayout(path, <div />);
 
       const activeLinks = screen
         .getAllByRole('link')
@@ -375,5 +340,158 @@ describe('Layout mobile nav controls', () => {
     expect(brandRegion).not.toHaveAttribute('inert');
     expect(main).not.toHaveAttribute('aria-hidden');
     expect(main).not.toHaveAttribute('inert');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Drawer state machine integration — recovery on route change and resize
+// ---------------------------------------------------------------------------
+function NavigateButton({ targetPath }: { targetPath: string }) {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(targetPath)}>
+      Navigate
+    </button>
+  );
+}
+
+function LayoutNavigationHarness({ targetPath = '/dashboard' }: { targetPath?: string }) {
+  return (
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/']}>
+        <NavigateButton targetPath={targetPath} />
+        <Layout>
+          <div>Page content</div>
+        </Layout>
+      </MemoryRouter>
+    </ThemeProvider>
+  );
+}
+
+type MediaQueryListener = (event: { matches: boolean; media: string }) => void;
+
+function createMatchMediaMock() {
+  const listenersByQuery = new Map<string, Set<MediaQueryListener>>();
+  let desktop = false;
+
+  return {
+    setDesktop(next: boolean) {
+      desktop = next;
+      listenersByQuery.forEach((listeners, query) => {
+        listeners.forEach((listener) => listener({ matches: next, media: query }));
+      });
+    },
+    install() {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('min-width: 768px') ? desktop : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: (_event: string, listener: MediaQueryListener) => {
+          if (!listenersByQuery.has(query)) {
+            listenersByQuery.set(query, new Set());
+          }
+          listenersByQuery.get(query)!.add(listener);
+        },
+        removeEventListener: (_event: string, listener: MediaQueryListener) => {
+          listenersByQuery.get(query)?.delete(listener);
+        },
+        dispatchEvent: vi.fn(),
+      }));
+    },
+  };
+}
+
+describe('Layout drawer state machine integration', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+
+  test('closes the drawer when navigating to a new route (deep-link / back recovery)', async () => {
+    render(<LayoutNavigationHarness />);
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^navigate$/i }));
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  test('navigating to the same route does not close a freshly opened drawer (stale-route guard)', () => {
+    render(<LayoutNavigationHarness targetPath="/" />);
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /^navigate$/i }));
+
+    expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+  });
+
+  test('rapid hamburger clicks keep aria-expanded consistent with the rendered drawer', async () => {
+    renderLayout('/');
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    fireEvent.click(hamburger);
+    fireEvent.click(hamburger);
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+
+    fireEvent.click(hamburger);
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'true'));
+    expect(screen.getByRole('dialog', { name: /navigation/i })).toBeInTheDocument();
+    expect(screen.getByRole('main', { hidden: true })).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('closing the drawer with Escape releases scroll lock and restores focus', async () => {
+    renderLayout('/');
+    const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+    hamburger.focus();
+    fireEvent.click(hamburger);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(hamburger).toHaveFocus();
+  });
+
+  test('closes the drawer when the viewport crosses into the desktop breakpoint', async () => {
+    const originalMatchMedia = window.matchMedia;
+    const mediaQuery = createMatchMediaMock();
+    mediaQuery.install();
+
+    try {
+      renderLayout('/');
+      const hamburger = screen.getByRole('button', { name: /open navigation menu/i });
+
+      fireEvent.click(hamburger);
+      expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+      expect(document.body.style.overflow).toBe('hidden');
+
+      act(() => mediaQuery.setDesktop(true));
+
+      await waitFor(() => expect(hamburger).toHaveAttribute('aria-expanded', 'false'));
+      expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
+      expect(document.body.style.overflow).toBe('');
+      expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });

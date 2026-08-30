@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
 import { computeAnalyticsKpis, formatCurrency, formatPercentage, type AnalyticsDataPoint } from '../utils/analyticsKpis'
-
+import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
+import { logger } from '../utils/logger'
+import Skeleton from '../components/Skeleton'
 const AnalyticsCharts = lazy(() => import('./AnalyticsCharts'))
 
 type JsPDFCtor = typeof import('jspdf').jsPDF
@@ -14,15 +16,11 @@ import {
 } from 'lucide-react'
 
 import { getAnalyticsChartTokens, buildAnalyticsSeriesColors } from './analyticsTheme'
-import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, benchmarkData, TEAM_CHART_DATA } from './analyticsData'
-
-type Period = '7d' | '30d' | '90d' | '1y' | 'All'
+import type { ChartLegendEntry } from '../components/ChartLegend'
+import { toCsv, downloadCsv } from '../utils/csv'
+import { analyticsPeriodData, prevPeriodData, vaultStatusData, milestoneTypes, computeBenchmarkData, TEAM_CHART_DATA } from './analyticsData'
 
 const PERIODS: Period[] = ['7d', '30d', '90d', '1y', 'All']
-
-function parsePeriod(value: string | null): Period {
-  return (PERIODS.includes(value as Period) ? value : '30d') as Period
-}
 
 function useAnalyticsChartTokens() {
   const { theme } = useTheme()
@@ -76,17 +74,6 @@ function ChartSummary({ children }: { children: React.ReactNode }) {
   return <p className="sr-only">{children}</p>
 }
 
-function SkeletonBox({ height = 220 }: { height?: number }) {
-  return (
-    <div style={{
-      height,
-      background: 'var(--border)',
-      borderRadius: 'var(--radius)',
-      animation: 'disciplr-pulse 1.5s ease-in-out infinite',
-    }} />
-  )
-}
-
 export default function Analytics() {
   const chartTokens = useAnalyticsChartTokens()
   const seriesColors = useMemo(() => buildAnalyticsSeriesColors(chartTokens), [chartTokens])
@@ -107,14 +94,56 @@ export default function Analytics() {
 
   const setPeriod = useCallback((p: Period) => {
     setPeriodInternal(p)
-    setSearchParams({ period: p })
-  }, [setSearchParams])
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('period', serializePeriod(p))
+    setSearchParams(nextParams)
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    const queryPeriod = parsePeriod(searchParams.get('period'))
+    if (queryPeriod !== period) {
+      setPeriodInternal(queryPeriod)
+    }
+  }, [period, searchParams])
+
+  // ─── Custom date range filtering ─────────────────────────────────────────
+  // When both customFrom and customTo are filled and form a valid range, filter
+  // the '1y' monthly series to the months that fall within the chosen dates.
+  // The preset period buttons are visually deactivated while a custom range is active.
+  const customRangeActive = useMemo(() => {
+    if (!customFrom || !customTo) return false
+    const from = new Date(customFrom)
+    const to = new Date(customTo)
+    return !isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to
+  }, [customFrom, customTo])
+
+  // Month abbreviation → 0-based month index used to compare against date inputs
+  const MONTH_INDEX: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  }
 
   // ─── Memoized data selections ──────────────────────────────────────────────
-  const chartData = useMemo(
-    () => analyticsPeriodData[period],
-    [period]
-  )
+  const chartData = useMemo(() => {
+    if (customRangeActive) {
+      const from = new Date(customFrom)
+      const to = new Date(customTo)
+      // Use the '1y' monthly series as the basis for custom filtering.
+      // A data point is included when its month (in the year inferred from the
+      // date inputs) falls between the from and to dates (inclusive).
+      return analyticsPeriodData['1y'].filter((d) => {
+        const monthIdx = MONTH_INDEX[d.name]
+        if (monthIdx === undefined) return true // non-month names (e.g. 'Wk1') pass through
+        // Build a Date for the 1st of that month, using the year from customFrom
+        const pointDate = new Date(from.getFullYear(), monthIdx, 1)
+        // If the range spans into the next year (e.g. Nov → Feb) also check next year
+        const pointDateNextYear = new Date(from.getFullYear() + 1, monthIdx, 1)
+        return (pointDate >= from && pointDate <= to) ||
+          (pointDateNextYear >= from && pointDateNextYear <= to)
+      })
+    }
+    return analyticsPeriodData[period]
+  }, [customRangeActive, customFrom, customTo, period])
 
   const prevChartData = useMemo(
     () => prevPeriodData[period],
@@ -141,6 +170,30 @@ export default function Analytics() {
     [chartData, prevChartData]
   )
 
+  const benchmarkData = useMemo(() => computeBenchmarkData(kpis), [kpis])
+
+  const bestPeriod = useMemo(() => {
+  if (!chartData.length) return null;
+
+  return chartData.reduce((best, current) =>
+    current.success > best.success ? current : best
+  );
+}, [chartData]);
+
+const currentStreak = useMemo(() => {
+  let streak = 0;
+
+  for (let i = chartData.length - 1; i >= 0; i--) {
+    if (chartData[i].success >= 80) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}, [chartData]);
+
   const chartAnimationEnabled = !prefersReducedMotion
 
   const tooltipStyle = useMemo(() => ({
@@ -155,7 +208,7 @@ export default function Analytics() {
     labelStyle: { color: seriesColors.tooltipMuted },
   }), [seriesColors])
 
-  const successLegendEntries = useMemo(() => showComparison
+  const successLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'This Period %', colorKey: 'success', id: 'success' },
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
@@ -166,7 +219,7 @@ export default function Analytics() {
         { label: 'Failed %', colorKey: 'failed', id: 'failed' },
       ], [showComparison])
 
-  const capitalLegendEntries = useMemo(() => showComparison
+  const capitalLegendEntries = useMemo<ChartLegendEntry[]>(() => showComparison
     ? [
         { label: 'USDC Locked', colorKey: 'success', id: 'capital' },
         { label: 'Prev Period', colorKey: 'comparison', id: 'prev-capital' },
@@ -212,17 +265,11 @@ export default function Analytics() {
   // ─── Export handlers ───────────────────────────────────────────────────────
   const handleCsvExport = useCallback(() => {
     if (chartData.length === 0) return
-    const headers = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones']
-    const rows = chartData.map(d => [d.name, d.success, d.failed, d.capital, d.milestones])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `disciplr-analytics-${period}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [chartData, period])
+    const filename = customRangeActive
+      ? `disciplr-analytics-${customFrom}-to-${customTo}.csv`
+      : `disciplr-analytics-${period}.csv`
+    downloadCsv(toCsv(chartData, 'analytics'), filename)
+  }, [chartData, period, customRangeActive, customFrom, customTo])
 
   const handlePdfExport = useCallback(async () => {
     setExportError(null)
@@ -248,7 +295,7 @@ export default function Analytics() {
       // Period & date
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Period: ${period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
+      doc.text(`Period: ${customRangeActive ? `${customFrom} → ${customTo}` : period}   •   Generated: ${new Date().toLocaleDateString()}`, 14, 24)
 
       // Key metrics section
       doc.setTextColor(30, 45, 66)
@@ -257,12 +304,12 @@ export default function Analytics() {
       doc.text('Key Metrics', 14, 42)
 
       const metrics = [
-        ['Total Capital Locked', '$12,450 USDC'],
-        ['Active Capital', '$3,200 USDC'],
-        ['Success Rate', '85%'],
-        ['Total Vaults', '21'],
-        ['Completed / Failed', '14 / 4'],
-        ['Accountability Score', '82 / 100'],
+        ['Total Capital Locked', `${formatCurrency(kpis.totalCapital)} USDC`],
+        ['Success Rate', formatPercentage(kpis.averageSuccessRate)],
+        ['Total Milestones', `${kpis.totalMilestones}`],
+        ['Period', period],
+        ['vs Previous Period (Capital)', kpis.capitalDelta !== 0 ? `${kpis.capitalDelta > 0 ? '+' : ''}${formatCurrency(kpis.capitalDelta)}` : 'No prior data'],
+        ['vs Previous Period (Success)', kpis.successDelta !== 0 ? `${kpis.successDelta > 0 ? '+' : ''}${formatPercentage(kpis.successDelta, 1)}` : 'No prior data'],
       ]
 
       doc.setFontSize(10)
@@ -354,14 +401,14 @@ export default function Analytics() {
       doc.text('Generated by Disciplr — Accountability on Stellar', 14, 288)
       doc.text(`Page 1 of 1`, 185, 288)
 
-      doc.save(`disciplr-report-${period}.pdf`)
+      doc.save(`disciplr-report-${customRangeActive ? `${customFrom}-to-${customTo}` : period}.pdf`)
     } catch (err) {
-      console.error('Failed to load or run jsPDF', err)
+      logger.error('Failed to load or run jsPDF', err)
       setExportError('Failed to generate PDF. Please try again.')
     } finally {
       setIsExportLoading(false)
     }
-  }, [chartData, period])
+  }, [chartData, period, customRangeActive, customFrom, customTo])
 
   return (
     <>
@@ -498,8 +545,15 @@ export default function Analytics() {
             {PERIODS.map(p => (
               <button
                 key={p}
-                className={`period-btn${period === p ? ' active' : ''}`}
-                onClick={() => handlePeriodClick(p)}
+                className={`period-btn${period === p && !customRangeActive ? ' active' : ''}`}
+                onClick={() => {
+                  handlePeriodClick(p)
+                  // Clicking a preset clears the custom range
+                  setCustomFrom('')
+                  setCustomTo('')
+                }}
+                style={customRangeActive ? { opacity: 0.45 } : undefined}
+                aria-pressed={period === p && !customRangeActive}
               >
                 {p}
               </button>
@@ -511,10 +565,35 @@ export default function Analytics() {
 
           {/* Custom Date Range */}
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>Custom:</span>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span style={{ color: customRangeActive ? 'var(--accent)' : 'var(--muted)', fontSize: '0.8rem', fontWeight: customRangeActive ? 600 : 400 }}>
+              Custom:
+            </span>
+            <input
+              type="date"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+              aria-label="Custom range start date"
+              style={customRangeActive ? { borderColor: 'var(--accent)' } : undefined}
+            />
             <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>→</span>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={e => setCustomTo(e.target.value)}
+              aria-label="Custom range end date"
+              style={customRangeActive ? { borderColor: 'var(--accent)' } : undefined}
+            />
+            {customRangeActive && (
+              <button
+                className="action-btn"
+                onClick={() => { setCustomFrom(''); setCustomTo('') }}
+                aria-label="Clear custom date range"
+                style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}
+              >
+                ✕ Clear
+              </button>
+            )}
           </div>
 
           {/* Divider */}
@@ -601,7 +680,7 @@ export default function Analytics() {
         {/* ── SECTION 2: Performance Charts ── */}
         <div style={{ marginBottom: '2rem' }}>
           <SectionTitle>Performance Charts {showComparison && <span style={{ color: seriesColors.comparison, fontSize: '0.75rem', fontWeight: 400, marginLeft: '0.5rem' }}>Comparing with previous period</span>}</SectionTitle>
-          <Suspense fallback={<SkeletonBox height={300} />}>
+          <Suspense fallback={<Skeleton height={300} data-testid="chart-skeleton" />}>
             <AnalyticsCharts
               section="performance"
               {...analyticsChartProps}
@@ -620,7 +699,7 @@ export default function Analytics() {
               <ChartSummary>
                 Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={180} />}>
+              <Suspense fallback={<Skeleton height={180} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="donut"
                   {...analyticsChartProps}
@@ -674,16 +753,16 @@ export default function Analytics() {
 
             <Card style={{ textAlign: 'center' }}>
               <Flame size={26} color={seriesColors.warning} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>5</div>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: seriesColors.warning, lineHeight: 1 }}>{currentStreak}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Current Streak</div>
               <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>consecutive successes 🔥</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>
               <TrendingUp size={26} color={seriesColors.success} style={{ marginBottom: '0.4rem' }} />
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>June</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: seriesColors.success, lineHeight: 1 }}>{bestPeriod?.name ?? '—'}</div>
               <div style={{ fontWeight: 600, margin: '0.3rem 0 0.15rem' }}>Best Period</div>
-              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>92% success rate</div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{bestPeriod ? `${bestPeriod.success}% success rate` : 'No data yet'}</div>
             </Card>
 
             <Card style={{ textAlign: 'center' }}>
@@ -748,7 +827,7 @@ export default function Analytics() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
                     <span style={{ color: 'var(--muted)' }}>{item.metric}</span>
                     <span style={{ color: item.you >= item.platform ? seriesColors.success : seriesColors.failed, fontWeight: 700 }}>
-                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{i === 0 || i === 2 ? (i === 0 ? '%' : '') : (i === 3 ? '' : 'd')}
+                      {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{item.unit}
                     </span>
                   </div>
                   {/* Your bar */}
@@ -790,21 +869,21 @@ export default function Analytics() {
                   onChange={e => setGoalRate(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: 85%</span>
-                    <span style={{ color: Number(goalRate) <= 85 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatPercentage(kpis.averageSuccessRate)}</span>
+                    <span style={{ color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: {goalRate}%
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(85, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min(kpis.averageSuccessRate, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2, left: `${Math.min(Number(goalRate), 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2,
                       transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalRate) <= 85 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalRate) <= 85 ? '✓ Goal achieved!' : `${Number(goalRate) - 85}% to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.averageSuccessRate >= Number(goalRate) ? '✓ Goal achieved!' : `${(Number(goalRate) - kpis.averageSuccessRate).toFixed(1)}% to go`}
                   </div>
                 </div>
               </div>
@@ -818,21 +897,21 @@ export default function Analytics() {
                   onChange={e => setGoalCapital(e.target.value)} />
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: 'var(--muted)' }}>Current: $3,200</span>
-                    <span style={{ color: Number(goalCapital) <= 3200 ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: 'var(--muted)' }}>Current: {formatCurrency(kpis.totalCapital)}</span>
+                    <span style={{ color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : seriesColors.comparison }}>
                       Goal: ${Number(goalCapital).toLocaleString()}
                     </span>
                   </div>
                   <div style={{ height: 8, background: 'var(--border)', borderRadius: 99, position: 'relative' }}>
-                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((3200 / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
+                    <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((kpis.totalCapital / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     <div style={{
                       position: 'absolute', top: -2,
-                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), 3200)) * 100, 100)}%`,
+                      left: `${Math.min((Number(goalCapital) / Math.max(Number(goalCapital), kpis.totalCapital)) * 100, 100)}%`,
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2, transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: Number(goalCapital) <= 3200 ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
-                    {Number(goalCapital) <= 3200 ? '✓ Goal achieved!' : `$${(Number(goalCapital) - 3200).toLocaleString()} to go`}
+                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                    {kpis.totalCapital >= Number(goalCapital) ? '✓ Goal achieved!' : `$${(Number(goalCapital) - kpis.totalCapital).toLocaleString()} to go`}
                   </div>
                 </div>
               </div>
@@ -896,7 +975,9 @@ export default function Analytics() {
                 Monitor your entire organization's accountability performance, compare members, and export team-wide reports.
               </div>
             </div>
-            <button style={{
+            <button
+              onClick={() => window.open('mailto:sales@disciplr.app?subject=Enterprise%20Upgrade%20Inquiry', '_blank')}
+              style={{
               background: seriesColors.warning,
               color: 'var(--bg)',
               border: 'none',
@@ -963,7 +1044,7 @@ export default function Analytics() {
               <ChartSummary>
                 Locked enterprise preview bar chart showing example team member success rates.
               </ChartSummary>
-              <Suspense fallback={<SkeletonBox height={160} />}>
+              <Suspense fallback={<Skeleton height={160} data-testid="chart-skeleton" />}>
                 <AnalyticsCharts
                   section="team"
                   {...analyticsChartProps}

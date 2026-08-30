@@ -1,6 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
+import { recordWalletTelemetry } from '../../utils/walletTelemetry';
+import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 
 interface WalletSelectionModalProps {
@@ -11,13 +14,41 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const { connect, isConnecting, error, address } = useWallet();
     const isConnected = address !== null;
 
+    const isMounted = useRef(true);
+    const connectPending = useRef(false);
+
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     const handleConnect = async () => {
-        await connect();
-        // Assuming connect throws or handles error internally, we wait for it
-        // If successful, the context will update address, which will re-render
-        // the parent component and unmount this modal automatically usually,
-        // or we can close it manually
-        onClose();
+        // Bounded interaction: ignore clicks while a connect attempt is
+        // pending so double-clicks never stack Freighter prompts. The
+        // WalletContext additionally single-flights connect() itself, so this
+        // guard and the context guard together cap concurrent prompts at one.
+        if (connectPending.current || isConnecting) {
+            recordWalletTelemetry({
+                event: 'wallet.connect.ignored',
+                ts: Date.now(),
+                wallet: 'freighter',
+                reason: 'button_pending',
+            });
+            return;
+        }
+        connectPending.current = true;
+        try {
+            const connected = await connect();
+            if (isMounted.current && connected) {
+                onClose();
+            }
+        } finally {
+            if (isMounted.current) {
+                connectPending.current = false;
+            }
+        }
     };
 
     return (
@@ -49,12 +80,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                 >
                     <div className="wallet-option-info">
                         <div className="wallet-icon">
-                            {/* A placeholder SVG for Freighter */}
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 17L12 22L22 17" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 12L12 17L22 12" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <img src={freighterLogo} alt="Freighter logo" />
                         </div>
                         <span className="wallet-name">Freighter</span>
                     </div>
