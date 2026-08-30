@@ -438,14 +438,6 @@ function VaultDetailContent({
             </Link>
             {isActive && (
               <>
-                {vault.status === "pending_validation" && (
-                  <ActionButton
-                    label="Validate Milestone"
-                    color="var(--accent)"
-                    auth={authResults.validate_milestone}
-                    onClick={() => handleActionClick("validate_milestone")}
-                  />
-                )}
                 <ActionButton
                   label="Extend Deadline"
                   color="var(--warning)"
@@ -612,7 +604,7 @@ function VaultDetailContent({
         </div>
       )}
 
-      <FundReleaseStatus {...settlement} network={APP_EXPECTED_NETWORK} />
+      <FundReleaseStatus vaultId={vault.id} {...settlement} network={APP_EXPECTED_NETWORK} />
 
       {/* ── Milestones ── */}
       <Card style={{ marginBottom: "1.25rem" }}>
@@ -628,7 +620,7 @@ function VaultDetailContent({
         >
           Milestones
         </Text>
-        <MilestoneTracker milestones={vault.milestones} />
+        <MilestoneTracker vaultId={vault.id} milestones={vault.milestones} canManage={authResults.validate_milestone.allowed} />
       </Card>
 
       {/* ── Transactions ── */}

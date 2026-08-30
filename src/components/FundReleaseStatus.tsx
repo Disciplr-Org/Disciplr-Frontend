@@ -10,6 +10,7 @@ import {
   isValidCurrency,
   isValidTxHash,
 } from '../utils/vaultState';
+import { useVaultActionStore, getActionKey } from '../stores/vaultActionStore';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -25,6 +26,7 @@ export interface FundReleaseStatusProps {
   amount: number;
   currency: string;
   transaction?: SettlementTransaction;
+  vaultId?: string;
   /** The network the vault contract lives on. When provided alongside the
    *  wallet's network, a mismatch is surfaced instead of silently generating
    *  an explorer link for the wrong network. */
@@ -117,10 +119,25 @@ export function FundReleaseStatus({
   amount,
   currency,
   transaction,
+  vaultId,
   network,
 }: FundReleaseStatusProps) {
   const { network: walletNetwork } = useWallet();
-  const copy = OUTCOME_COPY[outcome] ?? OUTCOME_COPY.pending;
+  const { actions } = useVaultActionStore();
+  
+  let effectiveOutcome = outcome;
+  if (vaultId) {
+    const cancelKey = getActionKey(vaultId, 'cancel_vault');
+    if (actions[cancelKey]?.status === 'success') {
+      effectiveOutcome = 'redirected';
+    } else if (effectiveOutcome === 'pending') {
+      // If there's a successful validate_milestone action for the last milestone...
+      // Actually we don't know which milestone is last here easily without vault data.
+      // We can just rely on the cancel_vault optimistic update or if we pass the whole vault down.
+    }
+  }
+
+  const copy = OUTCOME_COPY[effectiveOutcome] ?? OUTCOME_COPY.pending;
   const Icon = copy.icon;
   const hash = transaction?.hash;
   const validHash = isValidTxHash(hash);
@@ -143,12 +160,12 @@ export function FundReleaseStatus({
 
   return (
     <section
-      className={`fund-release-status fund-release-status--${outcome}`}
+      className={`fund-release-status fund-release-status--${effectiveOutcome}`}
       aria-label={`Fund settlement status: ${copy.title}`}
     >
       <div className="fund-release-status__header">
         <span
-          className={`fund-release-status__icon fund-release-status__icon--${outcome}`}
+          className={`fund-release-status__icon fund-release-status__icon--${effectiveOutcome}`}
           aria-hidden="true"
         >
           <Icon size={22} />
@@ -163,7 +180,7 @@ export function FundReleaseStatus({
         </div>
       </div>
 
-      {outcome === 'pending' ? (
+      {effectiveOutcome === 'pending' ? (
         <Text role="body" as="p" className="fund-release-status__pending-copy">
           Settlement transaction details will appear after funds are released or redirected.
         </Text>
