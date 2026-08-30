@@ -340,4 +340,56 @@ describe("CreateVault", () => {
       deadline: "2030-01-01T00:00",
     }));
   });
+
+  it("prevents duplicate submissions while pending", async () => {
+    let resolvePromise: (value: any) => void;
+    vi.mocked(createVault).mockImplementationOnce(() => new Promise((resolve) => {
+      resolvePromise = resolve;
+    }));
+
+    renderCreateVault();
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    
+    const confirmButton = screen.getByRole("button", { name: /confirm vault/i });
+    fireEvent.click(confirmButton);
+    expect(confirmButton).toBeDisabled();
+    expect(confirmButton).toHaveTextContent("Submitting...");
+    
+    fireEvent.click(confirmButton); // duplicate click
+    expect(createVault).toHaveBeenCalledTimes(1);
+
+    // cleanup
+    resolvePromise!({ id: "999" });
+  });
+
+  it("handles failure and allows recovery", async () => {
+    vi.mocked(createVault).mockRejectedValueOnce(new Error("Network Error"));
+
+    renderCreateVault();
+    fillField(/amount/i, "100");
+    fillField(/deadline/i, "2030-01-01T00:00");
+    fillField(/success destination/i, successAddress);
+    fillField(/failure destination/i, failureAddress);
+    fillFirstMilestone();
+
+    fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Network Error");
+    
+    const confirmButton = screen.getByRole("button", { name: /confirm vault/i });
+    expect(confirmButton).not.toBeDisabled();
+    
+    // retry
+    vi.mocked(createVault).mockResolvedValueOnce({ id: "999" } as any);
+    fireEvent.click(confirmButton);
+    await screen.findByText("Vault Detail Page");
+    expect(createVault).toHaveBeenCalledTimes(2);
+  });
 });

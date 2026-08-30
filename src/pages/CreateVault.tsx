@@ -72,6 +72,8 @@ export default function CreateVault() {
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const errorFieldOrder: Array<keyof CreateVaultErrors> = [
     "amount",
@@ -200,6 +202,10 @@ export default function CreateVault() {
   };
 
   const handleConfirm = async () => {
+    if (status === "submitting" || status === "success") return;
+    setStatus("submitting");
+    setSubmitError(null);
+
     logger.debug("CreateVault confirm", {
       amount,
       deadline,
@@ -227,14 +233,20 @@ export default function CreateVault() {
         })),
       });
 
+      setStatus("success");
       navigate(`/vaults/${newVault.id}`);
     } catch (err) {
       logger.error("Failed to create vault", err);
+      setStatus("error");
+      setSubmitError(err instanceof Error ? err.message : "An unexpected error occurred.");
     }
   };
 
   const handleBackToEdit = () => {
+    if (status === "submitting") return;
     setShowReview(false);
+    setStatus("idle");
+    setSubmitError(null);
   };
 
   return (
@@ -258,6 +270,8 @@ export default function CreateVault() {
           successAddress={successAddress}
           failureAddress={failureAddress}
           milestones={milestones}
+          isSubmitting={status === "submitting"}
+          error={submitError ?? undefined}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
         />

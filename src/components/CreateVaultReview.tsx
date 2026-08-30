@@ -13,6 +13,8 @@ interface CreateVaultReviewProps {
   verifierAddress?: string;
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
+  isSubmitting?: boolean;
+  error?: string;
   onBack?: () => void;
   onConfirm?: () => void;
 }
@@ -49,6 +51,8 @@ export function CreateVaultReview({
   verifierAddress,
   milestone,
   milestones,
+  isSubmitting,
+  error,
   onBack,
   onConfirm,
 }: CreateVaultReviewProps) {
@@ -160,13 +164,15 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onBack}
+          disabled={isSubmitting}
           style={{
             background: "transparent",
             color: "var(--text)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "1px solid var(--border)",
-            cursor: "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+            opacity: isSubmitting ? 0.5 : 1,
           }}
         >
           <Text role="caption" as="span">
@@ -176,21 +182,41 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
+          disabled={isSubmitting}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
             fontWeight: 600,
+            opacity: isSubmitting ? 0.7 : 1,
           }}
         >
           <Text role="caption" as="span">
-            Confirm Vault
+            {isSubmitting ? "Submitting..." : "Confirm Vault"}
           </Text>
         </button>
       </div>
+
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            marginTop: "1rem",
+            padding: "0.75rem",
+            background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius)",
+            color: "var(--danger)",
+          }}
+        >
+          <Text role="caption" as="p">
+            {error}
+          </Text>
+        </div>
+      ) : null}
     </div>
   );
 }
