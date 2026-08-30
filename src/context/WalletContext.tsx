@@ -2,6 +2,11 @@ import { createContext, useContext, useEffect, useRef, ReactNode, useReducer, us
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
+import {
+    recordWalletTelemetry,
+    resolveConnectTimeoutMs,
+    type ConnectErrorCode,
+} from '../utils/walletTelemetry';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
@@ -244,13 +249,51 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             } else {
                 dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Wallet access denied.' } });
             }
+
+            setError(result.message);
+            setIsConnecting(false);
+            recordWalletTelemetry({
+                event: 'wallet.connect.failure',
+                ts: Date.now(),
+                wallet: 'freighter',
+                durationMs: Date.now() - startedAt,
+                attempt,
+                errorCode: result.code,
+            });
+            return false;
         } catch (err: unknown) {
             if (seq !== operationSeqRef.current) return false;
             logger.error('Connection error', err);
             const message = err instanceof Error ? err.message : undefined;
             dispatch({ type: 'CONNECT_ERROR', payload: { error: message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.' } });
         }
-        return false;
+    };
+
+    const connect = (): Promise<boolean> => {
+        // Bounded concurrency: a second connect() call while one is already in
+        // flight returns the in-flight promise instead of prompting Freighter
+        // again, so rapid user interaction never stacks authorization prompts.
+        if (connectInFlightRef.current) {
+            recordWalletTelemetry({
+                event: 'wallet.connect.ignored',
+                ts: Date.now(),
+                wallet: 'freighter',
+                reason: 'already_in_flight',
+            });
+            return connectInFlightRef.current;
+        }
+        connectAttemptRef.current += 1;
+        const promise = performConnect(connectAttemptRef.current);
+        connectInFlightRef.current = promise;
+        void promise.then(
+            () => {
+                connectInFlightRef.current = null;
+            },
+            () => {
+                connectInFlightRef.current = null;
+            },
+        );
+        return promise;
     };
 
     const disconnect = useCallback(() => {
