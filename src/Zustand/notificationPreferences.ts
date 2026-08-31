@@ -19,6 +19,46 @@ export const PREFERENCE_DEFAULTS = {
   quietHours: "12:00",
 };
 
+const MAX_NONCE_LENGTH = 128;
+
+export type PreferenceDiagnostics = {
+  rejectedUpdates: number;
+  replayRejections: number;
+  ownerMismatches: number;
+  appliedServerPayloads: number;
+  lastApplyAt: string | null;
+  lastApplyDurationMs: number | null;
+  lastFailure: { code: string; message: string; at: string } | null;
+};
+
+const preferenceDiagnostics: PreferenceDiagnostics = {
+  rejectedUpdates: 0,
+  replayRejections: 0,
+  ownerMismatches: 0,
+  appliedServerPayloads: 0,
+  lastApplyAt: null,
+  lastApplyDurationMs: null,
+  lastFailure: null,
+};
+
+function recordPreferenceFailure(code: string, message: string) {
+  preferenceDiagnostics.rejectedUpdates += 1;
+  preferenceDiagnostics.lastFailure = {
+    code,
+    message,
+    at: new Date().toISOString(),
+  };
+}
+
+export function getNotificationPreferenceDiagnostics(): PreferenceDiagnostics {
+  return {
+    ...preferenceDiagnostics,
+    lastFailure: preferenceDiagnostics.lastFailure
+      ? { ...preferenceDiagnostics.lastFailure }
+      : null,
+  };
+}
+
 export type PreferenceFields = {
   email: boolean;
   push: boolean;
@@ -142,10 +182,18 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
         ...PREFERENCE_DEFAULTS,
         ownerKey: null,
         lastNonce: null,
-        setEmail: (value) => set({ email: value }),
-        setPush: (value) => set({ push: value }),
-        setFrequency: (value) => set({ frequency: value }),
-        setQuietHours: (value) => set({ quietHours: value }),
+        setEmail: (value) => {
+          if (value !== get().email) set({ email: value });
+        },
+        setPush: (value) => {
+          if (value !== get().push) set({ push: value });
+        },
+        setFrequency: (value) => {
+          if (value !== get().frequency) set({ frequency: value });
+        },
+        setQuietHours: (value) => {
+          if (value !== get().quietHours) set({ quietHours: value });
+        },
         reset: () =>
           set({
             ...PREFERENCE_DEFAULTS,
@@ -153,35 +201,57 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
             lastNonce: null,
           }),
         applyFromServer: (payload, nonce) => {
-          if (typeof nonce !== "string" || nonce.length === 0) {
-            throw new BoundaryError(
-              "TAMPERED_INPUT",
-              "Server apply requires a nonce.",
+          try {
+            const startedAt = Date.now();
+            if (typeof nonce !== "string" || nonce.length === 0) {
+              throw new BoundaryError(
+                "TAMPERED_INPUT",
+                "Server apply requires a nonce.",
+              );
+            }
+            if (nonce.length > MAX_NONCE_LENGTH) {
+              throw new BoundaryError(
+                "TAMPERED_INPUT",
+                `Server apply nonce exceeds maximum length of ${MAX_NONCE_LENGTH}.`,
+              );
+            }
+            if (get().lastNonce === nonce) {
+              throw new BoundaryError(
+                "REPLAY",
+                "Preference payload nonce was already applied.",
+              );
+            }
+            const parsed = parseServerPayload(
+              payload,
+              sanitizePreferenceFields,
+              "notification-preferences",
             );
+            const session = getSession();
+            if (!session.address || !session.network) {
+              throw new BoundaryError(
+                "DISCONNECTED_WALLET",
+                "Cannot apply server preferences without a connected wallet.",
+              );
+            }
+            set({
+              ...parsed,
+              ownerKey: sessionKey(session),
+              lastNonce: nonce,
+            });
+            preferenceDiagnostics.appliedServerPayloads += 1;
+            preferenceDiagnostics.lastApplyAt = new Date().toISOString();
+            preferenceDiagnostics.lastApplyDurationMs = Date.now() - startedAt;
+          } catch (error) {
+            if (error instanceof BoundaryError) {
+              if (error.code === "REPLAY") {
+                preferenceDiagnostics.replayRejections += 1;
+              } else if (error.code === "UNAUTHORIZED") {
+                preferenceDiagnostics.ownerMismatches += 1;
+              }
+              recordPreferenceFailure(error.code, error.message);
+            }
+            throw error;
           }
-          if (get().lastNonce === nonce) {
-            throw new BoundaryError(
-              "REPLAY",
-              "Preference payload nonce was already applied.",
-            );
-          }
-          const parsed = parseServerPayload(
-            payload,
-            sanitizePreferenceFields,
-            "notification-preferences",
-          );
-          const session = getSession();
-          if (!session.address || !session.network) {
-            throw new BoundaryError(
-              "DISCONNECTED_WALLET",
-              "Cannot apply server preferences without a connected wallet.",
-            );
-          }
-          set({
-            ...parsed,
-            ownerKey: sessionKey(session),
-            lastNonce: nonce,
-          });
         },
       }),
       {
