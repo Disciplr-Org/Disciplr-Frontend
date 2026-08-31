@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { EvidenceUpload } from '../EvidenceUpload'
 
@@ -146,7 +146,6 @@ describe('EvidenceUpload', () => {
       const dragOverEvent = new Event('dragover', { bubbles: true, cancelable: true })
       dropZone.dispatchEvent(dragOverEvent)
 
-      // dragover default should be prevented to allow drop
       expect(dragOverEvent.defaultPrevented).toBe(true)
     })
   })
@@ -205,19 +204,17 @@ describe('EvidenceUpload', () => {
         <EvidenceUpload
           onFileSelect={handleFileSelect}
           acceptedFileTypes={['text/plain']}
-        />
+        />,
       )
 
       const dropZone = screen.getByTestId('evidence-drop-zone')
 
-      // Accepted type
       const txtFile = new File(['content'], 'notes.txt', { type: 'text/plain' })
       fireEvent.drop(dropZone, { dataTransfer: { files: [txtFile] } })
       expect(handleFileSelect).toHaveBeenCalledWith(txtFile)
 
       handleFileSelect.mockClear()
 
-      // Now drop a pdf which is not in custom accepted list
       const pdfFile = new File(['content'], 'proof.pdf', { type: 'application/pdf' })
       fireEvent.drop(dropZone, { dataTransfer: { files: [pdfFile] } })
       expect(handleFileSelect).not.toHaveBeenCalled()
@@ -230,7 +227,6 @@ describe('EvidenceUpload', () => {
       render(<EvidenceUpload onFileSelect={handleFileSelect} />)
 
       const dropZone = screen.getByTestId('evidence-drop-zone')
-      // 1 MB file — well within the 50 MB default
       const smallFile = new File([new ArrayBuffer(1024 * 1024)], 'proof.pdf', { type: 'application/pdf' })
       fireEvent.drop(dropZone, { dataTransfer: { files: [smallFile] } })
 
@@ -243,11 +239,10 @@ describe('EvidenceUpload', () => {
       render(<EvidenceUpload onFileSelect={handleFileSelect} />)
 
       const dropZone = screen.getByTestId('evidence-drop-zone')
-      // Simulate a 60 MB file by overriding the size property
       const bigFile = Object.defineProperty(
         new File(['x'], 'huge-video.mp4', { type: 'video/mp4' }),
         'size',
-        { value: 60 * 1024 * 1024 }
+        { value: 60 * 1024 * 1024 },
       )
       fireEvent.drop(dropZone, { dataTransfer: { files: [bigFile] } })
 
@@ -262,11 +257,10 @@ describe('EvidenceUpload', () => {
       render(<EvidenceUpload onFileSelect={handleFileSelect} maxFileSizeBytes={1024} />)
 
       const dropZone = screen.getByTestId('evidence-drop-zone')
-      // 2 KB file — exceeds the custom 1 KB limit
       const tooBig = Object.defineProperty(
         new File(['x'], 'proof.pdf', { type: 'application/pdf' }),
         'size',
-        { value: 2048 }
+        { value: 2048 },
       )
       fireEvent.drop(dropZone, { dataTransfer: { files: [tooBig] } })
 
@@ -280,5 +274,259 @@ describe('EvidenceUpload', () => {
       expect(screen.getByText(/Max size: 10 MB/)).toBeInTheDocument()
     })
   })
+})
 
+// ── State machine integration tests ──────────────────────────────────────────
+
+describe('submission state machine', () => {
+  // ── Success path ──────────────────────────────────────────────────────────
+
+  it('shows Attaching… label while onSubmit is in flight', async () => {
+    let resolveSubmit!: () => void
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    expect(screen.getByRole('button', { name: 'Attaching…' })).toBeDisabled()
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  it('transitions to Attached and shows success banner after resolution', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve())
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(screen.getByTestId('submission-success')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Attached' })).toBeDisabled()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  // ── Duplicate-submit guard ────────────────────────────────────────────────
+
+  it('does not call onSubmit a second time when clicked while in flight', async () => {
+    let resolveSubmit!: () => void
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    const btn = screen.getByRole('button', { name: 'Attaching…' })
+    fireEvent.click(btn)
+    fireEvent.click(btn)
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  it('does not call onSubmit again after the submission has already succeeded', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve())
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attached' }))
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  // ── Failure and retry ─────────────────────────────────────────────────────
+
+  it('shows error banner and allows retry after onSubmit rejects', async () => {
+    const onSubmit = vi.fn()
+      .mockRejectedValueOnce(new Error('Network timeout'))
+      .mockResolvedValueOnce(undefined)
+
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(screen.getByTestId('submission-error')).toBeInTheDocument()
+    expect(screen.getByText('Network timeout')).toBeInTheDocument()
+
+    // Edit clears the error and re-enables submit
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(screen.queryByTestId('submission-error')).not.toBeInTheDocument()
+    expect(screen.getByTestId('submission-success')).toBeInTheDocument()
+    expect(onSubmit).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows a fallback message when onSubmit rejects with a non-Error value', async () => {
+    const onSubmit = vi.fn().mockRejectedValueOnce('string rejection')
+    render(<EvidenceUpload onSubmit={onSubmit} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(screen.getByTestId('submission-error')).toBeInTheDocument()
+    expect(screen.getByText(/The submission could not be completed/)).toBeInTheDocument()
+  })
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+
+  it('resets form to idle after clicking Reset on the success banner', async () => {
+    const onReset = vi.fn()
+    const onSubmit = vi.fn(() => Promise.resolve())
+    render(<EvidenceUpload onSubmit={onSubmit} onReset={onReset} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(screen.getByTestId('submission-success')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset evidence upload form' }))
+
+    expect(screen.queryByTestId('submission-success')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Attach Evidence' })).toBeDisabled()
+    expect(onReset).toHaveBeenCalledTimes(1)
+  })
+
+  // ── Lock during flight ────────────────────────────────────────────────────
+
+  it('disables URL input and drop zone while submitting', async () => {
+    let resolveSubmit!: () => void
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+    render(<EvidenceUpload onSubmit={onSubmit} onFileSelect={vi.fn()} />)
+
+    const dropZone = screen.getByTestId('evidence-drop-zone')
+    const file = new File(['x'], 'proof.pdf', { type: 'application/pdf' })
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } })
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    expect(screen.getByLabelText('Evidence URL')).toBeDisabled()
+    expect(dropZone).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('button', { name: 'Remove file' })).not.toBeInTheDocument()
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  it('ignores drop events while the form is locked', async () => {
+    let resolveSubmit!: () => void
+    const onFileSelect = vi.fn()
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+    render(<EvidenceUpload onSubmit={onSubmit} onFileSelect={onFileSelect} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    const dropZone = screen.getByTestId('evidence-drop-zone')
+    const file = new File(['x'], 'other.pdf', { type: 'application/pdf' })
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  it('ignores URL changes while the form is locked', async () => {
+    let resolveSubmit!: () => void
+    const onChange = vi.fn()
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+    render(<EvidenceUpload onSubmit={onSubmit} onChange={onChange} />)
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    onChange.mockClear()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://attacker.com/hijack' },
+    })
+
+    expect(onChange).not.toHaveBeenCalled()
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  // ── Controlled value prop ─────────────────────────────────────────────────
+
+  it('does not sync a new controlled value prop while in flight', async () => {
+    let resolveSubmit!: () => void
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { resolveSubmit = res }))
+
+    const { rerender } = render(
+      <EvidenceUpload value="https://example.com/original" onSubmit={onSubmit} />,
+    )
+
+    const input = screen.getByLabelText('Evidence URL')
+    expect(input).toHaveValue('https://example.com/original')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+
+    rerender(
+      <EvidenceUpload value="https://example.com/changed-by-parent" onSubmit={onSubmit} />,
+    )
+
+    expect(input).toHaveValue('https://example.com/original')
+
+    await act(async () => { resolveSubmit() })
+  })
+
+  // ── data-status attribute ─────────────────────────────────────────────────
+
+  it('reflects machine status in data-status attribute', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve())
+    const { container } = render(<EvidenceUpload onSubmit={onSubmit} />)
+    const root = container.firstChild as HTMLElement
+
+    expect(root).toHaveAttribute('data-status', 'idle')
+
+    fireEvent.change(screen.getByLabelText('Evidence URL'), {
+      target: { value: 'https://example.com/proof' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Attach Evidence' }))
+    })
+
+    expect(root).toHaveAttribute('data-status', 'submitted')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset evidence upload form' }))
+    expect(root).toHaveAttribute('data-status', 'idle')
+  })
 })
