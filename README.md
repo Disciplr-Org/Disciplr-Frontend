@@ -1,5 +1,6 @@
 # disciplr-frontend
 
+
 Frontend for Disciplr, a Stellar-oriented vault application for programmable,
 time-locked capital, verifier workflows, wallet connection, analytics, and
 notification surfaces.
