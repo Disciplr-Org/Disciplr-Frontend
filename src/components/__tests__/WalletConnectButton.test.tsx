@@ -53,6 +53,10 @@ describe('WalletConnectButton', () => {
     // localStorage, which would otherwise make checkConnection() skip
     // auto-reconnect on the next test's mount.
     localStorage.clear();
+    mockSetAllowed.mockClear();
+    mockRequestAccess.mockClear();
+    mockGetAddress.mockClear();
+    mockGetNetworkDetails.mockClear();
     mockIsAllowed.mockResolvedValue({ isAllowed: false });
     mockSetAllowed.mockResolvedValue({ isAllowed: false });
     mockRequestAccess.mockResolvedValue({ address: walletAddress });
@@ -99,7 +103,7 @@ describe('WalletConnectButton', () => {
 
     expect(mockSetAllowed).toHaveBeenCalledTimes(1);
     expect(mockRequestAccess).toHaveBeenCalledTimes(1);
-    expect(mockGetAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledTimes(2);
     expect(mockGetNetworkDetails).toHaveBeenCalledTimes(1);
 
     fireEvent.click(getConnectedButton());

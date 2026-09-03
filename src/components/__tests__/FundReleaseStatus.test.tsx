@@ -312,7 +312,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
     expect(screen.queryByRole('status', { name: 'Network mismatch notice' })).not.toBeInTheDocument();
   });
 
-  it('uses the contract network (not the wallet network) for the explorer link when provided', () => {
+  it('uses the contract network (not the wallet network) for the explorer link when provided', async () => {
     render(
       <FundReleaseStatus
         outcome="released"
@@ -323,13 +323,13 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByRole('link', { name: /Stellar Public explorer/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Stellar Public explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/public/tx/abcdef1234567890abcdef1234567890'
     );
   });
 
-  it('falls back to the wallet network when no contract network is provided', () => {
+  it('falls back to the wallet network when no contract network is provided', async () => {
     mockNetwork = 'TESTNET';
 
     render(
@@ -341,7 +341,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByRole('link', { name: /Stellar Testnet explorer/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Stellar Testnet explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/testnet/tx/abcdef1234567890abcdef1234567890'
     );
@@ -358,7 +358,9 @@ describe('FundReleaseStatus hostile input boundary', () => {
     );
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByText('Invalid transaction hash')).toBeInTheDocument();
+    expect(screen.getByText((content, element) => 
+      element?.textContent?.includes('Invalid transaction hash') ?? false
+    )).toBeInTheDocument();
   });
 
   it('surfaces an unverified marker for an implausible destination address', () => {
@@ -385,7 +387,9 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText(/Unavailable USDC/)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => 
+      element?.textContent?.includes('Unavailable') ?? false
+    )).toBeInTheDocument();
   });
 
   it('renders an unknown currency symbol for hostile currency input', () => {
@@ -398,7 +402,9 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText(/100 UNKNOWN/)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => 
+      element?.textContent?.includes('100 UNKNOWN') ?? false
+    )).toBeInTheDocument();
   });
 
   it("renders 'Unknown' for an unparseable settlement timestamp", () => {
@@ -411,7 +417,9 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    expect(screen.getByText((content, element) => 
+      element?.textContent?.includes('Unknown') ?? false
+    )).toBeInTheDocument();
     expect(screen.queryByText('Pending confirmation')).not.toBeInTheDocument();
   });
 

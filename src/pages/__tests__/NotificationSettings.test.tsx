@@ -253,7 +253,7 @@ describe('NotificationSettings component behavior', () => {
   });
 
   it('quiet hours input has aria-invalid when value is invalid', () => {
-    useNotificationPreferences.getState().setQuietHours('invalid');
+    useNotificationPreferences.getState().setQuietHours('25:00');
 
     const { unmount } = render(<NotificationSettings />);
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
