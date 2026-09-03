@@ -53,6 +53,12 @@ describe('Wallet lifecycle integration', () => {
         globalThis.fetch = vi.fn();
     });
 
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.clearAllMocks();
+        localStorage.clear();
+    });
+
     afterAll(() => {
         globalThis.fetch = originalFetch;
     });
