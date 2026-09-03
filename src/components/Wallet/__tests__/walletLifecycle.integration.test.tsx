@@ -185,7 +185,9 @@ describe('Wallet lifecycle integration', () => {
         fireEvent.click(await screen.findByText('Freighter'));
 
         expect(await screen.findByTestId('wallet-error')).toHaveTextContent('Wallet access denied.');
-        expect(await screen.findByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
+        });
     });
 
     test('disconnect resets address and balance to null', async () => {

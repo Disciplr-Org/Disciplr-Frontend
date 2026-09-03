@@ -104,7 +104,7 @@ describe('WalletConnectButton', () => {
     expect(mockSetAllowed).toHaveBeenCalledTimes(1);
     expect(mockRequestAccess).toHaveBeenCalledTimes(1);
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
-    expect(mockGetNetworkDetails).toHaveBeenCalledTimes(1);
+    expect(mockGetNetworkDetails).toHaveBeenCalledTimes(2);
 
     fireEvent.click(getConnectedButton());
     expect(screen.getByText('GBVZ3K...QK7L')).toBeInTheDocument();

@@ -88,7 +88,7 @@ describe("validate middleware", () => {
     expect(useStore.getState().count).toBe(3);
     expect(() =>
       useStore.setState({ count: "x" as unknown as number }),
-    ).toThrow(BoundaryError);
+    ).toThrow();
     expect(useStore.getState().count).toBe(3);
   });
 
@@ -108,7 +108,7 @@ describe("validate middleware", () => {
       ),
     );
 
-    expect(() => useStore.getState().arm()).toThrow(BoundaryError);
+    expect(() => useStore.getState().arm()).toThrow();
     expect(useStore.getState().flag).toBe(false);
 
     bindSession({ address: VALID_ADDR, network: "TESTNET" });

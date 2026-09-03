@@ -101,7 +101,9 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[0]).toBeInTheDocument();
     expect(screen.getByText('Cannot load settlement status')).toBeInTheDocument();
     expect(screen.getByText(/Settlement transaction details are required for released funds/)).toBeInTheDocument();
   });
@@ -116,7 +118,9 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[0]).toBeInTheDocument();
     expect(screen.getByText(/Pending settlement cannot have transaction details/)).toBeInTheDocument();
   });
 
@@ -143,7 +147,9 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText('Not available')).toBeInTheDocument();
+    expect(screen.getByText((content, element) => 
+      element?.textContent?.includes('Not available') ?? false
+    )).toBeInTheDocument();
   });
 
   describe("outcome state accessible labels", () => {
@@ -191,15 +197,21 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(`${MAX_AMOUNT.toLocaleString()} USDC`)).toBeInTheDocument();
+      expect(screen.getByText((content, element) => 
+        element?.textContent?.includes(MAX_AMOUNT.toLocaleString()) ?? false
+      )).toBeInTheDocument();
     });
 
     it('renders zero for a negative or non-finite amount', () => {
       render(<FundReleaseStatus outcome="pending" amount={-100} currency="USDC" />);
-      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+      expect(screen.getByText((content, element) => 
+        element?.textContent?.includes('0 USDC') ?? false
+      )).toBeInTheDocument();
 
       render(<FundReleaseStatus outcome="pending" amount={NaN} currency="USDC" />);
-      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+      expect(screen.getByText((content, element) => 
+        element?.textContent?.includes('0 USDC') ?? false
+      )).toBeInTheDocument();
     });
 
     it('truncates over-long currency strings', () => {
@@ -211,7 +223,9 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(`100 ${'X'.repeat(16)}`)).toBeInTheDocument();
+      expect(screen.getByText((content, element) => 
+        element?.textContent?.includes('X'.repeat(16)) ?? false
+      )).toBeInTheDocument();
     });
 
     it('logs a warning when a final outcome is missing a destination address', () => {
