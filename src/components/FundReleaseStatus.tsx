@@ -30,6 +30,7 @@ export interface FundReleaseStatusProps {
    *  wallet's network, a mismatch is surfaced instead of silently generating
    *  an explorer link for the wrong network. */
   network?: WalletNetwork;
+  isLoading?: boolean;
 }
 
 /**
@@ -80,6 +81,43 @@ function formatTimestamp(timestamp?: string): string {
   });
 }
 
+interface InvariantViolation {
+  outcome: FundReleaseOutcome;
+  violations: string[];
+}
+
+function validateInvariants(
+  outcome: FundReleaseOutcome,
+  destinationAddress: string | undefined,
+  transaction: SettlementTransaction | undefined,
+): InvariantViolation | null {
+  const violations: string[] = [];
+
+  // Final outcomes (released/redirected) must have a destination
+  if ((outcome === 'released' || outcome === 'redirected') && !destinationAddress) {
+    violations.push('final-outcome-missing-destination');
+  }
+
+  // Pending outcome should not have transaction details
+  if (outcome === 'pending' && transaction) {
+    violations.push('pending-has-settlement-details');
+  }
+
+  // Destination address must not exceed max length
+  if (destinationAddress && destinationAddress.length > MAX_ADDRESS_LENGTH) {
+    violations.push('destination-overflow');
+  }
+
+  if (violations.length > 0) {
+    console.warn('[FundReleaseStatus] invariant violation', {
+      outcome,
+      violations,
+    });
+    return { outcome, violations };
+  }
+
+  return null;
+}
 
 const OUTCOME_COPY = {
   released: {
@@ -107,10 +145,41 @@ export function FundReleaseStatus({
   transaction,
   vaultId,
   network,
+  isLoading,
 }: FundReleaseStatusProps) {
   const { network: walletNetwork } = useWallet();
   const { actions } = useVaultActionStore();
   
+  if (isLoading) {
+    return (
+      <section className="fund-release-status">
+        <Text role="body" as="p">Loading settlement status...</Text>
+      </section>
+    );
+  }
+
+  const invariantViolation = validateInvariants(outcome, destinationAddress, transaction);
+  
+  if (invariantViolation) {
+    return (
+      <section
+        className="fund-release-status fund-release-status--error"
+        aria-label="Fund settlement status error"
+      >
+        <div role="alert" className="fund-release-status__error">
+          <Text role="title" as="h2">Cannot load settlement status</Text>
+          <Text role="body" as="p">
+            {invariantViolation.violations.includes('final-outcome-missing-destination')
+              ? 'Settlement transaction details are required for released funds.'
+              : invariantViolation.violations.includes('pending-has-settlement-details')
+              ? 'Pending settlement cannot have transaction details.'
+              : 'Invalid settlement configuration.'}
+          </Text>
+        </div>
+      </section>
+    );
+  }
+
   let effectiveOutcome = outcome;
   if (vaultId) {
     const cancelKey = getActionKey(vaultId, 'cancel_vault');
