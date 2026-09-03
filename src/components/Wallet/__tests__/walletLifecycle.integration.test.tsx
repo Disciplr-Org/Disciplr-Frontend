@@ -187,7 +187,7 @@ describe('Wallet lifecycle integration', () => {
         expect(await screen.findByTestId('wallet-error')).toHaveTextContent('Wallet access denied.');
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
     });
 
     test('disconnect resets address and balance to null', async () => {

@@ -147,9 +147,7 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText((content, element) => 
-      element?.textContent?.includes('Not available') ?? false
-    )).toBeInTheDocument();
+    expect(screen.getByText(/Not available/i)).toBeInTheDocument();
   });
 
   describe("outcome state accessible labels", () => {
@@ -197,21 +195,15 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText((content, element) => 
-        element?.textContent?.includes(MAX_AMOUNT.toLocaleString()) ?? false
-      )).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(MAX_AMOUNT.toLocaleString()))).toBeInTheDocument();
     });
 
     it('renders zero for a negative or non-finite amount', () => {
       render(<FundReleaseStatus outcome="pending" amount={-100} currency="USDC" />);
-      expect(screen.getByText((content, element) => 
-        element?.textContent?.includes('0 USDC') ?? false
-      )).toBeInTheDocument();
+      expect(screen.getByText(/0 USDC/i)).toBeInTheDocument();
 
       render(<FundReleaseStatus outcome="pending" amount={NaN} currency="USDC" />);
-      expect(screen.getByText((content, element) => 
-        element?.textContent?.includes('0 USDC') ?? false
-      )).toBeInTheDocument();
+      expect(screen.getByText(/0 USDC/i)).toBeInTheDocument();
     });
 
     it('truncates over-long currency strings', () => {
@@ -223,9 +215,7 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText((content, element) => 
-        element?.textContent?.includes('X'.repeat(16)) ?? false
-      )).toBeInTheDocument();
+      expect(screen.getByText(new RegExp('X'.repeat(16)))).toBeInTheDocument();
     });
 
     it('logs a warning when a final outcome is missing a destination address', () => {
@@ -375,9 +365,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
     );
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByText((content, element) => 
-      element?.textContent?.includes('Invalid transaction hash') ?? false
-    )).toBeInTheDocument();
+    expect(screen.getByText(/Invalid transaction hash/i)).toBeInTheDocument();
   });
 
   it('surfaces an unverified marker for an implausible destination address', () => {
@@ -405,9 +393,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText((content, element) => 
-      element?.textContent?.includes('Unavailable') ?? false
-    )).toBeInTheDocument();
+    expect(screen.getByText(/Unavailable/i)).toBeInTheDocument();
   });
 
   it('renders an unknown currency symbol for hostile currency input', () => {
@@ -421,9 +407,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText((content, element) => 
-      element?.textContent?.includes('100 UNKNOWN') ?? false
-    )).toBeInTheDocument();
+    expect(screen.getByText(/100 UNKNOWN/i)).toBeInTheDocument();
   });
 
   it("renders 'Unknown' for an unparseable settlement timestamp", () => {
@@ -437,9 +421,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText((content, element) => 
-      element?.textContent?.includes('Unknown') ?? false
-    )).toBeInTheDocument();
+    expect(screen.getByText(/Unknown/i)).toBeInTheDocument();
     expect(screen.queryByText('Pending confirmation')).not.toBeInTheDocument();
   });
 
