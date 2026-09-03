@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, ReactNode, useCallback, useReducer } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
