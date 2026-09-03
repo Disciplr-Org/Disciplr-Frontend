@@ -1,12 +1,17 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
 import {
     recordWalletTelemetry,
     resolveConnectTimeoutMs,
-    type ConnectErrorCode,
 } from '../utils/walletTelemetry';
+import {
+    validateWalletAddress,
+    validateNetwork,
+    isValidNetworkDetailsResponse,
+    sanitizeWalletError,
+} from '../utils/walletValidation';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
@@ -45,7 +50,7 @@ type Action =
     | { type: 'UPDATE_NETWORK'; payload: { network: WalletNetwork } }
     | { type: 'UPDATE_ADDRESS'; payload: { address: string } };
 
-function walletReducer(state: WalletState, action: Action): WalletState {
+export function walletReducer(state: WalletState, action: Action): WalletState {
     switch (action.type) {
         case 'RESTORE_START':
             return state.status === 'disconnected' || state.status === 'error' ? { ...state, status: 'restoring', error: null } : state;
@@ -84,20 +89,19 @@ interface WalletContextType extends WalletState {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const BALANCE_REFRESH_INTERVAL = 30_000;
-export const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
+export const ACCOUNT_POLL_INTERVAL = 2_000;
 
 export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(walletReducer, initialState);
+    const operationSeqRef = useRef(0);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
     const checkConnectionInProgress = useRef(false);
-
-    const normalizeNetwork = (networkName: string): WalletNetwork => {
-        return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
-    };
+    const connectInFlightRef = useRef<Promise<boolean> | null>(null);
+    const connectAttemptRef = useRef(0);
 
     const fetchNetworkAndBalance = useCallback(async (pubKey: string) => {
         if (abortControllerRef.current) {
@@ -109,15 +113,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         try {
             const netDetails = await getNetworkDetails();
+            const seq = operationSeqRef.current;
             if (seq !== operationSeqRef.current) return;
-            const activeNetwork = normalizeNetwork(netDetails.network);
+
+            if (!isValidNetworkDetailsResponse(netDetails)) {
+                throw new Error('Invalid network details response from wallet.');
+            }
+
+            const networkValidation = validateNetwork(netDetails.network);
+            if (!networkValidation.valid) {
+                throw new Error(networkValidation.error);
+            }
+            const activeNetwork = networkValidation.value as WalletNetwork;
             lastKnownNetworkRef.current = activeNetwork;
 
             const usdcBalance = await fetchUsdcBalance(pubKey, activeNetwork, fetch, {
                 signal: abortControllerRef.current.signal,
             });
             if (seq !== operationSeqRef.current) return;
-            
+
             dispatch({
                 type: 'BALANCE_FETCH_SUCCESS',
                 payload: {
@@ -128,10 +142,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             });
         } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') return;
+            const seq = operationSeqRef.current;
             if (seq !== operationSeqRef.current) return;
             logger.error('Failed to get network details', err);
             const message = err instanceof Error ? err.message : 'Unable to load USDC balance.';
-            dispatch({ type: 'BALANCE_FETCH_ERROR', payload: { error: message } });
+            dispatch({ type: 'BALANCE_FETCH_ERROR', payload: { error: sanitizeWalletError(message) } });
         }
     }, []);
 
@@ -144,12 +159,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             }
             if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
+                const seq = operationSeqRef.current;
                 if (seq !== operationSeqRef.current) return;
-                
+
                 if (pubKey && !addrError) {
-                    setAddress(pubKey);
-                    
-                    // Skip redundant fetch if address hasn't changed
+                    // Validate the returned address before using it
+                    const addrValidation = validateWalletAddress(pubKey);
+                    if (!addrValidation.valid) {
+                        logger.error('Wallet returned invalid address', addrValidation.error);
+                        dispatch({ type: 'CONNECT_ERROR', payload: { error: addrValidation.error || 'Invalid wallet address.' } });
+                        return;
+                    }
+
+                    dispatch({ type: 'UPDATE_ADDRESS', payload: { address: pubKey } });
+
                     if (pubKey !== lastKnownAddressRef.current) {
                         lastKnownAddressRef.current = pubKey;
                         await fetchNetworkAndBalance(pubKey);
@@ -159,6 +182,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 dispatch({ type: 'RESTORE_ABORT' });
             }
         } catch (err) {
+            const seq = operationSeqRef.current;
             if (seq !== operationSeqRef.current) return;
             logger.error('Check connection error', err);
         } finally {
@@ -181,30 +205,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (!state.address) return;
 
         let lastBalanceCheck = Date.now();
-        
+
         const tick = async () => {
             if (document.hidden) return;
             const seq = ++operationSeqRef.current;
             try {
                 const { address: currentAddr, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
-                
+
                 if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
-                    // Account changed! Update state and fetch immediately
-                    setAddress(currentAddr);
+                    // Validate the new address before accepting it
+                    const addrValidation = validateWalletAddress(currentAddr);
+                    if (!addrValidation.valid) {
+                        logger.error('Polling returned invalid address', addrValidation.error);
+                        return;
+                    }
+
+                    dispatch({ type: 'UPDATE_ADDRESS', payload: { address: currentAddr } });
                     lastKnownAddressRef.current = currentAddr;
                     lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(currentAddr);
                 } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
-                    // Refresh balance on the existing account
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(currentAddr || address);
+                    const fallbackAddr = currentAddr || state.address;
+                    if (fallbackAddr) await fetchNetworkAndBalance(fallbackAddr);
                 }
             } catch {
-                // If it fails, fallback
                 if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(address);
+                    if (state.address) await fetchNetworkAndBalance(state.address);
                 }
             }
         };
@@ -212,9 +241,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const id = setInterval(tick, ACCOUNT_POLL_INTERVAL);
 
         const onVisibilityChange = () => {
-            if (!document.hidden && address) {
+            if (!document.hidden && state.address) {
                 lastBalanceCheck = Date.now();
-                fetchNetworkAndBalance(address);
+                fetchNetworkAndBalance(state.address);
             }
         };
         document.addEventListener('visibilitychange', onVisibilityChange);
@@ -223,60 +252,154 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [address, fetchNetworkAndBalance]);
+    }, [state.address, fetchNetworkAndBalance]);
 
-    const connect = async (): Promise<boolean> => {
+    const performConnect = useCallback(async (attempt: number): Promise<boolean> => {
         const seq = ++operationSeqRef.current;
+        const startedAt = Date.now();
         dispatch({ type: 'CONNECT_START' });
+
+        const timeoutMs = resolveConnectTimeoutMs(
+            import.meta.env.VITE_WALLET_CONNECT_TIMEOUT_MS as string | undefined,
+        );
+        const timeoutId = setTimeout(() => {
+            if (seq === operationSeqRef.current) {
+                recordWalletTelemetry({
+                    event: 'wallet.connect.timeout',
+                    ts: Date.now(),
+                    wallet: 'freighter',
+                    durationMs: Date.now() - startedAt,
+                    timeoutMs,
+                    attempt,
+                });
+                dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Wallet connection timed out.' } });
+            }
+        }, timeoutMs);
+
         try {
             await setAllowed();
             if (seq !== operationSeqRef.current) return false;
-            
+
             const access = await requestAccess();
             if (seq !== operationSeqRef.current) return false;
-            
+
             if (access) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return false;
-                
+
                 if (pubKey && !addrError) {
+                    // Validate wallet address before accepting
+                    const addrValidation = validateWalletAddress(pubKey);
+                    if (!addrValidation.valid) {
+                        clearTimeout(timeoutId);
+                        const errorMsg = addrValidation.error || 'Invalid wallet address.';
+                        dispatch({ type: 'CONNECT_ERROR', payload: { error: errorMsg } });
+                        recordWalletTelemetry({
+                            event: 'wallet.connect.failure',
+                            ts: Date.now(),
+                            wallet: 'freighter',
+                            durationMs: Date.now() - startedAt,
+                            attempt,
+                            errorCode: 'address_unavailable',
+                        });
+                        return false;
+                    }
+
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     lastKnownAddressRef.current = pubKey;
+
                     const netDetails = await getNetworkDetails();
                     if (seq !== operationSeqRef.current) return false;
-                    const activeNetwork = normalizeNetwork(netDetails.network);
+
+                    if (!isValidNetworkDetailsResponse(netDetails)) {
+                        clearTimeout(timeoutId);
+                        dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Invalid network response from wallet.' } });
+                        recordWalletTelemetry({
+                            event: 'wallet.connect.failure',
+                            ts: Date.now(),
+                            wallet: 'freighter',
+                            durationMs: Date.now() - startedAt,
+                            attempt,
+                            errorCode: 'wallet_error',
+                        });
+                        return false;
+                    }
+
+                    const networkValidation = validateNetwork(netDetails.network);
+                    if (!networkValidation.valid) {
+                        clearTimeout(timeoutId);
+                        dispatch({ type: 'CONNECT_ERROR', payload: { error: networkValidation.error || 'Invalid network.' } });
+                        recordWalletTelemetry({
+                            event: 'wallet.connect.failure',
+                            ts: Date.now(),
+                            wallet: 'freighter',
+                            durationMs: Date.now() - startedAt,
+                            attempt,
+                            errorCode: 'wallet_error',
+                        });
+                        return false;
+                    }
+
+                    const activeNetwork = networkValidation.value as WalletNetwork;
                     lastKnownNetworkRef.current = activeNetwork;
-                    
+
+                    clearTimeout(timeoutId);
                     dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
-                    await fetchNetworkAndBalance(pubKey, seq);
+                    recordWalletTelemetry({
+                        event: 'wallet.connect.success',
+                        ts: Date.now(),
+                        wallet: 'freighter',
+                        durationMs: Date.now() - startedAt,
+                        attempt,
+                    });
+                    await fetchNetworkAndBalance(pubKey);
                     return true;
                 } else {
-                    dispatch({ type: 'CONNECT_ERROR', payload: { error: addrError || 'Failed to get wallet address.' } });
+                    clearTimeout(timeoutId);
+                    const errorMsg = sanitizeWalletError(addrError || 'Failed to get wallet address.');
+                    dispatch({ type: 'CONNECT_ERROR', payload: { error: errorMsg } });
+                    recordWalletTelemetry({
+                        event: 'wallet.connect.failure',
+                        ts: Date.now(),
+                        wallet: 'freighter',
+                        durationMs: Date.now() - startedAt,
+                        attempt,
+                        errorCode: 'address_unavailable',
+                    });
+                    return false;
                 }
             } else {
+                clearTimeout(timeoutId);
                 dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Wallet access denied.' } });
+                recordWalletTelemetry({
+                    event: 'wallet.connect.failure',
+                    ts: Date.now(),
+                    wallet: 'freighter',
+                    durationMs: Date.now() - startedAt,
+                    attempt,
+                    errorCode: 'access_denied',
+                });
+                return false;
             }
-
-            setError(result.message);
-            setIsConnecting(false);
+        } catch (err: unknown) {
+            if (seq !== operationSeqRef.current) return false;
+            clearTimeout(timeoutId);
+            logger.error('Connection error', err);
+            const message = sanitizeWalletError(err instanceof Error ? err.message : undefined);
+            dispatch({ type: 'CONNECT_ERROR', payload: { error: message } });
             recordWalletTelemetry({
                 event: 'wallet.connect.failure',
                 ts: Date.now(),
                 wallet: 'freighter',
                 durationMs: Date.now() - startedAt,
                 attempt,
-                errorCode: result.code,
+                errorCode: 'wallet_error',
             });
             return false;
-        } catch (err: unknown) {
-            if (seq !== operationSeqRef.current) return false;
-            logger.error('Connection error', err);
-            const message = err instanceof Error ? err.message : undefined;
-            dispatch({ type: 'CONNECT_ERROR', payload: { error: message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.' } });
         }
-    };
+    }, [fetchNetworkAndBalance]);
 
-    const connect = (): Promise<boolean> => {
+    const connect = useCallback((): Promise<boolean> => {
         // Bounded concurrency: a second connect() call while one is already in
         // flight returns the in-flight promise instead of prompting Freighter
         // again, so rapid user interaction never stacks authorization prompts.
@@ -293,15 +416,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const promise = performConnect(connectAttemptRef.current);
         connectInFlightRef.current = promise;
         void promise.then(
-            () => {
-                connectInFlightRef.current = null;
-            },
-            () => {
-                connectInFlightRef.current = null;
-            },
+            () => { connectInFlightRef.current = null; },
+            () => { connectInFlightRef.current = null; },
         );
         return promise;
-    };
+    }, [performConnect]);
 
     const disconnect = useCallback(() => {
         operationSeqRef.current++;
