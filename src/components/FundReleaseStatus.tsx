@@ -80,19 +80,6 @@ function formatTimestamp(timestamp?: string): string {
   });
 }
 
-function checkInvariants(outcome: FundReleaseOutcome, transaction?: SettlementTransaction): Error | null {
-  const hasTx = !!(transaction?.hash || transaction?.timestamp);
-  
-  if ((outcome === 'released' || outcome === 'redirected') && !hasTx) {
-    return new Error(`Settlement transaction details are required for ${outcome} funds.`);
-  }
-  
-  if (outcome === 'pending' && hasTx) {
-    return new Error(`Pending settlement cannot have transaction details.`);
-  }
-
-  return null;
-}
 
 const OUTCOME_COPY = {
   released: {

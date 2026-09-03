@@ -77,6 +77,7 @@ export default function CreateVault() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("idle");
 
   const errorFieldOrder: Array<
     "amount" | "deadline" | "successAddress" | "failureAddress"
