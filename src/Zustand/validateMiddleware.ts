@@ -86,6 +86,8 @@ export const validate = (<T>(
       return (set as SetState)(sanitized, replace, ...extra);
     }) as typeof set;
 
+    api.setState = guardedSet;
+
     return config(guardedSet, get, api);
   };
 }) as Validate;
