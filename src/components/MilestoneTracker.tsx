@@ -1,7 +1,5 @@
-import { useMemo } from "react";
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
-import { logger } from "../utils/logger";
 import type { Milestone, MilestoneStatus } from "../types/vault";
 import { analyzeMilestones } from "../utils/vaultState";
 import { useVaultActionStore, getActionKey } from "../stores/vaultActionStore";

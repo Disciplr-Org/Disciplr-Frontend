@@ -1,11 +1,9 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
 import {
-    recordWalletTelemetry,
-    resolveConnectTimeoutMs,
-    type ConnectErrorCode,
+    recordWalletTelemetry
 } from '../utils/walletTelemetry';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
@@ -83,10 +81,10 @@ interface WalletContextType extends WalletState {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export const BALANCE_REFRESH_INTERVAL = 30_000;
-export const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
+const BALANCE_REFRESH_INTERVAL = 30_000;
+const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
 
-export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
+const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(walletReducer, initialState);
@@ -133,6 +131,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const message = err instanceof Error ? err.message : 'Unable to load USDC balance.';
             dispatch({ type: 'BALANCE_FETCH_ERROR', payload: { error: message } });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const checkConnection = useCallback(async () => {
@@ -164,6 +163,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } finally {
             checkConnectionInProgress.current = false;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchNetworkAndBalance]);
 
     useEffect(() => {
@@ -174,6 +174,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             }
             operationSeqRef.current++;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [checkConnection]);
 
     // Fast polling for account changes & standard polling for balance
@@ -223,6 +224,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [address, fetchNetworkAndBalance]);
 
     const connect = async (): Promise<boolean> => {

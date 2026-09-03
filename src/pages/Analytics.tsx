@@ -35,6 +35,7 @@ function useAnalyticsChartTokens() {
     observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
 
     return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate trigger on theme change
   }, [theme])
 
   return tokens
@@ -408,7 +409,7 @@ const currentStreak = useMemo(() => {
     } finally {
       setIsExportLoading(false)
     }
-  }, [chartData, period, customRangeActive, customFrom, customTo])
+  }, [chartData, period, customRangeActive, customFrom, customTo, kpis])
 
   return (
     <>

@@ -27,6 +27,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
             usdcIssuer: USDC_ISSUERS[network],
             explorerBaseUrl: getExplorerBaseUrl(network),
         }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate dependency list
         [network],
     );
 
