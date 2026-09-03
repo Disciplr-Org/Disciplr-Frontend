@@ -319,7 +319,8 @@ describe('FundReleaseStatus hostile input boundary', () => {
         amount={100}
         currency="USDC"
         network="PUBLIC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
@@ -337,7 +338,8 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
@@ -353,7 +355,8 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
-        transaction={{ hash: 'javascript:alert(1)' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'javascript:alert(1)', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
@@ -383,7 +386,8 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={Number.NaN}
         currency="USDC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
@@ -398,7 +402,8 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="US$; DROP TABLE vaults"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
@@ -413,6 +418,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
+        destinationAddress="GSUCCESSDESTINATION1234567890"
         transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: 'gibberish' }}
       />
     );

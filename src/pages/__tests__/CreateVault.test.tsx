@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
 vi.mock("../../context/WalletContext", () => ({
-  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
+  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle", address: "GADDRESS1234567890", network: "TESTNET" })),
 }));
 
 vi.mock("../../services/vaultService", () => ({
@@ -65,6 +65,8 @@ describe("CreateVault", () => {
     mockUseWallet.mockReturnValue({
       balance: null,
       balanceStatus: "idle",
+      address: "GADDRESS1234567890",
+      network: "TESTNET"
     } as ReturnType<typeof useWallet>);
   });
 
