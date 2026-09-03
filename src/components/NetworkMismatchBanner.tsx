@@ -4,6 +4,11 @@ import { useWallet, type WalletNetwork } from '../context/WalletContext';
 import { networkLabel } from '../utils/explorer';
 import { APP_EXPECTED_NETWORK, isNetworkMismatch } from '../utils/networkMismatch';
 import { recordWalletTelemetry } from '../utils/walletTelemetry';
+import {
+    validateWalletAddress,
+    validateNetwork,
+    buildMismatchKey,
+} from '../utils/walletValidation';
 
 const FREIGHTER_NETWORK_HELP_URL = 'https://docs.freighter.app/';
 
@@ -16,33 +21,50 @@ export function NetworkMismatchBanner({
 }: NetworkMismatchBannerProps) {
   const { address, network } = useWallet();
   const [dismissedMismatch, setDismissedMismatch] = useState<string | null>(null);
-  const hasMismatch = Boolean(address) && isNetworkMismatch(network, expectedNetwork);
+
+  // Validate address and network at the boundary
+  const addressValid = address != null ? validateWalletAddress(address) : { valid: false } as const;
+  const networkValid = network != null ? validateNetwork(network) : { valid: false } as const;
+  const expectedNetworkValid = validateNetwork(expectedNetwork);
+
+  // Use validated values — reject invalid wallet state
+  const safeAddress = addressValid.valid && address ? address : null;
+  const safeNetwork = networkValid.valid && networkValid.value ? networkValid.value : null;
+  const safeExpected = expectedNetworkValid.valid && expectedNetworkValid.value
+    ? expectedNetworkValid.value
+    : APP_EXPECTED_NETWORK;
+
+  // Mismatch detection uses validated inputs only
+  const hasMismatch = Boolean(safeAddress) && isNetworkMismatch(safeNetwork, safeExpected);
+
+  // Tamper-resistant dismiss key: encodes address + network + expected
   const mismatchKey = useMemo(
-    () => `${address ?? 'disconnected'}:${network ?? 'unknown'}:${expectedNetwork}`,
-    [address, network, expectedNetwork],
+    () => buildMismatchKey(safeAddress, safeNetwork, safeExpected),
+    [safeAddress, safeNetwork, safeExpected],
   );
+
   const showBanner = hasMismatch && dismissedMismatch !== mismatchKey;
 
+  // Reset dismiss state when mismatch resolves
   useEffect(() => {
     if (!hasMismatch) {
       setDismissedMismatch(null);
     }
   }, [hasMismatch]);
 
-  // Telemetry on visibility transitions only — never re-emitted on unrelated
-  // re-renders, so rapid network checks cannot spam the diagnostics buffer.
+  // Telemetry on visibility transitions only
   const prevShownRef = useRef(false);
   useEffect(() => {
     if (showBanner && !prevShownRef.current) {
       recordWalletTelemetry({
         event: 'wallet.network.mismatch_shown',
         ts: Date.now(),
-        network: network ?? 'unknown',
-        expectedNetwork,
+        network: safeNetwork ?? 'unknown',
+        expectedNetwork: safeExpected,
       });
     }
     prevShownRef.current = showBanner;
-  }, [showBanner, network, expectedNetwork]);
+  }, [showBanner, safeNetwork, safeExpected]);
 
   const prevMismatchRef = useRef(hasMismatch);
   useEffect(() => {
@@ -50,12 +72,12 @@ export function NetworkMismatchBanner({
       recordWalletTelemetry({
         event: 'wallet.network.recovered',
         ts: Date.now(),
-        network: network ?? 'unknown',
-        expectedNetwork,
+        network: safeNetwork ?? 'unknown',
+        expectedNetwork: safeExpected,
       });
     }
     prevMismatchRef.current = hasMismatch;
-  }, [hasMismatch, network, expectedNetwork]);
+  }, [hasMismatch, safeNetwork, safeExpected]);
 
   if (!showBanner) {
     return null;
@@ -78,8 +100,8 @@ export function NetworkMismatchBanner({
     >
       <span>
         <strong>Wrong wallet network.</strong> Freighter is on{' '}
-        <strong>{networkLabel(network)}</strong>, but Disciplr expects{' '}
-        <strong>{networkLabel(expectedNetwork)}</strong>. Switch Freighter before
+        <strong>{networkLabel(safeNetwork)}</strong>, but Disciplr expects{' '}
+        <strong>{networkLabel(safeExpected)}</strong>. Switch Freighter before
         creating or validating vaults.
       </span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-3)' }}>
@@ -107,8 +129,8 @@ export function NetworkMismatchBanner({
             recordWalletTelemetry({
               event: 'wallet.network.dismissed',
               ts: Date.now(),
-              network: network ?? 'unknown',
-              expectedNetwork,
+              network: safeNetwork ?? 'unknown',
+              expectedNetwork: safeExpected,
             });
           }}
           style={{

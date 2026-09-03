@@ -3,6 +3,10 @@ import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
 import { recordWalletTelemetry } from '../../utils/walletTelemetry';
+import {
+    validateWalletAddress,
+    sanitizeWalletError,
+} from '../../utils/walletValidation';
 import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 
@@ -12,10 +16,15 @@ interface WalletSelectionModalProps {
 
 export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const { connect, isConnecting, error, address } = useWallet();
-    const isConnected = address !== null;
-
     const isMounted = useRef(true);
     const connectPending = useRef(false);
+
+    // Validate wallet state at the boundary
+    const addressValid = address != null ? validateWalletAddress(address) : { valid: false } as const;
+    const isConnected = addressValid.valid;
+
+    // Sanitize error for display — never render raw wallet error strings
+    const displayError = error ? sanitizeWalletError(error) : null;
 
     useEffect(() => {
         isMounted.current = true;
@@ -26,9 +35,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
 
     const handleConnect = async () => {
         // Bounded interaction: ignore clicks while a connect attempt is
-        // pending so double-clicks never stack Freighter prompts. The
-        // WalletContext additionally single-flights connect() itself, so this
-        // guard and the context guard together cap concurrent prompts at one.
+        // pending so double-clicks never stack Freighter prompts.
         if (connectPending.current || isConnecting) {
             recordWalletTelemetry({
                 event: 'wallet.connect.ignored',
@@ -61,14 +68,14 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
         >
             <div className="wallet-modal-header">
                 <h2 id="wallet-modal-title" className="wallet-modal-title">Connect Wallet</h2>
-                <button className="wallet-close-btn" onClick={onClose}>
+                <button className="wallet-close-btn" onClick={onClose} aria-label="Close wallet modal">
                     <X size={20} />
                 </button>
             </div>
 
-            {error && (
-                <div className="wallet-error">
-                    {error}
+            {displayError && (
+                <div className="wallet-error" role="alert">
+                    {displayError}
                 </div>
             )}
 
@@ -77,6 +84,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                     className="wallet-option"
                     onClick={handleConnect}
                     disabled={isConnecting}
+                    aria-label={isConnecting ? 'Connecting to Freighter' : isConnected ? 'Freighter connected' : 'Connect Freighter wallet'}
                 >
                     <div className="wallet-option-info">
                         <div className="wallet-icon">
