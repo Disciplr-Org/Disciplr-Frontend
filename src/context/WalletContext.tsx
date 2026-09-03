@@ -144,11 +144,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const checkConnection = useCallback(async () => {
         if (checkConnectionInProgress.current) return;
         checkConnectionInProgress.current = true;
+        let seq = 0;
         try {
             if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
                 return;
             }
-            const seq = ++operationSeqRef.current;
+            seq = ++operationSeqRef.current;
             if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
@@ -190,10 +191,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (!state.address) return;
 
         let lastBalanceCheck = Date.now();
+        let seq = 0;
         
         const tick = async () => {
             if (document.hidden) return;
-            const seq = ++operationSeqRef.current;
+            seq = ++operationSeqRef.current;
             try {
                 const { address: currentAddr, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
@@ -207,13 +209,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
                     // Refresh balance on the existing account
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(currentAddr || address);
+                    const addrToUse = currentAddr || address;
+                    if (addrToUse) {
+                        await fetchNetworkAndBalance(addrToUse);
+                    }
                 }
             } catch {
                 // If it fails, fallback
                 if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(address);
+                    if (address) {
+                        await fetchNetworkAndBalance(address);
+                    }
                 }
             }
         };
