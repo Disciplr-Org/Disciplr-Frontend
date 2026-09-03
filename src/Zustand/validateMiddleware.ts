@@ -74,8 +74,9 @@ export const validate = (<T>(
           next: resolvedPartial,
           session: getSession(),
         });
-      } catch (err: any) {
-        if (err?.code === 'TAMPERED_INPUT' || err?.name === 'BoundaryError' || err instanceof BoundaryError) {
+      } catch (err: unknown) {
+        const error = err as Record<string, unknown>;
+        if (error?.code === 'TAMPERED_INPUT' || error?.name === 'BoundaryError' || err instanceof BoundaryError) {
           return (set as SetState)({ lastValidationError: err }, replace, ...extra);
         }
         throw new BoundaryError(
