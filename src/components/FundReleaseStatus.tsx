@@ -1,9 +1,8 @@
-import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import type { WalletNetwork } from '../context/WalletContext';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
-import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
 import {
   isPlausibleStellarAddress,

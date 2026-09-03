@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet, CONNECT_TIMEOUT_MS } from '../WalletContext';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WalletProvider, useWallet } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({

@@ -408,7 +408,7 @@ const currentStreak = useMemo(() => {
     } finally {
       setIsExportLoading(false)
     }
-  }, [chartData, period, customRangeActive, customFrom, customTo])
+  }, [chartData, period, customRangeActive, customFrom, customTo, kpis])
 
   return (
     <>
