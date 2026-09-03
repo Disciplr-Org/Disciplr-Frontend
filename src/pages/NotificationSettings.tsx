@@ -17,6 +17,7 @@ export default function NotificationSettings() {
     setFrequency,
     setQuietHours,
     reset,
+    lastValidationError,
   } = useNotificationPreferences();
 
   // Determine whether the current time falls within the quiet hour window.
@@ -117,11 +118,12 @@ export default function NotificationSettings() {
                   type="time"
                   id="quiet-hours"
                   aria-label="Quiet Hours"
-                  aria-invalid={!quietHoursValid}
+                  aria-invalid={!!lastValidationError || !quietHoursValid}
                   value={quietHours}
                   onChange={(e) => setQuietHours(e.target.value)}
                 />
               </label>
+              {lastValidationError && <div role="alert" className="text-red-500 text-sm mt-1">{lastValidationError.message}</div>}
             </div>
           </div>
           <div className="flex justify-end items-center mt-5">

@@ -257,6 +257,7 @@ describe('NotificationSettings component behavior', () => {
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
     fireEvent.change(quietHoursInput, { target: { value: '25:00' } });
     expect(quietHoursInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent('quietHours must be a valid HH:MM time');
     unmount();
 
     // Default "12:00" is valid
