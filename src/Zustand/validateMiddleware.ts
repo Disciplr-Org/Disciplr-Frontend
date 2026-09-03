@@ -75,10 +75,7 @@ export const validate = (<T>(
           session: getSession(),
         });
       } catch (err: unknown) {
-        const error = err as Record<string, unknown>;
-        if (error?.code === 'TAMPERED_INPUT' || error?.name === 'BoundaryError' || err instanceof BoundaryError) {
-          return (set as SetState)({ lastValidationError: err }, replace, ...extra);
-        }
+        if (err instanceof BoundaryError) throw err;
         throw new BoundaryError(
           "TAMPERED_INPUT",
           `${options.name} rejected an update.`,

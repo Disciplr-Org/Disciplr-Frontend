@@ -35,7 +35,6 @@ export type NotificationPreferencesState = PreferenceFields & {
   setQuietHours: (value: string) => void;
   reset: () => void;
   applyFromServer: (payload: unknown, nonce: string) => void;
-  lastValidationError?: Error;
 };
 
 const ALLOWED_PARTIAL_KEYS = new Set([
@@ -143,10 +142,10 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
         ...PREFERENCE_DEFAULTS,
         ownerKey: null,
         lastNonce: null,
-        setEmail: (value) => set({ email: value, lastValidationError: undefined }),
-        setPush: (value) => set({ push: value, lastValidationError: undefined }),
-        setFrequency: (value) => set({ frequency: value, lastValidationError: undefined }),
-        setQuietHours: (value) => set({ quietHours: value, lastValidationError: undefined }),
+        setEmail: (value) => set({ email: value }),
+        setPush: (value) => set({ push: value }),
+        setFrequency: (value) => set({ frequency: value }),
+        setQuietHours: (value) => set({ quietHours: value }),
         reset: () =>
           set({
             ...PREFERENCE_DEFAULTS,

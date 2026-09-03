@@ -86,9 +86,9 @@ describe("validate middleware", () => {
 
     useStore.getState().bump(3);
     expect(useStore.getState().count).toBe(3);
-    useStore.setState({ count: "x" as unknown as number });
-    expect((useStore.getState() as any).lastValidationError).toBeInstanceOf(BoundaryError);
-    expect((useStore.getState() as any).lastValidationError.message).toBe("count must be a number");
+    expect(() =>
+      useStore.setState({ count: "x" as unknown as number }),
+    ).toThrow(BoundaryError);
     expect(useStore.getState().count).toBe(3);
   });
 
