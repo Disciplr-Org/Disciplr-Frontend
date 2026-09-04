@@ -75,7 +75,7 @@ describe('WalletConnectButton', () => {
 
     expect(screen.getByRole('heading', { name: /connect wallet/i })).toBeInTheDocument();
     // Wallet is not yet connected at this point, so the option shows "Available".
-    expect(screen.getByRole('button', { name: /freighter available/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Freighter' })).toBeInTheDocument();
     expect(screen.getByText('Albedo')).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe('WalletConnectButton', () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freighter' }));
 
     await waitFor(() => {
       expect(getConnectedButton()).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('WalletConnectButton', () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freighter' }));
 
     // On failure the modal stays open (so the user can retry) and shows the
     // error inline, rather than closing and requiring the trigger to be

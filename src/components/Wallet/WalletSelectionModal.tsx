@@ -77,6 +77,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                     className="wallet-option"
                     onClick={handleConnect}
                     disabled={isConnecting}
+                    aria-label="Freighter"
                 >
                     <div className="wallet-option-info">
                         <div className="wallet-icon">
