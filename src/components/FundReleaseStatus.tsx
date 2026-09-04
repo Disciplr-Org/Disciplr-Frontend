@@ -98,6 +98,10 @@ function validateInvariants(
     violations.push('final-outcome-missing-destination');
   }
 
+  if ((outcome === 'released' || outcome === 'redirected') && !transaction) {
+    violations.push('final-outcome-missing-transaction');
+  }
+
   // Pending outcome should not have transaction details
   if (outcome === 'pending' && transaction) {
     violations.push('pending-has-settlement-details');
@@ -163,13 +167,16 @@ export function FundReleaseStatus({
   if (invariantViolation) {
     return (
       <section
+        role="alert"
         className="fund-release-status fund-release-status--error"
-        aria-label="Fund settlement status error"
+        aria-label="Settlement error"
       >
-        <div role="alert" className="fund-release-status__error">
+        <div className="fund-release-status__error">
           <Text role="title" as="h2">Cannot load settlement status</Text>
           <Text role="body" as="p">
             {invariantViolation.violations.includes('final-outcome-missing-destination')
+              ? 'Final outcomes must specify a destination address.'
+              : invariantViolation.violations.includes('final-outcome-missing-transaction')
               ? 'Settlement transaction details are required for released funds.'
               : invariantViolation.violations.includes('pending-has-settlement-details')
               ? 'Pending settlement cannot have transaction details.'
@@ -215,6 +222,7 @@ export function FundReleaseStatus({
 
   return (
     <section
+      role="region"
       className={`fund-release-status fund-release-status--${effectiveOutcome}`}
       aria-label={`Fund settlement status: ${copy.title}`}
     >

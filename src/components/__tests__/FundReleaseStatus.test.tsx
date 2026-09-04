@@ -177,10 +177,10 @@ describe('FundReleaseStatus', () => {
       const { rerender } = render(<FundReleaseStatus outcome="pending" amount={1} currency="XLM" />);
       expect(document.querySelector('.fund-release-status--pending')).not.toBeNull();
 
-      rerender(<FundReleaseStatus outcome="released" amount={1} currency="XLM" />);
+      rerender(<FundReleaseStatus outcome="released" amount={1} currency="XLM" destinationAddress="GSUCCESSDESTINATION1234567890" transaction={{ hash: 'hash123' }} />);
       expect(document.querySelector('.fund-release-status--released')).not.toBeNull();
 
-      rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" />);
+      rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" destinationAddress="GFAILUREDESTINATION1234567890" transaction={{ hash: 'hash123' }} />);
       expect(document.querySelector('.fund-release-status--redirected')).not.toBeNull();
     });
   });

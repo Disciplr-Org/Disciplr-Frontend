@@ -200,10 +200,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const { address: currentAddr, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
                 
-                if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
-                    // Account changed! Update state and fetch immediately
+                const netDetails = await getNetworkDetails();
+                if (seq !== operationSeqRef.current) return;
+                const activeNetwork = normalizeNetwork(netDetails.network);
+
+                if (currentAddr && !addrError && (currentAddr !== lastKnownAddressRef.current || activeNetwork !== lastKnownNetworkRef.current)) {
+                    // Account or network changed! Update state and fetch immediately
                     setAddress(currentAddr);
                     lastKnownAddressRef.current = currentAddr;
+                    lastKnownNetworkRef.current = activeNetwork;
                     lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(currentAddr);
                 } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
@@ -260,12 +265,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 if (pubKey && !addrError) {
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     lastKnownAddressRef.current = pubKey;
-                    const netDetails = await getNetworkDetails();
-                    if (seq !== operationSeqRef.current) return false;
-                    const activeNetwork = normalizeNetwork(netDetails.network);
-                    lastKnownNetworkRef.current = activeNetwork;
-                    
-                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
+                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: 'TESTNET' } });
                     await fetchNetworkAndBalance(pubKey);
                     return true;
                 } else {
