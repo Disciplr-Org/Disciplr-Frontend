@@ -47,6 +47,7 @@ export function WalletConnectButton() {
                     className="wallet-connect-btn error"
                     onClick={() => setIsModalOpen(true)}
                     title={error}
+                    aria-label="Connect Wallet"
                 >
                     <AlertCircle size={16} />
                     <span>Connection Failed</span>

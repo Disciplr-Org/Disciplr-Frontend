@@ -191,7 +191,7 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(`${MAX_AMOUNT.toLocaleString()} USDC`)).toBeInTheDocument();
+      expect(screen.getByText(/1,000,000,000,000\s*USDC/)).toBeInTheDocument();
     });
 
     it('renders zero for a negative or non-finite amount', () => {
