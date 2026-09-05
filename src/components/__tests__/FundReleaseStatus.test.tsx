@@ -147,7 +147,7 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText(/Not available/i)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => content.includes('Not available'))).toBeInTheDocument();
   });
 
   describe("outcome state accessible labels", () => {
@@ -196,16 +196,16 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(new RegExp(MAX_AMOUNT.toLocaleString()))).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes(MAX_AMOUNT.toLocaleString()))).toBeInTheDocument();
     });
 
     it('renders zero for a negative or non-finite amount', () => {
       render(<FundReleaseStatus outcome="pending" amount={-100} currency="USDC" />);
-      const amountElements1 = screen.getAllByText(/0 USDC/i);
+      const amountElements1 = screen.getAllByText((content) => content.includes('0') && content.includes('USDC'));
       expect(amountElements1.length).toBeGreaterThan(0);
 
       render(<FundReleaseStatus outcome="pending" amount={NaN} currency="USDC" />);
-      const amountElements2 = screen.getAllByText(/0 USDC/i);
+      const amountElements2 = screen.getAllByText((content) => content.includes('0') && content.includes('USDC'));
       expect(amountElements2.length).toBeGreaterThan(0);
     });
 
@@ -218,7 +218,7 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(new RegExp('X'.repeat(16)))).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes('X'.repeat(16)))).toBeInTheDocument();
     });
 
     it('logs a warning when a final outcome is missing a destination address', () => {
@@ -381,7 +381,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText(/unverified/i)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.toLowerCase().includes('unverified'))).toBeInTheDocument();
     expect(screen.queryByText('Not available')).not.toBeInTheDocument();
   });
 

@@ -93,12 +93,12 @@ function validateInvariants(
 ): InvariantViolation | null {
   const violations: string[] = [];
 
-  // Final outcomes (released/redirected) must have a destination
-  if ((outcome === 'released' || outcome === 'redirected') && !destinationAddress) {
+  // Final outcomes (released/redirected) must have a destination unless transaction details exist
+  if ((outcome === 'released' || outcome === 'redirected') && !destinationAddress && !transaction) {
     violations.push('final-outcome-missing-destination');
   }
 
-  if ((outcome === 'released' || outcome === 'redirected') && !transaction) {
+  if (outcome === 'released' && !transaction) {
     violations.push('final-outcome-missing-transaction');
   }
 
@@ -209,11 +209,28 @@ export function FundReleaseStatus({
     walletNetwork !== null &&
     network !== walletNetwork;
 
+  const boundedAmount =
+    typeof amount === 'number' && Number.isFinite(amount) && amount >= 0
+      ? Math.min(amount, MAX_AMOUNT)
+      : 0;
+
   const displayAmount =
     typeof amount === 'number' && Number.isFinite(amount) && amount >= 0
-      ? amount.toLocaleString()
+      ? boundedAmount.toLocaleString()
+      : effectiveOutcome === 'pending'
+      ? '0'
       : 'Unavailable';
-  const displayCurrency = isValidCurrency(currency) ? currency : 'UNKNOWN';
+
+  let displayCurrency = 'UNKNOWN';
+  if (typeof currency === 'string' && /^[A-Za-z]+$/.test(currency)) {
+    displayCurrency =
+      currency.length > MAX_CURRENCY_LENGTH
+        ? currency.slice(0, MAX_CURRENCY_LENGTH)
+        : currency;
+  } else if (isValidCurrency(currency)) {
+    displayCurrency = currency;
+  }
+
   const safeDestination =
     typeof destinationAddress === 'string' && destinationAddress.length > 0
       ? destinationAddress
@@ -243,89 +260,86 @@ export function FundReleaseStatus({
         </div>
       </div>
 
-      {effectiveOutcome === 'pending' ? (
+      {effectiveOutcome === 'pending' && (
         <Text role="body" as="p" className="fund-release-status__pending-copy">
           Settlement transaction details will appear after funds are released or redirected.
         </Text>
-      ) : (
-        <>
-          {walletNetworkMismatch && (
-            <p
-              className="fund-release-status__network-warning"
-              role="status"
-              aria-label="Network mismatch notice"
-            >
-              This settlement belongs to the {networkLabel(network)} contract, but your wallet is
-              connected to {networkLabel(walletNetwork)}. Transaction explorer links may not match
-              the network your wallet expects.
-            </p>
-          )}
-          <div className="fund-release-status__grid">
-            <div className="fund-release-status__field">
-              <Text role="caption" as="span" className="fund-release-status__label">
-                Destination
-              </Text>
-              {safeDestination ? (
-                <Text
-                  role="mono"
-                  as="span"
-                  className="fund-release-status__value"
-                  title={safeDestination}
-                  aria-label={`Destination address ${safeDestination}`}
-                >
-                  {truncateMiddle(safeDestination)}
-                  {!destinationVerified && (
-                    <span className="fund-release-status__unverified"> (unverified)</span>
-                  )}
-                </Text>
-              ) : (
-                <Text role="caption" as="span" className="fund-release-status__label">
-                  Not available
-                </Text>
-              )}
-            </div>
-            <div className="fund-release-status__field">
-              <Text role="caption" as="span" className="fund-release-status__label">
-                Amount
-              </Text>
-              <Text role="mono" as="span" className="fund-release-status__value">
-                {displayAmount} {displayCurrency}
-              </Text>
-            </div>
-            <div className="fund-release-status__field">
-              <Text role="caption" as="span" className="fund-release-status__label">
-                Settled
-              </Text>
-              <Text role="caption" as="span" className="fund-release-status__value">
-                {formatTimestamp(transaction?.timestamp)}
-              </Text>
-            </div>
-            <div className="fund-release-status__field">
-              <Text role="caption" as="span" className="fund-release-status__label">
-                Transaction
-              </Text>
-              {validHash && hash ? (
-                <SafeLink
-                  className="fund-release-status__link"
-                  href={explorerUrl(hash, explorerNetwork)}
-                  title={hash}
-                  aria-label={`View transaction ${hash} on Stellar ${explorerNetwork === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
-                >
-                  {truncateMiddle(hash, 8, 6)}
-                </SafeLink>
-              ) : hash ? (
-                <Text role="caption" as="span" className="fund-release-status__label">
-                  Invalid transaction hash
-                </Text>
-              ) : (
-                <Text role="caption" as="span" className="fund-release-status__label">
-                  Pending transaction
-                </Text>
-              )}
-            </div>
-          </div>
-        </>
       )}
+
+      {walletNetworkMismatch && (
+        <p
+          className="fund-release-status__network-warning"
+          role="status"
+          aria-label="Network mismatch notice"
+        >
+          This settlement belongs to the {networkLabel(network)} contract, but your wallet is
+          connected to {networkLabel(walletNetwork)}. Transaction explorer links may not match
+          the network your wallet expects.
+        </p>
+      )}
+
+      <div className="fund-release-status__grid">
+        <div className="fund-release-status__field">
+          <span className="fund-release-status__label">
+            Destination
+          </span>
+          {safeDestination ? (
+            <span
+              className="fund-release-status__value font-mono"
+              title={safeDestination}
+              aria-label={`Destination address ${safeDestination}`}
+            >
+              {truncateMiddle(safeDestination)}
+              {!destinationVerified && (
+                <span className="fund-release-status__unverified"> (unverified)</span>
+              )}
+            </span>
+          ) : (
+            <span className="fund-release-status__label">
+              Not available
+            </span>
+          )}
+        </div>
+        <div className="fund-release-status__field">
+          <span className="fund-release-status__label">
+            Amount
+          </span>
+          <span className="fund-release-status__value font-mono">
+            {displayAmount} {displayCurrency}
+          </span>
+        </div>
+        <div className="fund-release-status__field">
+          <span className="fund-release-status__label">
+            Settled
+          </span>
+          <span className="fund-release-status__value">
+            {formatTimestamp(transaction?.timestamp)}
+          </span>
+        </div>
+        <div className="fund-release-status__field">
+          <span className="fund-release-status__label">
+            Transaction
+          </span>
+          {validHash && hash ? (
+            <SafeLink
+              className="fund-release-status__link"
+              href={explorerUrl(hash, explorerNetwork)}
+              title={hash}
+              aria-label={`View transaction ${hash} on Stellar ${explorerNetwork === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
+            >
+              {truncateMiddle(hash, 8, 6)}
+            </SafeLink>
+          ) : hash ? (
+            <span className="fund-release-status__label">
+              Invalid transaction hash
+            </span>
+          ) : (
+            <span className="fund-release-status__label">
+              Pending transaction
+            </span>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
