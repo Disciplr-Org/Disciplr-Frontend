@@ -3,6 +3,7 @@ import { ExternalLink, X, AlertTriangle } from 'lucide-react';
 import { useWallet, type WalletNetwork } from '../context/WalletContext';
 import { networkLabel } from '../utils/explorer';
 import { APP_EXPECTED_NETWORK, isNetworkMismatch } from '../utils/networkMismatch';
+import { recordWalletTelemetry } from '../utils/walletTelemetry';
 
 const FREIGHTER_NETWORK_HELP_URL = 'https://docs.freighter.app/';
 
@@ -47,6 +48,7 @@ export function NetworkMismatchBanner({
     () => `${address ?? 'disconnected'}:${network ?? 'unknown'}:${expectedNetwork}`,
     [address, network, expectedNetwork],
   );
+  const showBanner = hasMismatch && dismissedMismatch !== mismatchKey;
 
   // Invariant: dismissal state clears when mismatch resolves
   useEffect(() => {
@@ -68,6 +70,35 @@ export function NetworkMismatchBanner({
 
   // Invariant: banner never renders when no mismatch or dismissed
   if (!hasMismatch || dismissedMismatch === mismatchKey) {
+  // Telemetry on visibility transitions only — never re-emitted on unrelated
+  // re-renders, so rapid network checks cannot spam the diagnostics buffer.
+  const prevShownRef = useRef(false);
+  useEffect(() => {
+    if (showBanner && !prevShownRef.current) {
+      recordWalletTelemetry({
+        event: 'wallet.network.mismatch_shown',
+        ts: Date.now(),
+        network: network ?? 'unknown',
+        expectedNetwork,
+      });
+    }
+    prevShownRef.current = showBanner;
+  }, [showBanner, network, expectedNetwork]);
+
+  const prevMismatchRef = useRef(hasMismatch);
+  useEffect(() => {
+    if (!hasMismatch && prevMismatchRef.current) {
+      recordWalletTelemetry({
+        event: 'wallet.network.recovered',
+        ts: Date.now(),
+        network: network ?? 'unknown',
+        expectedNetwork,
+      });
+    }
+    prevMismatchRef.current = hasMismatch;
+  }, [hasMismatch, network, expectedNetwork]);
+
+  if (!showBanner) {
     return null;
   }
 

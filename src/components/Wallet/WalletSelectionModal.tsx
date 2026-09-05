@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
+import { recordWalletTelemetry } from '../../utils/walletTelemetry';
 import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 

@@ -6,6 +6,21 @@ export interface CreateVaultReviewMilestone {
   criteria: string;
 }
 
+/**
+ * Props for the CreateVaultReview component.
+ * 
+ * @property amount - The vault amount in USDC. Must not be empty.
+ * @property deadline - ISO datetime string for the vault deadline. Must not be empty.
+ * @property successAddress - Destination address if milestones succeed. Must not be empty.
+ * @property failureAddress - Destination address if milestones fail. Must not be empty.
+ * @property verifierAddress - (Optional) The address of the verifier.
+ * @property milestone - (Optional) Legacy single milestone title.
+ * @property milestones - (Optional) Array of milestone objects containing title and criteria.
+ * @property isSubmitting - Disables interactions and shows a busy state when true.
+ * @property error - Error message to display to the user, announced to screen readers.
+ * @property onBack - Callback to return to the edit form.
+ * @property onConfirm - Callback to submit the vault creation. Should be guarded against duplicate calls in the parent.
+ */
 interface CreateVaultReviewProps {
   amount: string;
   deadline: string;
@@ -20,6 +35,12 @@ interface CreateVaultReviewProps {
   onConfirm?: () => void;
 }
 
+/**
+ * Renders a review screen for vault creation.
+ * Enforces boundary invariants: Requires amount, deadline, successAddress, and failureAddress.
+ * If required data is missing, an accessible error state is displayed prompting the user to go back.
+ * Handles loading (isSubmitting) and error states with appropriate ARIA attributes for screen readers.
+ */
 export function CreateVaultReview({
   amount,
   deadline,
@@ -33,6 +54,52 @@ export function CreateVaultReview({
   onBack,
   onConfirm,
 }: CreateVaultReviewProps) {
+  // Invariant validation for boundary conditions
+  const isMissingData = !amount || !deadline || !successAddress || !failureAddress;
+
+  if (isMissingData) {
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          maxWidth: 480,
+          padding: "1.25rem",
+          border: "1px solid var(--danger)",
+          borderRadius: "var(--radius)",
+          background: "var(--surface)",
+        }}
+      >
+        <Text role="display" as="h2" style={{ color: "var(--danger)" }}>
+          Incomplete Vault Details
+        </Text>
+        <Text role="body" as="p">
+          Missing required vault details. Please go back and complete the form.
+        </Text>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            alignSelf: "flex-start",
+            background: "transparent",
+            color: "var(--text)",
+            padding: "0.75rem 1rem",
+            borderRadius: "var(--radius)",
+            border: "1px solid var(--border)",
+            cursor: "pointer",
+          }}
+        >
+          <Text role="caption" as="span">
+            Back to edit
+          </Text>
+        </button>
+      </div>
+    );
+  }
+
   const reviewMilestones =
     milestones && milestones.length > 0
       ? milestones
@@ -42,6 +109,8 @@ export function CreateVaultReview({
 
   return (
     <div
+      aria-busy={isSubmitting}
+      aria-live="polite"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -154,6 +223,7 @@ export function CreateVaultReview({
       {error ? (
         <div
           role="alert"
+          aria-live="assertive"
           style={{
             padding: "0.75rem",
             background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
@@ -174,6 +244,7 @@ export function CreateVaultReview({
           type="button"
           onClick={onBack}
           disabled={isSubmitting}
+          aria-disabled={isSubmitting}
           style={{
             background: "transparent",
             color: "var(--text)",
@@ -192,6 +263,7 @@ export function CreateVaultReview({
           type="button"
           onClick={onConfirm}
           disabled={isSubmitting}
+          aria-disabled={isSubmitting}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",

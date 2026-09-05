@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet } from '../WalletContext';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WalletProvider, useWallet, CONNECT_TIMEOUT_MS } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
@@ -11,6 +11,15 @@ const freighterMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@stellar/freighter-api', () => freighterMocks);
+
+const telemetryMock = vi.hoisted(() => ({
+    recordWalletTelemetry: vi.fn(),
+}));
+
+vi.mock('../../utils/walletTelemetry', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../utils/walletTelemetry')>();
+    return { ...actual, recordWalletTelemetry: telemetryMock.recordWalletTelemetry };
+});
 
 function mockResponse(status: number, body: unknown) {
     return {
@@ -532,5 +541,41 @@ describe('WalletContext network/address change listener', () => {
         await waitFor(() => {
             expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error');
         });
+    });
+
+    test('ignores stale responses if operation sequence changes', async () => {
+        // We will simulate a connect, but before it resolves, we disconnect.
+        // The resolved connect should not update the state to connected.
+        let resolveAddress: (val: any) => void = () => {};
+        freighterMocks.getAddress.mockReturnValue(
+            new Promise((resolve) => {
+                resolveAddress = resolve;
+            })
+        );
+        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
+        freighterMocks.setAllowed.mockResolvedValue(undefined);
+        freighterMocks.requestAccess.mockResolvedValue(true);
+        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+
+        renderWallet();
+        
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+        
+        // Wait for connecting state
+        await waitFor(() => expect(screen.getByRole('button', { name: /^connect$/i })).toBeDisabled().catch(() => {})); 
+        // Note: the button might not be disabled in the probe, we just wait a tick
+        await Promise.resolve();
+
+        // Disconnect while connecting
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+
+        // Now resolve the address request
+        resolveAddress({ address: 'GSTALE', error: null });
+
+        // Wait a bit to ensure no state updates happen
+        await new Promise((r) => setTimeout(r, 50));
+
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
     });
 });
