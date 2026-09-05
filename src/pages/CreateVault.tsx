@@ -266,8 +266,6 @@ export default function CreateVault() {
       if (!newVault || !newVault.id) {
         throw new Error("Malformed response from server.");
       }
-
-      setStatus("success");
       navigate(`/vaults/${newVault.id}`);
     } catch (err) {
       logger.error("Failed to create vault", err);
@@ -278,9 +276,8 @@ export default function CreateVault() {
   };
 
   const handleBackToEdit = () => {
-    if (status === "submitting") return;
+    if (isSubmitting) return;
     setShowReview(false);
-    setStatus("idle");
     setSubmitError(null);
   };
 
