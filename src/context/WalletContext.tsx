@@ -200,14 +200,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     lastKnownAddressRef.current = currentAddr;
                     lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(currentAddr, seq);
-                } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
+                } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL && state.address) {
                     // Refresh balance on the existing account
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(currentAddr || state.address, seq);
+                    await fetchNetworkAndBalance(state.address, seq);
                 }
             } catch {
                 // If it fails, fallback
-                if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
+                if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL && state.address) {
                     lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(state.address, seq);
                 }
