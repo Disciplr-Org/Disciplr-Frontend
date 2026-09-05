@@ -34,7 +34,7 @@ function WalletProbe() {
 
     return (
         <div>
-            <button type="button" onClick={wallet.connect}>
+            <button type="button" onClick={wallet.connect} disabled={wallet.isConnecting}>
                 Connect
             </button>
             <button type="button" onClick={wallet.disconnect}>

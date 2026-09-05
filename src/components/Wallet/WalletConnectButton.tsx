@@ -60,7 +60,7 @@ export function WalletConnectButton() {
         );
     }
 
-    if (isConnecting && !address) {
+    if (isConnecting && !address && !isModalOpen) {
         return (
             <button className="wallet-connect-btn connecting" disabled>
                 <Loader2 size={16} className="animate-spin" />

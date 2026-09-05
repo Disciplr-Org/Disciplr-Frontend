@@ -253,7 +253,7 @@ export function MilestoneTracker({
                       ) : (
                         <button 
                           type="button"
-                          aria-label="Validate Milestone"
+                          aria-label={`Manage milestone: ${milestone.title}`}
                           onClick={() => onManageMilestone ? onManageMilestone(milestone) : handleValidate(milestone)}
                           style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 'var(--radius)', padding: '0.4rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
                         >

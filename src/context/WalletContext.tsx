@@ -265,7 +265,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 if (pubKey && !addrError) {
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     lastKnownAddressRef.current = pubKey;
-                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: 'TESTNET' } });
+                    const netDetails = await getNetworkDetails();
+                    if (seq !== operationSeqRef.current) return false;
+                    const activeNetwork = normalizeNetwork(netDetails.network);
+                    lastKnownNetworkRef.current = activeNetwork;
+                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
                     await fetchNetworkAndBalance(pubKey);
                     return true;
                 } else {
