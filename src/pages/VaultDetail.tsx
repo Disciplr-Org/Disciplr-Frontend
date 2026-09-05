@@ -438,6 +438,14 @@ function VaultDetailContent({
             </Link>
             {isActive && (
               <>
+                {vault.status === "pending_validation" && (
+                  <ActionButton
+                    label="Validate Milestone"
+                    color="var(--accent)"
+                    auth={authResults.validate_milestone}
+                    onClick={() => handleActionClick("validate_milestone")}
+                  />
+                )}
                 <ActionButton
                   label="Extend Deadline"
                   color="var(--warning)"

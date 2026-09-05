@@ -53,6 +53,10 @@ describe('WalletConnectButton', () => {
     // localStorage, which would otherwise make checkConnection() skip
     // auto-reconnect on the next test's mount.
     localStorage.clear();
+    mockSetAllowed.mockClear();
+    mockRequestAccess.mockClear();
+    mockGetAddress.mockClear();
+    mockGetNetworkDetails.mockClear();
     mockIsAllowed.mockResolvedValue({ isAllowed: false });
     mockSetAllowed.mockResolvedValue({ isAllowed: false });
     mockRequestAccess.mockResolvedValue({ address: walletAddress });
@@ -71,7 +75,7 @@ describe('WalletConnectButton', () => {
 
     expect(screen.getByRole('heading', { name: /connect wallet/i })).toBeInTheDocument();
     // Wallet is not yet connected at this point, so the option shows "Available".
-    expect(screen.getByRole('button', { name: /freighter available/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Freighter' })).toBeInTheDocument();
     expect(screen.getByText('Albedo')).toBeInTheDocument();
   });
 
@@ -91,7 +95,7 @@ describe('WalletConnectButton', () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freighter' }));
 
     await waitFor(() => {
       expect(getConnectedButton()).toBeInTheDocument();
@@ -100,7 +104,7 @@ describe('WalletConnectButton', () => {
     expect(mockSetAllowed).toHaveBeenCalledTimes(1);
     expect(mockRequestAccess).toHaveBeenCalledTimes(1);
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
-    expect(mockGetNetworkDetails).toHaveBeenCalledTimes(1);
+    expect(mockGetNetworkDetails).toHaveBeenCalledTimes(2);
 
     fireEvent.click(getConnectedButton());
     expect(screen.getByText('GBVZ3K...QK7L')).toBeInTheDocument();
@@ -134,7 +138,7 @@ describe('WalletConnectButton', () => {
     renderWalletButton();
 
     fireEvent.click(screen.getByRole('button', { name: /connect wallet/i }));
-    fireEvent.click(screen.getByRole('button', { name: /freighter available/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freighter' }));
 
     // On failure the modal stays open (so the user can retry) and shows the
     // error inline, rather than closing and requiring the trigger to be

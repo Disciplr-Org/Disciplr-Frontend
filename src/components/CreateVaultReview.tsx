@@ -224,6 +224,7 @@ export function CreateVaultReview({
         <div
           role="alert"
           aria-live="assertive"
+          aria-label="error"
           style={{
             padding: "0.75rem",
             background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
@@ -283,24 +284,6 @@ export function CreateVaultReview({
           </Text>
         </button>
       </div>
-
-      {error ? (
-        <div
-          role="alert"
-          style={{
-            marginTop: "1rem",
-            padding: "0.75rem",
-            background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
-            border: "1px solid var(--danger)",
-            borderRadius: "var(--radius)",
-            color: "var(--danger)",
-          }}
-        >
-          <Text role="caption" as="p">
-            {error}
-          </Text>
-        </div>
-      ) : null}
     </div>
   );
 }

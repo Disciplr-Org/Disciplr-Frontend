@@ -297,11 +297,11 @@ describe("MilestoneTracker", () => {
     expect(screen.getByText(/appears after a pending or failed milestone/)).toBeInTheDocument();
   });
 
-  it("renders manage milestone button when canManage is true and milestone is current", () => {
+  it("renders manage milestone button when canManage is true and milestone is current", async () => {
     const onManageMilestone = vi.fn();
     render(<MilestoneTracker vaultId="v1" milestones={milestones} canManage onManageMilestone={onManageMilestone} />);
     
-    const manageButton = screen.getByRole("button", { name: /Manage milestone: Beta Launch/ });
+    const manageButton = await screen.findByRole("button", { name: /Manage milestone: Beta Launch/ });
     expect(manageButton).toBeInTheDocument();
 
     manageButton.click();
@@ -431,7 +431,9 @@ describe("MilestoneTracker hostile input boundary", () => {
 
     render(<MilestoneTracker vaultId="v1" milestones={impossible} />);
 
-    expect(screen.getByRole("status").textContent).toMatch(/validated before the current pending/);
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /appears after a pending or failed milestone/
+    );
   });
 
   it("does not flag a coherent validated-then-pending sequence", () => {

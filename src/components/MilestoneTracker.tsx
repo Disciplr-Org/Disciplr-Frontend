@@ -201,7 +201,7 @@ export function MilestoneTracker({
               <div className="milestone-tracker-content">
                 <div className="milestone-tracker-header">
                   <Text role="body" as="h3" className="milestone-tracker-title">
-                    {milestone.title}
+                    {milestone.title || `Milestone ${index + 1}`}
                   </Text>
                   <span className="milestone-tracker-badge">{status.label}</span>
                 </div>
@@ -252,11 +252,12 @@ export function MilestoneTracker({
                         </div>
                       ) : (
                         <button 
-                          type="button" 
-                          onClick={() => handleValidate(milestone)}
+                          type="button"
+                          aria-label={`Manage milestone: ${milestone.title}`}
+                          onClick={() => onManageMilestone ? onManageMilestone(milestone) : handleValidate(milestone)}
                           style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 'var(--radius)', padding: '0.4rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
                         >
-                          Validate Milestone
+                          Validate milestone
                         </button>
                       )}
                     </div>

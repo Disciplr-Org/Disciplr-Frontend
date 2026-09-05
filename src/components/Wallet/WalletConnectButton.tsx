@@ -47,7 +47,8 @@ export function WalletConnectButton() {
                     className="wallet-connect-btn error"
                     onClick={() => setIsModalOpen(true)}
                     title={error}
-                    aria-label="Connect Wallet"
+                    aria-label="Connect wallet"
+                    aria-live="polite"
                 >
                     <AlertCircle size={16} />
                     <span>Connection Failed</span>
@@ -59,7 +60,7 @@ export function WalletConnectButton() {
         );
     }
 
-    if (isConnecting && !address) {
+    if (isConnecting && !address && !isModalOpen) {
         return (
             <button className="wallet-connect-btn connecting" disabled>
                 <Loader2 size={16} className="animate-spin" />
@@ -96,6 +97,7 @@ export function WalletConnectButton() {
                 <button
                     className="wallet-connect-btn"
                     onClick={() => setIsModalOpen(true)}
+                    aria-label="Connect wallet"
                 >
                     <Wallet size={16} />
                     Connect Wallet
