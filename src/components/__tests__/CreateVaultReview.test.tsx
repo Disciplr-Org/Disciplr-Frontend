@@ -96,7 +96,7 @@ describe("CreateVaultReview", () => {
         error={errorMsg}
       />,
     );
-    const alert = screen.getByRole("alert");
+    const alert = screen.getByRole("alert", { name: /error/i });
     expect(alert).toHaveTextContent(errorMsg);
     expect(alert).toHaveAttribute("aria-live", "assertive");
   });

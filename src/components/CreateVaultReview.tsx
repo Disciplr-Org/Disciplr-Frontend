@@ -224,6 +224,7 @@ export function CreateVaultReview({
         <div
           role="alert"
           aria-live="assertive"
+          aria-label="error"
           style={{
             padding: "0.75rem",
             background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",

@@ -19,6 +19,9 @@ export default function NotificationSettings() {
     reset,
   } = useNotificationPreferences();
 
+  const [quietHoursError, setQuietHoursError] = useState<string | null>(null);
+  const [draftQuietHours, setDraftQuietHours] = useState<string | null>(null);
+
   // Determine whether the current time falls within the quiet hour window.
   // quietHours is a single "HH:MM" boundary. Quiet is considered active if
   // the current hour:minute matches or is past the stored quiet-hours value.
@@ -117,17 +120,36 @@ export default function NotificationSettings() {
                   type="time"
                   id="quiet-hours"
                   aria-label="Quiet Hours"
-                  aria-invalid={!quietHoursValid}
-                  value={quietHours}
-                  onChange={(e) => setQuietHours(e.target.value)}
+                  aria-invalid={!!quietHoursError || !quietHoursValid}
+                  value={draftQuietHours ?? quietHours}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDraftQuietHours(val);
+                    try {
+                      setQuietHours(val);
+                      setQuietHoursError(null);
+                      setDraftQuietHours(null);
+                    } catch (err: unknown) {
+                      if (err && typeof err === 'object' && 'message' in err) {
+                        setQuietHoursError((err as Error).message);
+                      } else {
+                        setQuietHoursError('quietHours must be a valid HH:MM time.');
+                      }
+                    }
+                  }}
                 />
               </label>
+              {quietHoursError && <div role="alert" className="text-red-500 text-sm mt-1">{quietHoursError}</div>}
             </div>
           </div>
           <div className="flex justify-end items-center mt-5">
             <button
               className="px-4 py-2 font-medium rounded transition notification-settings-reset"
-              onClick={reset}
+              onClick={() => {
+                reset();
+                setQuietHoursError(null);
+                setDraftQuietHours(null);
+              }}
             >
               Reset Preferences
             </button>

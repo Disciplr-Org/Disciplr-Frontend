@@ -1,12 +1,15 @@
-import { useMemo } from "react";
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
-import { logger } from "../utils/logger";
 import type { Milestone, MilestoneStatus } from "../types/vault";
 import { analyzeMilestones } from "../utils/vaultState";
+import { useVaultActionStore, getActionKey } from "../stores/vaultActionStore";
+import { submitVaultAction } from "../services/vaultService";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 import "./MilestoneTracker.css";
 
 export interface MilestoneTrackerProps {
+  vaultId: string;
   milestones: Milestone[];
   isLoading?: boolean;
   error?: Error | null;
@@ -76,6 +79,7 @@ function checkInvariants(milestones: Milestone[]): Error | null {
 }
 
 export function MilestoneTracker({
+  vaultId,
   milestones,
   isLoading,
   error,
@@ -83,6 +87,27 @@ export function MilestoneTracker({
   canManage,
   onManageMilestone,
 }: MilestoneTrackerProps) {
+  const { actions, setActionState } = useVaultActionStore();
+  
+  const handleValidate = async (milestone: Milestone, skipSigning = false) => {
+    const key = getActionKey(vaultId, 'validate_milestone', milestone.id);
+    
+    try {
+      if (!skipSigning) {
+        setActionState(key, { vaultId, actionType: 'validate_milestone', milestoneId: milestone.id, status: 'signing' });
+        // simulate wallet interaction
+        await new Promise(r => setTimeout(r, 800));
+      }
+      
+      setActionState(key, { vaultId, actionType: 'validate_milestone', milestoneId: milestone.id, status: 'submitting' });
+      await submitVaultAction('validate_milestone', vaultId);
+      setActionState(key, { vaultId, actionType: 'validate_milestone', milestoneId: milestone.id, status: 'success' });
+      if (onManageMilestone) onManageMilestone(milestone);
+    } catch (err) {
+      setActionState(key, { vaultId, actionType: 'validate_milestone', milestoneId: milestone.id, status: 'error', error: err instanceof Error ? err.message : 'Action failed' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="milestone-tracker-loading" aria-busy="true" aria-live="polite">
@@ -143,14 +168,26 @@ export function MilestoneTracker({
       )}
       <ol className="milestone-tracker" aria-label="Vault milestone progress">
         {milestones.map((milestone, index) => {
-          const status =
-            MILESTONE_STATUS_CONFIG[milestone.status] ?? UNKNOWN_STATUS_CONFIG;
+          const actionKey = getActionKey(vaultId, 'validate_milestone', milestone.id);
+          const actionRecord = actions[actionKey];
+          
+          let effectiveStatus = milestone.status;
+          if (actionRecord?.status === 'success') {
+            effectiveStatus = 'validated';
+          }
+          
+          const status = MILESTONE_STATUS_CONFIG[effectiveStatus] ?? UNKNOWN_STATUS_CONFIG;
           const isCurrent = index === currentIndex;
-          const validatedAt =
-            typeof milestone.validatedAt === "string" &&
-            milestone.validatedAt.trim().length > 0
+          
+          // Optimistically injected validation date if success
+          const validatedAt = effectiveStatus === 'validated' && milestone.status !== 'validated' 
+            ? new Date().toISOString()
+            : typeof milestone.validatedAt === "string" && milestone.validatedAt.trim().length > 0
               ? milestone.validatedAt
               : undefined;
+
+          const isActionInProgress = actionRecord?.status === 'signing' || actionRecord?.status === 'submitting';
+          const isActionFailed = actionRecord?.status === 'error';
 
           return (
             <li
@@ -164,7 +201,7 @@ export function MilestoneTracker({
               <div className="milestone-tracker-content">
                 <div className="milestone-tracker-header">
                   <Text role="body" as="h3" className="milestone-tracker-title">
-                    {milestone.title}
+                    {milestone.title || `Milestone ${index + 1}`}
                   </Text>
                   <span className="milestone-tracker-badge">{status.label}</span>
                 </div>
@@ -176,7 +213,7 @@ export function MilestoneTracker({
                   <strong>Criteria:</strong> {milestone.criteria}
                 </Text>
 
-                <div className="milestone-tracker-meta">
+                <div className="milestone-tracker-meta" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   {validatedAt && (
                     <Text
                       role="caption"
@@ -193,6 +230,37 @@ export function MilestoneTracker({
                     >
                       View evidence
                     </SafeLink>
+                  )}
+                  
+                  {isCurrent && canManage && effectiveStatus === 'pending' && (
+                    <div className="milestone-tracker-actions">
+                      {isActionInProgress ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent)', fontSize: '0.85rem' }}>
+                          <Loader2 size={16} className="milestone-tracker-spinner" />
+                          {actionRecord.status === 'signing' ? 'Awaiting Signature...' : 'Submitting...'}
+                        </span>
+                      ) : isActionFailed ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>Validation failed</span>
+                          <button 
+                            type="button" 
+                            onClick={() => handleValidate(milestone, true)}
+                            style={{ background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 'var(--radius)', padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer' }}
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          type="button"
+                          aria-label={`Manage milestone: ${milestone.title}`}
+                          onClick={() => onManageMilestone ? onManageMilestone(milestone) : handleValidate(milestone)}
+                          style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 'var(--radius)', padding: '0.4rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
+                        >
+                          Validate milestone
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
 vi.mock("../../context/WalletContext", () => ({
-  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
+  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle", address: "GADDRESS1234567890", network: "TESTNET" })),
 }));
 
 vi.mock("../../services/vaultService", () => ({
@@ -65,6 +65,8 @@ describe("CreateVault", () => {
     mockUseWallet.mockReturnValue({
       balance: null,
       balanceStatus: "idle",
+      address: "GADDRESS1234567890",
+      network: "TESTNET"
     } as ReturnType<typeof useWallet>);
   });
 
@@ -76,7 +78,7 @@ describe("CreateVault", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(screen.getAllByRole("alert")[0]).toHaveTextContent(
       "Please fix the highlighted fields before creating the vault.",
     );
     expect(
@@ -356,7 +358,7 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
     
-    expect(await screen.findByRole("alert")).toHaveTextContent(/wallet disconnected/i);
+    expect((await screen.findAllByRole("alert"))[0]).toHaveTextContent(/wallet disconnected/i);
     expect(createVault).not.toHaveBeenCalled();
   });
 
@@ -378,7 +380,7 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
     
-    expect(await screen.findByRole("alert")).toHaveTextContent(/wrong network/i);
+    expect((await screen.findAllByRole("alert"))[0]).toHaveTextContent(/wrong network/i);
     expect(createVault).not.toHaveBeenCalled();
   });
 
@@ -401,7 +403,6 @@ describe("CreateVault", () => {
     
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
-    
-    expect(await screen.findByRole("alert")).toHaveTextContent(/malformed response/i);
+    expect((await screen.findAllByRole("alert"))[0]).toHaveTextContent(/malformed response/i);
   });
 });

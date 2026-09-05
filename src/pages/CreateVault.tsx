@@ -78,6 +78,7 @@ export default function CreateVault() {
   const isSubmittingRef = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+
   const errorFieldOrder: Array<
     "amount" | "deadline" | "successAddress" | "failureAddress"
   > = ["amount", "deadline", "successAddress", "failureAddress"];
@@ -277,7 +278,9 @@ export default function CreateVault() {
   };
 
   const handleBackToEdit = () => {
+    if (isSubmitting) return;
     setShowReview(false);
+    setSubmitError(null);
   };
 
   return (

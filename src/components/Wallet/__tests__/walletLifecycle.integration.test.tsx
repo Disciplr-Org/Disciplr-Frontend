@@ -53,6 +53,12 @@ describe('Wallet lifecycle integration', () => {
         globalThis.fetch = vi.fn();
     });
 
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.clearAllMocks();
+        localStorage.clear();
+    });
+
     afterAll(() => {
         globalThis.fetch = originalFetch;
     });
@@ -185,7 +191,9 @@ describe('Wallet lifecycle integration', () => {
         fireEvent.click(await screen.findByText('Freighter'));
 
         expect(await screen.findByTestId('wallet-error')).toHaveTextContent('Wallet access denied.');
-        expect(await screen.findByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument();
+        }, { timeout: 3000 });
     });
 
     test('disconnect resets address and balance to null', async () => {

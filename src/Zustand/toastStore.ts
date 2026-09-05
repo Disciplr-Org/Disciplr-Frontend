@@ -59,7 +59,7 @@ export function sanitizeToastMessage(value: unknown): string {
   if (typeof value !== "string") {
     throw new BoundaryError("TAMPERED_INPUT", "Toast message must be a string.");
   }
-  const trimmed = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
+  const trimmed = value.replace(/\p{Cc}/gu, "").trim();
   if (trimmed.length === 0) {
     throw new BoundaryError("TAMPERED_INPUT", "Toast message must not be empty.");
   }
