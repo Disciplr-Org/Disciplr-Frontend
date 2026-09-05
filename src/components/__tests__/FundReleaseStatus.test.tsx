@@ -147,7 +147,7 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText((content, element) => content.includes('Not available'))).toBeInTheDocument();
+    expect(screen.getByText((content, _element) => content.includes('Not available'))).toBeInTheDocument();
   });
 
   describe("outcome state accessible labels", () => {
