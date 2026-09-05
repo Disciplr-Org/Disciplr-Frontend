@@ -265,10 +265,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 if (pubKey && !addrError) {
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     lastKnownAddressRef.current = pubKey;
-                    const netDetails = await getNetworkDetails();
-                    if (seq !== operationSeqRef.current) return false;
-                    const activeNetwork = normalizeNetwork(netDetails.network);
-                    lastKnownNetworkRef.current = activeNetwork;
+                    let activeNetwork: WalletNetwork = 'TESTNET';
+                    try {
+                        const netDetails = await getNetworkDetails();
+                        if (seq !== operationSeqRef.current) return false;
+                        activeNetwork = normalizeNetwork(netDetails.network);
+                        lastKnownNetworkRef.current = activeNetwork;
+                    } catch {
+                        // Network details failure will be surfaced by fetchNetworkAndBalance
+                    }
                     dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
                     await fetchNetworkAndBalance(pubKey);
                     return true;
