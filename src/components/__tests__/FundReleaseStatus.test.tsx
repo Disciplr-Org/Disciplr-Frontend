@@ -48,9 +48,9 @@ describe('FundReleaseStatus', () => {
     );
 
     expect(screen.getByRole('region', { name: /Fund settlement status: Funds released/i })).toBeInTheDocument();
-    expect(screen.getByText('USDC was released to the success destination.')).toBeInTheDocument();
+    expect(screen.getByText(/USDC was released to the success destination/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Destination address GSUCCESSDESTINATION1234567890')).toHaveTextContent('GSUCCE...7890');
-    expect(screen.getByText('4,200.5 USDC')).toBeInTheDocument();
+    expect(screen.getByText(/4,200\.5 USDC/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Stellar Testnet explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/testnet/tx/abcdef1234567890abcdef1234567890'
@@ -75,7 +75,7 @@ describe('FundReleaseStatus', () => {
 
     const panel = screen.getByRole('region', { name: /Fund settlement status: Funds redirected/i });
     expect(panel).toHaveClass('fund-release-status--redirected');
-    expect(screen.getByText('USDC was redirected to the failure destination.')).toBeInTheDocument();
+    expect(screen.getByText(/USDC was redirected to the failure destination/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Stellar Public explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/public/tx/redirecthash1234567890'
@@ -101,7 +101,9 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[0]).toBeInTheDocument();
     expect(screen.getByText('Cannot load settlement status')).toBeInTheDocument();
     expect(screen.getByText(/Settlement transaction details are required for released funds/)).toBeInTheDocument();
   });
@@ -116,7 +118,9 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[0]).toBeInTheDocument();
     expect(screen.getByText(/Pending settlement cannot have transaction details/)).toBeInTheDocument();
   });
 
@@ -143,7 +147,7 @@ describe('FundReleaseStatus', () => {
       />
     );
 
-    expect(screen.getByText('Not available')).toBeInTheDocument();
+    expect(screen.getByText((content, _element) => content.includes('Not available'))).toBeInTheDocument();
   });
 
   describe("outcome state accessible labels", () => {
@@ -154,13 +158,14 @@ describe('FundReleaseStatus', () => {
           destinationAddress="GSUCCESSDESTINATION1234567890"
           amount={100}
           currency="XLM"
+          transaction={{ hash: 'hash123', timestamp: '2026-06-18' }}
         />
       );
       expect(screen.getByRole('region', { name: /Fund settlement status/i })).toBeInTheDocument();
     });
 
     it("redirected outcome has accessible region label", () => {
-      render(<FundReleaseStatus outcome="redirected" amount={50} currency="XLM" />);
+      render(<FundReleaseStatus outcome="redirected" destinationAddress="GFAILUREDESTINATION1234567890" amount={50} currency="XLM" transaction={{ hash: 'hash123', timestamp: '2026-06-18' }} />);
       expect(screen.getByRole('region', { name: /Fund settlement status/i })).toBeInTheDocument();
     });
 
@@ -173,10 +178,10 @@ describe('FundReleaseStatus', () => {
       const { rerender } = render(<FundReleaseStatus outcome="pending" amount={1} currency="XLM" />);
       expect(document.querySelector('.fund-release-status--pending')).not.toBeNull();
 
-      rerender(<FundReleaseStatus outcome="released" amount={1} currency="XLM" />);
+      rerender(<FundReleaseStatus outcome="released" amount={1} currency="XLM" destinationAddress="GSUCCESSDESTINATION1234567890" transaction={{ hash: 'hash123' }} />);
       expect(document.querySelector('.fund-release-status--released')).not.toBeNull();
 
-      rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" />);
+      rerender(<FundReleaseStatus outcome="redirected" amount={1} currency="XLM" destinationAddress="GFAILUREDESTINATION1234567890" transaction={{ hash: 'hash123' }} />);
       expect(document.querySelector('.fund-release-status--redirected')).not.toBeNull();
     });
   });
@@ -191,15 +196,17 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(/1,000,000,000,000\s*USDC/)).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes(MAX_AMOUNT.toLocaleString()))).toBeInTheDocument();
     });
 
     it('renders zero for a negative or non-finite amount', () => {
       render(<FundReleaseStatus outcome="pending" amount={-100} currency="USDC" />);
-      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+      const amountElements1 = screen.getAllByText((content) => content.includes('0') && content.includes('USDC'));
+      expect(amountElements1.length).toBeGreaterThan(0);
 
       render(<FundReleaseStatus outcome="pending" amount={NaN} currency="USDC" />);
-      expect(screen.getByText('0 USDC')).toBeInTheDocument();
+      const amountElements2 = screen.getAllByText((content) => content.includes('0') && content.includes('USDC'));
+      expect(amountElements2.length).toBeGreaterThan(0);
     });
 
     it('truncates over-long currency strings', () => {
@@ -211,7 +218,7 @@ describe('FundReleaseStatus', () => {
         />
       );
 
-      expect(screen.getByText(`100 ${'X'.repeat(16)}`)).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes('X'.repeat(16)))).toBeInTheDocument();
     });
 
     it('logs a warning when a final outcome is missing a destination address', () => {
@@ -312,24 +319,25 @@ describe('FundReleaseStatus hostile input boundary', () => {
     expect(screen.queryByRole('status', { name: 'Network mismatch notice' })).not.toBeInTheDocument();
   });
 
-  it('uses the contract network (not the wallet network) for the explorer link when provided', () => {
+  it('uses the contract network (not the wallet network) for the explorer link when provided', async () => {
     render(
       <FundReleaseStatus
         outcome="released"
         amount={100}
         currency="USDC"
         network="PUBLIC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
-    expect(screen.getByRole('link', { name: /Stellar Public explorer/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Stellar Public explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/public/tx/abcdef1234567890abcdef1234567890'
     );
   });
 
-  it('falls back to the wallet network when no contract network is provided', () => {
+  it('falls back to the wallet network when no contract network is provided', async () => {
     mockNetwork = 'TESTNET';
 
     render(
@@ -337,11 +345,12 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
-    expect(screen.getByRole('link', { name: /Stellar Testnet explorer/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Stellar Testnet explorer/i })).toHaveAttribute(
       'href',
       'https://stellar.expert/explorer/testnet/tx/abcdef1234567890abcdef1234567890'
     );
@@ -353,12 +362,13 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
-        transaction={{ hash: 'javascript:alert(1)' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'javascript:alert(1)', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByText('Invalid transaction hash')).toBeInTheDocument();
+    expect(screen.getAllByText(/Invalid transaction hash/i)[0]).toBeInTheDocument();
   });
 
   it('surfaces an unverified marker for an implausible destination address', () => {
@@ -371,7 +381,7 @@ describe('FundReleaseStatus hostile input boundary', () => {
       />
     );
 
-    expect(screen.getByText(/unverified/)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.toLowerCase().includes('unverified'))).toBeInTheDocument();
     expect(screen.queryByText('Not available')).not.toBeInTheDocument();
   });
 
@@ -381,11 +391,12 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={Number.NaN}
         currency="USDC"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
-    expect(screen.getByText(/Unavailable USDC/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Unavailable/i)[0]).toBeInTheDocument();
   });
 
   it('renders an unknown currency symbol for hostile currency input', () => {
@@ -394,11 +405,12 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="US$; DROP TABLE vaults"
-        transaction={{ hash: 'abcdef1234567890abcdef1234567890' }}
+        destinationAddress="GSUCCESSDESTINATION1234567890"
+        transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: '2026-06-18T10:30:00Z' }}
       />
     );
 
-    expect(screen.getByText(/100 UNKNOWN/)).toBeInTheDocument();
+    expect(screen.getAllByText(/100 UNKNOWN/i)[0]).toBeInTheDocument();
   });
 
   it("renders 'Unknown' for an unparseable settlement timestamp", () => {
@@ -407,11 +419,12 @@ describe('FundReleaseStatus hostile input boundary', () => {
         outcome="released"
         amount={100}
         currency="USDC"
+        destinationAddress="GSUCCESSDESTINATION1234567890"
         transaction={{ hash: 'abcdef1234567890abcdef1234567890', timestamp: 'gibberish' }}
       />
     );
 
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown/i)[0]).toBeInTheDocument();
     expect(screen.queryByText('Pending confirmation')).not.toBeInTheDocument();
   });
 

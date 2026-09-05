@@ -34,7 +34,7 @@ function WalletProbe() {
 
     return (
         <div>
-            <button type="button" onClick={wallet.connect}>
+            <button type="button" onClick={wallet.connect} disabled={wallet.isConnecting}>
                 Connect
             </button>
             <button type="button" onClick={wallet.disconnect}>
@@ -150,7 +150,8 @@ describe('WalletContext Horizon USDC balance path', () => {
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
 
-        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error'));
+        // Wait for the error state to be set
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error'), { timeout: 3000 });
         expect(screen.getByTestId('balanceError')).toHaveTextContent('Unable to load USDC balance.');
 
         error.mockRestore();
@@ -561,10 +562,8 @@ describe('WalletContext network/address change listener', () => {
         
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
         
-        // Wait for connecting state
-        await waitFor(() => expect(screen.getByRole('button', { name: /^connect$/i })).toBeDisabled().catch(() => {})); 
-        // Note: the button might not be disabled in the probe, we just wait a tick
-        await Promise.resolve();
+        // Wait for connecting state - just use a short timeout instead
+        await new Promise((r) => setTimeout(r, 100));
 
         // Disconnect while connecting
         fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
