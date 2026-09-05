@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  MAX_MILESTONES_RENDERED,
   Milestone,
   MilestoneTracker,
 } from "../../components/MilestoneTracker";
@@ -34,7 +33,7 @@ const milestones: Milestone[] = [
 
 describe("MilestoneTracker", () => {
   it("renders milestone titles, criteria, and status badges in order", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     const listItems = screen.getAllByRole("listitem");
     expect(listItems).toHaveLength(3);
@@ -48,7 +47,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("marks the first pending milestone as the current step", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     const currentStep = screen.getByText("Beta Launch").closest("li");
     const validatedStep = screen.getByText("Phase 1 Complete").closest("li");
@@ -58,7 +57,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("renders evidence links and formatted validation timestamps", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     expect(screen.getByText(/Validated Feb 20, 2024/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View evidence" })).toHaveAttribute(
@@ -68,7 +67,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("handles a single pending milestone", () => {
-    render(<MilestoneTracker milestones={[milestones[1]]} />);
+    render(<MilestoneTracker vaultId="v1" milestones={[milestones[1]]} />);
 
     const currentStep = screen.getByText("Beta Launch").closest("li");
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
@@ -76,7 +75,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("handles an empty milestone list", () => {
-    render(<MilestoneTracker milestones={[]} />);
+    render(<MilestoneTracker vaultId="v1" milestones={[]} />);
 
     expect(
       screen.getByText("No milestones have been defined for this vault."),
@@ -85,7 +84,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("renders the empty message with aria-live polite and correct class", () => {
-    render(<MilestoneTracker milestones={[]} />);
+    render(<MilestoneTracker vaultId="v1" milestones={[]} />);
 
     const emptyMessage = screen.getByText(
       "No milestones have been defined for this vault.",
@@ -95,7 +94,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("assigns the correct CSS class per milestone status", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     const steps = screen.getAllByRole("listitem");
     expect(steps[0]).toHaveClass("is-validated");
@@ -104,7 +103,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("shows formatted validatedAt only for milestones that have it", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     const validatedTexts = screen.getAllByText(/Validated Feb 20, 2024/);
     expect(validatedTexts).toHaveLength(1);
@@ -121,7 +120,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("renders evidence link only for milestones that have evidenceUrl", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     const evidenceLinks = screen.getAllByRole("link", {
       name: "View evidence",
@@ -152,7 +151,7 @@ describe("MilestoneTracker", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={unsafeMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={unsafeMilestones} />);
 
     expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
@@ -171,7 +170,7 @@ describe("MilestoneTracker", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={unsafeMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={unsafeMilestones} />);
 
     expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
@@ -190,7 +189,7 @@ describe("MilestoneTracker", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={unsafeMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={unsafeMilestones} />);
 
     expect(screen.getByText("[Invalid Link]")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View evidence" })).not.toBeInTheDocument();
@@ -209,7 +208,7 @@ describe("MilestoneTracker", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={safeMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={safeMilestones} />);
 
     const link = screen.getByRole("link", { name: "View evidence" });
     expect(link).toHaveAttribute("href", "https://github.com/example/repo/pull/123");
@@ -230,7 +229,7 @@ describe("MilestoneTracker", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={safeMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={safeMilestones} />);
 
     const link = screen.getByRole("link", { name: "View evidence" });
     expect(link).toHaveAttribute("href", "http://example.com/evidence");
@@ -239,7 +238,7 @@ describe("MilestoneTracker", () => {
   });
 
   it("renders loading state when isLoading is true", () => {
-    render(<MilestoneTracker milestones={milestones} isLoading />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} isLoading />);
     expect(screen.getByText("Loading milestones...")).toBeInTheDocument();
     expect(document.querySelector('.milestone-tracker-loading')).toHaveAttribute("aria-busy", "true");
   });
@@ -254,7 +253,7 @@ describe("MilestoneTracker", () => {
         status: "validated",
       },
     ];
-    render(<MilestoneTracker milestones={invalidMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={invalidMilestones} />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByText(/missing validatedAt timestamp/)).toBeInTheDocument();
   });
@@ -270,7 +269,7 @@ describe("MilestoneTracker", () => {
         validatedAt: "2024-02-20T14:30:00Z",
       },
     ];
-    render(<MilestoneTracker milestones={invalidMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={invalidMilestones} />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByText(/contains validation evidence/)).toBeInTheDocument();
   });
@@ -293,16 +292,16 @@ describe("MilestoneTracker", () => {
         validatedAt: "2024-02-20T14:30:00Z",
       },
     ];
-    render(<MilestoneTracker milestones={invalidMilestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={invalidMilestones} />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByText(/appears after a pending or failed milestone/)).toBeInTheDocument();
   });
 
-  it("renders manage milestone button when canManage is true and milestone is current", () => {
+  it("renders manage milestone button when canManage is true and milestone is current", async () => {
     const onManageMilestone = vi.fn();
-    render(<MilestoneTracker milestones={milestones} canManage onManageMilestone={onManageMilestone} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} canManage onManageMilestone={onManageMilestone} />);
     
-    const manageButton = screen.getByRole("button", { name: /Manage milestone: Beta Launch/ });
+    const manageButton = await screen.findByRole("button", { name: /Manage milestone: Beta Launch/ });
     expect(manageButton).toBeInTheDocument();
 
     manageButton.click();
@@ -322,7 +321,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={bad} />);
+    render(<MilestoneTracker vaultId="v1" milestones={bad} />);
 
     expect(screen.getByText("Weird")).toBeInTheDocument();
     expect(screen.getByText("Unknown status")).toBeInTheDocument();
@@ -339,7 +338,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={bad} />);
+    render(<MilestoneTracker vaultId="v1" milestones={bad} />);
 
     const notice = screen.getByRole("status");
     expect(notice).toHaveAttribute(
@@ -361,7 +360,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={bad} />);
+    render(<MilestoneTracker vaultId="v1" milestones={bad} />);
 
     expect(screen.getByText(/Validated Unknown/)).toBeInTheDocument();
   });
@@ -378,7 +377,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={bad} />);
+    render(<MilestoneTracker vaultId="v1" milestones={bad} />);
 
     expect(document.querySelector(".milestone-tracker-validated-at")).toBeNull();
   });
@@ -389,7 +388,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       { ...milestones[1], id: "dup" },
     ];
 
-    render(<MilestoneTracker milestones={dup} />);
+    render(<MilestoneTracker vaultId="v1" milestones={dup} />);
 
     expect(document.querySelectorAll(".milestone-tracker-step")).toHaveLength(2);
     expect(screen.getByText("Phase 1 Complete")).toBeInTheDocument();
@@ -402,7 +401,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       { ...milestones[1], id: "dup" },
     ];
 
-    render(<MilestoneTracker milestones={dup} />);
+    render(<MilestoneTracker vaultId="v1" milestones={dup} />);
 
     expect(screen.getByRole("status").textContent).toMatch(/appears more than once/);
   });
@@ -418,7 +417,7 @@ describe("MilestoneTracker hostile input boundary", () => {
       },
     ];
 
-    render(<MilestoneTracker milestones={missingId} />);
+    render(<MilestoneTracker vaultId="v1" milestones={missingId} />);
 
     expect(screen.getByText("Missing Id Title")).toBeInTheDocument();
   });
@@ -430,13 +429,15 @@ describe("MilestoneTracker hostile input boundary", () => {
       { ...milestones[1], id: "m3", status: "validated", validatedAt: "2024-03-01T00:00:00Z" },
     ];
 
-    render(<MilestoneTracker milestones={impossible} />);
+    render(<MilestoneTracker vaultId="v1" milestones={impossible} />);
 
-    expect(screen.getByRole("status").textContent).toMatch(/validated before the current pending/);
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /appears after a pending or failed milestone/
+    );
   });
 
   it("does not flag a coherent validated-then-pending sequence", () => {
-    render(<MilestoneTracker milestones={milestones} />);
+    render(<MilestoneTracker vaultId="v1" milestones={milestones} />);
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });

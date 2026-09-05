@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useWallet, type WalletNetwork } from './WalletContext';
 import { explorerBaseUrl as getExplorerBaseUrl } from '../utils/explorer';

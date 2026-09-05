@@ -59,3 +59,6 @@ if (typeof window !== 'undefined') {
     })),
   });
 }
+
+// Increase limit to avoid MaxListenersExceededWarning during vitest runs
+process.setMaxListeners(50);

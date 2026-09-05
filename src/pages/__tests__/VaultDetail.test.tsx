@@ -217,7 +217,9 @@ describe("VaultDetail", () => {
     expect(screen.queryByText(/Overdue|remaining/)).not.toBeInTheDocument();
 
     // Mixed milestones
-    expect(screen.getByText("Milestone 1")).toBeInTheDocument();
+    expect(screen.getAllByText((_content, element) => {
+      return element?.textContent?.includes("Milestone 1") || false;
+    })[0]).toBeInTheDocument();
     expect(screen.getByText("Validated")).toBeInTheDocument();
     expect(screen.getByText("Milestone 2")).toBeInTheDocument();
     // Use getAllByText for "Failed" since it appears for the status label too

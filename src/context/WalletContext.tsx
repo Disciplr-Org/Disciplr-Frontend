@@ -1,11 +1,9 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, ReactNode, useCallback, useReducer } from 'react';
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
 import {
-    recordWalletTelemetry,
-    resolveConnectTimeoutMs,
-    type ConnectErrorCode,
+    recordWalletTelemetry
 } from '../utils/walletTelemetry';
 
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
@@ -83,17 +81,23 @@ interface WalletContextType extends WalletState {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export const BALANCE_REFRESH_INTERVAL = 30_000;
-export const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
+const BALANCE_REFRESH_INTERVAL = 30_000;
+const ACCOUNT_POLL_INTERVAL = 2_000; // Check account explicitly every 2s
 
-export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
+const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(walletReducer, initialState);
+    const { address } = state;
+    const setAddress = useCallback((address: string) => dispatch({ type: 'UPDATE_ADDRESS', payload: { address } }), []);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
     const checkConnectionInProgress = useRef(false);
+    
+    const operationSeqRef = useRef<number>(0);
+    const connectInFlightRef = useRef<Promise<boolean> | null>(null);
+    const connectAttemptRef = useRef<number>(0);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -106,6 +110,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         abortControllerRef.current = new AbortController();
 
         dispatch({ type: 'BALANCE_FETCH_START' });
+        const seq = ++operationSeqRef.current;
 
         try {
             const netDetails = await getNetworkDetails();
@@ -133,15 +138,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const message = err instanceof Error ? err.message : 'Unable to load USDC balance.';
             dispatch({ type: 'BALANCE_FETCH_ERROR', payload: { error: message } });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const checkConnection = useCallback(async () => {
         if (checkConnectionInProgress.current) return;
         checkConnectionInProgress.current = true;
+        let seq = 0;
         try {
             if (localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
                 return;
             }
+            seq = ++operationSeqRef.current;
             if ((await isAllowed()).isAllowed) {
                 const { address: pubKey, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
@@ -164,6 +172,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } finally {
             checkConnectionInProgress.current = false;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchNetworkAndBalance]);
 
     useEffect(() => {
@@ -174,6 +183,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             }
             operationSeqRef.current++;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [checkConnection]);
 
     // Fast polling for account changes & standard polling for balance
@@ -181,30 +191,41 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (!state.address) return;
 
         let lastBalanceCheck = Date.now();
+        let seq = 0;
         
         const tick = async () => {
             if (document.hidden) return;
-            const seq = ++operationSeqRef.current;
+            seq = ++operationSeqRef.current;
             try {
                 const { address: currentAddr, error: addrError } = await getAddress();
                 if (seq !== operationSeqRef.current) return;
                 
-                if (currentAddr && !addrError && currentAddr !== lastKnownAddressRef.current) {
-                    // Account changed! Update state and fetch immediately
+                const netDetails = await getNetworkDetails();
+                if (seq !== operationSeqRef.current) return;
+                const activeNetwork = normalizeNetwork(netDetails.network);
+
+                if (currentAddr && !addrError && (currentAddr !== lastKnownAddressRef.current || activeNetwork !== lastKnownNetworkRef.current)) {
+                    // Account or network changed! Update state and fetch immediately
                     setAddress(currentAddr);
                     lastKnownAddressRef.current = currentAddr;
+                    lastKnownNetworkRef.current = activeNetwork;
                     lastBalanceCheck = Date.now();
                     await fetchNetworkAndBalance(currentAddr);
                 } else if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
                     // Refresh balance on the existing account
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(currentAddr || address);
+                    const addrToUse = currentAddr || address;
+                    if (addrToUse) {
+                        await fetchNetworkAndBalance(addrToUse);
+                    }
                 }
             } catch {
                 // If it fails, fallback
                 if (Date.now() - lastBalanceCheck >= BALANCE_REFRESH_INTERVAL) {
                     lastBalanceCheck = Date.now();
-                    await fetchNetworkAndBalance(address);
+                    if (address) {
+                        await fetchNetworkAndBalance(address);
+                    }
                 }
             }
         };
@@ -223,10 +244,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [address, fetchNetworkAndBalance]);
 
-    const connect = async (): Promise<boolean> => {
+    const performConnect = async (attempt: number): Promise<boolean> => {
         const seq = ++operationSeqRef.current;
+        const startedAt = Date.now();
         dispatch({ type: 'CONNECT_START' });
         try {
             await setAllowed();
@@ -242,13 +265,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 if (pubKey && !addrError) {
                     localStorage.removeItem(WALLET_DISCONNECTED_KEY);
                     lastKnownAddressRef.current = pubKey;
-                    const netDetails = await getNetworkDetails();
-                    if (seq !== operationSeqRef.current) return false;
-                    const activeNetwork = normalizeNetwork(netDetails.network);
-                    lastKnownNetworkRef.current = activeNetwork;
-                    
+                    let activeNetwork: WalletNetwork = 'TESTNET';
+                    try {
+                        const netDetails = await getNetworkDetails();
+                        if (seq !== operationSeqRef.current) return false;
+                        activeNetwork = normalizeNetwork(netDetails.network);
+                        lastKnownNetworkRef.current = activeNetwork;
+                    } catch {
+                        // Network details failure will be surfaced by fetchNetworkAndBalance
+                    }
                     dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
-                    await fetchNetworkAndBalance(pubKey, seq);
+                    await fetchNetworkAndBalance(pubKey);
                     return true;
                 } else {
                     dispatch({ type: 'CONNECT_ERROR', payload: { error: addrError || 'Failed to get wallet address.' } });
@@ -257,15 +284,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Wallet access denied.' } });
             }
 
-            setError(result.message);
-            setIsConnecting(false);
             recordWalletTelemetry({
                 event: 'wallet.connect.failure',
                 ts: Date.now(),
                 wallet: 'freighter',
                 durationMs: Date.now() - startedAt,
                 attempt,
-                errorCode: result.code,
+                errorCode: 'access_denied',
             });
             return false;
         } catch (err: unknown) {
@@ -273,6 +298,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             logger.error('Connection error', err);
             const message = err instanceof Error ? err.message : undefined;
             dispatch({ type: 'CONNECT_ERROR', payload: { error: message || 'Failed to connect wallet. Make sure Freighter is installed and unlocked.' } });
+            return false;
         }
     };
 

@@ -74,7 +74,7 @@ export const validate = (<T>(
           next: resolvedPartial,
           session: getSession(),
         });
-      } catch (err) {
+      } catch (err: unknown) {
         if (err instanceof BoundaryError) throw err;
         throw new BoundaryError(
           "TAMPERED_INPUT",
@@ -85,6 +85,8 @@ export const validate = (<T>(
 
       return (set as SetState)(sanitized, replace, ...extra);
     }) as typeof set;
+
+    api.setState = guardedSet;
 
     return config(guardedSet, get, api);
   };
