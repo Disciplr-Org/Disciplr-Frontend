@@ -8,6 +8,15 @@
 
 export type TypographyRole = 'display' | 'title' | 'subtitle' | 'body' | 'caption' | 'mono';
 
+const TYPOGRAPHY_CLASSES: Readonly<Record<TypographyRole, string>> = Object.freeze({
+  display: 'text-display',
+  title: 'text-title',
+  subtitle: 'text-subtitle',
+  body: 'text-body',
+  caption: 'text-caption',
+  mono: 'text-mono',
+});
+
 /**
  * Maps a typography role to its corresponding CSS class
  * The class automatically handles responsive scaling via CSS variables
@@ -16,15 +25,12 @@ export type TypographyRole = 'display' | 'title' | 'subtitle' | 'body' | 'captio
  * @returns CSS class name for the role
  */
 export function getTypographyClass(role: TypographyRole): string {
-  const classMap: Record<TypographyRole, string> = {
-    display: 'text-display',
-    title: 'text-title',
-    subtitle: 'text-subtitle',
-    body: 'text-body',
-    caption: 'text-caption',
-    mono: 'text-mono',
-  };
+  // Resolve only declared roles so values that bypass TypeScript cannot access
+  // inherited object properties or silently produce an undefined CSS class.
+  if (typeof role !== 'string' || !Object.hasOwn(TYPOGRAPHY_CLASSES, role)) {
+    throw new TypeError('Unknown typography role');
+  }
 
-  return classMap[role];
+  return TYPOGRAPHY_CLASSES[role];
 }
 
