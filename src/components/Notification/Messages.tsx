@@ -2,28 +2,7 @@ import { useState } from "react";
 import { getNotificationTypeMapping } from "./notificationType";
 import { formatRelativeTime } from "../../utils/relativeTime";
 
-/**
- * Invariants enforced by this component:
- * - `id` must be a non-empty string; `setRead` is only invoked with a valid id.
- * - `setRead` is invoked at most once per message open transition (idempotent
- *   for already-read messages) so retries/duplicate clicks cannot double-fire.
- * - `title`/`message`/`timestamp` are coerced to safe strings before render so
- *   malformed upstream data cannot crash the tree or leak `undefined`.
- * - `type` is resolved through `getNotificationTypeMapping`, which is expected
- *   to return a safe fallback for unknown types.
- */
-
 const MAX_PREVIEW_LENGTH = 30;
-
-function safeString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function isValidId(id: unknown): id is string {
-  return typeof id === "string" && id.trim().length > 0;
-}
 
 interface MessageProps {
   id: string;
@@ -47,20 +26,31 @@ export default function Message({
   setRead,
 }: MessageProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { icon: Icon, color, label } = getNotificationTypeMapping(
-    safeString(type)
-  );
-  const safeTitle = safeString(title);
-  const safeMessage = safeString(message);
-  const timeAgo = formatRelativeTime(safeString(timestamp));
+  const mapping = getNotificationTypeMapping(type);
+  const Icon = mapping?.icon;
+  const color = mapping?.color ?? "#667589";
+  const label = mapping?.label ?? "Notification";
+  const safeTimestamp =
+    typeof timestamp === "string" && timestamp.trim().length > 0
+      ? timestamp
+      : "";
+  const timeAgo = safeTimestamp ? formatRelativeTime(safeTimestamp) : "";
+  const safeTitle =
+    typeof title === "string" && title.trim().length > 0
+      ? title
+      : "Untitled notification";
+  const safeMessage = typeof message === "string" ? message : "";
+  const previewMessage =
+    safeMessage.length > MAX_PREVIEW_LENGTH
+      ? `${safeMessage.slice(0, MAX_PREVIEW_LENGTH)}...`
+      : safeMessage;
 
   const handleOpen = () => {
-    setIsOpen(true);
-    // Only mark as read when we have a valid id and it is not already read.
-    // This keeps the transition idempotent under duplicate clicks/retries.
-    if (!read && isValidId(id) && typeof setRead === "function") {
-      setRead(id);
+    if (typeof id !== "string" || id.length === 0) {
+      return;
     }
+    setIsOpen(true);
+    setRead(id);
   };
 
   return (
@@ -91,9 +81,7 @@ export default function Message({
                   {safeTitle}
                 </h2>
                 <p className="text-sm text-[#667589]">
-                  {safeMessage.length > MAX_PREVIEW_LENGTH
-                    ? `${safeMessage.slice(0, MAX_PREVIEW_LENGTH)}...`
-                    : safeMessage}
+                  {previewMessage}
                 </p>
               </div>
 
