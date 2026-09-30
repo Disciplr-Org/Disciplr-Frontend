@@ -182,4 +182,35 @@ describe('ThemeToggle', () => {
       expect(() => unmount()).not.toThrow();
     });
   });
+
+  describe('failure paths and boundary cases', () => {
+    test('renders fallback button if useTheme throws (used outside ThemeProvider)', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      // Render directly without ThemeProvider to simulate failure path
+      render(<ThemeToggle />);
+      
+      const disabledButton = screen.getByRole('button', { name: /theme toggle disabled/i });
+      expect(disabledButton).toBeInTheDocument();
+      expect(disabledButton).toBeDisabled();
+      
+      consoleErrorSpy.mockRestore();
+    });
+
+    test('rate-limits concurrent toggle events', async () => {
+      const user = userEvent.setup();
+      renderToggle();
+      
+      const button = screen.getByRole('button', { name: /switch to light mode/i });
+      
+      // Trigger multiple rapid clicks
+      // user.click awaits full interaction, but we can call multiple synchronously or not wait
+      button.click();
+      button.click();
+      button.click();
+      
+      // Should have only toggled once (system -> light) due to transition lock
+      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
+    });
+  });
 });

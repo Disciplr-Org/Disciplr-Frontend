@@ -1,3 +1,4 @@
+import React, { useState, useCallback, Component, ReactNode } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import './Layout.css';
 
@@ -88,16 +89,77 @@ function getIcon(preference: string) {
   }
 }
 
-export default function ThemeToggle() {
+
+class ThemeToggleErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <button
+          type="button"
+          className="theme-toggle"
+          disabled
+          aria-label="Theme toggle disabled"
+          style={{
+            background: 'transparent',
+            border: 'var(--border-width-1) solid var(--border)',
+            borderRadius: 'var(--radius-full)',
+            width: '2.5rem',
+            height: '2.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'not-allowed',
+            color: 'var(--text-muted, #888)',
+            opacity: 0.5,
+          }}
+        >
+          <SunIcon />
+        </button>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ThemeToggleInner() {
   const { preference, toggleTheme } = useTheme();
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const handleClick = useCallback(() => {
+    // Prevent duplicate or concurrent toggles
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    
+    try {
+      toggleTheme();
+    } finally {
+      // Small delay to prevent rapid-fire state inconsistencies
+      setTimeout(() => setIsTransitioning(false), 200);
+    }
+  }, [toggleTheme, isTransitioning]);
+
+  // Determine aria-pressed defensively based on exact valid strings
+  let ariaPressed: boolean | 'mixed' = false;
+  if (preference === 'dark') ariaPressed = true;
+  else if (preference === 'system') ariaPressed = 'mixed';
 
   return (
     <button
       type="button"
       className="theme-toggle"
-      onClick={toggleTheme}
+      onClick={handleClick}
+      disabled={isTransitioning}
       aria-label={getNextLabel(preference)}
-      aria-pressed={preference === 'dark' ? true : preference === 'system' ? 'mixed' as const : false}
+      aria-pressed={ariaPressed}
       style={{
         background: 'transparent',
         border: 'var(--border-width-1) solid var(--border)',
@@ -107,12 +169,20 @@ export default function ThemeToggle() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
+        cursor: isTransitioning ? 'not-allowed' : 'pointer',
         color: 'var(--text)',
         transition: 'all var(--duration-normal, 200ms) var(--ease-in-out, cubic-bezier(0.4, 0, 0.2, 1))',
       }}
     >
       {getIcon(preference)}
     </button>
+  );
+}
+
+export default function ThemeToggle() {
+  return (
+    <ThemeToggleErrorBoundary>
+      <ThemeToggleInner />
+    </ThemeToggleErrorBoundary>
   );
 }
