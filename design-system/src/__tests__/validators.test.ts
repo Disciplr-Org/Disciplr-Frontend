@@ -212,8 +212,12 @@ describe('isValidColorToken', () => {
       false,
     );
     expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
-    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(false);
+    // '#bad' is a valid CSS 3-digit hex color (b=0xBB, a=0xAA, d=0xDD);
+    // both '#bad' and '#abc' must be accepted — 3-digit shorthand hex is valid CSS.
+    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(true);
     expect(isValidColorToken({ $type: 'color', $value: '#abc' })).toBe(true);
+    // A genuinely malformed hex: non-hex characters.
+    expect(isValidColorToken({ $type: 'color', $value: '#xyzxyz' })).toBe(false);
     expect(isValidColorToken({ $type: 'color', $value: '#3B82F6AA' })).toBe(true);
   });
 
