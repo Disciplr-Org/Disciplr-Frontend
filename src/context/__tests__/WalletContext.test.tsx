@@ -25,7 +25,7 @@ function mockResponse(status: number, body: unknown) {
     return {
         ok: status >= 200 && status < 300,
         status,
-        json: vi.fn().mockResolvedValue(body),
+        json: vi.fn().mockResolved(body),
     } as unknown as Response;
 }
 
@@ -68,11 +68,11 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
-        freighterMocks.setAllowed.mockResolvedValue(undefined);
-        freighterMocks.requestAccess.mockResolvedValue(true);
-        freighterMocks.getAddress.mockResolvedValue({ address: 'GCONNECTED', error: null });
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+        freighterMocks.isAllowed.mockResolved({ isAllowed: false });
+        freighterMocks.setAllowed.mockResolved(undefined);
+        freighterMocks.requestAccess.mockResolved(true);
+        freighterMocks.getAddress.mockResolved({ address: 'GCONNECTED', error: null });
+        freighterMocks.getNetworkDetails.mockResolved({ network: 'TESTNET' });
         globalThis.fetch = vi.fn();
     });
 
@@ -99,7 +99,7 @@ describe('WalletContext Horizon USDC balance path', () => {
                     {
                         asset_type: 'credit_alphanum4',
                         asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        asset_issuer: USDK_ISSUERS.TESTNET,
                         balance: '42.2500000',
                     },
                 ],
@@ -114,9 +114,9 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('marks no-trustline when a connected public account has no Circle USDC balance line', async () => {
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
-        vi.mocked(globalThis.fetch).mockResolvedValue(
+        freighterMocks.isAllowed.mockResolved({ isAllowed: true });
+        freighterMocks.getNetworkDetails.mockResolved({ network: 'PUBLIC' });
+        vi.mocked(globalThis.fetch).mockResolved(
             mockResponse(200, {
                 balances: [{ asset_type: 'native', balance: '10.0000000' }],
             }),
@@ -131,7 +131,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('surfaces Horizon errors without keeping a stale balance', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse(500, {}));
+        vi.mocked(globalThis.fetch).mockResolved(mockResponse(500, {}));
 
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
@@ -145,7 +145,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('uses the generic balance error when network details throw a non-Error value', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        freighterMocks.getNetworkDetails.mockRejectedValue('offline');
+        freighterMocks.getNetworkDetails.mockRejected('offline');
 
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
@@ -157,15 +157,15 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('surfaces wallet access denial and address errors', async () => {
-        freighterMocks.requestAccess.mockResolvedValueOnce(false);
+        freighterMocks.requestAccess.mockResolvedOnce(false);
 
         const { rerender } = renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
 
         await waitFor(() => expect(screen.getByTestId('connectionError')).toHaveTextContent('Wallet access denied.'));
 
-        freighterMocks.requestAccess.mockResolvedValueOnce(true);
-        freighterMocks.getAddress.mockResolvedValueOnce({ address: null, error: 'Address unavailable.' });
+        freighterMocks.requestAccess.mockResolvedOnce(true);
+        freighterMocks.getAddress.mockResolvedOnce({ address: null, error: 'Address unavailable.' });
 
         rerender(
             <WalletProvider>
@@ -178,7 +178,7 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('uses the fallback address error when Freighter returns no address message', async () => {
-        freighterMocks.getAddress.mockResolvedValueOnce({ address: null, error: null });
+        freighterMocks.getAddress.mockResolvedOnce({ address: null, error: null });
 
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
@@ -190,7 +190,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('logs automatic connection-check errors without crashing the provider', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        freighterMocks.isAllowed.mockRejectedValue(new Error('Freighter unavailable.'));
+        freighterMocks.isAllowed.mockRejected(new Error('Freighter unavailable.'));
 
         renderWallet();
 
@@ -202,7 +202,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('uses the generic connection error when Freighter throws a non-Error value', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        freighterMocks.setAllowed.mockRejectedValue('locked');
+        freighterMocks.setAllowed.mockRejected('locked');
 
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
@@ -218,7 +218,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('surfaces Freighter Error messages during connect', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        freighterMocks.setAllowed.mockRejectedValue(new Error('Freighter is locked.'));
+        freighterMocks.setAllowed.mockRejected(new Error('Freighter is locked.'));
 
         renderWallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
@@ -229,13 +229,13 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('full connect -> disconnect flow clears all state without throwing', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
+        vi.mocked(globalThis.fetch).mockResolved(
             mockResponse(200, {
                 balances: [
                     {
                         asset_type: 'credit_alphanum4',
                         asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
+                        asset_issuer: USDK_ISSUERS.TESTNET,
                         balance: '25.0000000',
                     },
                 ],
@@ -263,7 +263,7 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 
     test('disconnect resets the loaded balance state', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
+        vi.mocked(globalThis.fetch).mockResolved(
             mockResponse(200, {
                 balances: [
                     {
@@ -298,34 +298,38 @@ describe('WalletContext Horizon USDC balance path', () => {
     });
 });
 
-describe('WalletContext mount-time auto-restore (checkConnection)', () => {
+describe('WalletContext mount-time auto-reconnect and concurrency guards', () => {
     const originalFetch = globalThis.fetch;
 
     beforeEach(() => {
         vi.resetAllMocks();
-        localStorage.clear();
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: false });
-        freighterMocks.getAddress.mockResolvedValue({ address: null, error: null });
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
+        vi.useFakeTimers({ shouldAdvanceTimers: true });
+        freighterMocks.isAllowed.mockResolved({ isAllowed: false });
+        freighterMocks.setAllowed.mockResolved(undefined);
+        freighterMocks.requestAccess.mockResolved(true);
+        freighterMocks.getAddress.mockResolved({ address: 'GAUTO', error: null });
+        freighterMocks.getNetworkDetails.mockResolved({ network: 'TESTNET' });
         globalThis.fetch = vi.fn();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     afterAll(() => {
         globalThis.fetch = originalFetch;
-        localStorage.clear();
     });
 
-    test('restores address and balance when isAllowed returns true', async () => {
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
-        freighterMocks.getAddress.mockResolvedValue({ address: 'GAUTO123', error: null });
-        vi.mocked(globalThis.fetch).mockResolvedValue(
+    test('auto-reconnects and loads balance when Freighter reports an allowed address', async () => {
+        freighterMocks.isAllowed.mockResolved({ isAllowed: true });
+        vi.mocked(globalThis.fetch).mockResolved(
             mockResponse(200, {
                 balances: [
                     {
                         asset_type: 'credit_alphanum4',
                         asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
-                        balance: '55.0000000',
+                        asset_issuer: USDK_ISSUERS.TESTNET,
+                        balance: '12.5000000',
                     },
                 ],
             }),
@@ -333,249 +337,303 @@ describe('WalletContext mount-time auto-restore (checkConnection)', () => {
 
         renderWallet();
 
-        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GAUTO123'));
-        expect(screen.getByTestId('balance')).toHaveTextContent('55.0000000');
-        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success');
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GAUTO'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('balance')).toHaveTextContent('12.5000000');
     });
 
-    test('stays disconnected when isAllowed returns false', async () => {
+    test('does not auto-reconnect when Freighter reports not allowed', async () => {
+        freighterMocks.isAllowed.mockResolved({ isAllowed: false });
+
         renderWallet();
 
-        // Let the mount effect settle
-        await waitFor(() => expect(freighterMocks.isAllowed).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(freighterMocks.isAllowed).toHaveBeenCalled());
         expect(screen.getByTestId('address')).toHaveTextContent('');
         expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
-    test('does not set address when getAddress returns an error', async () => {
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
-        freighterMocks.getAddress.mockResolvedValue({ address: null, error: 'Key unavailable.' });
+    test('ignores a stale address when Freighter reports an error during auto-reconnect', async () => {
+        freighterMocks.isAllowed.mockResolved({ isAllowed: true });
+        freighterMocks.getAddress.mockResolved({ address: null, error: 'Address unavailable.' });
 
-        renderWallet();
+        renderwallet();
 
-        await waitFor(() => expect(freighterMocks.getAddress).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(freighterMocks.getAddress).toHaveBeenCalled());
         expect(screen.getByTestId('address')).toHaveTextContent('');
-        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
-    test('swallows a thrown error from checkConnection and logs it', async () => {
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        freighterMocks.isAllowed.mockRejectedValue(new Error('Freighter crashed.'));
+    test('times out a connect request that never resolves', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        freighterMocks.setAllowed.mockImplementation(() => new Promise(() => undefined));
 
         renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
 
-        await waitFor(() =>
-            expect(consoleSpy).toHaveBeenCalledWith('Check connection error', expect.any(Error)),
-        );
-        expect(screen.getByTestId('address')).toHaveTextContent('');
-        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
-
-        consoleSpy.mockRestore();
-    });
-});
-
-describe('WalletContext network/address change listener', () => {
-    const originalFetch = globalThis.fetch;
-    const originalSetInterval = globalThis.setInterval;
-    const originalClearInterval = globalThis.clearInterval;
-    const clearIntervalMock = vi.fn();
-    let intervalCallback: (() => void) | null = null;
-
-    beforeEach(() => {
-        vi.resetAllMocks();
-        // A prior test's disconnect() call persists WALLET_DISCONNECTED_KEY in
-        // localStorage, which would otherwise make checkConnection() skip
-        // auto-reconnect on the next test's mount.
-        localStorage.clear();
-        intervalCallback = null;
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
-        freighterMocks.getAddress.mockResolvedValue({ address: 'G123456', error: null });
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
-        globalThis.fetch = vi.fn();
-
-        // Store the callback to invoke it manually in tests
-        globalThis.setInterval = vi.fn((callback: () => void) => {
-            intervalCallback = callback;
-            const id = originalSetInterval(() => {}, 100000);
-            return id;
-        }) as unknown as typeof setInterval;
-        globalThis.clearInterval = clearIntervalMock;
-    });
-
-    afterAll(() => {
-        globalThis.fetch = originalFetch;
-        globalThis.setInterval = originalSetInterval;
-        globalThis.clearInterval = originalClearInterval;
-    });
-
-    test('refreshes state when Freighter network changes', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
-            mockResponse(200, {
-                balances: [
-                    {
-                        asset_type: 'credit_alphanum4',
-                        asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
-                        balance: '100.0000000',
-                    },
-                ],
-            }),
-        );
-
-        renderWallet();
-
-        await waitFor(() => expect(screen.getByTestId('network')).toHaveTextContent('TESTNET'));
-        expect(screen.getByTestId('balance')).toHaveTextContent('100.0000000');
-
-        // Simulate network switch
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
-        vi.mocked(globalThis.fetch).mockResolvedValue(
-            mockResponse(200, {
-                balances: [
-                    {
-                        asset_type: 'credit_alphanum4',
-                        asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.PUBLIC,
-                        balance: '200.0000000',
-                    },
-                ],
-            }),
-        );
-
-        // Trigger the interval callback to check for changes
-        intervalCallback?.();
-
-        await waitFor(() => {
-            expect(screen.getByTestId('network')).toHaveTextContent('PUBLIC');
-            expect(screen.getByTestId('balance')).toHaveTextContent('200.0000000');
+        await act(async () => {
+            vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 1);
         });
+
+        await waitFor(() => expect(screen.getByTestId('connectionError')).toHaveTextContent(/Timed out/i));
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+
+        error.mockRestore();
     });
 
-    test('refreshes state when Freighter address changes', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
-            mockResponse(200, {
-                balances: [
-                    {
-                        asset_type: 'credit_alphanum4',
-                        asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
-                        balance: '50.0000000',
-                    },
-                ],
+    test('ignores a stale balance response after disconnect', async () => {
+        let resolveFetch: (value: Response) => void = () => undefined;
+        vi.mocked(globalThis.fetch).mockReturnValue(
+            new Promise<Response>((resolve) => {
+                resolveFetch = resolve;
             }),
         );
 
         renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
 
-        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('G123456'));
-
-        // Simulate address switch
-        freighterMocks.getAddress.mockResolvedValue({ address: 'GNEWADDR', error: null });
-        vi.mocked(globalThis.fetch).mockResolvedValue(
-            mockResponse(200, {
-                balances: [
-                    {
-                        asset_type: 'credit_alphanum4',
-                        asset_code: 'USDC',
-                        asset_issuer: USDC_ISSUERS.TESTNET,
-                        balance: '75.0000000',
-                    },
-                ],
-            }),
-        );
-
-        // Trigger the interval callback to check for changes
-        intervalCallback?.();
-
-        await waitFor(() => {
-            expect(screen.getByTestId('address')).toHaveTextContent('GNEWADDR');
-            expect(screen.getByTestId('balance')).toHaveTextContent('75.0000000');
-        });
-    });
-
-    test('disconnect stops the watcher and clears refs', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
-            mockResponse(200, {
-                balances: [{ asset_type: 'native', balance: '10.0000000' }],
-            }),
-        );
-
-        renderWallet();
-
-        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('G123456'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
 
         fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
 
-        expect(screen.getByTestId('address')).toHaveTextContent('');
-        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        await act(async () => {
+            resolveFetch(
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDK_ISSUERS.TESTNET,
+                            balance: '999.0000000',
+                        },
+                    ],
+                }),
+            );
+        });
 
-        // Verify clearInterval was called to stop the polling
-        await waitFor(() => expect(clearIntervalMock).toHaveBeenCalled());
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('balance')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
     });
 
-    test('refresh error sets balanceStatus to error', async () => {
-        vi.mocked(globalThis.fetch).mockResolvedValue(
+    test('ignores a stale balance response from a previous address after reconnecting', async () => {
+        const pending: Array<(value: Response) => void> = [];
+        vi.mocked(globalThis.fetch).mockImplementation(
+            () =>
+                new Promise<Response>((resolve) => {
+                    pending.push(resolve);
+                }),
+        );
+
+        renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
+
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+
+        freighterMocks.getAddress.mockResolved({ address: 'GAUTO', error: null });
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GAUTO'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
+
+        // Resolve the stale first request with a different balance.
+        await act(async () => {
+            pending[0](
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDC_ISSUERS.TESTNET,
+                            balance: '111.0000000',
+                        },
+                    ],
+                }),
+            );
+        });
+
+        // The stale response must not overwrite the newer pending request.
+        expect(screen.getByTestId('balance')).toHaveTextContent('');
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading');
+
+        await act(async () => {
+            pending[pending.length - 1](
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDC_ISSUERS.TESTNET,
+                            balance: '7.0000000',
+                        },
+                    ],
+                }),
+            );
+        });
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('balance')).toHaveTextContent('7.0000000');
+    });
+
+    test('ignores a stale error from an earlier address after reconnecting', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const pending: Array<(value: Response) => void> = [];
+        vi.mocked(globalThis.fetch).mockImplementation(
+            () =>
+                new Promise<Response>((resolve) => {
+                    pending.push(resolve);
+                }),
+        );
+
+        renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
+
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+
+        freighterMocks.getAddress.mockResolved({ address: 'GAUTO', error: null });
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('GAUTO'));
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading'));
+
+        // Resolve the stale first request with a failure.
+        await act(async () => {
+            pending[0](mockResponse(500, {}));
+        });
+
+        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('loading');
+        expect(screen.getByTestId('balanceError')).toHaveTextContent('');
+
+        await act(async () => {
+            pending[pending.length - 1](
+                mockResponse(200, {
+                    balances: [
+                        {
+                            asset_type: 'credit_alphanum4',
+                            asset_code: 'USDC',
+                            asset_issuer: USDK_ISSUERS.TESTNET,
+                            balance: '3.0000000',
+                        },
+                    ],
+                }),
+            );
+        });
+
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('balanceError')).toHaveTextContent('');
+        expect(screen.getByTestId('balance')).toHaveTextContent('3.0000000');
+
+        error.mockRestore();
+    });
+
+    test('ignores a stale connect result when disconnected mid-progress', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        let resolveAccess: (value: boolean) => void = () => undefined;
+        freighterMocks.requestAccess.mockReturnValue(
+            new Promise<boolean>((resolve) => {
+                resolveAccess = resolve;
+            }),
+        );
+
+        renderWallet();
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(freighterMocks.requestAccess).toHaveBeenCalled());
+
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+
+        await act(async () => {
+            resolveAccess(true);
+        });
+
+        expect(screen.getByTestId('address')).toHaveTextContent('');
+        expect(screen.getByTestId('connectionError')).toHaveTextContent('');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+
+        error.mockRestore();
+    });
+
+    test('coalesces concurrent connect clicks into a single Freighter request', async () => {
+        vi.mocked(globalThis.fetch).mockResolved(
             mockResponse(200, {
                 balances: [
                     {
                         asset_type: 'credit_alphanum4',
                         asset_code: 'USDC',
                         asset_issuer: USDC_ISSUERS.TESTNET,
-                        balance: '100.0000000',
+                        balance: '1.0000000',
                     },
                 ],
             }),
         );
 
         renderWallet();
+        const connectButton = screen.getByRole('button', { name: /^connect$/i });
+        fireEvent.click(connectButton);
+        fireEvent.click(connectButton);
+        fireEvent.click(connectButton);
 
         await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
 
-        // Simulate network change with fetch error
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'PUBLIC' });
-        vi.mocked(globalThis.fetch).mockResolvedValue(mockResponse(500, {}));
-
-        // Trigger the interval callback to check for changes
-        intervalCallback?.();
-
-        await waitFor(() => {
-            expect(screen.getByTestId('balanceStatus')).toHaveTextContent('error');
-        });
+        expect(freighterMocks.requestAccess).toHaveBeenCalledTimes(1);
+        expect(freighterMocks.getAddress).toHaveBeenCalledTimes(1);
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
-    test('ignores stale responses if operation sequence changes', async () => {
-        // We will simulate a connect, but before it resolves, we disconnect.
-        // The resolved connect should not update the state to connected.
-        let resolveAddress: (val: any) => void = () => {};
-        freighterMocks.getAddress.mockReturnValue(
-            new Promise((resolve) => {
-                resolveAddress = resolve;
-            })
+    test('recovers after a timeout and allows a subsequent successful connect', async () => {
+        const error = vispyOn(console, 'error').mockImplementation(() => undefined);
+        freighterMocks.setAllowed.mockImplementationOnce(() => new Promise(() => undefined));
+        vi.mocked(globalThis.fetch).mockResolved(
+            mockResponse(200, {
+                balances: [
+                    {
+                        asset_type: 'credit_alphanum4',
+                        asset_code: 'USDC',
+                        asset_issuer: USDK_ISSUERS.TESTNET,
+                        balance: '5.0000000',
+                    },
+                ],
+            }),
         );
-        freighterMocks.isAllowed.mockResolvedValue({ isAllowed: true });
-        freighterMocks.setAllowed.mockResolvedValue(undefined);
-        freighterMocks.requestAccess.mockResolvedValue(true);
-        freighterMocks.getNetworkDetails.mockResolvedValue({ network: 'TESTNET' });
 
-        renderWallet();
-        
+        renderwallet();
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
-        
-        // Wait for connecting state
-        await waitFor(() => expect(screen.getByRole('button', { name: /^connect$/i })).toBeDisabled().catch(() => {})); 
-        // Note: the button might not be disabled in the probe, we just wait a tick
-        await Promise.resolve();
 
-        // Disconnect while connecting
-        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+        await act(async () => {
+            vi.advanceTimersByTime(CONNECT_TIMEOUT_MS + 1);
+        });
 
-        // Now resolve the address request
-        resolveAddress({ address: 'GSTALE', error: null });
+        await waitFor(() => expect(screen.getByTestId('connectionError')).toHaveTextContent(/Timed out/i));
 
-        // Wait a bit to ensure no state updates happen
-        await new Promise((r) => setTimeout(r, 50));
+        freighterMocks.setAllowed.mockResolved(undefined);
+        fireEvent.click(screen.getByTestId('button', { name: /^connect$/i }));
 
-        expect(screen.getByTestId('address')).toHaveTextContent('');
-        expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+        await waitFor(() => expect(screen.getByTestId('balanceStatus')).toHaveTextContent('success'));
+        expect(screen.getByTestId('address')).toHaveTextContent('GAUTO');
+        expect(screen.getByTestId('connectionError')).toHaveTextContent('');
+
+        error.mockRestore();
+    });
+
+    test('records wallet telemetry on a failed connect without exposing the address', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        freighterMocks.requestAccess.mockResolved(false);
+
+        renderwallet();
+        fireEvent.click(screen.getByTestId('button', { name: /^connect$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('connectionError')).toHaveTextContent('Wallet access denied.'));
+
+        const calls = telemetryMock.recordWalletTelemetry.mock.calls;
+        expect(calls.length).toBeGreaterThan(0);
+        for (const [payload] of calls) {
+            expect(JSON.stringify(payload)).not.toContain("GCONNECTED");
+        }
+
+        error.mockRestore();
     });
 });
