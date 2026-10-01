@@ -7,6 +7,15 @@ import {
   type TypographyRole,
 } from '../typography';
 
+const roleClasses: Record<TypographyRole, string> = {
+  display: 'text-display',
+  title: 'text-title',
+  subtitle: 'text-subtitle',
+  body: 'text-body',
+  caption: 'text-caption',
+  mono: 'text-mono',
+};
+
 describe('getTypographyClass', () => {
   describe('valid inputs', () => {
     const validCases: [TypographyRole, string][] = [
@@ -464,4 +473,3 @@ describe('typography utility integration', () => {
     expect('classifyTypography' in module).toBe(false);
   });
 });
-
