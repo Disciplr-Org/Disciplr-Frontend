@@ -94,11 +94,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const connectAttemptRef = useRef(0);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastKnownAddressRef = useRef<string | null>(null);
-    const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
     const checkConnectionInProgress = useRef(false);
-    const operationSeqRef = useRef(0);
-    const connectAttemptRef = useRef(0);
-    const connectInFlightRef = useRef<Promise<boolean> | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -118,7 +114,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const netDetails = await getNetworkDetails();
             if (seq !== operationSeqRef.current) return;
             const activeNetwork = normalizeNetwork(netDetails.network);
-            lastKnownNetworkRef.current = activeNetwork;
 
             const usdcBalance = await fetchUsdcBalance(pubKey, activeNetwork, fetch, {
                 signal: abortControllerRef.current.signal,
@@ -259,7 +254,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     const netDetails = await getNetworkDetails();
                     if (seq !== operationSeqRef.current) return false;
                     const activeNetwork = normalizeNetwork(netDetails.network);
-                    lastKnownNetworkRef.current = activeNetwork;
                     
                     dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
                     await fetchNetworkAndBalance(pubKey, seq);
@@ -349,7 +343,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         connectInFlightRef.current = null;
         localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
         lastKnownAddressRef.current = null;
-        lastKnownNetworkRef.current = null;
         dispatch({ type: 'DISCONNECT' });
     }, []);
 
