@@ -260,7 +260,6 @@ describe("MilestoneTracker", () => {
     expect(link.getAttribute("href")).toHaveLength(MAX_EVIDENCE_URL_LENGTH);
     expect(link).toHaveAttribute("href", longUrl.slice(0, MAX_EVIDENCE_URL_LENGTH));
   });
-
   it("renders loading state when isLoading is true", () => {
     render(<MilestoneTracker milestones={milestones} isLoading />);
     expect(screen.getByText("Loading milestones...")).toBeInTheDocument();

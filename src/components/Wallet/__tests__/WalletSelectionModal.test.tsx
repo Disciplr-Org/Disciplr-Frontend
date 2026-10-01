@@ -152,7 +152,6 @@ describe('WalletSelectionModal', () => {
 
         expect(onClose).not.toHaveBeenCalled();
     });
-
     test('prevents multiple connect calls on double click', async () => {
         let resolveConnect: (value: boolean) => void;
         walletState.connect.mockImplementation(() => new Promise((resolve) => {
@@ -200,7 +199,6 @@ describe('WalletSelectionModal', () => {
             resolveConnect(true);
         });
     });
-
     test('does not call onClose if unmounted before connect resolves', async () => {
         let resolveConnect: (value: boolean) => void;
         walletState.connect.mockImplementation(() => new Promise((resolve) => {
