@@ -19,10 +19,13 @@ import { useWallet } from "../context/WalletContext";
 import {
   DEADLINE_PRESETS,
   computeFutureDeadline,
+  getPresetDays,
   getPresetLabel,
 } from "../utils/deadlinePresets";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
 import { createVault } from "../services/vaultService";
+import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { isValidStellarAddress } from "../utils/stellarAddress";
 
 interface MilestoneFormRow extends CreateVaultMilestoneInput {
   id: string;
@@ -40,7 +43,7 @@ export default function CreateVault() {
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = getCreateVaultPrefill(location.state);
-  const { balance, balanceStatus, address } = useWallet();
+  const { balance, balanceStatus, address, network } = useWallet();
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
   const successAddressRef = useRef<HTMLInputElement>(null);
@@ -72,13 +75,14 @@ export default function CreateVault() {
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const [submissionUncertain, setSubmissionUncertain] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const errorFieldOrder: Array<keyof CreateVaultErrors> = [
-    "amount",
-    "deadline",
-    "successAddress",
-    "failureAddress",
-  ];
+  const errorFieldOrder: Array<
+    "amount" | "deadline" | "successAddress" | "failureAddress"
+  > = ["amount", "deadline", "successAddress", "failureAddress"];
 
   const fieldRefs = {
     amount: amountRef,
@@ -200,17 +204,42 @@ export default function CreateVault() {
   };
 
   const handleConfirm = async () => {
-    logger.debug("CreateVault confirm", {
+    // A failed create call can have committed before its response was lost.
+    // Without a service idempotency key, this page must not offer a retry.
+    if (isSubmittingRef.current || submissionUncertain) return;
+
+    if (!address || !isValidStellarAddress(address)) {
+      setSubmitError("Wallet account unavailable. Please reconnect your wallet.");
+      return;
+    }
+
+    if (!network || isNetworkMismatch(network)) {
+      setSubmitError(`Wallet network unavailable or incorrect. Please switch to ${APP_EXPECTED_NETWORK}.`);
+      return;
+    }
+
+    const nextErrors = validateCreateVault({
       amount,
       deadline,
       successAddress,
       failureAddress,
-      milestones: milestones.map(({ title, criteria }) => ({
-        title,
-        criteria,
-      })),
-      evidenceUrl,
+      milestones,
     });
+    if (hasCreateVaultErrors(nextErrors)) {
+      setSubmitError("Form data is invalid or was tampered with.");
+      return;
+    }
+
+    if (balanceStatus === 'success' && exceedsBalance(amount, balance)) {
+      setSubmitError("Amount exceeds your available USDC balance.");
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    logger.debug("CreateVault confirm", { hasEvidence: Boolean(evidenceUrl) });
 
     try {
       const newVault = await createVault({
@@ -218,18 +247,29 @@ export default function CreateVault() {
         amount: Number(amount),
         currency: "USDC",
         deadline,
-        creatorAddress: address ?? "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+        creatorAddress: address,
         successAddress,
         failureAddress,
         milestones: milestones.map(({ title, criteria }) => ({
           title,
+          description: criteria,
           criteria,
         })),
       });
+      
+      if (!newVault || !newVault.id) {
+        throw new Error("Malformed response from server.");
+      }
 
       navigate(`/vaults/${newVault.id}`);
-    } catch (err) {
-      logger.error("Failed to create vault", err);
+    } catch {
+      // The service may have created the vault even when its response failed.
+      // Do not expose raw service errors or silently make a second create call.
+      logger.error("Vault creation outcome unknown");
+      setSubmitError("Vault creation status is unknown. Check your vaults before trying again.");
+      setSubmissionUncertain(true);
+      // Keep the synchronous guard engaged even before React renders the error.
+      setIsSubmitting(false);
     }
   };
 
@@ -258,8 +298,12 @@ export default function CreateVault() {
           successAddress={successAddress}
           failureAddress={failureAddress}
           milestones={milestones}
+          isSubmitting={isSubmitting}
+          submissionUncertain={submissionUncertain}
+          error={submitError}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
+          onCheckVaults={() => navigate("/vaults")}
         />
       ) : (
         <>
@@ -356,32 +400,38 @@ export default function CreateVault() {
               </p>
             )}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {DEADLINE_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => {
-                    const days = parseInt(preset, 10);
-                    setDeadline(computeFutureDeadline(days));
-                    setErrors((current) => ({
-                      ...current,
-                      deadline: undefined,
-                    }));
-                  }}
-                  style={{
-                    padding: "0.4rem 0.875rem",
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--muted)",
-                    borderRadius: "var(--radius)",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {getPresetLabel(preset)}
-                </button>
-              ))}
+              {DEADLINE_PRESETS.map((preset) => {
+                const days = getPresetDays(preset);
+                const isActive = deadline === computeFutureDeadline(days);
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setDeadline(computeFutureDeadline(days));
+                      setErrors((current) => ({
+                        ...current,
+                        deadline: undefined,
+                      }));
+                    }}
+                    style={{
+                      padding: "0.4rem 0.875rem",
+                      border: `1px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
+                      background: isActive
+                        ? "color-mix(in srgb, var(--accent) 12%, var(--surface))"
+                        : "var(--surface)",
+                      color: isActive ? "var(--accent)" : "var(--muted)",
+                      borderRadius: "var(--radius)",
+                      fontSize: "0.85rem",
+                      fontWeight: isActive ? 600 : 400,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {getPresetLabel(preset)}
+                  </button>
+                );
+              })}
             </div>
             <Field
               ref={deadlineRef}
