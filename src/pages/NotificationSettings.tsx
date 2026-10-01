@@ -1,10 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
 import { Switch } from "../components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
 import { isValidQuietTime, isValidQuietHoursRange, isQuietHoursActive } from "../utils/quietHours";
 
+
+// Allowed notification frequency values. Anything outside this set is rejected
+// so a stale or tampered persisted value cannot silently change behavior.
+const ALLOWED_FREQUENCIES = ["1", "2", "3", "4"] as const;
+type Frequency = (typeof ALLOWED_FREQUENCIES)[number];
+
+const isAllowedFrequency = (value: unknown): value is Frequency =>
+  typeof value === "string" && (ALLOWED_FREQUENCIES as readonly string[]).includes(value);
 
 export default function NotificationSettings() {
   const {
@@ -20,18 +28,15 @@ export default function NotificationSettings() {
     reset,
   } = useNotificationPreferences();
 
-  const [quietStartValue, setQuietStartValue] = useState(
-    quietHoursRange?.start ?? quietHours ?? "22:00"
-  );
-  const [quietEndValue, setQuietEndValue] = useState(
-    quietHoursRange?.end ?? "07:00"
-  );
+  // Authorization/validation invariant: the persisted frequency must be one of
+  // the known options. If it is not (stale state, tampering, partial write),
+  // fall back to a safe default rather than rendering an invalid selection.
+  const safeFrequency: Frequency = isAllowedFrequency(frequency) ? frequency : "1";
+  const frequencyIsValid = isAllowedFrequency(frequency);
 
-  const quietRangeIsValid = useMemo(
-    () => isValidQuietHoursRange(quietStartValue, quietEndValue),
-    [quietStartValue, quietEndValue]
-  );
-
+  // Determine whether the current time falls within the quiet hour window.
+  // quietHours is a single "HH:MM" boundary. Quiet is considered active if
+  // the current hour:minute matches or is past the stored quiet-hours value.
   const quietHoursValid = isValidQuietTime(quietHours);
   const quietHoursActive = useMemo(
     () => isQuietHoursActive(quietStartValue, quietEndValue),
@@ -51,9 +56,25 @@ export default function NotificationSettings() {
     () => Object.fromEntries(vaults.map((v) => [v.name, false]))
   );
 
-  function handleVaultToggle(name: string, checked: boolean) {
-    setVaultToggles((prev) => ({ ...prev, [name]: checked }));
-  }
+  // Only allow toggles for vaults that are actually rendered. This prevents
+  // arbitrary keys from being injected into state via crafted events.
+  const knownVaultNames = useMemo(() => new Set(vaults.map((v) => v.name)), []);
+
+  const handleVaultToggle = useCallback(
+    (name: string, checked: boolean) => {
+      if (!knownVaultNames.has(name)) return;
+      setVaultToggles((prev) => ({ ...prev, [name]: checked }));
+    },
+    [knownVaultNames]
+  );
+
+  const handleFrequencyChange = useCallback(
+    (value: string) => {
+      if (!isAllowedFrequency(value)) return;
+      setFrequency(value);
+    },
+    [setFrequency]
+  );
 
   return (
     <>
@@ -95,12 +116,11 @@ export default function NotificationSettings() {
             </label>
             <select
               className="w-[200px] notification-settings-field"
-              value={frequency}
-              onChange={(e) => {
-                setFrequency(e.target.value);
-              }}
+              value={safeFrequency}
+              onChange={(e) => handleFrequencyChange(e.target.value)}
               name="notification-frequency"
               id="notification-frequency"
+              aria-invalid={!frequencyIsValid}
             >
               <option value="" disabled hidden>Not set</option>
               <option value="1">Occurrence</option>
