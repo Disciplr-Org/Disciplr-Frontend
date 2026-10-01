@@ -24,6 +24,8 @@ import {
 } from "../utils/deadlinePresets";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
 import { createVault } from "../services/vaultService";
+import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { isValidStellarAddress } from "../utils/stellarAddress";
 
 interface MilestoneFormRow extends CreateVaultMilestoneInput {
   id: string;
@@ -41,7 +43,7 @@ export default function CreateVault() {
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = getCreateVaultPrefill(location.state);
-  const { balance, balanceStatus, address } = useWallet();
+  const { balance, balanceStatus, address, network } = useWallet();
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
   const successAddressRef = useRef<HTMLInputElement>(null);
@@ -73,6 +75,10 @@ export default function CreateVault() {
   const [errors, setErrors] = useState<CreateVaultErrors>({});
   const [evidenceUrl, setEvidenceUrl] = useState<string | undefined>();
   const [showReview, setShowReview] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const [submissionUncertain, setSubmissionUncertain] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const errorFieldOrder: Array<
     "amount" | "deadline" | "successAddress" | "failureAddress"
@@ -198,17 +204,42 @@ export default function CreateVault() {
   };
 
   const handleConfirm = async () => {
-    logger.debug("CreateVault confirm", {
+    // A failed create call can have committed before its response was lost.
+    // Without a service idempotency key, this page must not offer a retry.
+    if (isSubmittingRef.current || submissionUncertain) return;
+
+    if (!address || !isValidStellarAddress(address)) {
+      setSubmitError("Wallet account unavailable. Please reconnect your wallet.");
+      return;
+    }
+
+    if (!network || isNetworkMismatch(network)) {
+      setSubmitError(`Wallet network unavailable or incorrect. Please switch to ${APP_EXPECTED_NETWORK}.`);
+      return;
+    }
+
+    const nextErrors = validateCreateVault({
       amount,
       deadline,
       successAddress,
       failureAddress,
-      milestones: milestones.map(({ title, criteria }) => ({
-        title,
-        criteria,
-      })),
-      evidenceUrl,
+      milestones,
     });
+    if (hasCreateVaultErrors(nextErrors)) {
+      setSubmitError("Form data is invalid or was tampered with.");
+      return;
+    }
+
+    if (balanceStatus === 'success' && exceedsBalance(amount, balance)) {
+      setSubmitError("Amount exceeds your available USDC balance.");
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    logger.debug("CreateVault confirm", { hasEvidence: Boolean(evidenceUrl) });
 
     try {
       const newVault = await createVault({
@@ -216,22 +247,29 @@ export default function CreateVault() {
         amount: Number(amount),
         currency: "USDC",
         deadline,
-        creatorAddress: address ?? "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
+        creatorAddress: address,
         successAddress,
         failureAddress,
         milestones: milestones.map(({ title, criteria }) => ({
           title,
-          // The create-vault form only collects a title and success
-          // criteria; reuse the criteria text as the milestone description
-          // since Milestone.description is required downstream.
           description: criteria,
           criteria,
         })),
       });
+      
+      if (!newVault || !newVault.id) {
+        throw new Error("Malformed response from server.");
+      }
 
       navigate(`/vaults/${newVault.id}`);
-    } catch (err) {
-      logger.error("Failed to create vault", err);
+    } catch {
+      // The service may have created the vault even when its response failed.
+      // Do not expose raw service errors or silently make a second create call.
+      logger.error("Vault creation outcome unknown");
+      setSubmitError("Vault creation status is unknown. Check your vaults before trying again.");
+      setSubmissionUncertain(true);
+      // Keep the synchronous guard engaged even before React renders the error.
+      setIsSubmitting(false);
     }
   };
 
@@ -260,8 +298,12 @@ export default function CreateVault() {
           successAddress={successAddress}
           failureAddress={failureAddress}
           milestones={milestones}
+          isSubmitting={isSubmitting}
+          submissionUncertain={submissionUncertain}
+          error={submitError}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
+          onCheckVaults={() => navigate("/vaults")}
         />
       ) : (
         <>
