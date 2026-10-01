@@ -304,6 +304,7 @@ export default function Notification() {
                         read={items.isRead}
                         isFullPage={true}
                         setRead={setRead}
+                        onDismiss={handleDismiss}
                       />
                     </div>
                     <button
@@ -328,6 +329,7 @@ export default function Notification() {
         onPageChange={setCurrentPage}
         ariaLabel="Notifications pagination"
         className="mt-8"
+        showJumpToPage
       />
 
       <ConfirmationModal
