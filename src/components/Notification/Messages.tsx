@@ -2,6 +2,8 @@ import { useState } from "react";
 import { getNotificationTypeMapping } from "./notificationType";
 import { formatRelativeTime } from "../../utils/relativeTime";
 
+const MAX_PREVIEW_LENGTH = 30;
+
 interface MessageProps {
   id: string;
   type: string;
@@ -26,8 +28,32 @@ export default function Message({
   onDismiss,
 }: MessageProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { icon: Icon, color, label } = getNotificationTypeMapping(type);
-  const timeAgo = formatRelativeTime(timestamp);
+  const mapping = getNotificationTypeMapping(type);
+  const Icon = mapping?.icon;
+  const color = mapping?.color ?? "#667589";
+  const label = mapping?.label ?? "Notification";
+  const safeTimestamp =
+    typeof timestamp === "string" && timestamp.trim().length > 0
+      ? timestamp
+      : "";
+  const timeAgo = safeTimestamp ? formatRelativeTime(safeTimestamp) : "";
+  const safeTitle =
+    typeof title === "string" && title.trim().length > 0
+      ? title
+      : "Untitled notification";
+  const safeMessage = typeof message === "string" ? message : "";
+  const previewMessage =
+    safeMessage.length > MAX_PREVIEW_LENGTH
+      ? `${safeMessage.slice(0, MAX_PREVIEW_LENGTH)}...`
+      : safeMessage;
+
+  const handleOpen = () => {
+    if (typeof id !== "string" || id.length === 0) {
+      return;
+    }
+    setIsOpen(true);
+    setRead(id);
+  };
 
   const safeTitle = typeof title === "string" ? title : "";
   const safeMessage = typeof message === "string" ? message : "";
@@ -70,9 +96,7 @@ export default function Message({
                   {safeTitle}
                 </h2>
                 <p className="text-sm text-[#667589]">
-                  {safeMessage.length > 30
-                    ? `${safeMessage.slice(0, 30)}...`
-                    : safeMessage}
+                  {previewMessage}
                 </p>
               </div>
 
