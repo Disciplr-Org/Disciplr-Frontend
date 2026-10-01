@@ -13,6 +13,7 @@ interface MessageProps {
   read: boolean;
   isFullPage: boolean;
   setRead: (id: string) => void;
+  onDismiss: (id: string) => void;
 }
 
 export default function Message({
@@ -24,6 +25,7 @@ export default function Message({
   read,
   isFullPage,
   setRead,
+  onDismiss,
 }: MessageProps) {
   const [isOpen, setIsOpen] = useState(false);
   const mapping = getNotificationTypeMapping(type);
@@ -53,6 +55,19 @@ export default function Message({
     setRead(id);
   };
 
+  const safeTitle = typeof title === "string" ? title : "";
+  const safeMessage = typeof message === "string" ? message : "";
+  const safeId = typeof id === "string" ? id : "";
+  const safeRead = Boolean(read);
+
+  const handleOpen = () => {
+    if (!safeId) {
+      return;
+    }
+    setIsOpen(true);
+    setRead(safeId);
+  };
+
   return (
     <>
       <div className="cursor-pointer w-full">
@@ -71,7 +86,7 @@ export default function Message({
               >
                 <h2
                   className={`${
-                    read
+                    safeRead
                       ? "text-[#667589]"
                       : isFullPage
                       ? "text-white"
@@ -86,7 +101,11 @@ export default function Message({
               </div>
 
               {isFullPage && (
-                <button className="bg-[#00c389] px-2 py-1 rounded-md">
+                <button
+                  type="button"
+                  onClick={() => onDismiss(id)}
+                  className="bg-[#00c389] px-2 py-1 rounded-md"
+                >
                   Delete
                 </button>
               )}
@@ -95,10 +114,10 @@ export default function Message({
             <div className="flex justify-between w-full">
               <div
                 className={`${
-                  !read ? "bg-[#00c389]" : ""
+                  !safeRead ? "bg-[#00c389]" : ""
                 } rounded-md mb-1 px-2`}
               >
-                <p className="font-bold">{read ? "" : "New"}</p>
+                <p className="font-bold">{safeRead ? "" : "New"}</p>
               </div>
 
               <p
