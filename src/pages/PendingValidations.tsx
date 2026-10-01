@@ -1,26 +1,58 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
+import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
+import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
 import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
-import { filterPending, PendingTask } from '../utils/filterPending';
+import { filterPending } from '../utils/filterPending';
+import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
+import { daysRemaining } from '../utils/dashboard';
+import { useCurrentTime } from '../hooks/useCurrentTime';
+
+/**
+ * Invariants enforced by this page:
+ * - Selection only ever contains ids that currently exist in `pendingValidations`.
+ * - Batch actions are idempotent: ids that no longer exist are dropped before dispatch,
+ *   and a submission is ignored while another batch action is in flight.
+ * - Filter changes reset selection so stale ids can never be acted upon.
+ * - The confirm handler is the single authorization gate for batch decisions; it
+ *   validates the decision, the notes payload, and the current selection snapshot.
+ */
+const MAX_NOTES_LENGTH = 2000;
+
+type BatchDecision = 'approve' | 'reject';
 
 export default function PendingValidations() {
   const navigate = useNavigate();
-  const { pendingValidations, batchApprove, batchReject } = useVerifierStore();
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const batchApprove = useVerifierStore((state) => state.batchApprove);
+  const batchReject = useVerifierStore((state) => state.batchReject);
+  const now = useCurrentTime();
+
+  // Queue-at-a-glance metrics for the strip above the table.
+  const metrics = useMemo(
+    () => computeVerifierMetrics(pendingValidations, validationHistory, now),
+    [pendingValidations, validationHistory, now],
+  );
 
   // Filter and sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<PendingSortKey>('deadline');
+  const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
   // Multi-select state for batch actions.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [pendingDecision, setPendingDecision] = useState<'approve' | 'reject'>('approve');
+  const [pendingDecision, setPendingDecision] = useState<BatchDecision>('approve');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const submitLockRef = useRef(false);
 
   // Get unique milestones from all pending validations
   const availableMilestones = useMemo(() => {
@@ -37,30 +69,34 @@ export default function PendingValidations() {
   }, [pendingValidations, searchQuery, selectedMilestone]);
 
   const sortedValidations = useMemo(
-    () =>
-      [...filteredValidations].sort((a, b) =>
-        sortOrder === 'asc'
-          ? a.daysRemaining - b.daysRemaining
-          : b.daysRemaining - a.daysRemaining,
-      ),
-    [filteredValidations, sortOrder],
+    () => sortPending(filteredValidations, sortKey, sortDir),
+    [filteredValidations, sortDir, sortKey],
   );
 
-  // Keep selection in sync with the queue: drop ids that are no longer pending or filtered out.
+  // Keep selection in sync with the queue and reset it when the active filters change.
   useEffect(() => {
     setSelectedIds((prev) => {
-      const next = prev.filter(
-        (id) =>
-          pendingValidations.some((t) => t.id === id) &&
-          sortedValidations.some((t) => t.id === id)
-      );
+      if (searchQuery || selectedMilestone) {
+        return prev.length === 0 ? prev : [];
+      }
+
+      // Drop ids that no longer exist in the queue (stale selection after
+      // concurrent updates, batch completion, or external store mutations).
+      const next = prev.filter((id) => pendingValidations.some((t) => t.id === id));
       return next.length === prev.length ? prev : next;
     });
-  }, [pendingValidations, sortedValidations]);
+  }, [pendingValidations, searchQuery, selectedMilestone]);
 
   const allIds = sortedValidations.map((t) => t.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.includes(id));
   const someSelected = selectedIds.length > 0 && !allSelected;
+
+  // Selection must never reference ids outside the current queue. This is a
+  // defense-in-depth check in case a caller mutates the store between renders.
+  const validSelectedIds = useMemo(() => {
+    const queueIds = new Set(pendingValidations.map((t) => t.id));
+    return selectedIds.filter((id) => queueIds.has(id));
+  }, [pendingValidations, selectedIds]);
 
   // Native checkboxes expose "indeterminate" only via the DOM property.
   useEffect(() => {
@@ -70,6 +106,9 @@ export default function PendingValidations() {
   }, [someSelected]);
 
   const toggleOne = (id: string) => {
+    if (!pendingValidations.some((t) => t.id === id)) {
+      return;
+    }
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -79,23 +118,83 @@ export default function PendingValidations() {
     setSelectedIds(allSelected ? [] : allIds);
   };
 
-  const openBatch = (decision: 'approve' | 'reject') => {
-    if (selectedIds.length === 0) return;
+  const openBatch = (decision: BatchDecision) => {
+    if (isSubmitting) return;
+    if (validSelectedIds.length === 0) return;
+    setActionError(null);
     setPendingDecision(decision);
     setModalOpen(true);
   };
 
-  const handleConfirm = (decision: 'approve' | 'reject', notes: string) => {
-    if (decision === 'approve') {
-      batchApprove(selectedIds, notes);
-    } else {
-      batchReject(selectedIds, notes);
-    }
-    setSelectedIds([]);
+  const closeModal = useCallback(() => {
+    if (submitLockRef.current) return;
     setModalOpen(false);
-  };
+    setActionError(null);
+  }, []);
 
-  const hasSelection = selectedIds.length > 0;
+  const handleConfirm = useCallback(
+    (decision: BatchDecision, notes: string) => {
+      // Guard against duplicate/concurrent submissions from rapid clicks or
+      // double-fired modal events. The ref is synchronous so it closes the
+      // race window that state-based guards leave open.
+      if (submitLockRef.current) return;
+
+      if (decision !== 'approve' && decision !== 'reject') {
+        setActionError('Unsupported decision.');
+        return;
+      }
+
+      const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
+      if (trimmedNotes.length > MAX_NOTES_LENGTH) {
+        setActionError(`Notes must be ${MAX_NOTES_LENGTH} characters or fewer.`);
+        return;
+      }
+
+      // Snapshot and re-validate against the live queue so ids removed by a
+      // concurrent update cannot be approved/rejected.
+      const queueIds = new Set(pendingValidations.map((t) => t.id));
+      const targetIds = validSelectedIds.filter((id) => queueIds.has(id));
+      if (targetIds.length === 0) {
+        setActionError('No valid validations selected.');
+        setSelectedIds([]);
+        setModalOpen(false);
+        return;
+      }
+
+      submitLockRef.current = true;
+      setIsSubmitting(true);
+      setActionError(null);
+
+      try {
+        if (decision === 'approve') {
+          batchApprove(targetIds, trimmedNotes);
+        } else {
+          batchReject(targetIds, trimmedNotes);
+        }
+        setSelectedIds([]);
+        setModalOpen(false);
+      } catch (err) {
+        // Surface a diagnosable, non-sensitive error and keep the modal open
+        // so the user can retry without losing their selection.
+        setActionError('Unable to complete the batch action. Please retry.');
+      } finally {
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      }
+    },
+    [batchApprove, batchReject, pendingValidations, validSelectedIds],
+  );
+
+  const hasSelection = validSelectedIds.length > 0 && !isSubmitting;
+  const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
+  const handleHeaderSort = (key: PendingSortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -114,54 +213,74 @@ export default function PendingValidations() {
           </Text>
         </div>
 
-        <button
-          onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-          className="px-4 py-2 border rounded text-sm font-medium transition"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
-        >
-          Sort by Urgency: {sortOrder === 'asc' ? 'High to Low' : 'Low to High'}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate('/verifier/history')}
+            className="self-start px-4 py-2 border rounded text-sm font-medium transition"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+          >
+            View History
+          </button>
+          <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+            Sort by
+            <select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as PendingSortKey)}
+              className="px-3 py-2 border rounded text-sm"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+            >
+              <option value="deadline">Deadline</option>
+              <option value="amount">Amount at stake</option>
+              <option value="vaultName">Vault name</option>
+            </select>
+          </label>
+          <button
+            onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="self-end px-4 py-2 border rounded text-sm font-medium transition"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+          >
+            Sort direction: {sortLabel}
+          </button>
+        </div>
       </header>
 
-      {/* Search and filter controls */}
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <div className="flex-1">
-          <label htmlFor="search-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Search by Vault Name or Owner
-          </label>
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Enter vault name or owner address"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              background: 'var(--bg)',
-              color: 'var(--text)',
-            }}
-            aria-describedby="search-hint"
-          />
-          <Text role="body" as="p" className="text-xs mt-1" id="search-hint" style={{ color: 'var(--muted)' }}>
-            Search is case-insensitive and searches across vault names and owner addresses.
-          </Text>
-        </div>
+      <VerifierMetricsBar metrics={metrics} />
 
-        <div className="flex-1">
-          <label htmlFor="milestone-filter" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-            Filter by Milestone
-          </label>
+      {actionError && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded border px-4 py-3 text-sm"
+          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'var(--danger-transparent)' }}
+        >
+          {actionError}
+        </div>
+      )}
+
+      <section
+        aria-label="Pending validation filters"
+        className="grid gap-4 md:grid-cols-2"
+      >
+        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+          Search by Vault Name or Owner
+          <input
+            type="search"
+            aria-label="Search by Vault Name or Owner"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="px-3 py-2 border rounded"
+            placeholder="Search vaults or owners"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
+          Filter by Milestone
           <select
-            id="milestone-filter"
+            aria-label="Filter by Milestone"
             value={selectedMilestone}
-            onChange={(e) => setSelectedMilestone(e.target.value)}
-            className="w-full px-3 py-2 border rounded text-sm transition"
-            style={{
-              borderColor: 'var(--border)',
-              background: 'var(--bg)',
-              color: 'var(--text)',
-            }}
+            onChange={(event) => setSelectedMilestone(event.target.value)}
+            className="px-3 py-2 border rounded"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
           >
             <option value="">All Milestones</option>
             {availableMilestones.map((milestone) => (
@@ -170,8 +289,8 @@ export default function PendingValidations() {
               </option>
             ))}
           </select>
-        </div>
-      </div>
+        </label>
+      </section>
 
       <section className="border rounded-lg shadow-sm overflow-x-auto" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
         {sortedValidations.length === 0 ? (
@@ -204,16 +323,35 @@ export default function PendingValidations() {
                     className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                   />
                 </th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Vault & Milestone</th>
+                <SortableHeader
+                  label="Vault & Milestone"
+                  fieldKey="vaultName"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Owner</th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }}>Amount at Stake</th>
-                <th scope="col" className="p-4 font-medium text-sm" style={{ color: 'var(--muted)' }} aria-sort={sortOrder === 'asc' ? 'ascending' : 'descending'}>Deadline</th>
+                <SortableHeader
+                  label="Amount at Stake"
+                  fieldKey="amount"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
+                <SortableHeader
+                  label="Deadline"
+                  fieldKey="deadline"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleHeaderSort}
+                />
                 <th scope="col" className="p-4 font-medium text-sm text-right" style={{ color: 'var(--muted)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {sortedValidations.map((task) => {
                 const checked = selectedIds.includes(task.id);
+                const remaining = daysRemaining(task.deadline, now);
                 return (
                   <tr
                     key={task.id}
@@ -247,10 +385,10 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: task.daysRemaining <= 3 ? 'var(--danger)' : 'var(--success)' }}>
-                          {task.daysRemaining} days left
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
+                          {remaining} days left
                         </span>
-                        {task.daysRemaining <= 3 && (
+                        {remaining <= CRITICAL_DAYS_THRESHOLD && (
                           <span className="sr-only">Urgent</span>
                         )}
                         <CountdownDeadline deadline={task.deadline} />
@@ -281,7 +419,7 @@ export default function PendingValidations() {
         style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
       >
         <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
-          {selectedIds.length} selected
+          {validSelectedIds.length} selected
         </Text>
         <div className="flex gap-3">
           <button
@@ -298,18 +436,64 @@ export default function PendingValidations() {
             className="px-4 py-2 text-sm font-bold rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'var(--success)', color: 'white' }}
           >
-            Approve Selected
+            {isSubmitting ? 'Processing…' : 'Approve Selected'}
           </button>
         </div>
       </div>
 
       <ConfirmationModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={closeModal}
         onConfirm={handleConfirm}
         initialDecision={pendingDecision}
-        affectedCount={selectedIds.length}
+        affectedCount={validSelectedIds.length}
       />
     </div>
   );
 }
+
+interface SortableHeaderProps {
+  label: string;
+  fieldKey: PendingSortKey;
+  currentSortKey: PendingSortKey;
+  currentSortDir: SortDirection;
+  onSort: (key: PendingSortKey) => void;
+}
+
+function SortableHeader({
+  label,
+  fieldKey,
+  currentSortKey,
+  currentSortDir,
+  onSort,
+}: SortableHeaderProps) {
+  const active = currentSortKey === fieldKey;
+  const ariaSort = active
+    ? currentSortDir === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : undefined;
+
+  return (
+    <th
+      scope="col"
+      className="p-4 font-medium text-sm"
+      style={{ color: 'var(--muted)' }}
+      aria-sort={ariaSort}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(fieldKey)}
+        className="flex items-center gap-1.5 font-medium text-sm text-left transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] rounded"
+        style={{ color: 'var(--muted)', background: 'transparent', border: 'none', padding: 0 }}
+        aria-label={`Sort ${label} column`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-xs">
+          {active ? (currentSortDir === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+

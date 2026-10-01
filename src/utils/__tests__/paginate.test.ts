@@ -10,7 +10,6 @@ const history: ValidationTask[] = [
     owner: 'GBVZ...QK7L',
     amount: '1,000 USDC',
     deadline: '2026-01-01',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Launch',
   },
@@ -20,7 +19,6 @@ const history: ValidationTask[] = [
     owner: 'GFAIL...QK7L',
     amount: '2,000 USDC',
     deadline: '2026-01-02',
-    daysRemaining: 0,
     status: 'rejected',
     milestone: 'Audit',
   },
@@ -30,7 +28,6 @@ const history: ValidationTask[] = [
     owner: 'GSUCC...QK7L',
     amount: '3,000 USDC',
     deadline: '2026-01-03',
-    daysRemaining: 0,
     status: 'approved',
     milestone: 'Delivery',
   },
@@ -68,6 +65,52 @@ describe('filterValidationHistory', () => {
     ]);
   });
 
+  describe('date range filters', () => {
+    it('filters by from date (inclusive)', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', from: '2026-01-02' }).map((t) => t.id)).toEqual(['v-2', 'v-3']);
+    });
+
+    it('filters by to date (inclusive)', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', to: '2026-01-02' }).map((t) => t.id)).toEqual(['v-1', 'v-2']);
+    });
+
+    it('filters by both from and to (inclusive range)', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', from: '2026-01-02', to: '2026-01-02' }).map((t) => t.id)).toEqual(['v-2']);
+    });
+
+    it('returns empty when range matches nothing', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', from: '2027-01-01' })).toEqual([]);
+    });
+
+    it('returns all items when from and to are omitted', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '' })).toHaveLength(3);
+    });
+  });
+
+  describe('milestone filter', () => {
+    it('filters by milestone substring case-insensitively', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', milestone: 'AUDIT' }).map((t) => t.id)).toEqual(['v-2']);
+    });
+
+    it('returns empty when no milestone matches', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', milestone: 'nonexistent' })).toEqual([]);
+    });
+
+    it('treats whitespace-only milestone as no filter', () => {
+      expect(filterValidationHistory(history, { status: 'all', query: '', milestone: '   ' })).toHaveLength(3);
+    });
+  });
+
+  it('combines date range, milestone, status, and query filters', () => {
+    expect(
+      filterValidationHistory(history, { status: 'approved', query: '', from: '2026-01-01', to: '2026-01-01', milestone: 'launch' }).map((t) => t.id),
+    ).toEqual(['v-1']);
+    // date matches v-1 and v-2, but status=approved removes v-2
+    expect(
+      filterValidationHistory(history, { status: 'approved', query: '', from: '2026-01-01', to: '2026-01-02' }).map((t) => t.id),
+    ).toEqual(['v-1']);
+  });
+
   describe('properties', () => {
     const taskArb: fc.Arbitrary<ValidationTask> = fc.record({
       id: fc.uuid(),
@@ -75,7 +118,6 @@ describe('filterValidationHistory', () => {
       owner: fc.string({ minLength: 1, maxLength: 20 }),
       amount: fc.string(),
       deadline: fc.string(),
-      daysRemaining: fc.integer({ min: 0, max: 365 }),
       status: fc.constantFrom<ValidationTask['status']>('pending', 'approved', 'rejected'),
       milestone: fc.string(),
     });

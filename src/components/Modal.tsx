@@ -18,8 +18,8 @@ export function Modal({
   children,
   ariaLabelledBy,
   ariaDescribedBy,
-  overlayClassName = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm",
-  contentClassName = "bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col",
+  overlayClassName = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/[var(--opacity-backdrop)] backdrop-blur-sm",
+  contentClassName = "modal-content-default rounded-xl max-w-lg w-full overflow-hidden flex flex-col",
 }: ModalProps) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -55,15 +55,15 @@ export function Modal({
             transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
             className={overlayClassName}
             onClick={onClose}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={ariaLabelledBy}
-            aria-describedby={ariaDescribedBy}
           >
             <motion.div
               variants={contentVariants}
               transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
               className={contentClassName}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={ariaLabelledBy}
+              aria-describedby={ariaDescribedBy}
               onClick={(e) => e.stopPropagation()}
             >
               {children}

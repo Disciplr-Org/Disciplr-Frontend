@@ -92,6 +92,32 @@
         "$description": "Title text at large breakpoint (≥768px), for section headings"
       }
     },
+    "subtitle": {
+      "sm": {
+        "$type": "typography",
+        "fontSize": { "$value": "20px" },
+        "lineHeight": { "$value": "28px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "0" },
+        "$description": "Subtitle text at small breakpoint (< 640px), for secondary headings"
+      },
+      "md": {
+        "$type": "typography",
+        "fontSize": { "$value": "28px" },
+        "lineHeight": { "$value": "36px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Subtitle text at medium breakpoint (640px-768px), for secondary headings"
+      },
+      "lg": {
+        "$type": "typography",
+        "fontSize": { "$value": "36px" },
+        "lineHeight": { "$value": "44px" },
+        "fontWeight": { "$value": 600 },
+        "letterSpacing": { "$value": "-0.01em" },
+        "$description": "Subtitle text at large breakpoint (≥768px), for secondary headings"
+      }
+    },
     "body": {
       "sm": {
         "$type": "typography",

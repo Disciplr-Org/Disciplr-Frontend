@@ -1,273 +1,34 @@
+import { useMemo, useState, type ReactNode, type CSSProperties } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
+import { VaultLifecycle } from "../components/VaultLifecycle";
 import { CountdownDeadline } from "../components/CountdownDeadline";
-import {
-  FundReleaseStatus,
-  type FundReleaseStatusProps,
-} from "../components/FundReleaseStatus";
+import Breadcrumb from "../components/Breadcrumb";
+import { ConfirmationModal } from "../components/ConfirmationModal";
+import { FundReleaseStatus } from "../components/FundReleaseStatus";
+import { VaultMetaPanel } from "../components/VaultMetaPanel";
+import { StatusChip } from "../components/StatusChip";
 import { Text } from "../components/Text";
-import { AddressDisplay } from "../components/AddressDisplay";
-import type { VaultStatus, MilestoneStatus, TxType } from "../types/vault";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  criteria: string;
-  status: MilestoneStatus;
-  validatedAt?: string;
-  evidenceUrl?: string;
-}
-
-interface VaultTransaction {
-  id: string;
-  type: TxType;
-  hash: string;
-  timestamp: string;
-  amount?: number;
-}
-
-interface Vault {
-  id: string;
-  name: string;
-  status: VaultStatus;
-  amount: number;
-  currency: string;
-  createdAt: string;
-  deadline: string;
-  creatorAddress: string;
-  verifierAddress?: string;
-  successAddress: string;
-  failureAddress: string;
-  contractAddress: string;
-  milestones: Milestone[];
-  transactions: VaultTransaction[];
-}
-
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_VAULTS: Record<string, Vault> = {
-  // Vault 1: active vault
-  "1": {
-    id: "1",
-    name: "Alpha Vault",
-    status: "active",
-    amount: 12500,
-    currency: "USDC",
-    createdAt: "2024-01-15T10:00:00Z",
-    deadline: "2024-07-15T10:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    verifierAddress: "GVERIF3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Phase 1 Complete",
-        description: "Complete initial development phase",
-        criteria: "All unit tests passing, code reviewed",
-        status: "validated",
-        validatedAt: "2024-02-20T14:30:00Z",
-        evidenceUrl: "https://github.com/org/repo/pull/42",
-      },
-      {
-        id: "m2",
-        title: "Beta Launch",
-        description: "Launch beta version to 100 users",
-        criteria: "Beta deployed, 100 active users onboarded",
-        status: "pending",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "a3f9d1c8e2b74056af3d9c1b2e8f0a4d",
-        timestamp: "2024-01-15T10:00:00Z",
-        amount: 12500,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "b4e0c2d9f3a85167bg4e0d2c3f9a5e8b",
-        timestamp: "2024-02-20T14:30:00Z",
-      },
-    ],
-  },
-  // Vault 2: completed vault (release) without a verifier address
-  "2": {
-    id: "2",
-    name: "Beta Reserve",
-    status: "completed",
-    amount: 4200.5,
-    currency: "USDC",
-    createdAt: "2023-10-01T09:00:00Z",
-    deadline: "2024-01-01T09:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT4KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Project Delivery",
-        description: "Deliver final project",
-        criteria: "All deliverables submitted and approved",
-        status: "validated",
-        validatedAt: "2023-12-28T11:00:00Z",
-        evidenceUrl: "https://docs.example.com/delivery",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "e7b3f5a2c6d18490ej7b3a5f6c2d8b1e",
-        timestamp: "2023-10-01T09:00:00Z",
-        amount: 4200.5,
-      },
-      {
-        id: "tx2",
-        type: "validate",
-        hash: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-        timestamp: "2023-12-28T11:00:00Z",
-      },
-      {
-        id: "tx3",
-        type: "release",
-        hash: "c5f1d3e0a4b96278ch5f1e3d4a0b6f9c",
-        timestamp: "2024-01-01T09:00:00Z",
-        amount: 4200.5,
-      },
-    ],
-  },
-  // Vault 3: failed vault (redirect)
-  "3": {
-    id: "3",
-    name: "Gamma Fund",
-    status: "failed",
-    amount: 8800,
-    currency: "USDC",
-    createdAt: "2023-08-01T08:00:00Z",
-    deadline: "2023-12-01T08:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT5KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Milestone 1",
-        description: "First milestone",
-        criteria: "Criteria not met",
-        status: "failed",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-        timestamp: "2023-08-01T08:00:00Z",
-        amount: 8800,
-      },
-      {
-        id: "tx2",
-        type: "redirect",
-        hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d",
-        timestamp: "2023-12-01T08:00:00Z",
-        amount: 8800,
-      },
-    ],
-  },
-  // Vault 4: cancelled vault with mixed milestone statuses and redirect destination
-  "4": {
-    id: "4",
-    name: "Delta Cancelled",
-    status: "cancelled",
-    amount: 5000,
-    currency: "USDC",
-    createdAt: "2023-08-01T08:00:00Z",
-    deadline: "2023-12-01T08:00:00Z",
-    creatorAddress: "GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L",
-    failureAddress: "GFAIL3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    successAddress: "GSUCC3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    contractAddress: "GCONT5KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK",
-    milestones: [
-      {
-        id: "m1",
-        title: "Milestone 1",
-        description: "First milestone",
-        criteria: "Criteria met",
-        status: "validated",
-      },
-      {
-        id: "m2",
-        title: "Milestone 2",
-        description: "Second milestone",
-        criteria: "Criteria not met",
-        status: "failed",
-      },
-      {
-        id: "m3",
-        title: "Milestone 3",
-        description: "Third milestone",
-        criteria: "Pending criteria",
-        status: "pending",
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "create",
-        hash: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-        timestamp: "2023-08-01T08:00:00Z",
-        amount: 5000,
-      },
-      {
-        id: "tx2",
-        type: "redirect",
-        hash: "d6a2e4f1b5c07389di6a2f4e5b1c7a0d",
-        timestamp: "2023-12-01T08:00:00Z",
-        amount: 5000,
-      },
-    ],
-  },
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const STATUS_CONFIG: Record<
-  VaultStatus,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: "Active",
-    color: "var(--accent)",
-    bg: "var(--accent-transparent)",
-  },
-  completed: {
-    label: "Completed",
-    color: "var(--success)",
-    bg: "rgba(16,185,129,0.1)",
-  },
-  failed: {
-    label: "Failed",
-    color: "var(--danger)",
-    bg: "rgba(239,68,68,0.1)",
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "var(--muted)",
-    bg: "rgba(156,163,175,0.1)",
-  },
-  pending_validation: {
-    label: "Pending Validation",
-    color: "var(--warning)",
-    bg: "rgba(245,158,11,0.1)",
-  },
-};
+import { useWallet } from "../context/WalletContext";
+import type { WalletNetwork } from "../context/WalletContext";
+import { submitVaultAction } from "../services/vaultService";
+import { useVaultDetail } from "../hooks/useVaultDetail";
+import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
+import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import { truncateMiddle } from "../utils/truncate";
+import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
+import { timelineProgress } from "../utils/vaultLifecycle";
+import {
+  VAULT_ACTIONS,
+  buildFundReleaseView,
+  detectSettlementAnomalies,
+  evalVaultActionAuth,
+  type VaultAction,
+  type VaultActionAuth,
+} from "../utils/vaultState";
+import type { Vault } from "../types/vault";
 
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",
@@ -275,10 +36,6 @@ const TX_LABELS: Record<string, string> = {
   release: "Funds Released",
   redirect: "Funds Redirected",
 };
-
-function truncHash(hash: string): string {
-  return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
-}
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -298,75 +55,13 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-function timelineProgress(created: string, deadline: string): number {
-  const start = new Date(created).getTime();
-  const end = new Date(deadline).getTime();
-  const now = Date.now();
-  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
-}
-
-function settlementForVault(vault: Vault): FundReleaseStatusProps {
-  const releaseTx = vault.transactions.find((tx) => tx.type === "release");
-  const redirectTx = vault.transactions.find((tx) => tx.type === "redirect");
-
-  if (vault.status === "completed") {
-    return {
-      outcome: "released",
-      destinationAddress: vault.successAddress,
-      amount: releaseTx?.amount ?? vault.amount,
-      currency: vault.currency,
-      transaction: releaseTx,
-    };
-  }
-
-  if (vault.status === "failed" || vault.status === "cancelled") {
-    return {
-      outcome: "redirected",
-      destinationAddress: vault.failureAddress,
-      amount: redirectTx?.amount ?? vault.amount,
-      currency: vault.currency,
-      transaction: redirectTx,
-    };
-  }
-
-  return {
-    outcome: "pending",
-    amount: vault.amount,
-    currency: vault.currency,
-  };
-}
-
-// ── Address Row ───────────────────────────────────────────────────────────────
-function AddrRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
-      <Text
-        role="caption"
-        as="span"
-        style={{ color: "var(--muted)", minWidth: 140 }}
-      >
-        {label}
-      </Text>
-      <AddressDisplay address={value} />
-    </div>
-  );
-}
-
 // ── Section Card ─────────────────────────────────────────────────────────────
 function Card({
   children,
   style,
 }: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
+  children: ReactNode;
+  style?: CSSProperties;
 }) {
   return (
     <div
@@ -383,36 +78,275 @@ function Card({
   );
 }
 
+// ── Vault action config ───────────────────────────────────────────────────────
+const VAULT_ACTION_CONFIG: Record<
+  VaultAction,
+  { title: string; message: string; confirmLabel: string }
+> = {
+  validate_milestone: {
+    title: "Validate Milestone",
+    message:
+      "Are you sure you want to validate the current milestone? This will trigger an on-chain transaction to advance the vault. This action cannot be undone.",
+    confirmLabel: "Validate",
+  },
+  extend_deadline: {
+    title: "Extend Deadline",
+    message:
+      "Are you sure you want to extend the vault deadline? The new deadline must be confirmed by all relevant parties before taking effect.",
+    confirmLabel: "Extend",
+  },
+  cancel_vault: {
+    title: "Cancel Vault",
+    message:
+      "Are you sure you want to cancel this vault? Funds will be redirected to the failure destination address. This action cannot be undone.",
+    confirmLabel: "Cancel Vault",
+  },
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
-  const vault = id ? MOCK_VAULTS[id] : undefined;
+  const { view, retry } = useVaultDetail(id);
+  const { address, network } = useWallet();
 
-  if (!vault) {
-    return (
-      <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-        <Text role="title" as="h2" style={{ marginBottom: "0.5rem" }}>
-          Vault not found
-        </Text>
-        <Text
-          role="body"
-          as="p"
-          style={{ color: "var(--muted)", marginBottom: "1.5rem" }}
-        >
-          No vault with ID "{id}" exists.
-        </Text>
-        <Link to="/vaults" style={{ color: "var(--accent)" }}>
-          ← Back to Vaults
-        </Link>
-      </div>
-    );
+  switch (view.status) {
+    case "loading":
+      return <LoadingView />;
+    case "invalid-id":
+      return <InvalidIdView id={view.id} />;
+    case "not-found":
+      return <NotFoundView id={view.id} />;
+    case "malformed":
+      return <MalformedView issues={view.issues} onRetry={retry} />;
+    case "error":
+      return <ErrorView id={view.id} onRetry={retry} />;
+    case "ready":
+      return (
+        <VaultDetailContent
+          vault={view.vault}
+          walletAddress={address}
+          walletNetwork={network}
+        />
+      );
   }
+}
 
-  const statusCfg = STATUS_CONFIG[vault.status];
+// ── Async boundary views ──────────────────────────────────────────────────────
+function LoadingView() {
+  return (
+    <div style={{ maxWidth: "var(--container-detail)", margin: "0 auto", padding: "0 0 3rem" }}>
+      <div
+        data-testid="vault-detail-loading"
+        style={{
+          height: 96,
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius)",
+          animation: "pulse 1.5s ease-in-out infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
+      <Text role="title" as="h2" style={{ marginBottom: "0.5rem" }}>
+        {title}
+      </Text>
+      <div
+        style={{
+          color: "var(--muted)",
+          marginBottom: "1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.25rem",
+          alignItems: "center",
+        }}
+      >
+        {children}
+      </div>
+      <Link to="/vaults" style={{ color: "var(--accent)" }}>
+        ← Back to Vaults
+      </Link>
+    </div>
+  );
+}
+
+function InvalidIdView({ id }: { id: string }) {
+  return (
+    <EmptyState title="Invalid vault identifier">
+      <Text role="body" as="p" style={{ margin: 0 }}>
+        The vault ID "{id}" is not a valid identifier and could not be used.
+      </Text>
+      <Text role="caption" as="p" style={{ margin: 0 }}>
+        Check the link you followed and try again.
+      </Text>
+    </EmptyState>
+  );
+}
+
+function NotFoundView({ id }: { id: string }) {
+  return (
+    <EmptyState title="Vault not found">
+      <Text role="body" as="p" style={{ margin: 0 }}>
+        No vault with ID "{id}" exists.
+      </Text>
+    </EmptyState>
+  );
+}
+
+function MalformedView({
+  issues,
+  onRetry,
+}: {
+  issues: string[];
+  onRetry: () => void;
+}) {
+  return (
+    <EmptyState title="Vault data could not be verified">
+      <div role="alert" style={{ color: "var(--danger)" }}>
+        The vault response failed validation and its state was not rendered.
+        {issues.length > 0 && (
+          <ul style={{ textAlign: "left", marginTop: "0.5rem" }}>
+            {issues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        style={{
+          marginTop: "0.5rem",
+          background: "transparent",
+          border: "1px solid var(--accent)",
+          color: "var(--accent)",
+          borderRadius: "var(--radius)",
+          padding: "0.4rem 0.9rem",
+          cursor: "pointer",
+          fontSize: 13,
+          fontWeight: 600,
+          minHeight: 36,
+        }}
+      >
+        Retry
+      </button>
+    </EmptyState>
+  );
+}
+
+function ErrorView({ id, onRetry }: { id: string; onRetry: () => void }) {
+  return (
+    <EmptyState title="Failed to load vault">
+      <Text role="body" as="p" style={{ margin: 0 }}>
+        Vault "{id}" could not be loaded right now.
+      </Text>
+      <button
+        type="button"
+        onClick={onRetry}
+        style={{
+          background: "transparent",
+          border: "1px solid var(--accent)",
+          color: "var(--accent)",
+          borderRadius: "var(--radius)",
+          padding: "0.4rem 0.9rem",
+          cursor: "pointer",
+          fontSize: 13,
+          fontWeight: 600,
+          minHeight: 36,
+        }}
+      >
+        Retry
+      </button>
+    </EmptyState>
+  );
+}
+
+// ── Ready content ─────────────────────────────────────────────────────────────
+interface VaultDetailContentProps {
+  vault: Vault;
+  walletAddress: string | null;
+  walletNetwork: WalletNetwork | null;
+}
+
+function VaultDetailContent({
+  vault,
+  walletAddress,
+  walletNetwork,
+}: VaultDetailContentProps) {
+  const { network } = useWallet();
+
+  const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const authResults = useMemo(() => {
+    const results = {} as Record<VaultAction, VaultActionAuth>;
+    for (const action of VAULT_ACTIONS) {
+      results[action] = evalVaultActionAuth({
+        action,
+        vault,
+        walletAddress,
+        walletNetwork,
+        expectedNetwork: APP_EXPECTED_NETWORK,
+      });
+    }
+    return results;
+  }, [vault, walletAddress, walletNetwork]);
+
+  const handleActionClick = (action: VaultAction) => {
+    setActiveAction(action);
+    setActionError(null);
+  };
+
+  const handleModalClose = () => {
+    if (isSubmitting) return;
+    setActiveAction(null);
+    setActionError(null);
+  };
+
+  const handleActionConfirm = async () => {
+    if (!activeAction || isSubmitting) return;
+
+    setActionError(null);
+    setIsSubmitting(true);
+    try {
+      await submitVaultAction(activeAction, vault.id);
+      setActiveAction(null);
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "The action could not be submitted. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const progress = timelineProgress(vault.createdAt, vault.deadline);
   const isActive =
     vault.status === "active" || vault.status === "pending_validation";
-  const settlement = settlementForVault(vault);
+  const settlement = buildFundReleaseView(vault);
+  const settlementAnomalies = detectSettlementAnomalies(vault);
+  const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const handleCalendarExport = () => {
+    downloadIcsEvent({
+      title: `${vault.name} deadline`,
+      deadline: vault.deadline,
+      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      uid: `vault-${vault.id}-deadline`,
+    });
+  };
 
   return (
     <div
@@ -422,6 +356,15 @@ export default function VaultDetail() {
         padding: "0 0 3rem",
       }}
     >
+      <Breadcrumb
+        segments={[
+          { label: "Home", to: "/" },
+          { label: "Vaults", to: "/vaults" },
+          { label: vault.name },
+        ]}
+        style={{ marginBottom: "var(--spacing-4)" }}
+      />
+
       {/* Back link */}
       <Link
         to="/vaults"
@@ -459,19 +402,7 @@ export default function VaultDetail() {
               <Text role="title" as="h1" style={{ margin: 0 }}>
                 {vault.name}
               </Text>
-              <span
-                style={{
-                  background: statusCfg.bg,
-                  color: statusCfg.color,
-                  border: `var(--border-width-1) solid ${statusCfg.color}`,
-                  borderRadius: "var(--radius-full)",
-                  padding: "2px 12px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {statusCfg.label}
-              </span>
+              <StatusChip status={vault.status} size="lg" />
             </div>
             <Text
               role="display"
@@ -492,20 +423,57 @@ export default function VaultDetail() {
           </div>
 
           {/* Quick Actions */}
-          {isActive && (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {vault.status === "pending_validation" && (
-                <button style={actionBtn("var(--accent)")}>
-                  Validate Milestone
-                </button>
-              )}
-              <button style={actionBtn("var(--warning)")}>
-                Extend Deadline
-              </button>
-              <button style={actionBtn("var(--danger)")}>Cancel Vault</button>
-            </div>
-          )}
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link
+              to="/vaults/create"
+              state={createVaultPrefillFromVault(vault)}
+              style={{
+                ...actionBtn("var(--accent)"),
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Duplicate Vault
+            </Link>
+            {isActive && (
+              <>
+                {vault.status === "pending_validation" && (
+                  <ActionButton
+                    label="Validate Milestone"
+                    color="var(--accent)"
+                    auth={authResults.validate_milestone}
+                    onClick={() => handleActionClick("validate_milestone")}
+                  />
+                )}
+                <ActionButton
+                  label="Extend Deadline"
+                  color="var(--warning)"
+                  auth={authResults.extend_deadline}
+                  onClick={() => handleActionClick("extend_deadline")}
+                />
+                <ActionButton
+                  label="Cancel Vault"
+                  color="var(--danger)"
+                  auth={authResults.cancel_vault}
+                  onClick={() => handleActionClick("cancel_vault")}
+                />
+              </>
+            )}
+          </div>
         </div>
+
+        {isActive &&
+          !authResults.extend_deadline.allowed &&
+          authResults.extend_deadline.reasons.length > 0 && (
+            <Text
+              role="caption"
+              as="p"
+              style={{ color: "var(--muted)", marginTop: "0.5rem", marginBottom: 0 }}
+            >
+              Actions are limited because: {authResults.extend_deadline.reasons[0]}
+            </Text>
+          )}
       </Card>
 
       {/* ── Timeline ── */}
@@ -527,10 +495,14 @@ export default function VaultDetail() {
           label={`${vault.name} timeline progress`}
           showValue={false}
         />
+        <VaultLifecycle status={vault.status} />
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.5rem",
             marginTop: "0.5rem",
           }}
         >
@@ -540,17 +512,29 @@ export default function VaultDetail() {
           {isActive ? (
             <CountdownDeadline deadline={vault.deadline} />
           ) : (
-            <Text
-              role="caption"
-              as="span"
-              style={{ color: statusCfg.color, fontWeight: 600 }}
-            >
-              {statusCfg.label}
-            </Text>
+            <StatusChip status={vault.status} />
           )}
-          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Deadline {fmtDate(vault.deadline)}
-          </Text>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+              Deadline {fmtDate(vault.deadline)}
+            </Text>
+            {canExportDeadline ? (
+              <button
+                type="button"
+                onClick={handleCalendarExport}
+                style={actionBtn("var(--accent)")}
+              >
+                Add to calendar
+              </button>
+            ) : null}
+          </div>
         </div>
       </Card>
 
@@ -593,33 +577,42 @@ export default function VaultDetail() {
         </Card>
 
         <Card>
-          <Text
-            role="caption"
-            as="div"
-            style={{
-              color: "var(--muted)",
-              marginBottom: "1rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Addresses
-          </Text>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
-          >
-            <AddrRow label="Creator" value={vault.creatorAddress} />
-            {vault.verifierAddress && (
-              <AddrRow label="Verifier" value={vault.verifierAddress} />
-            )}
-            <AddrRow label="Success destination" value={vault.successAddress} />
-            <AddrRow label="Failure destination" value={vault.failureAddress} />
-            <AddrRow label="Contract" value={vault.contractAddress} />
-          </div>
+          <VaultMetaPanel
+            network={network}
+            creatorAddress={vault.creatorAddress}
+            verifierAddress={vault.verifierAddress}
+            successAddress={vault.successAddress}
+            failureAddress={vault.failureAddress}
+            contractAddress={vault.contractAddress}
+          />
         </Card>
       </div>
 
-      <FundReleaseStatus {...settlement} />
+      {settlementAnomalies.length > 0 && (
+        <div
+          role="alert"
+          aria-label="Fund release inconsistency notice"
+          style={{
+            marginBottom: "1.25rem",
+            padding: "0.75rem 1rem",
+            color: "var(--danger)",
+            background: "var(--bg)",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          <Text role="caption" as="p" style={{ margin: 0, fontWeight: 700 }}>
+            Fund release data could not be verified:
+          </Text>
+          <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.25rem" }}>
+            {settlementAnomalies.map((anomaly) => (
+              <li key={anomaly}>{anomaly}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <FundReleaseStatus {...settlement} network={APP_EXPECTED_NETWORK} />
 
       {/* ── Milestones ── */}
       <Card style={{ marginBottom: "1.25rem" }}>
@@ -705,7 +698,7 @@ export default function VaultDetail() {
                     as="span"
                     style={{ color: "var(--muted)", fontSize: 11 }}
                   >
-                    {truncHash(tx.hash)}
+                    {truncateMiddle(tx.hash, 8, 6)}
                   </Text>
                   <button
                     type="button"
@@ -726,7 +719,7 @@ export default function VaultDetail() {
                     ⎘
                   </button>
                   <a
-                    href={`https://stellar.expert/explorer/public/tx/${tx.hash}`}
+                    href={getExplorerTxUrl(tx.hash, network)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "var(--accent)", fontSize: 11 }}
@@ -739,7 +732,179 @@ export default function VaultDetail() {
           ))}
         </div>
       </Card>
+
+      {/* ── Network Footer Banner ── */}
+      <NetworkFooterBanner
+        network={network}
+        contractAddress={vault.contractAddress}
+      />
+
+      {/* ── Vault Action Confirmation Modal ── */}
+      {activeAction && (
+        <>
+          {actionError && (
+            <div
+              role="alert"
+              style={{
+                marginTop: "1rem",
+                padding: "0.75rem 1rem",
+                color: "var(--danger)",
+                background: "var(--bg)",
+                border: "1px solid var(--danger)",
+                borderRadius: "var(--radius)",
+              }}
+            >
+              {actionError}
+            </div>
+          )}
+          <ConfirmationModal
+            isOpen={activeAction !== null}
+            onClose={handleModalClose}
+            onConfirm={handleActionConfirm}
+            simpleConfirm={VAULT_ACTION_CONFIG[activeAction]}
+            isSubmitting={isSubmitting}
+          />
+        </>
+      )}
     </div>
+  );
+}
+
+// ── Action button with authorization gate ─────────────────────────────────────
+function ActionButton({
+  label,
+  color,
+  auth,
+  onClick,
+}: {
+  label: string;
+  color: string;
+  auth: VaultActionAuth;
+  onClick: () => void;
+}) {
+  return (
+    <span
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.25rem",
+        alignItems: "flex-start",
+      }}
+    >
+      <button
+        type="button"
+        style={{ ...actionBtn(color), opacity: auth.allowed ? 1 : 0.55 }}
+        onClick={onClick}
+        disabled={!auth.allowed}
+        aria-disabled={!auth.allowed}
+      >
+        {label}
+      </button>
+      {!auth.allowed && auth.reasons.length > 0 && (
+        <Text
+          role="caption"
+          as="span"
+          style={{ color: "var(--muted)", maxWidth: 220 }}
+        >
+          {auth.reasons[0]}
+        </Text>
+      )}
+    </span>
+  );
+}
+
+// ── Network Footer Banner ─────────────────────────────────────────────────────
+interface NetworkFooterBannerProps {
+  network: string | null | undefined;
+  contractAddress: string;
+}
+
+function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerProps) {
+  const label = networkLabel(network);
+  const explorerUrl = contractAddress
+    ? contractExplorerUrl(contractAddress, network ?? "TESTNET")
+    : "";
+
+  const isTestnet = network !== "PUBLIC";
+  const networkStatusColor = isTestnet
+    ? "var(--warning)"
+    : "var(--success)";
+
+  return (
+    <footer
+      aria-label="Network information"
+      style={{
+        marginTop: "1.5rem",
+        padding: "0.75rem 1rem",
+        borderRadius: "var(--radius)",
+        border: `1px solid ${networkStatusColor}`,
+        background: isTestnet
+          ? "rgba(245,158,11,0.07)"
+          : "rgba(16,185,129,0.07)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "0.5rem 1rem",
+      }}
+    >
+      {/* Network badge */}
+      <span
+        aria-label={`Network: ${label}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          fontWeight: 700,
+          fontSize: 12,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: networkStatusColor,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: networkStatusColor,
+          }}
+        />
+        {label}
+      </span>
+
+      {/* Contract address */}
+      {contractAddress && (
+        <Text
+          role="mono"
+          as="span"
+          style={{ color: "var(--muted)", fontSize: 12, flex: 1, minWidth: 0 }}
+          aria-label={`Contract address: ${contractAddress}`}
+        >
+          {contractAddress}
+        </Text>
+      )}
+
+      {/* Explorer link */}
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View contract ${contractAddress} on Stellar ${label} explorer`}
+          style={{
+            color: networkStatusColor,
+            fontSize: 12,
+            fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          View on Explorer ↗
+        </a>
+      )}
+    </footer>
   );
 }
 

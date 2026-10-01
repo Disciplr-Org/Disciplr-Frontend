@@ -11,3 +11,5 @@ Analytics charts resolve runtime CSS variables from `src/index.css`, which mirro
 `src/pages/Analytics.tsx` recomputes chart colors when `data-theme` changes so Recharts receives concrete color values for the active light or dark theme. Chart containers use Recharts `ResponsiveContainer` for fluid width behavior.
 
 Each chart includes a screen-reader summary adjacent to the visual chart. Animated Recharts series are disabled when the user prefers reduced motion.
+
+When the active period has an empty series, the period-driven charts render a shared empty-state placeholder with the message `No data for this period (...)` instead of showing empty axes.

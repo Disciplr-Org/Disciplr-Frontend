@@ -19,7 +19,7 @@ We have noticed a significant drop-off during the "Create Vault" flow. Initial f
 - **Type:** Moderated Usability Testing.
 - **Participants:** 5–8 participants (mix of crypto-native and newcomers).
 - **Format:** 45-minute remote sessions via Zoom/Google Meet.
-- **Tooling:** [Figma Prototype (Insert Node ID here)](https://www.figma.com/file/placeholder)
+- **Tooling:** [Figma Prototype (disciplr-UI, node 2-205)](https://www.figma.com/design/GkjxDprLby77a5h13GH56F/disciplr-UI?node-id=2-205&t=cD4A5k93cUikEqT7-0)
 
 ## 4. Success Metrics
 - **Task Success Rate:** % of participants who successfully create a vault without assistance.

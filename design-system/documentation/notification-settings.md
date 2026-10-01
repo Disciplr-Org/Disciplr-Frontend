@@ -10,6 +10,26 @@ NotificationSettings uses semantic app tokens instead of fixed light-mode Tailwi
 
 These tokens are backed by `design-system/tokens/colors.json` neutral and secondary/accent values and mirrored in `src/index.css` for runtime theme switching.
 
+## State Management and Persistence
+
+Notification preferences are stored globally and persisted across page reloads using the `useNotificationPreferences` Zustand store (defined in `src/Zustand/notificationPreferences.ts` and exported from `src/Zustand/Store.ts`).
+
+### Fields
+- `email`: boolean (default: `true`)
+- `push`: boolean (default: `false`)
+- `frequency`: string (default: `""`)
+- `quietHours`: string (default: `"12:00"`)
+
+### Actions
+- `setEmail(value: boolean)`: Update email preference.
+- `setPush(value: boolean)`: Update push notification preference.
+- `setFrequency(value: string)`: Update notification frequency.
+- `setQuietHours(value: string)`: Update quiet hours timing.
+- `reset()`: Reset preferences back to their default values.
+
+### Persistence Details
+Preferences are stored in `localStorage` under the key `"notification-preferences"`. Any component in the app can read from or write to this store to coordinate user notification preferences across surfaces (e.g., the notification settings page, header notification bell, etc.).
+
 ## Header Notification Bell
 
 The `NotificationBell` component is integrated into the Layout header to provide an interactive and accessible entry point to notifications:

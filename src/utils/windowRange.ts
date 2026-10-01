@@ -12,9 +12,9 @@
 export const WINDOW_THRESHOLD = 50;
 export const WINDOW_SIZE = 40;
 
-export interface WindowResult {
+export interface WindowResult<T> {
   /** Slice of items that should be rendered. */
-  items: unknown[];
+  items: T[];
   /** Index of the first rendered item in the source array. */
   startIndex: number;
   /** Index one past the last rendered item in the source array. */
@@ -34,7 +34,7 @@ export function windowRange<T>(
   items: T[],
   anchorIndex = 0,
   windowSize = WINDOW_SIZE,
-): WindowResult & { items: T[] } {
+): WindowResult<T> {
   const total = items.length;
 
   if (total <= WINDOW_THRESHOLD) {
