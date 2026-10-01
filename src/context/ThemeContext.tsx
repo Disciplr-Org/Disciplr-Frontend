@@ -1,4 +1,4 @@
-import { createContext, useContext, effect, useMemo, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 
 // In-memory fallback when localStorage fails
 let memoryPreference: UserPreference | null = null;
@@ -108,7 +108,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   const toggleTheme = useCallback(() => {
-    setPreferenceState((prev) => NETT_PREFERENCE[prev]);
+    setPreferenceState((prev) => NEUT_PREFERENCE[prev]);
   }, []);
 
   // Validate input at the boundary: ignore invalid preferences rather than
