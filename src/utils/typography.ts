@@ -7,6 +7,15 @@
 
 export type TypographyRole = 'display' | 'title' | 'subtitle' | 'body' | 'caption' | 'mono';
 
+const TYPOGRAPHY_CLASSES: Readonly<Record<TypographyRole, string>> = Object.freeze({
+  display: 'text-display',
+  title: 'text-title',
+  subtitle: 'text-subtitle',
+  body: 'text-body',
+  caption: 'text-caption',
+  mono: 'text-mono',
+});
+
 /**
  * Immutable mapping of typography roles to CSS classes
  * Frozen to prevent runtime modifications that could break invariants

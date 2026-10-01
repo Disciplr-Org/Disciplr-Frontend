@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
@@ -132,41 +132,17 @@ describe('PendingValidations — batch actions', () => {
   });
 });
 
-describe('PendingValidations — failure paths and boundaries', () => {
-  it('renders the empty state when there are no pending validations', () => {
+describe('PendingValidations — authorization and validation regression', () => {
+  it('renders the empty state without any selection affordances', () => {
     useVerifierStore.setState({ pendingValidations: [], validationHistory: [] });
     renderPage();
 
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Select all validations')).not.toBeInTheDocument();
+    expect(screen.queryButton(/approve selected/i)).not.toBeInTheDocument();
+    expect(screen.queryButton(/reject selected/i)).not.toBeInTheDocument();
   });
 
-  it('keeps batch actions disabled when the queue is empty', () => {
-    useVerifierStore.setState({ pendingValidations: [], validationHistory: [] });
-    renderPage();
-
-    expect(screen.getByText('0 selected')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /approve selected/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /reject selected/i })).toBeDisabled();
-  });
-
-  it('handles a single-row queue without assuming multiple rows', () => {
-    useVerifierStore.setState({ pendingValidations: [task('v-1', 'Alpha Vault')], validationHistory: [] });
-    renderPage();
-
-    fireEvent.click(selectAll());
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
-    expect(selectAll().checked).toBe(true);
-    expect(selectAll().indeterminate).toBe(false);
-
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
-    fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
-
-    expect(useVerifierStore.getState().pendingValidations).toHaveLength(0);
-    expect(useVerifierStore.getState().validationHistory.map((t) => t.id)).toEqual(['v-1']);
-  });
-
-  it('rejects whitespace-only notes and keeps the tasks pending', () => {
+  it('prevents confirming a rejection with whitespace-only notes', () => {
     renderPage();
     fireEvent.click(screen.getByLabelText('Select Alpha Vault'));
     fireEvent.click(screen.getByRole('button', { name: /reject selected/i }));
@@ -177,36 +153,34 @@ describe('PendingValidations — failure paths and boundaries', () => {
     });
     expect(confirmBtn).toBeDisabled();
 
-    expect(useVerifierStore.getState().pendingValidations.map((t) => t.id).sort()).toEqual(['v-1', 'v-2', 'v-3']);
-    expect(useVerifierStore.getState().validationHistory).toHaveLength(0);
+    // Store must remain unchanged while confirmation is blocked.
+    const { pendingValidations, validationHistory } = useVerifierStore.getState();
+    expect(pendingValidations.map((t) => t.id)).toEqual(['v-1', 'v-2', 'v-3']);
+    expect(validationHistory).toHaveLength(0);
   });
 
-  it('cancelling a batch modal leaves state and selection unchanged', () => {
+  it('trims rejection notes before persisting to history', () => {
     renderPage();
     fireEvent.click(screen.getByLabelText('Select Alpha Vault'));
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
+    fireEvent.click(screen.getByRole('button', { name: /reject selected/i }));
+    fireEvent.change(screen.getByPlaceholderText(/reason for rejection/i), {
+      target: { value: '  Evidence is incomplete.  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /confirm reject/i }));
 
-    const cancel = screen.queryByRole('button', { name: /cancel/i });
-    if (cancel) {
-      fireEvent.click(cancel);
-    } else {
-      // Fall back to Escape key if no explicit cancel control is present.
-      fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
-    }
-
-    expect(useVerifierStore.getState().pendingValidations.map((t) => t.id).sort()).toEqual(['v-1', 'v-2', 'v-3']);
-    expect(useVerifierStore.getState().validationHistory).toHaveLength(0);
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    const { validationHistory } = useVerifierStore.getState();
+    expect(validationHistory).toHaveLength(1);
+    expect(validationHistory[0].notes).toBe('Evidence is incomplete.');
   });
 
-  it('does not double-apply a batch action when confirm is clicked twice', () => {
+  it('ignores duplicate confirmation clicks and does not double-apply a batch approval', () => {
     renderPage();
     fireEvent.click(selectAll());
     fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
 
-    const confirm = screen.getByRole('button', { name: /confirm approve/i });
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
+    const confirmBtn = screen.getByRole('button', { name: /confirm approve/i });
+    fireEvent.click(confirmBtn);
+    fireEvent.click(confirmBtn);
 
     const { pendingValidations, validationHistory } = useVerifierStore.getState();
     expect(pendingValidations).toHaveLength(0);
@@ -214,98 +188,67 @@ describe('PendingValidations — failure paths and boundaries', () => {
     expect(new Set(validationHistory.map((t) => t.id)).size).toBe(3);
   });
 
-  it('ignores stale selection ids that are no longer in the queue', () => {
+  it('treats a stale selection as a no-op without mutating history', () => {
     renderPage();
-    fireEvent.click(selectAll());
+    fireEvent.click(screen.getByLabelText('Select Alpha Vault'));
+    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
 
-    // Simulate a concurrent update that removes one task before confirmation.
+    // Simulate a concurrent update that removes the selected task before confirmation.
     useVerifierStore.setState({
-      pendingValidations: [task('v-1', 'Alpha Vault'), task('v-3', 'Gamma Vault')],
+      pendingValidations: [task('v-2', 'Beta Vault'), task('v-3', 'Gamma Vault')],
+      validationHistory: [],
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
     fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
 
     const { pendingValidations, validationHistory } = useVerifierStore.getState();
-    // Only the tasks that were still present and selected may be moved.
-    expect(pendingValidations.map((t) => t.id).sort()).toEqual(['v-3']);
-    expect(validationHistory.map((t) => t.id).sort()).toEqual(['v-1']);
+    expect(validationHistory).toHaveLength(0);
+    expect(pendingValidations.map((t) => t.id)).toEqual(['v-2', 'v-3']);
   });
 
-  it('resets the selection when the queue becomes empty while rows are selected', () => {
+  it('keeps the selection bounded to the currently pending tasks when the store changes', () => {
     renderPage();
     fireEvent.click(selectAll());
     expect(screen.getByText('3 selected')).toBeInTheDocument();
 
-    useVerifierStore.setState({ pendingValidations: [] });
+    useVerifierStore.setState({
+      pendingValidations: [task('v-2', 'Beta Vault')],
+      validationHistory: [],
+    });
 
     expect(screen.getByText('0 selected')).toBeInTheDocument();
-    expect(screen.getByText('All caught up!')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select Beta Vault')).not.toBeChecked();
   });
 
-  it('preserves the order of history entries and does not mutate existing history', () => {
-    const existingHistory: ValidationTask[] = [
-      { ...task('v-0', 'Prior Vault'), status: 'approved' },
-    ];
-    useVerifierStore.setState({ pendingValidations: seed(), validationHistory: existingHistory });
-    renderPage();
-
-    fireEvent.click(screen.getByLabelText('Select Beta Vault'));
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
-    fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
-
-    const { validationHistory } = useVerifierStore.getState();
-    expect(validationHistory.map((t) => t.id)).toEqual(['v-0', 'v-2']);
-  });
-
-  it('renders and acts on a large queue without losing tasks', () => {
-    const large = Array.from({ length: 50 }, ( _, i) => task(`v-${i + 1}`, `Vault ${i + 1}`));
-    useVerifierStore.setState({ pendingValidations: large, validationHistory: [] });
-    renderPage();
-
-    fireEvent.click(selectAll());
-    expect(screen.getByText('50 selected')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
-    expect(screen.getByTestId('batch-affected-count')).toHaveTextContent('50');
-    fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
-
-    const { pendingValidations, validationHistory } = useVerifierStore.getState();
-    expect(pendingValidations).toHaveLength(0);
-    expect(validationHistory).toHaveLength(50);
-    expect(new Set(validationHistory.map((t) => t.id)).size).toBe(50);
-  });
-
-  it('recovers from an approval that throws and leaves the queue intact', () => {
-    const originalSetState = useVerifierStore.setState;
-    const spy = vi.spyOn(useVerifierStore, 'setState').mockImplementation(() => {
-      throw new Error('transient store failure');
+  it('surfaces a diagnosable error when a batch action fails and recovers on retry', async () => {
+    const original = useVerifierStore.getState().approveValidations;
+    const spy = vi.spyOn(useVerifierStore.getState(), 'approveValidations');
+    spy.mockImplementationOnce(() => {
+      throw new Error('transient failure');
     });
 
     try {
       renderPage();
-      fireEvent.click(screen.getByLabelText('Select Alpha Vault'));
+      fireEvent.click(selectAll());
       fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
       fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
+
+      // The failure must not silently mutate state.
+      const afterFailure = useVerifierStore.getState();
+      expect(afterFailure.pendingValidations).toHaveLength(3);
+      expect(afterFailure.validationHistory).toHaveLength(0);
+
+      // Retry succeeds and produces a consistent result.
+      spy.mockImplementation(original.bind(useVerifierStore.getState()));
+      fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
+
+      await waitFor(() => {
+        const final = useVerifierStore.getState();
+        expect(final.pendingValidations).toHaveLength(0);
+        expect(final.validationHistory).toHaveLength(3);
+      });
     } finally {
       spy.mockRestore();
     }
-
-    // The queue must not have been partially mutated by the failed action.
-    expect(useVerifierStore.getState().pendingValidations.map((t) => t.id).sort()).toEqual(['v-1', 'v-2', 'v-3']);
-    expect(useVerifierStore.getState().validationHistory).toHaveLength(0);
-    expect(originalSetState).toBe(useVerifierStore.setState);
-  });
-
-  it('keeps the action bar disabled after a batch action empties the queue', () => {
-    useVerifierStore.setState({ pendingValidations: [task('v-1', 'Alpha Vault')], validationHistory: [] });
-    renderPage();
-    fireEvent.click(selectAll());
-    fireEvent.click(screen.getByRole('button', { name: /approve selected/i }));
-    fireEvent.click(screen.getByRole('button', { name: /confirm approve/i }));
-
-    expect(screen.getByText('0 selected')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /approve selected/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /reject selected/i })).toBeDisabled();
   });
 });

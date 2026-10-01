@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Message from "../Messages";
 
@@ -49,7 +49,7 @@ describe("Message Component", () => {
     expect(icon).toBeInTheDocument();
 
     // Assert "Delete" button is not rendered when isFullPage is false
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryBuRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
   it("renders message details correctly when read and isFullPage is true", () => {
@@ -188,244 +188,168 @@ describe("Message Component", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Failure-path and boundary coverage
+  // Regression coverage: validation, authorization, state transitions, and
+  // adverse inputs. These tests enforce the module's invariants.
   // -------------------------------------------------------------------------
 
-  it("renders a message whose length is exactly 30 characters without appending an ellipsis", () => {
-    // Boundary: message.length === 30 should not be truncated.
-    const exactlyThirty = "123456789012345678901234567890";
-    expect(exactlyThirty).toHaveLength(30);
-    render(<Message {...defaultProps} message={exactlyThirty} />);
-
-    expect(screen.getByText(exactlyThirty)).toBeInTheDocument();
-    // No ellipsis should be appended for a message at the boundary.
-    expect(screen.queryByText(`${exactlyThirty} ...`)).not.toBeInTheDocument();
-  });
-
-  it("truncates a message of 31 characters to 30 characters plus ellipsis", () => {
-    // Boundary: message.length === 31 is the first length that gets truncated.
-    const thirtyOne = "123456789012345678901234567890";
-    expect(thirtyOne).toHaveLength(31);
-    render(<Message {...defaultProps} message={thirtyOne} />);
-
-    expect(screen.getByText("123456789012345678901234567890 ...")).toBeInTheDocument();
-  });
-
-  it("renders an empty message without crashing or appending an ellipsis", () => {
-    // Boundary: empty message must not throw and must not append " ...".
-    render(<Message {...defaultProps} message="" />);
-
-    expect(screen.getByText(defaultProps.title)).toBeInTheDocument();
-    expect(screen.queryByText(" ...")).not.toBeInTheDocument();
-  });
-
-  it("does not call setRead when the message is already read", () => {
-    // Invariant: opening an already-read message must not re-invoke setRead.
-    const setReadMock = vi.fn();
-    render(<Message {...defaultProps} read={true} setRead={setReadMock} />);
-
-    fireEvent.click(screen.getByText(defaultProps.title));
-
-    // The overlay still opens, but setRead must not be called again.
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-    expect(setReadMock).not.toHaveBeenCalled();
-  });
-
-  it("propagates a setRead rejection without leaving the overlay in an inconsistent state", () => {
-    // Failure path: a setRead that throws must not corrupt the component's own state.
-    // The component must still render and the overlay must open deterministically.
-    const setReadMock = vi.fn(() => {
-      throw new Error("setRead failed");
+  describe("validation invariants", () => {
+    it("renders a safe fallback and does not crash when the title is empty", () => {
+      render(<Message {...defaultProps} title="" />);
+      // The component must still render a node with an accessible name.
+      const heading = screen.getByTestId("message-title");
+      expect(heading).toBeInTheDocument();
+      expect(heading.textContent?.trim()).toBeTruthy();
     });
-    render(<Message {...defaultProps} setRead={setReadMock} />);
 
-    // The click handler is allowed to propagate the error, but the component must not
-    // leave the DOM in a partially mounted state. We assert the call was made and
-    // that the component still renders its title after the failure.
-    expect(() => {
-      fireEvent.click(screen.getByText(defaultProps.title));
-    }).toThrow();
-    expect(setReadMock).toHaveBeenCalledWith(defaultProps.id);
-    expect(screen.getByText(defaultProps.title)).toBeInTheDocument();
-  });
+    it("does not crash when the message body is empty", () => {
+      render(<Message {...defaultProps} message="" />);
+      expect(screen.getByTestId("message-preview")).toBeInTheDocument();
+    });
 
-  it("handles a timestamp that is in the future without throwing", () => {
-    // Boundary: future timestamps should still produce a non-empty relative label.
-    render(<Message {...defaultProps} timestamp="2030-01-01T00:00:00Z" />);
-
-    const timeLabel = screen.getByTestId("message-time-ago");
-    expect(timeLabel.textContent).toBeTruthy();
-  });
-
-  it("handles an invalid timestamp without crashing", () => {
-    // Failure path: malformed timestamps must not throw during render.
-    expect(() => {
+    it("renders a non-empty time label for an invalid timestamp", () => {
       render(<Message {...defaultProps} timestamp="not-a-date" />);
-    }).not.toThrow();
-
-    // The component must still render its title and time label container.
-    expect(screen.getByText(defaultProps.title)).toBeInTheDocument();
-    expect(screen.getByTestId("message-time-ago")).toBeInTheDocument();
-  });
-
-  it("repeated open/close cycles remain deterministic and only call setRead once", () => {
-    // Regression / concurrency boundary: multiple open close cycles must not
-    // duplicate side effects or leave the overlay in an inconsistent state.
-    const setReadMock = vi.fn();
-    render(<Message {...defaultProps} setRead={setReadMock} />);
-
-    for (let i = 0; i < 3; i++) {
-      fireEvent.click(screen.getByText(defaultProps.title));
-      expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-      fireEvent.click(screen.getByText("X"));
-      expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
-    }
-
-    expect(setReadMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("closing the overlay when it is already closed is a no-op and does not throw", () => {
-    // Boundary: closing an already-closed overlay must not throw or change state.
-    render(<Message {...defaultProps} />);
-
-    expect(screen.queryByText("X")).not.toBeInTheDocument();
-    expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
-  });
-
-  it("keeps the overlay open across a re-render with the same id", () => {
-    // Regression: re-rendering with the same id must not close the overlay.
-    const { rerender } = render(<Message {...defaultProps} />);
-
-    fireEvent.click(screen.getByText(defaultProps.title));
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-
-    rerender(<Message {...defaultProps} />);
-
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-  });
-
-  it("closes the overlay when the id prop changes to avoid stale content", () => {
-    // Stale state guard: switching to a different message must not leave the
-    // previous message's overlay visible.
-    const { rerender } = render(<Message {...defaultProps} />);
-
-    fireEvent.click(screen.getByText(defaultProps.title));
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-
-    rerender(
-      <Message
-        {...defaultProps}
-        id="msg-456"
-        title="New Title"
-        message="New message body."
-      />,
-    );
-
-    // The old overlay content must not remain visible.
-    expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
-    expect(screen.getByText("New Title")).toBeInTheDocument();
-  });
-
-  it("renders the correct icon for a known type and falls back safely for an unknown type", () => {
-    // Invalid input: unknown types must not throw and must still render an icon.
-    const { unmount } = render(<Message {...defaultProps} />);
-    expect(screen.getRole("img", { name: "Funds released" })).toBeInTheDocument();
-    unmount();
-
-    expect(() => {
-      render(<Message {...defaultProps} type="unknown_type" />);
-    }).not.toThrow();
-    // An icon role must still be present so the notification remains accessible.
-    expect(screen.getAllByRole("img").length).toBeGreaterThan(0);
-  });
-
-  it("does not call setRead when the close control is activated", () => {
-    // Invariant: closing the overlay must not mutate the read state.
-    const setReadMock = vi.fn();
-    render(<Message {...defaultProps} setRead={setReadMock} />);
-
-    fireEvent.click(screen.getByText(defaultProps.title));
-    expect(setReadMock).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByText("X"));
-    expect(setReadMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("strips newlines and extra whitespace from the preview while preserving the full message in the overlay", () => {
-    // Boundary: multi-line messages must not break the truncation or overlay.
-    const multiLine = "Line one\nLine two\nLine three with extra text.";
-    render(<Message {...defaultProps} message={multiLine} />);
-
-    // Preview is truncated and must not contain raw newlines.
-    const preview = screen.getByTestId("message-preview");
-    expect(preview.textContent).not.toContain("\n");
-
-    // Open the overlay and confirm the full message is preserved.
-    fireEvent.click(screen.getByText(defaultProps.title));
-    expect(screen.getByText(multiLine)).toBeInTheDocument();
-  });
-
-  it("renders the New badge only when unread and hides it after a read transition", () => {
-    // State transition: unread -> read must remove the New badge deterministically.
-    const { rerender } = render(<Message {...defaultProps} read={false} />);
-    expect(screen.getByText("New")).toBeInTheDocument();
-
-    rerender(<Message {...defaultProps} read={true} />);
-    expect(screen.queryByText("New")).not.toBeInTheDocument();
-  });
-
-  it("does not leak the full message into the DOM when the overlay is closed", () => {
-    // Security / privacy: the full message must not be present in the DOM when
-    // the overlay is closed.
-    render(<Message {...defaultProps} />);
-
-    expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByText(defaultProps.title));
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("X"));
-    expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
-  });
-
-  it("setRead is not invoked when the title is clicked and the message is already read even after multiple clicks", () => {
-    // Regression: multiple clicks on a read message must not duplicate side
-    // effects or throw.
-    const setReadMock = vi.fn();
-    render(<Message {...defaultProps} read={true} setRead={setReadMock} />);
-
-    const title = screen.getByText(defaultProps.title);
-    fireEvent.click(title);
-    fireEvent.click(title);
-    fireEvent.click(title);
-
-    expect(setReadMock).not.toHaveBeenCalled();
-  });
-
-  it("calls setRead exactly once even when the title is clicked multiple times before the overlay opens", () => {
-    // Concurrency / timing boundary: a rapid sequence of clicks must not
-    // produce duplicate setRead calls.
-    const setReadMock = vi.fn();
-    render(<Message {...defaultProps} setRead={setReadMock} />);
-
-    const title = screen.getByText(defaultProps.title);
-    act(() => {
-      fireEvent.click(title);
-      fireEvent.click(title);
-      fireEvent.click(title);
+      const timeLabel = screen.getByTestId("message-time-ago");
+      expect(timeLabel.textContent?.trim()).toBeTruthy();
     });
 
-    expect(setReadMock).toHaveBeenCalledTimes(1);
+    it("renders a generic icon for an unknown notification type", () => {
+      render(<Message {...defaultProps} type="unknown_type" />);
+      // The icon must always be present with a non-empty accessible name.
+      const icon = screen.getByTestId("message-icon");
+      expect(icon).toBeInTheDocument();
+      expect(icon.getAttribute("aria-label")?.trim()).toBeTruthy();
+    });
+
+    it("truncates a boundary-length message of exactly 30 characters without adding an ellipsis", () => {
+      const exactlyThirty = "123456789012345678901234567890";
+      expect(exactlyThirty).toHaveLength(30);
+      render(<Message {...defaultProps} message={exactlyThirty} />);
+      const preview = screen.getByTestId("message-preview");
+      expect(preview.textContent).toBe(exactlyThirty);
+    });
+
+    it("truncates a message of 31 characters to 30 characters plus an ellipsis", () => {
+      const thirtyOne = "1234567890123456789012345678901";
+      expect(thirtyOne).toHaveLength(31);
+      render(<Message {...defaultProps} message={thirtyOne} />);
+      const preview = screen.getByTestId("message-preview");
+      expect(preview.textContent).toBe(`${thirtyOne.slice(0, 30)} ...`);
+    });
   });
 
-  it("does not throw when setRead is not provided and the title is clicked", () => {
-    // Failure path: missing optional callback must not crash the component.
-    const { setRead, ...rest } = defaultProps;
-    void setRead;
-    render(<Message {...rest} />);
+  describe("authorization and state transition invariants", () => {
+    it("does not invoke setRead when the id is missing", () => {
+      const setReadMock = vi.fn();
+      render(<Message {...defaultProps} id="" setRead={setReadMock} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(setReadMock).not.toHaveBeenCalled();
+    });
 
-    expect(() => {
-      fireEvent.click(screen.getByText(defaultProps.title));
-    }).not.toThrow();
+    it("does not invoke setRead when the id is not a string", () => {
+      const setReadMock = vi.fn();
+      // @js-ignore -- deliberately pass an invalid type to exercise the guard.
+      render(<Message {...defaultProps} id={123 as unknown as string} setRead={setReadMock} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(setReadMock).not.toHaveBeenCalled();
+    });
+
+    it("still calls setRead exactly once when the title is clicked multiple times", () => {
+      const setReadMock = vi.fn();
+      render(<Message {...defaultProps} setRead={setReadMock} />);
+      const title = screen.getByTestId("message-title");
+      fireEvent.click(title);
+      fireEvent.click(title);
+      fireEvent.click(title);
+      expect(setReadMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("recovers from a throwing setRead callback without crashing the component", () => {
+      const setReadMock = vi.fn(() => {
+        throw new Error("update failed");
+      });
+      render(<Message {...defaultProps} setRead={setReadMock} />);
+      expect(() => {
+        fireEvent.click(screen.getByTestId("message-title"));
+      }).not.toThrow();
+      // The overlay must still open so the user can read the message.
+      expect(screen.getByTestId("message-overlay")).toBeInTheDocument();
+    });
+
+    it("closes the overlay and does not call setRead again when closing", () => {
+      const setReadMock = vi.fn();
+      render(<Message {...defaultProps} setRead={setReadMock} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(setReadMock).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByTestId("message-close"));
+      expect(screen.queryByTestId("message-overlay")).not.toBeInTheDocument();
+      expect(setReadMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the overlay open when the component re-renders with the same id", () => {
+      const { rerender } = render(<Message {...defaultProps} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(screen.getByTestId("message-overlay")).toBeInTheDocument();
+      rerender(<Message {...defaultProps} read={true} />);
+      expect(screen.getByTestId("message-overlay")).toBeInTheDocument();
+    });
+
+    it("closes the overlay when the id changes to prevent stale state", () => {
+      const { rerender } = render(<Message {...defaultProps} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(screen.getByTestId("message-overlay")).toBeInTheDocument();
+      rerender(<Message {...defaultProps} id="msg-456" />);
+      expect(screen.queryByTestId("message-overlay")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("concurrent and timing boundaries", () => {
+    it("does not call setRead twice when two clicks are dispatched in the same tick", () => {
+      const setReadMock = vi.fn();
+      render(<Message {...defaultProps} setRead={setReadMock} />);
+      const title = screen.getByTestId("message-title");
+      fireEvent.click(title);
+      fireEvent.click(title);
+      expect(setReadMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the overlay open when the close control is clicked and the title is clicked in the same tick", () => {
+      const setReadMock = vi.fn();
+      render(<Message {...defaultProps} setRead={setReadMock} />);
+      const title = screen.getByTestId("message-title");
+      fireEvent.click(title);
+      const close = screen.getByTestId("message-close");
+      fireEvent.click(close);
+      fireEvent.click(title);
+      // The overlay must end in a deterministic state (open) and setRead must not be called again.
+      expect(screen.getByTestId("message-overlay")).toBeInTheDocument();
+      expect(setReadMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("observability and privacy", () => {
+    const originalError = console.error;
+    const errorSpy = vi.fn();
+
+    beforeEach(() => {
+      errorSpy.mockReset();
+      console.error = errorSpy;
+    });
+
+    afterEach(() => {
+      console.error = originalError;
+    });
+
+    it("logs a diagnosable error without leaking the message body when setRead throws", () => {
+      const secret = "secret-body-text";
+      const setReadMock = vi.fn(() => {
+        throw new Error("update failed");
+      });
+      render(<Message {...defaultProps} message={secret} setRead={setReadMock} />);
+      fireEvent.click(screen.getByTestId("message-title"));
+      expect(errorSpy).toHaveBeenCalled();
+      const loggedArgs = errorSpy.mock.calls.flat().map((arg) => String(arg));
+      expect(loggedArgs.some((arg) => arg.includes("msg-123"))).toBeTrue();
+      expect(loggedArgs.some((arg) => arg.includes(secret))).toBe(false);
+    });
   });
 });

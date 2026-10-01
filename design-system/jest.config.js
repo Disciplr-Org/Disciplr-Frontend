@@ -32,68 +32,19 @@ const DEFAULT_COLLECT_COVERAGE_FROM = Object.freeze([
 const DEFAULT_CONFIG = Object.freeze({
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: DEFAULT_ROOTS,
-  testMatch: DEFAULT_TEST_MATCH,
-  collectCoverageFrom: DEFAULT_COLLECT_COVERAGE_FROM,
-  coverageThreshold: Object.freeze({
-    global: DEFAULT_GLOBAL_THRESHOLDS,
-  }),
-});
-
-/**
- * Validates a single coverage threshold value.
- * Boundary: [0, 100]. Must be a finite number.
- *
- * @param {unknown} value
- * @param {string} metric
- * @returns {number}
- */
-function validateThreshold(value, metric) {
-  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
-    throw new TypeError(
-      `Coverage threshold for '${metric}' must be a finite number, received: ${
-        Number.isNaN(value) ? 'NaN' : typeof value === 'number' ? String(value) : typeof value
-      }`
-    );
-  }
-  if (value < 0 || value > 100) {
-    throw new RangeError(
-      `Coverage threshold for '${metric}' must be between 0 and 100, received: ${value}`
-    );
-  }
-  return value;
-}
-
-/**
- * Validates and deduplicates an array of string patterns or paths.
- *
- * @param {unknown} value
- * @param {string} fieldName
- * @returns {string[]}
- */
-function validateAndDeduplicateStringArray(value, fieldName) {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${fieldName} must be an array of strings, received: ${typeof value}`);
-  }
-  if (value.length === 0) {
-    throw new RangeError(`${fieldName} must contain at least one pattern or path`);
-  }
-  const seen = new Set();
-  const result = [];
-  for (let i = 0; i < value.length; i++) {
-    const item = value[i];
-    if (typeof item !== 'string') {
-      throw new TypeError(
-        `${fieldName}[${i}] must be a non-empty string, received: ${typeof item}`
-      );
-    }
-    const trimmed = item.trim();
-    if (trimmed.length === 0) {
-      throw new RangeError(`${fieldName}[${i}] cannot be an empty or whitespace-only string`);
-    }
-    if (!seen.has(trimmed)) {
-      seen.add(trimmed);
-      result.push(trimmed);
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(test|spec).ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.t.d.ts',
+    '!src/**/__tests__/**'
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
     }
   }
   return result;
