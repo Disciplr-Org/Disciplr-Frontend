@@ -7,6 +7,8 @@ import {
   isValidHexColor,
   isValidHslColor,
   isValidRgbColor,
+  VALID_TOKEN_PREFIXES,
+  MIN_CHART_RAMP_STEPS,
 } from '../utils/validators';
 
 const colorToken = (value = '#112233') => ({
@@ -23,7 +25,7 @@ const ramp = (steps = 5) =>
   Object.fromEntries(
     Array.from({ length: steps }, (_, index) => [
       `step-${index + 1}`,
-      tokenGroup(`#11223${index}`),
+      tokenGroup('#11223' + index),
     ]),
   );
 
@@ -128,6 +130,12 @@ describe('isValidRgbColor boundary table', () => {
     expect(isValidRgbColor('')).toBe(false); // empty
     expect(isValidRgbColor('  ')).toBe(false); // whitespace
   });
+
+  it('rejects out-of-range channel values', () => {
+    expect(isValidRgbColor('rgb(256, 0, 0)')).toBe(false);
+    expect(isValidRgbColor('rgb(0, 0, 999)')).toBe(false);
+    expect(isValidRgbColor('rgb(-1, 0, 0)')).toBe(false);
+  });
 });
 
 describe('isValidHslColor boundary table', () => {
@@ -143,6 +151,12 @@ describe('isValidHslColor boundary table', () => {
     expect(isValidHslColor('hsl( 210, 50%, 40% )')).toBe(false); // extra spaces
     expect(isValidHslColor('')).toBe(false); // empty
     expect(isValidHslColor('  ')).toBe(false); // whitespace
+  });
+
+  it('rejects out-of-range hsl channel values', () => {
+    expect(isValidHslColor('hsl(361, 50%, 40%)')).toBe(false);
+    expect(isValidHslColor('hsl(210, 101%, 40%)')).toBe(false);
+    expect(isValidHslColor('hsl(210, 50%, 101%)')).toBe(false);
   });
 });
 
@@ -212,8 +226,12 @@ describe('isValidColorToken', () => {
       false,
     );
     expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
-    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(false);
+    // '#bad' is a valid CSS 3-digit hex color (b=0xBB, a=0xAA, d=0xDD);
+    // both '#bad' and '#abc' must be accepted — 3-digit shorthand hex is valid CSS.
+    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(true);
     expect(isValidColorToken({ $type: 'color', $value: '#abc' })).toBe(true);
+    // A genuinely malformed hex: non-hex characters.
+    expect(isValidColorToken({ $type: 'color', $value: '#xyzxyz' })).toBe(false);
     expect(isValidColorToken({ $type: 'color', $value: '#3B82F6AA' })).toBe(true);
   });
 
@@ -245,13 +263,13 @@ describe('isValidColorToken', () => {
 
   it('rejects malformed colorblind simulations for each supported key', () => {
     expect(
-      isValidColorToken({
+      isValidColorToken( {
         ...colorToken(),
         accessibility: { colorblindSimulation: { protanopia: 'bad' } },
       }),
     ).toBe(false);
     expect(
-      isValidColorToken({
+      isValidColorToken( {
         ...colorToken(),
         accessibility: { colorblindSimulation: { deuteranopia: 'bad' } },
       }),
@@ -302,27 +320,61 @@ describe('isValidColorToken', () => {
 
   it('rejects malformed colorblind simulation objects', () => {
     expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: null } })).toBe(false);
-    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: 'string' } })).toBe(false);
-    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: {} } })).toBe(true);
+    expect(isValidColorToken({ ...colorToken(), accessibility: { colorblindSimulation: [] } })).toBe(false);
+  });
+
+  it('rejects unknown accessibility keys with invalid values', () => {
+    expect(
+      isValidColorToken({
+        ...colorToken(),
+        accessibility: { colorblindSimulation: { unknownKey: 'bad' } },
+      }),
+    ).toBe(false);
   });
 });
 
 describe('isValidChartTokens', () => {
-  it('accepts a well-formed chart token group', () => {
+  it('accepts a well-formed chart token set', () => {
     expect(isValidChartTokens(validChart())).toBe(true);
   });
 
-  it('accepts shorthand and alpha hex colors in chart tokens', () => {
-    const chart = validChart();
-    chart.axis = tokenGroup('#fff');
-    chart.grid = tokenGroup('#ffff');
-    chart.tooltipBg = tokenGroup('#3B82F6AA');
-    expect(isValidChartTokens(chart)).toBe(true);
+  it('rejects non-object and null inputs', () => {
+    expect(isValidChartTokens(null)).toBe(false);
+    expect(isValidChartTokens(undefined)).toBe(false);
+    expect(isValidChartTokens('not-an-object')).toBe(false);
+    expect(isValidChartTokens(123)).toBe(false);
   });
 
-  it('rejects malformed chart token groups', () => {
-    expect(isValidChartTokens(null)).toBe(false);
-    expect(isValidChartTokens({})).toBe(false);
-    expect(isValidChartTokens({ ...validChart(), axis: tokenGroup('#bad') })).toBe(false);
+  it('rejects missing required top-level keys', () => {
+    const chart = validChart();
+    delete (chart as any).axis;
+    expect(isValidChartTokens(chart)).toBe(false);
+  });
+
+  it('rejects invalid token groups', () => {
+    const chart = validChart();
+    (chart as any).axis = { light: { $type: 'color', $value: 'not-a-color' } };
+    expect(isValidChartTokens(chart)).toBe(false);
+  });
+
+  it('rejects invalid categorical ramp sizes', () => {
+    const chart = validChart();
+    (chart as any).categorical = ramp(4);
+    expect(isValidChartTokens(chart)).toBe(false);
+  });
+
+  it('rejects invalid sequential ramp sizes', () => {
+    const chart = validChart();
+    (chart as any).sequential = ramp(6);
+    expect(isValidChartTokens(chart)).toBe(false);
+  });
+
+  it('rejects malformed ramp entries', () => {
+    const chart = validChart();
+    (chart as any).categorical = {
+      ...ramp(5),
+      'step-1': { light: { $type: 'color', $value: 'bad' } },
+    };
+    expect(isValidChartTokens(chart)).toBe(false);
   });
 });

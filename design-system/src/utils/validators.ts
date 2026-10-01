@@ -3,7 +3,7 @@
  */
 
 export function isValidHexColor(color: string): boolean {
-  return /^#(?:[0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{1})$/i.test(color);
+  return /^#(?:[0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(color);
 }
 
 export function isValidRgbColor(color: string): boolean {
@@ -33,16 +33,20 @@ export function isValidColorToken(token: unknown): boolean {
   if (tokenObj.$type !== 'color') return false;
   if (typeof tokenObj.$value !== 'string' || !isValidColorString(tokenObj.$value)) return false;
 
-  // Validate accessibility properties if present
-  if (tokenObj.accessibility) {
+  // Validate accessibility properties when the key is present.
+  // Use 'in' so that an explicit `null` or `[]` value is caught rather than
+  // silently skipped by a falsy check.
+  if ('accessibility' in tokenObj) {
     const acc = tokenObj.accessibility;
-    if (typeof acc !== 'object' || acc === null) return false;
+    // Must be a plain non-null, non-array object.
+    if (acc === null || typeof acc !== 'object' || Array.isArray(acc)) return false;
     const accObj = acc as Record<string, unknown>;
     if (accObj.wcagLevel !== undefined && accObj.wcagLevel !== 'AA' && accObj.wcagLevel !== 'AAA') return false;
     if (accObj.colorblindSafe !== undefined && typeof accObj.colorblindSafe !== 'boolean') return false;
-    if (accObj.colorblindSimulation) {
+    if ('colorblindSimulation' in accObj) {
       const sim = accObj.colorblindSimulation;
-      if (typeof sim !== 'object' || sim === null) return false;
+      // Must be a plain non-null, non-array object.
+      if (sim === null || typeof sim !== 'object' || Array.isArray(sim)) return false;
       const simObj = sim as Record<string, unknown>;
       if (simObj.protanopia !== undefined && (typeof simObj.protanopia !== 'string' || !isValidColorString(simObj.protanopia))) return false;
       if (simObj.deuteranopia !== undefined && (typeof simObj.deuteranopia !== 'string' || !isValidColorString(simObj.deuteranopia))) return false;
