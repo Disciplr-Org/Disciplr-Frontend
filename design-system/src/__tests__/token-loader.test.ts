@@ -292,6 +292,31 @@ describe('getTokenValue', () => {
       }
       return '{}' as any;
     });
+
+    it('should throw a TypeError when the path is not a string', () => {
+      expect(() => loadTokens(undefined as unknown as string)).toThrow(TypeError);
+      expect(mockedFs.readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should throw a TypeError when the path is an empty string', () => {
+      expect(() => loadTokens('')).toThrow(TypeError);
+      expect(mockedFs.readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-object JSON payloads (array)', () => {
+      mockedFs.readFileSync.mockReturnValue('[1, 2, 3]');
+      expect(() => loadTokens('array.json')).toThrow(TypeError);
+    });
+
+    it('should reject non-object JSON payloads (null)', () => {
+      mockedFs.readFileSync.mockReturnValue('null');
+      expect(() => loadTokens('null.json')).toThrow(TypeError);
+    });
+
+    it('should reject non-object JSON payloads (primitive)', () => {
+      mockedFs.readFileSync.mockReturnValue('"just-a-string"');
+      expect(() => loadTokens('primitive.json')).toThrow(TypeError);
+    });
   });
 
   afterEach(() => jest.restoreAllMocks());
