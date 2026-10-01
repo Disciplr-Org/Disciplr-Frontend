@@ -7,6 +7,8 @@ import {
   isValidHexColor,
   isValidHslColor,
   isValidRgbColor,
+  VALID_TOKEN_PREFIXES,
+  MIN_CHART_RAMP_STEPS,
 } from '../utils/validators';
 
 const colorToken = (value = '#112233') => ({
@@ -23,7 +25,7 @@ const ramp = (steps = 5) =>
   Object.fromEntries(
     Array.from({ length: steps }, (_, index) => [
       `step-${index + 1}`,
-      tokenGroup(`#11223${index}`),
+      tokenGroup('#11223' + index),
     ]),
   );
 
@@ -128,6 +130,12 @@ describe('isValidRgbColor boundary table', () => {
     expect(isValidRgbColor('')).toBe(false); // empty
     expect(isValidRgbColor('  ')).toBe(false); // whitespace
   });
+
+  it('rejects out-of-range channel values', () => {
+    expect(isValidRgbColor('rgb(256, 0, 0)')).toBe(false);
+    expect(isValidRgbColor('rgb(0, 0, 999)')).toBe(false);
+    expect(isValidRgbColor('rgb(-1, 0, 0)')).toBe(false);
+  });
 });
 
 describe('isValidHslColor boundary table', () => {
@@ -143,6 +151,12 @@ describe('isValidHslColor boundary table', () => {
     expect(isValidHslColor('hsl( 210, 50%, 40% )')).toBe(false); // extra spaces
     expect(isValidHslColor('')).toBe(false); // empty
     expect(isValidHslColor('  ')).toBe(false); // whitespace
+  });
+
+  it('rejects out-of-range hsl channel values', () => {
+    expect(isValidHslColor('hsl(361, 50%, 40%)')).toBe(false);
+    expect(isValidHslColor('hsl(210, 101%, 40%)')).toBe(false);
+    expect(isValidHslColor('hsl(210, 50%, 101%)')).toBe(false);
   });
 });
 
@@ -212,8 +226,12 @@ describe('isValidColorToken', () => {
       false,
     );
     expect(isValidColorToken({ $type: 'color', $value: 123 })).toBe(false);
-    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(false);
+    // '#bad' is a valid CSS 3-digit hex color (b=0xBB, a=0xAA, d=0xDD);
+    // both '#bad' and '#abc' must be accepted — 3-digit shorthand hex is valid CSS.
+    expect(isValidColorToken({ $type: 'color', $value: '#bad' })).toBe(true);
     expect(isValidColorToken({ $type: 'color', $value: '#abc' })).toBe(true);
+    // A genuinely malformed hex: non-hex characters.
+    expect(isValidColorToken({ $type: 'color', $value: '#xyzxyz' })).toBe(false);
     expect(isValidColorToken({ $type: 'color', $value: '#3B82F6AA' })).toBe(true);
   });
 
@@ -245,13 +263,13 @@ describe('isValidColorToken', () => {
 
   it('rejects malformed colorblind simulations for each supported key', () => {
     expect(
-      isValidColorToken({
+      isValidColorToken( {
         ...colorToken(),
         accessibility: { colorblindSimulation: { protanopia: 'bad' } },
       }),
     ).toBe(false);
     expect(
-      isValidColorToken({
+      isValidColorToken( {
         ...colorToken(),
         accessibility: { colorblindSimulation: { deuteranopia: 'bad' } },
       }),
@@ -274,7 +292,7 @@ describe('isValidColorToken', () => {
     expect(isValidColorToken(Symbol('test'))).toBe(false);
   });
 
-  it('rejects partially-shaped objects with missing required fields', () => {
+  it('rejects partially-shaped objects with missing required field', () => {
     expect(isValidColorToken({})).toBe(false);
     expect(isValidColorToken({ $type: 'color' })).toBe(false);
     expect(isValidColorToken({ $value: '#112233' })).toBe(false);
