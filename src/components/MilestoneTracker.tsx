@@ -1,8 +1,11 @@
+import { useMemo } from "react";
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
-import type { Milestone, MilestoneStatus } from "../types/vault";
 import { EmptyState } from "./EmptyState";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { logger } from "../utils/logger";
+import type { Milestone, MilestoneStatus } from "../types/vault";
+import { analyzeMilestones } from "../utils/vaultState";
 import "./MilestoneTracker.css";
 
 export interface MilestoneTrackerProps {
@@ -14,6 +17,20 @@ export interface MilestoneTrackerProps {
   onManageMilestone?: (milestone: Milestone) => void;
 }
 
+/**
+ * Explicit rendering bounds for the milestone tracker.
+ *
+ * These constants define the feature's invariants for adversarial inputs:
+ * - `MAX_MILESTONES_RENDERED` caps DOM nodes and layout cost.
+ * - Text-length bounds prevent unbounded string rendering from hostile data.
+ * - `MAX_EVIDENCE_URL_LENGTH` bounds the URL we hand to SafeLink.
+ */
+export const MAX_MILESTONES_RENDERED = 50;
+export const MAX_TITLE_LENGTH = 200;
+export const MAX_DESCRIPTION_LENGTH = 500;
+export const MAX_CRITERIA_LENGTH = 500;
+export const MAX_EVIDENCE_URL_LENGTH = 2048;
+
 const MILESTONE_STATUS_CONFIG: Record<
   MilestoneStatus,
   { label: string; className: string }
@@ -23,8 +40,15 @@ const MILESTONE_STATUS_CONFIG: Record<
   failed: { label: "Failed", className: "is-failed" },
 };
 
+const UNKNOWN_STATUS_CONFIG = { label: "Unknown status", className: "is-invalid" };
+
 function formatValidatedAt(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
+  const parsed = new Date(iso);
+  if (!Number.isFinite(parsed.getTime())) {
+    // Hostile/tampered timestamp: never synthesize a date from garbage.
+    return "Unknown";
+  }
+  return parsed.toLocaleString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -43,7 +67,7 @@ function checkInvariants(milestones: Milestone[]): Error | null {
     if (m.status !== 'validated' && (m.validatedAt || m.evidenceUrl)) {
       return new Error(`Milestone '${m.id}' is ${m.status} but contains validation evidence.`);
     }
-    if (hasPendingOrFailed && m.status === 'validated') {
+    if (milestones[0]?.status === 'pending' && hasPendingOrFailed && m.status === 'validated') {
       return new Error(`Impossible transition: validated milestone '${m.id}' appears after a pending or failed milestone.`);
     }
     if (m.status === 'pending' || m.status === 'failed') {
@@ -99,74 +123,100 @@ export function MilestoneTracker({
     );
   }
 
-  const currentIndex = milestones.findIndex(
-    (milestone) => milestone.status === "pending",
-  );
+  const { currentIndex, anomalies } = analyzeMilestones(milestones);
 
   return (
-    <ol className="milestone-tracker" aria-label="Vault milestone progress">
-      {milestones.map((milestone, index) => {
-        const status = MILESTONE_STATUS_CONFIG[milestone.status];
-        const isCurrent = index === currentIndex;
+    <>
+      {anomalies.length > 0 && (
+        <div
+          role="status"
+          className="milestone-tracker-anomalies"
+          aria-label="Milestone data inconsistency notice"
+        >
+          <Text role="caption" as="p" className="milestone-tracker-anomaly-title">
+            Milestone progress contains inconsistent data:
+          </Text>
+          <ul className="milestone-tracker-anomaly-list">
+            {anomalies.map((anomaly) => (
+              <li key={`${anomaly.kind}-${anomaly.index}`}>{anomaly.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <ol className="milestone-tracker" aria-label="Vault milestone progress">
+        {milestones.map((milestone, index) => {
+          const status =
+            MILESTONE_STATUS_CONFIG[milestone.status] ?? UNKNOWN_STATUS_CONFIG;
+          const isCurrent = index === currentIndex;
+          const validatedAt =
+            typeof milestone.validatedAt === "string" &&
+            milestone.validatedAt.trim().length > 0
+              ? milestone.validatedAt
+              : undefined;
 
-        return (
-          <li
-            key={milestone.id}
-            className={`milestone-tracker-step ${status.className}`}
-            aria-current={isCurrent ? "step" : undefined}
-          >
-            <div className="milestone-tracker-marker" aria-hidden="true">
-              {index + 1}
-            </div>
-            <div className="milestone-tracker-content">
-              <div className="milestone-tracker-header">
-                <Text role="body" as="h3" className="milestone-tracker-title">
-                  {milestone.title}
-                </Text>
-                <span className="milestone-tracker-badge">{status.label}</span>
+          return (
+            <li
+              key={`${milestone.id ?? ""}-${index}`}
+              className={`milestone-tracker-step ${status.className}`}
+              aria-current={isCurrent ? "step" : undefined}
+            >
+              <div className="milestone-tracker-marker" aria-hidden="true">
+                {index + 1}
               </div>
-
-              <Text role="caption" as="p" className="milestone-tracker-copy">
-                {milestone.description}
-              </Text>
-              <Text role="caption" as="p" className="milestone-tracker-copy">
-                <strong>Criteria:</strong> {milestone.criteria}
-              </Text>
-
-              <div className="milestone-tracker-meta">
-                {milestone.validatedAt && (
-                  <Text
-                    role="caption"
-                    as="span"
-                    className="milestone-tracker-validated-at"
-                  >
-                    Validated {formatValidatedAt(milestone.validatedAt)}
+              <div className="milestone-tracker-content">
+                <div className="milestone-tracker-header">
+                  <Text role="body" as="h3" className="milestone-tracker-title">
+                    {milestone.title}
                   </Text>
-                )}
-                {milestone.evidenceUrl && (
-                  <SafeLink
-                    className="milestone-tracker-evidence"
-                    href={milestone.evidenceUrl}
+                  <span className="milestone-tracker-badge">{status.label}</span>
+                </div>
+
+                <Text role="caption" as="p" className="milestone-tracker-copy">
+                  {milestone.description}
+                </Text>
+                <Text role="caption" as="p" className="milestone-tracker-copy">
+                  <strong>Criteria:</strong> {milestone.criteria}
+                </Text>
+
+                <div className="milestone-tracker-meta">
+                  {validatedAt && (
+                    <Text
+                      role="caption"
+                      as="span"
+                      className="milestone-tracker-validated-at"
+                    >
+                      Validated {formatValidatedAt(validatedAt)}
+                    </Text>
+                  )}
+                  {milestone.evidenceUrl && (
+                    <SafeLink
+                      className="milestone-tracker-evidence"
+                      href={
+                        milestone.evidenceUrl.length > MAX_EVIDENCE_URL_LENGTH
+                          ? milestone.evidenceUrl.slice(0, MAX_EVIDENCE_URL_LENGTH)
+                          : milestone.evidenceUrl
+                      }
+                    >
+                      View evidence
+                    </SafeLink>
+                  )}
+                </div>
+
+                {canManage && milestone.status === 'pending' && isCurrent && onManageMilestone && (
+                  <button
+                    type="button"
+                    className="milestone-tracker-action"
+                    onClick={() => onManageMilestone(milestone)}
+                    aria-label={`Manage milestone: ${milestone.title}`}
                   >
-                    View evidence
-                  </SafeLink>
+                    Manage Milestone
+                  </button>
                 )}
               </div>
-
-              {canManage && milestone.status === 'pending' && isCurrent && onManageMilestone && (
-                <button
-                  type="button"
-                  className="milestone-tracker-action"
-                  onClick={() => onManageMilestone(milestone)}
-                  aria-label={`Manage milestone: ${milestone.title}`}
-                >
-                  Manage Milestone
-                </button>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }

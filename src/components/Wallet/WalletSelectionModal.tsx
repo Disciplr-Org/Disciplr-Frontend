@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { X, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Modal } from '../Modal';
+import { recordWalletTelemetry } from '../../utils/walletTelemetry';
 import freighterLogo from './freighter-logo.svg';
 import './wallet.css';
 
@@ -24,13 +25,31 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     }, []);
 
     const handleConnect = async () => {
-        if (connectPending.current || isConnecting) return;
+        // Bounded interaction: ignore clicks while a connect attempt is
+        // pending so double-clicks never stack Freighter prompts. The
+        // WalletContext additionally single-flights connect() itself, so this
+        // guard and the context guard together cap concurrent prompts at one.
+        if (connectPending.current || isConnecting) {
+            recordWalletTelemetry({
+                event: 'wallet.connect.ignored',
+                ts: Date.now(),
+                wallet: 'freighter',
+                reason: 'button_pending',
+            });
+            return;
+        }
         connectPending.current = true;
         try {
             const connected = await connect();
-            if (isMounted.current && connected) {
+            // Only close modal if connection succeeded (connect() returned true).
+            // On failed connection attempts (Freighter not installed, user rejects access,
+            // network error), leave the modal open so the error message remains visible.
+            if (isMounted.current && Boolean(connected)) {
                 onClose();
             }
+        } catch {
+            // Keep modal open so error remains visible if connect() unexpectedly rejects
+            return;
         } finally {
             if (isMounted.current) {
                 connectPending.current = false;
@@ -78,7 +97,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
 
                 {/* Albedo support is not yet implemented */}
                 <button
-                    className="wallet-option"
+                    className="wallet-option wallet-option-disabled"
                     disabled
                     aria-disabled="true"
                     title="Albedo support is coming soon"
@@ -89,7 +108,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                         </div>
                         <span className="wallet-name">Albedo</span>
                     </div>
-                    <span className="wallet-coming-soon">Coming soon</span>
+                    <span className="wallet-status wallet-coming-soon">Coming soon</span>
                 </button>
             </div>
 
