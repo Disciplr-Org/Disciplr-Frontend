@@ -467,4 +467,9 @@ describe('typography utility integration', () => {
       );
     });
   });
+
+  it('does not export classifyTypography ensuring dead export surface is removed', async () => {
+    const module = await import('../typography');
+    expect('classifyTypography' in module).toBe(false);
+  });
 });
