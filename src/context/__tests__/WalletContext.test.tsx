@@ -46,6 +46,7 @@ function WalletProbe() {
             <div data-testid="balanceStatus">{wallet.balanceStatus}</div>
             <div data-testid="balanceError">{wallet.balanceError ?? ''}</div>
             <div data-testid="connectionError">{wallet.error ?? ''}</div>
+            <div data-testid="isConnecting">{String(wallet.isConnecting)}</div>
         </div>
     );
 }
@@ -287,6 +288,41 @@ describe('WalletContext Horizon USDC balance path', () => {
         expect(screen.getByTestId('network')).toHaveTextContent('');
         expect(screen.getByTestId('balance')).toHaveTextContent('');
         expect(screen.getByTestId('balanceStatus')).toHaveTextContent('idle');
+    });
+
+    test('enforces bounded concurrency during rapid connect() calls', async () => {
+        let resolveAccess: (value: boolean) => void = () => {};
+        freighterMocks.requestAccess.mockReturnValue(
+            new Promise<boolean>((resolve) => {
+                resolveAccess = resolve;
+            }),
+        );
+        vi.mocked(globalThis.fetch).mockResolvedValue(
+            mockResponse(200, {
+                balances: [{ asset_type: 'native', balance: '10.0000000' }],
+            })
+        );
+
+        renderWallet();
+
+        // Rapid double click
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
+
+        resolveAccess(true);
+
+        await waitFor(() => {
+            // requestAccess should only be called once despite two clicks
+            expect(freighterMocks.requestAccess).toHaveBeenCalledTimes(1);
+        });
+
+        // The second connect should have been ignored and logged to telemetry
+        expect(telemetryMock.recordWalletTelemetry).toHaveBeenCalledWith(
+            expect.objectContaining({
+                event: 'wallet.connect.ignored',
+                reason: 'already_in_flight',
+            })
+        );
     });
 
     test('throws when useWallet is rendered outside the provider', () => {
