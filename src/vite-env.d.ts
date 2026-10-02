@@ -84,7 +84,7 @@ export function resolveApiBaseUrl(env: ImportMetaEnv | undefined): string {
   if (raw === undefined || raw === "") return DEFAULT_API_BASE;
   if (!isValidApiBaseUrl(raw)) {
     throw new EnvConfigError(
-       Invalid VITE_API configuration: expected an absolute http(s) URL or a relative path.",
+      `Invalid VITE_API configuration: expected an absolute http(s) URL or a relative path.`,
     );
   }
   return raw.trim();
@@ -104,7 +104,7 @@ export function parseFeatureFlags(raw: string | undefined): ReadonlySet<string> 
     if (trimmed === "") continue;
     if (!/^[a-z0-9_-]+$/i.test(trimmed)) {
       throw new EnvConfigError(
-         Invalid VITE_FEATURE_FLAGS entry: expected alphanumeric identifiers separated by commas.",
+        `Invalid VITE_FEATURE_FLAGS entry: expected alphanumeric identifiers separated by commas.`,
       );
     }
     flags.add(trimmed);
