@@ -8,6 +8,7 @@ import {
 } from '../utils/paginate';
 import type { ValidationHistoryStatusFilter } from '../utils/paginate';
 import { downloadCsv, toCsv } from '../utils/csv';
+import { logger } from '../utils/logger';
 import { StatusChip } from '../components/StatusChip';
 import { mapValidationStatusToChipStatus } from '../utils/verifierStatus';
 import {
@@ -18,7 +19,18 @@ import {
 
 export default function ValidationHistory() {
   const navigate = useNavigate();
-  const validationHistory = useVerifierStore((state) => state.validationHistory);
+  const storedHistory = useVerifierStore((state) => state.validationHistory);
+  // Invariant: the store is hydrated from persisted/remote data, so the
+  // runtime value may not be an array despite the type. Coerce to `[]` so
+  // stats, filters, pagination, and CSV export all degrade to deterministic
+  // empty states instead of crashing. (`filterValidationHistory` additionally
+  // skips individual null/corrupt entries so one bad record cannot poison
+  // the whole list.) Memoized to keep the derived reference stable for the
+  // filter/pagination memos below.
+  const validationHistory = useMemo(
+    () => (Array.isArray(storedHistory) ? storedHistory : []),
+    [storedHistory],
+  );
   const [statusFilter, setStatusFilter] = useState<ValidationHistoryStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -28,9 +40,12 @@ export default function ValidationHistory() {
   const [page, setPage] = useState(1);
 
   // Calculate the Approve/Reject Ratio
+  // Invariant: entries may be null/corrupt at runtime; count by safe
+  // property access so one bad record cannot crash the banner. Unknown
+  // statuses count toward the total but neither bucket, diluting the rate.
   const total = validationHistory.length;
-  const approvedCount = validationHistory.filter((t) => t.status === 'approved').length;
-  const rejectedCount = validationHistory.filter((t) => t.status === 'rejected').length;
+  const approvedCount = validationHistory.filter((t) => t != null && t.status === 'approved').length;
+  const rejectedCount = validationHistory.filter((t) => t != null && t.status === 'rejected').length;
   const approvalRate = total > 0 ? Math.round((approvedCount / total) * 100) : 0;
   const filteredHistory = useMemo(
     () => filterValidationHistory(validationHistory, { status: statusFilter, query: searchQuery, from: fromDate || undefined, to: toDate || undefined, milestone: milestoneFilter || undefined }),
@@ -59,6 +74,19 @@ export default function ValidationHistory() {
     const nextSize = persistValidationHistoryPageSize(size);
     setPageSize(nextSize);
     setPage(1);
+  };
+
+  // Invariant: CSV export is a best-effort side effect over the currently
+  // filtered set. `toCsv` never throws on malformed rows (they degrade to
+  // empty cells) and a `downloadCsv` failure (blocked Blob/URL/DOM) must not
+  // disturb page state. The failure is logged without task data so exports
+  // stay diagnosable without leaking vault/owner details.
+  const handleExportCsv = () => {
+    try {
+      downloadCsv(toCsv(filteredHistory), 'validation-history.csv');
+    } catch {
+      logger.warn('Validation history CSV export failed');
+    }
   };
 
   return (
@@ -217,7 +245,7 @@ export default function ValidationHistory() {
           <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>&nbsp;</Text>
           <button
             aria-label="Export filtered validation history as CSV"
-            onClick={() => downloadCsv(toCsv(filteredHistory), 'validation-history.csv')}
+            onClick={handleExportCsv}
             style={{
               background: 'var(--bg)',
               color: 'var(--text)',
@@ -252,9 +280,14 @@ export default function ValidationHistory() {
           </div>
         ) : (
           <div className="flex flex-col">
-            {pagination.items.map((task) => (
+            {/* Invariant: store ids are not guaranteed unique (duplicates can
+                arrive from retries or merged persisted payloads). The index
+                suffix keeps React keys collision-free so duplicate records
+                render as duplicate rows instead of corrupting reconciliation,
+                while counts/exports still reflect every record. */}
+            {pagination.items.map((task, index) => (
               <div 
-                key={task.id} 
+                key={`${task?.id ?? 'unknown'}-${index}`} 
                 className="p-6 border-b last:border-b-0 transition flex flex-col md:flex-row gap-4 justify-between"
                 style={{ borderColor: 'var(--border)' }}
               >
