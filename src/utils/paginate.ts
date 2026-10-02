@@ -22,10 +22,22 @@ export function filterValidationHistory(
   tasks: ValidationTask[],
   { status, query, from, to, milestone }: ValidationHistoryFilterOptions,
 ): ValidationTask[] {
+  // Invariant: the store is hydrated from persisted/remote data, so the
+  // runtime payload may be a non-array or contain non-object entries even
+  // though the type claims `ValidationTask[]`. A corrupt payload must yield
+  // an empty result (rendered as an empty state) rather than crash the page.
+  if (!Array.isArray(tasks)) {
+    return [];
+  }
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedMilestone = milestone?.trim().toLowerCase() ?? '';
 
   return tasks.filter((task) => {
+    // Partial failure: a single null/corrupt entry must not poison the whole
+    // list. Skip it so valid rows still render deterministically.
+    if (typeof task !== 'object' || task === null) {
+      return false;
+    }
     const matchesStatus = status === 'all' || task.status === status;
     // `ValidationTask` types these as required strings, but the store is
     // hydrated from persisted/remote data, so they can be missing at

@@ -44,25 +44,50 @@ export function normalizeNumericCell(value: number | string): string {
 }
 
 function escapeCell(value: string): string {
-  if (value.length > 0 && /^[=+\-@\t\r]/.test(value)) {
-    value = `'${value}`;
+  // Invariant: callers coerce through `toCell` first, so `value` is always a
+  // string here. The guard below keeps this total even if called directly
+  // with a non-string at runtime.
+  const text = typeof value === 'string' ? value : '';
+  if (text.length > 0 && /^[=+\-@\t\r]/.test(text)) {
+    return quoteCell(`'${text}`);
   }
+  return quoteCell(text);
+}
+
+function quoteCell(value: string): string {
   if (value.includes('"') || value.includes(',') || value.includes('\n') || value.includes('\r')) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
 }
 
+/**
+ * Coerces an arbitrary runtime value into a CSV-safe string cell.
+ * Invariant: CSV export must never throw on malformed store data — a
+ * missing/non-string field degrades to an empty cell so the export of valid
+ * rows still succeeds deterministically.
+ */
+function toCell(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return typeof value === 'string' ? value : String(value);
+}
+
 function taskToRow(task: ValidationTask): string {
+  // A null entry degrades to an empty data row rather than crashing export.
+  if (typeof task !== 'object' || task === null) {
+    return ',,,,,,,';
+  }
   const cells = [
-    task.id,
-    task.status,
-    task.vaultName,
-    task.owner,
-    task.amount,
-    task.deadline,
-    task.milestone,
-    task.notes ?? '',
+    toCell(task.id),
+    toCell(task.status),
+    toCell(task.vaultName),
+    toCell(task.owner),
+    toCell(task.amount),
+    toCell(task.deadline),
+    toCell(task.milestone),
+    toCell(task.notes ?? ''),
   ];
   return cells.map(escapeCell).join(',');
 }
