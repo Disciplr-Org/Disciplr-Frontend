@@ -41,34 +41,92 @@ const parseAmount = (amount: unknown): number => {
 };
 
 /**
+ * Sort key used for deadlines that cannot be parsed.
+ *
+ * This is a finite value rather than `Number.POSITIVE_INFINITY` so every
+ * deadline key lives on a single comparable numeric scale. Mixing the two
+ * made `Infinity - Infinity` evaluate to `NaN`, which is not a legal
+ * comparator result. `Array.prototype.sort` coerces such a result to `+0`, so
+ * the intended ordering happened to survive — but the comparator was not the
+ * total order its own documented invariant promised.
+ *
+ * `Number.MAX_SAFE_INTEGER` sits above the largest value `Date.parse` can
+ * return (the spec caps `TimeClip` at 8.64e15), so the sentinel can never
+ * collide with a real timestamp.
+ */
+const UNPARSEABLE_DEADLINE = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Compare two numeric sort keys as a total order.
+ *
+ * Invariants:
+ * - Always returns -1, 0 or 1 — never `NaN` and never `Infinity`, so the
+ *   deadline comparator stays total for every pair of tasks.
+ * - Non-finite keys are normalized onto the same scale as finite ones, so a
+ *   corrupt key can never produce an unordered or unstable comparison.
+ */
+const compareNumbers = (a: number, b: number): number => {
+  const left = Number.isFinite(a) ? a : UNPARSEABLE_DEADLINE;
+  const right = Number.isFinite(b) ? b : UNPARSEABLE_DEADLINE;
+
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+};
+
+/**
  * Parse a deadline into a comparable numeric timestamp.
  *
  * Invariants:
- * - Missing or invalid deadlines map to +Infinity so they always sort
- *   last in ascending order and never disrupt valid entries.
- * - Never returns NaN, which would make the comparator non-total.
+ * - Missing, blank or unparseable deadlines map to `UNPARSEABLE_DEADLINE`
+ *   so they always sort last in ascending order (first in descending) and
+ *   never disrupt valid entries.
+ * - Always returns a finite number on the same scale as a parsed
+ *   timestamp, so comparing two keys can never yield `NaN`.
  */
 const parseDeadline = (task: ValidationTask): number => {
   const raw = task?.deadline;
   if (typeof raw !== 'string' || raw.trim().length === 0) {
-    return Number.POSITIVE_INFINITY;
+    return UNPARSEABLE_DEADLINE;
   }
 
   const timestamp = Date.parse(raw);
-  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+  return Number.isFinite(timestamp) ? timestamp : UNPARSEABLE_DEADLINE;
 };
 
 const normalizeVaultName = (task: ValidationTask): string =>
   typeof task?.vaultName === 'string' ? task.vaultName : '';
 
-const compareTasks = (
+/**
+ * Compare two pending validation tasks for a sort key.
+ *
+ * Exported so the ordering contract can be asserted directly instead of only
+ * being inferred from `sortPending` output.
+ *
+ * Invariants:
+ * - Always returns -1, 0 or 1 — never `NaN` and never `Infinity`, for every
+ *   pair of tasks and every key, including malformed fields.
+ * - Antisymmetric: `comparePendingTasks(a, b, key)` is the negation of
+ *   `comparePendingTasks(b, a, key)` (up to the sign of a zero result,
+ *   which carries no ordering information).
+ * - Direction is deliberately not applied here; `sortPending` owns the sign
+ *   so that ties can fall back to the original index for a stable sort.
+ */
+export const comparePendingTasks = (
   a: ValidationTask,
   b: ValidationTask,
   key: PendingSortKey,
 ): number => {
   switch (key) {
     case 'amount':
-      return parseAmount(a?.amount) - parseAmount(b?.amount);
+      // parseAmount always returns a finite number, so this subtraction is
+      // already a total comparison and needs no sentinel handling. Only the
+      // sign is kept, so every key returns -1, 0 or 1.
+      return Math.sign(parseAmount(a?.amount) - parseAmount(b?.amount));
     case 'vaultName':
       return normalizeVaultName(a).localeCompare(normalizeVaultName(b), undefined, {
         sensitivity: 'base',
@@ -76,7 +134,7 @@ const compareTasks = (
       });
     case 'deadline':
     default:
-      return parseDeadline(a) - parseDeadline(b);
+      return compareNumbers(parseDeadline(a), parseDeadline(b));
   }
 };
 
@@ -106,7 +164,7 @@ export function sortPending(
   return tasks
     .map((task, index) => ({ task, index }))
     .sort((a, b) => {
-      const compared = compareTasks(a.task, b.task, safeKey);
+      const compared = comparePendingTasks(a.task, b.task, safeKey);
       // Stable tie-break on original index so equal keys never reorder.
       return compared === 0 ? a.index - b.index : compared * direction;
     })
