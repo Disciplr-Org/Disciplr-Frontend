@@ -37,10 +37,32 @@ interface LayoutProps {
  *    scroll lock is never left engaged behind a hidden drawer.
  * 4. When the drawer is open, the rest of the app is hidden from assistive
  *    technology and inert, so focus can never escape into background content.
+ *
+ * Authorization invariants:
+ *
+ * 5. Layout makes no authorization decision. The navigation is static and
+ *    identical for every wallet state; a visible link is never an access
+ *    grant. Protected routes are gated by `RequireWallet` (see App.tsx),
+ *    which Layout renders as ordinary children.
+ * 6. Layout never reads, renders, or logs wallet state itself. It is only
+ *    surfaced by the delegated children (WalletConnectButton, TrustlineBanner,
+ *    MobileDrawer), so a connect/disconnect cannot leave stale wallet data in
+ *    markup that Layout owns.
  */
 
 function isValidPathname(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.startsWith("/");
+}
+
+// Section matching is segment-aware: "/vaults" owns "/vaults" and "/vaults/…"
+// but not "/vaults-archive". A raw prefix match would mark a nav link as the
+// current page on an unrelated (or unknown) route. A malformed pathname never
+// matches any section.
+function isWithinSection(pathname: unknown, section: string): boolean {
+  return (
+    isValidPathname(pathname) &&
+    (pathname === section || pathname.startsWith(`${section}/`))
+  );
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -173,7 +195,7 @@ export default function Layout({ children }: LayoutProps) {
                 // "Create Vault" is its own top-level nav item with an exact
                 // match below, so it must not also count as "Vaults" being
                 // active (otherwise two nav links would both be "current").
-                location.pathname.startsWith("/vaults") &&
+                isWithinSection(location.pathname, "/vaults") &&
                 location.pathname !== "/vaults/create"
                   ? "page"
                   : undefined
@@ -205,7 +227,7 @@ export default function Layout({ children }: LayoutProps) {
             <NavLink
               to="/help"
               className="header-link"
-              aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
+              aria-current={isWithinSection(location.pathname, '/help') ? 'page' : undefined}
             >
               <Text role="caption" as="span">
                 Help
@@ -244,7 +266,11 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
-      <TrustlineBanner />
+      {/* The banner is background content too (invariant 4): without this
+          wrapper its dismiss button stayed reachable behind an open drawer. */}
+      <div {...backgroundAccessibilityProps}>
+        <TrustlineBanner />
+      </div>
 
       <main
         {...backgroundAccessibilityProps}
