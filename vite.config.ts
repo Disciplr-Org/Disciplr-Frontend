@@ -11,7 +11,7 @@ import path from "path";
  *    build/dev server starts. Invalid or partial env configuration fails fast
  *    with a non-sensitive, actionable error instead of silently producing a
  *    broken bundle.
- * 2. The `A@H alias resolves to `<root>/src` using an absolute path so that
+ * 2. The `@` alias resolves to `<root>/src` using an absolute path so that
  *    resolution is stable regardless of the current working directory.
  * 3. Vendor chunks are assigned deterministically and exhaustively: every
  *    matched module maps on a single chunk, and unmatched modules return
@@ -21,19 +21,19 @@ import path from "path";
  *    the server binds.
  */
 
-const ROOT_DIR = __dirname;
-const SRC_DIR = path.resolve(ROOT_DIR, "./src");
+export const ROOT_DIR = __dirname;
+export const SRC_DIR = path.resolve(ROOT_DIR, "./src");
 
-const VENDOR_CHUNK_MATCHERS: ReadonlyArray<{ pattern: RegExp; chunk: string }> = [
+export const VENDOR_CHUNK_MATCHERS: ReadonlyArray<{ pattern: RegExp; chunk: string }> = [
   { pattern: /[\\/]node_modules[\\/]recharts[\\/]/, chunk: "vendor-recharts" },
   { pattern: /[\\/]node_modules[\\/]jspdf[\\/]/, chunk: "vendor-jspdf" },
   { pattern: /[\\/]node_modules[\\/]framer-motion[\\/]/, chunk: "vendor-framer-motion" },
 ];
 
-const DEFAULT_DEV_PORT = 5173;
-const DEFAULT_API_TARGET = "http://localhost:3000";
+export const DEFAULT_DEV_PORT = 5173;
+export const DEFAULT_API_TARGET = "http://localhost:3000";
 
-class ConfigError extends Error {
+export class ConfigError extends Error {
   constructor(message: string) {
     super(`[vite.config] ${message}`);
     this.name = "ConfigError";
@@ -45,7 +45,7 @@ class ConfigError extends Error {
  * variable is absent or empty. Throws on non-numeric, non-integer, or
  * out-of-range values so misconfiguration fails fast and deterministically.
  */
-function parseIntEnv(
+export function parseIntEnv(
 raw: string | undefined,
 name: string,
 defaultValue: number,
@@ -74,7 +74,7 @@ max: number,
  * This prevents accidentally forwarding traffic to a non-HTTP scheme or
  * a relative path that would be interpreted relative to the dev server.
  */
-function validateProxyTarget(raw: string | undefined, name: string): string {
+export function validateProxyTarget(raw: string | undefined, name: string): string {
   if (raw === undefined || raw.trim() === "") {
     return DEFAULT_API_TARGET;
   }
@@ -98,7 +98,7 @@ function validateProxyTarget(raw: string | undefined, name: string): string {
  * Resolve a vendor chunk name for a given module id. Returns `undefined`
  * when no matcher applies, preserving Rollup's default chunking.
  */
-function resolveVendorChunk(id: string): string | undefined {
+export function resolveVendorChunk(id: string): string | undefined {
   if (typeof id !== "string" || id.length === 0) {
     return undefined;
   }
