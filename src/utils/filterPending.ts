@@ -83,7 +83,7 @@ export function filterPending(
     }
 
     // Filter by milestone if provided
-    if (normalize`Milestone) {
+    if (normalizedMilestone) {
       const taskMilestone = normalizeFilterValue(task.milestone);
       if (taskMilestone !== normalizedMilestone) {
         return false;
