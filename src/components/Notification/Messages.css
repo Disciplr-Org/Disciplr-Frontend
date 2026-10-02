@@ -1,0 +1,53 @@
+/*
+ * Notification row styling.
+ *
+ * Every color here references a design token defined in `src/index.css`
+ * (light `:root`, `[data-theme="light"]` and `[data-theme="dark"]` blocks) so
+ * notification rows follow the active theme. Do not introduce literal hex or
+ * named colors in this file — see design/qa/RELEASE_GATE.md gate G8.
+ */
+
+.message-title--read {
+  color: var(--muted);
+}
+
+.message-title--unread {
+  color: var(--text);
+}
+
+.message-preview,
+.message-timestamp {
+  color: var(--muted);
+}
+
+/* Accent-filled controls: `--bg` is the repo-wide foreground-on-accent token. */
+.message-delete-button,
+.message-new-badge {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.message-new-badge--read {
+  background: none;
+}
+
+.message-overlay {
+  background: var(--bg);
+}
+
+.message-overlay-close {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.message-overlay-close:hover {
+  background: color-mix(in srgb, var(--danger) 85%, transparent);
+}
+
+.message-overlay-title {
+  color: var(--text);
+}
+
+.message-overlay-body {
+  color: var(--muted);
+}
