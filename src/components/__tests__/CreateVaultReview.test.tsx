@@ -38,6 +38,7 @@ describe("CreateVaultReview", () => {
     expect(screen.getByTitle(successAddress)).toBeInTheDocument();
     expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
     expect(screen.getByText("Verifier address")).toBeInTheDocument();
+    expect(screen.getByTitle(verifierAddress)).toBeInTheDocument();
     expect(screen.getByText("Milestones")).toBeInTheDocument();
     expect(screen.getByText("Design approved")).toBeInTheDocument();
     expect(
@@ -141,5 +142,52 @@ describe("CreateVaultReview", () => {
 
     await user.click(screen.getByRole("button", { name: /back to edit/i }));
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  describe("shared AddressDisplay for every address", () => {
+    const renderReview = (network?: "TESTNET" | "PUBLIC" | null, failureAddress = ACCOUNT_B) =>
+      render(
+        <CreateVaultReview
+          amount="25"
+          deadline="2030-01-01T00:00"
+          successAddress={ACCOUNT_A}
+          failureAddress={failureAddress}
+          verifierAddress={ACCOUNT_C}
+          network={network}
+        />,
+      );
+
+    it("renders truncated, copyable addresses instead of raw full strings", () => {
+      renderReview();
+      for (const address of [ACCOUNT_A, ACCOUNT_B, ACCOUNT_C]) {
+        expect(screen.getByLabelText(`Address ${address}`)).toBeInTheDocument();
+        // The full address is only exposed via title/aria-label, never as raw text.
+        expect(screen.queryByText(address)).not.toBeInTheDocument();
+      }
+      expect(screen.getAllByRole("button", { name: "Copy address" })).toHaveLength(3);
+    });
+
+    it("links each address to the explorer when the wallet network is known", () => {
+      renderReview("TESTNET");
+      for (const address of [ACCOUNT_A, ACCOUNT_B, ACCOUNT_C]) {
+        expect(
+          screen.getByRole("link", { name: `View ${address} on Stellar Expert` }),
+        ).toBeInTheDocument();
+      }
+    });
+
+    it("omits explorer links when no network is available", () => {
+      renderReview(null);
+      expect(screen.queryAllByRole("link", { name: /on Stellar Expert/ })).toHaveLength(0);
+    });
+
+    it("flags an invalid destination instead of presenting it as a valid address", () => {
+      const invalid = "GNOTAVALIDSTELLARADDRESS";
+      renderReview("TESTNET", invalid);
+      expect(screen.getByLabelText(`Invalid address ${invalid}`)).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: `View ${invalid} on Stellar Expert` }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

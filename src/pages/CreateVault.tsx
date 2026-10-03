@@ -297,6 +297,7 @@ export default function CreateVault() {
           deadline={deadline}
           successAddress={successAddress}
           failureAddress={failureAddress}
+          network={network}
           milestones={milestones}
           isSubmitting={isSubmitting}
           submissionUncertain={submissionUncertain}

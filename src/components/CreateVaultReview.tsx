@@ -1,5 +1,6 @@
 import { Text } from "./Text";
 import { AddressDisplay } from "./AddressDisplay";
+import type { WalletNetwork } from "../context/WalletContext";
 
 export interface CreateVaultReviewMilestone {
   title: string;
@@ -14,6 +15,7 @@ export interface CreateVaultReviewMilestone {
  * @property successAddress - Destination address if milestones succeed. Must not be empty.
  * @property failureAddress - Destination address if milestones fail. Must not be empty.
  * @property verifierAddress - (Optional) The address of the verifier.
+ * @property network - (Optional) Connected wallet network. When set, every address links to the Stellar Expert explorer.
  * @property milestone - (Optional) Legacy single milestone title.
  * @property milestones - (Optional) Array of milestone objects containing title and criteria.
  * @property isSubmitting - Disables interactions and shows a busy state when true.
@@ -29,6 +31,7 @@ interface CreateVaultReviewProps {
   successAddress: string;
   failureAddress: string;
   verifierAddress?: string;
+  network?: WalletNetwork | null;
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
   isSubmitting?: boolean;
@@ -51,6 +54,7 @@ export function CreateVaultReview({
   successAddress,
   failureAddress,
   verifierAddress,
+  network,
   milestone,
   milestones,
   isSubmitting,
@@ -165,7 +169,7 @@ export function CreateVaultReview({
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
             Success destination
           </Text>
-          <AddressDisplay address={successAddress} />
+          <AddressDisplay address={successAddress} network={network} />
         </div>
         <div
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
@@ -173,7 +177,7 @@ export function CreateVaultReview({
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
             Failure destination
           </Text>
-          <AddressDisplay address={failureAddress} />
+          <AddressDisplay address={failureAddress} network={network} />
         </div>
 
         {verifierAddress ? (
@@ -183,9 +187,7 @@ export function CreateVaultReview({
             <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
               Verifier address
             </Text>
-            <Text role="body" as="p">
-              {verifierAddress}
-            </Text>
+            <AddressDisplay address={verifierAddress} network={network} />
           </div>
         ) : null}
 
