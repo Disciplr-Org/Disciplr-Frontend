@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
 import { Switch } from "@/components/Switch";
@@ -29,6 +29,14 @@ export default function NotificationSettings() {
     const [qh, qm] = quietHours.split(":").map(Number);
     return now.getHours() > qh || (now.getHours() === qh && now.getMinutes() >= qm);
   }, [quietHours, quietHoursValid]);
+
+  const [quietHoursInput, setQuietHoursInput] = useState(quietHours);
+  const quietHoursInputValid = isValidQuietTime(quietHoursInput);
+
+  // Sync local input when the store value changes externally (e.g. reset)
+  useEffect(() => {
+    setQuietHoursInput(quietHours);
+  }, [quietHours]);
 
   // Per-vault notification toggles (keyed by vault name)
   const [vaultToggles, setVaultToggles] = useState<Record<string, boolean>>(
@@ -117,9 +125,14 @@ export default function NotificationSettings() {
                   type="time"
                   id="quiet-hours"
                   aria-label="Quiet Hours"
-                  aria-invalid={!quietHoursValid}
-                  value={quietHours}
-                  onChange={(e) => setQuietHours(e.target.value)}
+                  aria-invalid={!quietHoursInputValid}
+                  value={quietHoursInput}
+                  onChange={(e) => {
+                    setQuietHoursInput(e.target.value);
+                    if (isValidQuietTime(e.target.value)) {
+                      setQuietHours(e.target.value);
+                    }
+                  }}
                 />
               </label>
             </div>

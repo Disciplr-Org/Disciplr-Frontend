@@ -253,15 +253,15 @@ describe('NotificationSettings component behavior', () => {
   });
 
   it('quiet hours input has aria-invalid when value is invalid', () => {
-    useNotificationPreferences.getState().setQuietHours('invalid');
-
     const { unmount } = render(<NotificationSettings />);
     const quietHoursInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
+
+    // Type an invalid time value
+    fireEvent.change(quietHoursInput, { target: { value: 'invalid' } });
     expect(quietHoursInput).toHaveAttribute('aria-invalid', 'true');
     unmount();
 
     // Default "12:00" is valid
-    useNotificationPreferences.getState().reset();
     render(<NotificationSettings />);
     const validInput = screen.getByLabelText('Quiet Hours') as HTMLInputElement;
     expect(validInput).toHaveAttribute('aria-invalid', 'false');

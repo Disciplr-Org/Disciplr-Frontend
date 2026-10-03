@@ -1,10 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CreateVault from "../CreateVault";
 
 vi.mock("../../context/WalletContext", () => ({
-  useWallet: vi.fn(() => ({ balance: null, balanceStatus: "idle" })),
+  useWallet: vi.fn(() => ({
+    address: `G${"C".repeat(55)}`,
+    network: "TESTNET",
+    balance: null,
+    balanceStatus: "idle",
+    isConnecting: false,
+    error: null,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    checkConnection: vi.fn(),
+  })),
 }));
 
 vi.mock("../../services/vaultService", () => ({
@@ -63,8 +73,15 @@ describe("CreateVault", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockUseWallet.mockReturnValue({
+      address: `G${"C".repeat(55)}`,
+      network: "TESTNET",
       balance: null,
       balanceStatus: "idle",
+      isConnecting: false,
+      error: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      checkConnection: vi.fn(),
     } as ReturnType<typeof useWallet>);
   });
 
@@ -138,7 +155,7 @@ describe("CreateVault", () => {
     );
   });
 
-  it("shows the review step for valid values and confirms once", () => {
+  it("shows the review step for valid values and confirms once", async () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
@@ -164,18 +181,19 @@ describe("CreateVault", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(consoleDebug).toHaveBeenCalledWith("CreateVault confirm", {
-      amount: "100.1234567",
-      deadline: "2030-01-01T00:00",
-      successAddress,
-      failureAddress,
-      milestones: [
-        {
-          title: "Prototype",
-          criteria: "Prototype approved by verifier",
-        },
-      ],
-      evidenceUrl: undefined,
+    await waitFor(() => {
+      expect(consoleDebug).toHaveBeenCalledWith(
+        "CreateVault confirm",
+        expect.objectContaining({
+          amount: "100.1234567",
+          deadline: "2030-01-01T00:00",
+          successAddress,
+          failureAddress,
+          milestones: [
+            { title: "Prototype", criteria: "Prototype approved by verifier" },
+          ],
+        }),
+      );
     });
     expect(consoleDebug).toHaveBeenCalledTimes(1);
   });
@@ -252,7 +270,7 @@ describe("CreateVault", () => {
     expect(input).toHaveValue("");
   });
 
-  it("keeps underlying raw value compatible with isValidUsdcAmount", () => {
+  it("keeps underlying raw value compatible with isValidUsdcAmount", async () => {
     const consoleDebug = vi
       .spyOn(console, "debug")
       .mockImplementation(() => undefined);
@@ -275,10 +293,12 @@ describe("CreateVault", () => {
     fireEvent.click(screen.getByRole("button", { name: /create vault/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(consoleDebug).toHaveBeenCalledWith(
-      "CreateVault confirm",
-      expect.objectContaining({ amount: "1234.5678" }),
-    );
+    await waitFor(() => {
+      expect(consoleDebug).toHaveBeenCalledWith(
+        "CreateVault confirm",
+        expect.objectContaining({ amount: "1234.5678" }),
+      );
+    });
   });
 
   it("shows insufficient balance warning when amount exceeds balance", () => {

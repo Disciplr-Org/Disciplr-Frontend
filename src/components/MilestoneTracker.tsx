@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { Text } from "./Text";
 import { SafeLink } from "./SafeLink";
-import { logger } from "../utils/logger";
+import { EmptyState } from "./EmptyState";
 import type { Milestone, MilestoneStatus } from "../types/vault";
 import { analyzeMilestones } from "../utils/vaultState";
 import "./MilestoneTracker.css";
@@ -193,6 +193,16 @@ export function MilestoneTracker({
                     >
                       View evidence
                     </SafeLink>
+                  )}
+                  {canManage && isCurrent && onManageMilestone && (
+                    <button
+                      type="button"
+                      className="milestone-tracker-manage"
+                      aria-label={`Manage milestone: ${milestone.title}`}
+                      onClick={() => onManageMilestone(milestone)}
+                    >
+                      Manage
+                    </button>
                   )}
                 </div>
               </div>

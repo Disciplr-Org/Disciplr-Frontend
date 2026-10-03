@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  MAX_MILESTONES_RENDERED,
   Milestone,
   MilestoneTracker,
 } from "../../components/MilestoneTracker";
@@ -432,7 +431,7 @@ describe("MilestoneTracker hostile input boundary", () => {
 
     render(<MilestoneTracker milestones={impossible} />);
 
-    expect(screen.getByRole("status").textContent).toMatch(/validated before the current pending/);
+    expect(screen.getByRole("alert").textContent).toMatch(/Impossible transition.*validated milestone.*appears after a pending or failed/i);
   });
 
   it("does not flag a coherent validated-then-pending sequence", () => {

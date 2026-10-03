@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet, CONNECT_TIMEOUT_MS } from '../WalletContext';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WalletProvider, useWallet } from '../WalletContext';
 import { USDC_ISSUERS } from '../../utils/horizon';
 
 const freighterMocks = vi.hoisted(() => ({
@@ -145,6 +145,7 @@ describe('WalletContext Horizon USDC balance path', () => {
 
     test('uses the generic balance error when network details throw a non-Error value', async () => {
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        // getNetworkDetails fails in fetchNetworkAndBalance — no prior call in performConnect
         freighterMocks.getNetworkDetails.mockRejectedValue('offline');
 
         renderWallet();
@@ -561,9 +562,7 @@ describe('WalletContext network/address change listener', () => {
         
         fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
         
-        // Wait for connecting state
-        await waitFor(() => expect(screen.getByRole('button', { name: /^connect$/i })).toBeDisabled().catch(() => {})); 
-        // Note: the button might not be disabled in the probe, we just wait a tick
+        // wait a tick so the connect click can be processed
         await Promise.resolve();
 
         // Disconnect while connecting
