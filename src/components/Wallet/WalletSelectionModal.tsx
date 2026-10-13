@@ -12,7 +12,11 @@ interface WalletSelectionModalProps {
 
 export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
     const { connect, isConnecting, error, address } = useWallet();
-    const isConnected = address !== null;
+    // Invariant: only a present, non-blank address counts as connected. A
+    // missing (null), undefined, or whitespace-only address must never render
+    // the "Connected" state, so an invalid/partial provider value cannot
+    // present a stale wallet session as live.
+    const isConnected = typeof address === 'string' && address.trim().length > 0;
 
     const isMounted = useRef(true);
     const connectPending = useRef(false);
