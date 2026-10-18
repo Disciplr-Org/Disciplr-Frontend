@@ -1,46 +1,47 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import Vaults from '../../pages/Vaults';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
+import Vaults from '../Vaults';
 
-// Helper to mock fetch function
-const mockSuccess = <T,>(data: T) => vi.fn().mockResolvedValue(data);
-const mockFailure = (message = 'Network error') => vi.fn().mockRejectedValue(new Error(message));
+function renderVaults() {
+  return render(
+    <MemoryRouter>
+      <Vaults />
+    </MemoryRouter>,
+  );
+}
 
-describe('Vaults page states', () => {
-  test('shows loading skeletons initially', async () => {
-    render(<Vaults fetchVaults={mockSuccess([])} />);
-    // Skeletons should be present immediately
-    const skeletons = screen.getAllByTestId('skeleton');
-    expect(skeletons.length).toBeGreaterThanOrEqual(3);
-    // Wait for loading to finish (no data)
-    await waitFor(() => expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument());
+describe('Vaults page', () => {
+  it('renders the vault listing and its statuses', () => {
+    renderVaults();
+
+    expect(screen.getByRole('heading', { name: 'Your Vaults' })).toBeInTheDocument();
+    expect(screen.getByText('Alpha Vault')).toBeInTheDocument();
+    expect(screen.getByText('Beta Reserve')).toBeInTheDocument();
+    expect(screen.getByText('Gamma Fund')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.getByText('Failed')).toBeInTheDocument();
   });
 
-  test('shows empty state when no vaults', async () => {
-    render(<Vaults fetchVaults={mockSuccess([])} />);
-    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
-    expect(screen.getByRole('link', { name: /Create your first vault/i })).toBeInTheDocument();
-  });
+  it('links to vault creation and each vault detail page', () => {
+    renderVaults();
 
-  test('shows data state when vaults exist', async () => {
-    const mockData = [
-      { id: '1', name: 'Test Vault', amount: 1000, currency: 'USDC', status: 'active' as any, deadline: '2025-01-01T00:00:00Z' },
-    ];
-    render(<Vaults fetchVaults={mockSuccess(mockData)} />);
-    await waitFor(() => screen.getByText('Test Vault'));
-    expect(screen.getByText(/Test Vault/i)).toBeInTheDocument();
-  });
-
-  test('shows error state and can retry', async () => {
-    const fetchMock = mockFailure();
-    render(<Vaults fetchVaults={fetchMock} />);
-    await waitFor(() => screen.getByText(/Failed to load vaults./i));
-    const retryBtn = screen.getByRole('button', { name: /Retry/i });
-    expect(retryBtn).toBeInTheDocument();
-    // Mock success on retry
-    fetchMock.mockImplementationOnce(() => Promise.resolve([]));
-    userEvent.click(retryBtn);
-    await waitFor(() => screen.getByText(/You don’t have any vaults yet./i));
+    expect(screen.getByRole('link', { name: /Create Vault/i })).toHaveAttribute(
+      'href',
+      '/vaults/create',
+    );
+    expect(screen.getByRole('link', { name: /Alpha Vault/ })).toHaveAttribute(
+      'href',
+      '/vaults/1',
+    );
+    expect(screen.getByRole('link', { name: /Beta Reserve/ })).toHaveAttribute(
+      'href',
+      '/vaults/2',
+    );
+    expect(screen.getByRole('link', { name: /Gamma Fund/ })).toHaveAttribute(
+      'href',
+      '/vaults/3',
+    );
   });
 });

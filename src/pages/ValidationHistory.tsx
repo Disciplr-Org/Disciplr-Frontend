@@ -194,7 +194,11 @@ export default function ValidationHistory() {
               >
                 <div className="flex flex-col gap-2 md:w-1/3">
                   <div className="flex items-center gap-3">
-                    <StatusChip status={task.status as any} className="uppercase" size="sm" />
+                    <StatusChip
+                      status={task.status === 'pending' ? 'pending_validation' : task.status}
+                      className="uppercase"
+                      size="sm"
+                    />
                     <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
                       ID: {task.id}
                     </Text>

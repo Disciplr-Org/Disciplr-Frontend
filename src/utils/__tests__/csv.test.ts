@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationTask } from '../../Zustand/Store';
 import { downloadCsv, toCsv } from '../csv';
 
@@ -119,12 +119,13 @@ describe('downloadCsv', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('is a no-op when document is undefined', () => {
-    const orig = global.document;
-    (global as any).document = undefined;
+    vi.stubGlobal('document', undefined);
     expect(() => downloadCsv('a,b', 'test.csv')).not.toThrow();
-    (global as any).document = orig;
   });
 
   it('creates a blob and triggers a download', () => {
@@ -139,16 +140,14 @@ describe('downloadCsv', () => {
       style: {},
     }));
 
-    const origDocument = global.document;
-    const origURL = global.URL;
-    (global as any).document = {
+    vi.stubGlobal('document', {
       createElement,
       body: { appendChild, removeChild },
-    };
-    (global as any).URL = {
+    });
+    vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:mock'),
       revokeObjectURL: vi.fn(),
-    };
+    });
 
     downloadCsv('a,b,c', 'test.csv');
 
@@ -158,7 +157,5 @@ describe('downloadCsv', () => {
     expect(click).toHaveBeenCalled();
     expect(removeChild).toHaveBeenCalled();
 
-    (global as any).document = origDocument;
-    (global as any).URL = origURL;
   });
 });

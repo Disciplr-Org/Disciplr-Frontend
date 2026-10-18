@@ -1,18 +1,45 @@
-import { getNotifications } from "@/components/Notification/exampleNotification/example";
+import {
+  getNotifications,
+  type Notification,
+} from "@/components/Notification/exampleNotification/example";
 import { create } from "zustand";
 
-// --- Existing Notification Store ---
-const n = getNotifications();
-
-type notificationsType = {
-  notification: typeof n;
-  setNotification: (value: typeof n) => void;
+type NotificationStore = {
+  notification: Notification[];
+  unreadCount: number;
+  setNotification: (value: Notification[]) => void;
+  markRead: (id: string) => void;
+  markAllRead: () => void;
 };
 
-export const useNotification = create<notificationsType>((set) => ({
-  notification: n,
-  setNotification: (value: typeof n) =>
-    set(() => ({ notification: value })),
+const initialNotifications = getNotifications();
+
+export const useNotification = create<NotificationStore>((set) => ({
+  notification: initialNotifications,
+  unreadCount: initialNotifications.filter(({ isRead }) => !isRead).length,
+  setNotification: (notification) =>
+    set({
+      notification,
+      unreadCount: notification.filter(({ isRead }) => !isRead).length,
+    }),
+  markRead: (id) =>
+    set((state) => {
+      const target = state.notification.find(({ id: notificationId }) => notificationId === id);
+      if (!target || target.isRead) return state;
+
+      const notification = state.notification.map((item) =>
+        item.id === id ? { ...item, isRead: true } : item,
+      );
+      return {
+        notification,
+        unreadCount: notification.filter(({ isRead }) => !isRead).length,
+      };
+    }),
+  markAllRead: () =>
+    set((state) => ({
+      notification: state.notification.map((item) => ({ ...item, isRead: true })),
+      unreadCount: 0,
+    })),
 }));
 
 

@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ValidationDetail from '../ValidationDetail';
 import { useVerifierStore } from '../../Zustand/Store';
 
@@ -44,7 +44,7 @@ describe('ValidationDetail Page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: mockPendingValidations,
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
@@ -65,7 +65,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('shows "Validation Not Found" if task does not exist', () => {
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: [],
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,
@@ -166,7 +166,7 @@ describe('ValidationDetail Page', () => {
   });
 
   it('renders "No evidence link provided" when task has no evidenceUrl', () => {
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: undefined }],
       approveValidation: mockApproveValidation,
       rejectValidation: mockRejectValidation,

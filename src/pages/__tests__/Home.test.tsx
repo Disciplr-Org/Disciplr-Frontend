@@ -1,13 +1,13 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { WalletProvider, useWallet } from '../../context/WalletContext';
 
 // Mock WalletContext to avoid real Freighter dependencies in tests
 vi.mock('../../context/WalletContext', () => ({
-  WalletProvider: ({ children }: any) => <>{children}</>,
+  WalletProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useWallet: () => ({
     address: null,
     network: null,

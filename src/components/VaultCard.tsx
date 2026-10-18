@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Text } from './Text';
 import { VaultProgressBar } from './VaultProgressBar';
-import React from 'react';
 import { CountdownDeadline } from './CountdownDeadline';
 import { StatusChip } from './StatusChip';
 
@@ -78,35 +77,6 @@ function UrgencyBadge({ tier }: { tier: UrgencyTier }) {
   );
 }
 
-function StatusBadge({ status }: { status: VaultStatus }) {
-  const config = {
-    active: { label: 'Active', bg: 'var(--accent-transparent)', fg: 'var(--accent)' },
-    pending_validation: { label: 'Pending', bg: 'var(--warning-transparent)', fg: 'var(--warning)' },
-    completed: { label: 'Completed', bg: 'var(--success-transparent)', fg: 'var(--success)' },
-    failed: { label: 'Failed', bg: 'var(--danger-transparent)', fg: 'var(--danger)' },
-  }[status];
-
-  return (
-    <span
-      style={{
-        background: config.bg,
-        color: config.fg,
-        border: `1px solid ${config.fg}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '2px 8px',
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-      }}
-    >
-      {config.label}
-    </span>
-  );
-}
-
 export default function VaultCard({
   id,
   name,
@@ -155,7 +125,6 @@ export default function VaultCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <UrgencyBadge tier={urgency} />
-          <StatusBadge status={status} />
           <StatusChip status={status} size="sm" label={status === 'pending_validation' ? 'Pending' : undefined} />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>

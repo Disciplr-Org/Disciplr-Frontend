@@ -10,6 +10,23 @@ import {
   isKebabCase,
   hasValidTokenPrefix
 } from '../index';
+import type { ColorToken } from '../types/tokens';
+
+type TestColorToken = ColorToken & {
+  accessibility: NonNullable<ColorToken['accessibility']> & {
+    contrastRatios: Record<string, number>;
+    colorblindSimulation: {
+      protanopia: string;
+      deuteranopia: string;
+      tritanopia: string;
+    };
+  };
+};
+type TestColorGroup = { light: TestColorToken; dark: TestColorToken };
+type TestChart = {
+  categorical: Record<string, TestColorGroup>;
+  sequential: Record<string, TestColorGroup>;
+};
 
 // Relative luminance calculation for contrast verification
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -45,10 +62,15 @@ function getContrastRatio(color1: string, color2: string): number {
 }
 
 describe('Chart Tokens Validation & Safety Suite', () => {
-  let tokens: any;
+  let tokens: { color: { chart: TestChart } };
 
   beforeAll(() => {
-    tokens = loadTokens('colors.json');
+    const loaded = loadTokens('colors.json');
+    const chart = loaded.color?.chart;
+    if (!isValidChartTokens(chart)) {
+      throw new Error('colors.json contains invalid chart tokens');
+    }
+    tokens = { color: { chart: chart as unknown as TestChart } };
   });
 
   test('should load colors.json tokens successfully', () => {

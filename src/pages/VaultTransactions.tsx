@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, memo } from "react";
-import { windowRange, WINDOW_THRESHOLD } from "../utils/windowRange";
+import { windowRange } from "../utils/windowRange";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TxType = "create" | "validate" | "release" | "redirect";
@@ -380,9 +380,9 @@ export default function VaultTransactions() {
   // Reset window anchor when filters change so the user always sees the top.
   // windowRange is applied per-section; each section independently does not
   // exceed WINDOW_THRESHOLD in typical use, but large "confirmed" lists will.
-  const pendingWindow = windowRange(pending, anchorIndex);
-  const failedWindow = windowRange(failed, anchorIndex);
-  const restWindow = windowRange(rest, anchorIndex);
+  const pendingWindow = windowRange<Transaction>(pending, anchorIndex);
+  const failedWindow = windowRange<Transaction>(failed, anchorIndex);
+  const restWindow = windowRange<Transaction>(rest, anchorIndex);
 
   const stats = useMemo(
     () => ({

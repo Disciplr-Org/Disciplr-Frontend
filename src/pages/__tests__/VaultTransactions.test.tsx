@@ -272,10 +272,9 @@ describe('VaultTransactions', () => {
       // Third select is the status filter
       fireEvent.change(selects[2], { target: { value: 'confirmed' } });
 
-      // Pending and Failed sections should disappear
-      expect(screen.queryByText('Pending')).not.toBeInTheDocument();
-      expect(screen.queryByText('Failed')).not.toBeInTheDocument();
-      expect(screen.getByText('Confirmed')).toBeInTheDocument();
+      // The status selector retains its options; only confirmed transaction rows remain.
+      expect(container.querySelectorAll('.vt-tx-row')).toHaveLength(7);
+      expect(screen.getAllByTitle('Copy hash')).toHaveLength(7);
     });
 
     it('hash search filters the list to matching transactions only', () => {

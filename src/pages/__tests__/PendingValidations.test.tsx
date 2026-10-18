@@ -63,7 +63,7 @@ describe('PendingValidations', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-21T00:00:00Z'));
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: makeTasks() });
+    vi.mocked(useVerifierStore).mockReturnValue({ pendingValidations: makeTasks() });
   });
 
   afterEach(() => {
@@ -76,14 +76,14 @@ describe('PendingValidations', () => {
   });
 
   it('shows "All caught up!" when there are no pending validations', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    vi.mocked(useVerifierStore).mockReturnValue({ pendingValidations: [] });
     renderPage();
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
     expect(screen.getByText(/no pending validations/i)).toBeInTheDocument();
   });
 
   it('does not render the table when queue is empty', () => {
-    (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+    vi.mocked(useVerifierStore).mockReturnValue({ pendingValidations: [] });
     renderPage();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -148,7 +148,7 @@ describe('PendingValidations', () => {
   });
 
   it('renders a single task without crashing', () => {
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: [makeTasks()[0]],
     });
     renderPage();
@@ -157,7 +157,7 @@ describe('PendingValidations', () => {
   });
 
   it('handles ties in daysRemaining (stable relative order preserved)', () => {
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: [
         { ...makeTasks()[0], id: 'v-a', daysRemaining: 5 },
         { ...makeTasks()[1], id: 'v-b', daysRemaining: 5 },
@@ -231,7 +231,7 @@ describe('PendingValidations', () => {
     });
 
     it('empty table state renders no table role', () => {
-      (useVerifierStore as any).mockReturnValue({ pendingValidations: [] });
+      vi.mocked(useVerifierStore).mockReturnValue({ pendingValidations: [] });
       renderPage();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });

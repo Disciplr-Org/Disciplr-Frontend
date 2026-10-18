@@ -66,7 +66,7 @@ function renderPage() {
 describe('VerifierDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: pendingTasks,
       validationHistory: historyTasks,
     });
@@ -107,7 +107,7 @@ describe('VerifierDashboard', () => {
   });
 
   it('shows empty message when no pending validations exist', () => {
-    (useVerifierStore as any).mockReturnValue({
+    vi.mocked(useVerifierStore).mockReturnValue({
       pendingValidations: [],
       validationHistory: [],
     });

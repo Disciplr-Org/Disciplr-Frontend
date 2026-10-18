@@ -8,7 +8,7 @@
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "node ../node_modules/eslint/bin/eslint.js src",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\""
   },
   "keywords": ["design-system", "design-tokens", "disciplr"],

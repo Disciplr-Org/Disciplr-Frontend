@@ -37,3 +37,31 @@ export function assertNotificationSettingsSource(source: string) {
 }
 
 export const notificationSettingsThemeTestCases = sourceAssertions.map(({ name }) => name);
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import NotificationSettings from "../NotificationSettings";
+
+describe("NotificationSettings", () => {
+  it("renders notification preferences and vault settings", () => {
+    render(<NotificationSettings />);
+
+    expect(screen.getByRole("heading", { name: "Notification Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Email Notification" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Push Notification" })).not.toBeChecked();
+    expect(screen.getByRole("heading", { name: "Vault Notifications" })).toBeInTheDocument();
+    expect(screen.getByText("First Vault")).toBeInTheDocument();
+  });
+
+  it("updates controlled notification toggles", () => {
+    render(<NotificationSettings />);
+
+    const emailToggle = screen.getByRole("checkbox", { name: "Email Notification" });
+    const pushToggle = screen.getByRole("checkbox", { name: "Push Notification" });
+
+    fireEvent.click(emailToggle);
+    fireEvent.click(pushToggle);
+
+    expect(emailToggle).not.toBeChecked();
+    expect(pushToggle).toBeChecked();
+  });
+});

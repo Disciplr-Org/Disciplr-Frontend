@@ -7,8 +7,37 @@ import { FaUserCheck } from "react-icons/fa6";
 import { IoMegaphoneOutline } from "react-icons/io5";
 import { IconType } from "react-icons";
 
-export function getNotifications() {
-  const notifications = [
+export type NotificationType =
+  | "vault_deadline_approaching"
+  | "funds_released"
+  | "verification_requested"
+  | "vault_created_successfully"
+  | "milestone_validated"
+  | "funds_redirected"
+  | "system_announcement";
+
+export type NotificationCategory =
+  | "vault"
+  | "funds"
+  | "verification"
+  | "milestone"
+  | "system";
+
+export type Notification = {
+  id: string;
+  type: NotificationType;
+  isUrgent: boolean;
+  title: string;
+  message: string;
+  timestamp: string;
+  timeAgo: string;
+  isRead: boolean;
+  category: NotificationCategory;
+};
+
+export function getNotifications(): Notification[] {
+  // Build fresh records on every call so consumer mutations cannot leak between reads.
+  const notifications: Notification[] = [
     {
       id: "ntf_001",
       type: "vault_deadline_approaching",
@@ -238,7 +267,7 @@ export function getNotifications() {
   return notifications;
 }
 
-export const notificationTypeIcons: { [key: string]: IconType } = {
+export const notificationTypeIcons: Record<NotificationType, IconType> = {
   vault_created_successfully: SiInternetarchive,
   milestone_validated: HiOutlineCheckBadge,
   vault_deadline_approaching: FiAlertTriangle,
@@ -254,12 +283,12 @@ export const vaults = [
   { name: "Third Vault" },
 ];
 
-export const notificationTypeColors: { [key: string]: string } = {
+export const notificationTypeColors: Record<NotificationType, string> = {
   vault_created_successfully: "grey",
   milestone_validated: "orange",
   vault_deadline_approaching: "red",
   funds_released: "green",
   funds_redirected: "amber",
   verification_requested: "blue",
-  system_announcements: "grey",
+  system_announcement: "grey",
 };
