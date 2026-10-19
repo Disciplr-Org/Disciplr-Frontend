@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, useRef, ReactNode, us
 import { isAllowed, setAllowed, requestAccess, getAddress, getNetworkDetails } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
 import { logger } from '../utils/logger';
+import { bindSession, clearSession, BoundaryError } from '../Zustand/sessionBoundary';
 import {
     recordWalletTelemetry,
     classifyConnectError,
@@ -181,6 +182,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const demoModeRef = useRef(state.address === DEMO_ADDRESS);
     const lastKnownAddressRef = useRef<string | null>(demoModeRef.current ? DEMO_ADDRESS : null);
     const lastKnownNetworkRef = useRef<WalletNetwork | null>(demoModeRef.current ? DEMO_NETWORK : null);
+    // Last session key bound to the boundary, so refreshes don't bump the epoch.
+    const lastBoundSessionKeyRef = useRef<string | null>(null);
 
     const normalizeNetwork = (networkName: string): WalletNetwork => {
         return networkName === 'PUBLIC' ? 'PUBLIC' : 'TESTNET';
@@ -325,6 +328,51 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [state.address, fetchNetworkAndBalance]);
+
+    // Bind the live wallet to the session boundary so per-wallet store guards run.
+    useEffect(() => {
+        const isConnected = state.status === 'connected' && !!state.address && !!state.network;
+        if (!isConnected) {
+            if (lastBoundSessionKeyRef.current !== null) {
+                lastBoundSessionKeyRef.current = null;
+                clearSession();
+            }
+            return;
+        }
+        const address = state.address as string;
+        const network = state.network as WalletNetwork;
+        const key = `${network}:${address}`;
+        if (key === lastBoundSessionKeyRef.current) return;
+        try {
+            bindSession({ address, network });
+            lastBoundSessionKeyRef.current = key;
+            // Re-hydrate preferences so a new owner does not inherit the previous one's values.
+            try {
+                const prefs = (globalThis as unknown as {
+                    __disciplrNotificationPreferences?: { persist?: { rehydrate?: () => void } };
+                }).__disciplrNotificationPreferences;
+                prefs?.persist?.rehydrate?.();
+            } catch {
+                // rehydrate is best-effort; ignore failures
+            }
+        } catch (err) {
+            if (err instanceof BoundaryError) {
+                logger.error('Session boundary bind failed', err.code);
+            } else {
+                logger.error('Session boundary bind failed', err);
+            }
+            lastBoundSessionKeyRef.current = null;
+            clearSession();
+        }
+    }, [state.status, state.address, state.network]);
+
+    // Clear the session on unmount so tests and HMR don't leak sessions.
+    useEffect(() => {
+        return () => {
+            lastBoundSessionKeyRef.current = null;
+            clearSession();
+        };
+    }, []);
 
     const performConnect = async (attempt: number): Promise<boolean> => {
         const seq = ++operationSeqRef.current;
