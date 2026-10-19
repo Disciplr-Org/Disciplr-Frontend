@@ -135,6 +135,7 @@ export async function createVault(vaultData: {
   currency: string;
   deadline: string;
   creatorAddress: string;
+  verifierAddress: string;
   successAddress: string;
   failureAddress: string;
   evidenceUrl?: string;
@@ -147,13 +148,12 @@ export async function createVault(vaultData: {
     throw new Error("Vault amount must be a positive finite number.");
   }
   if (isApiEnabled()) {
-    // Demo: the creator acts as their own verifier unless the API is given another one.
     return apiCreateVault({
       name: vaultData.name,
       amount: vaultData.amount,
       deadline: vaultData.deadline,
       creator: vaultData.creatorAddress,
-      verifier: vaultData.creatorAddress,
+      verifier: vaultData.verifierAddress,
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
@@ -169,6 +169,7 @@ export async function createVault(vaultData: {
     createdAt: new Date().toISOString(),
     deadline: vaultData.deadline,
     creatorAddress: vaultData.creatorAddress,
+    verifierAddress: vaultData.verifierAddress,
     successAddress: vaultData.successAddress,
     failureAddress: vaultData.failureAddress,
     contractAddress: `GCONT${nextId}KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK`,
