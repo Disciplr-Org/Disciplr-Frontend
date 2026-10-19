@@ -81,7 +81,10 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export const apiListVaults = async (): Promise<Vault[]> => (await request<ApiVault[]>("/vaults")).map(toVault);
+export const apiListVaults = async (creator?: string): Promise<Vault[]> => {
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  return (await request<ApiVault[]>(`/vaults${query}`)).map(toVault);
+};
 
 export async function apiGetVault(id: string): Promise<Vault | undefined> {
   try {
