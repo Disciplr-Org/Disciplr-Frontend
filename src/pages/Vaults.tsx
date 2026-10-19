@@ -5,6 +5,7 @@ import VaultCard from "../components/VaultCard";
 import { listVaults } from "../services/vaultService";
 import { timelineProgress } from "../utils/vaultLifecycle";
 import type { Vault, VaultStatus } from "../types/vault";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 
 const FILTERS: Array<"all" | VaultStatus> = ["all", "active", "completed", "failed"];
 
@@ -13,6 +14,13 @@ export default function Vaults() {
   const [vaults, setVaults] = useState<Vault[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | VaultStatus>("all");
+
+  const load = () => {
+    setError(null);
+    listVaults()
+      .then((v) => setVaults(v))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Could not load vaults."));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +31,8 @@ export default function Vaults() {
       cancelled = true;
     };
   }, []);
+
+  useOnRecovered(load);
 
   const shown = useMemo(
     () => (vaults ?? []).filter((v) => filter === "all" || v.status === filter),

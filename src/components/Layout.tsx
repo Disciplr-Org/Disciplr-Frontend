@@ -6,6 +6,8 @@ import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
+import { ConnectivityBanner } from "./ConnectivityBanner";
+import { initConnectivityListeners } from "../services/connectivity";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
@@ -55,6 +57,10 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+
+  useEffect(() => {
+    initConnectivityListeners();
+  }, []);
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
@@ -250,6 +256,7 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
+      <ConnectivityBanner />
       <TrustlineBanner />
 
       <main
