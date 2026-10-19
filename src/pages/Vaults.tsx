@@ -43,7 +43,7 @@ export default function Vaults() {
       <div role="tablist" aria-label="Filter by status" style={{ display: "flex", gap: 8, margin: "16px 0", flexWrap: "wrap" }}>
         {FILTERS.map((f) => (
           <button
-            key={j}
+            key={f}
             role="tab"
             aria-selected={filter === f}
             onClick={() => setFilter(f)}

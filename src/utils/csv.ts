@@ -1,5 +1,4 @@
 import type { ValidationTask } from '../Zustand/Store';
-import type { Transaction } from '../pages/VaultTransactions';
 
 export type AnalyticsRow = {
   name: string;

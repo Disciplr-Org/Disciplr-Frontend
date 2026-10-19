@@ -17,9 +17,11 @@ export interface CreateVaultReviewMilestone {
  * @property milestone - (Optional) Legacy single milestone title.
  * @property milestones - (Optional) Array of milestone objects containing title and criteria.
  * @property isSubmitting - Disables interactions and shows a busy state when true.
+ * @property submissionUncertain - Locks confirmation until the user checks whether a vault was created.
  * @property error - Error message to display to the user, announced to screen readers.
  * @property onBack - Callback to return to the edit form.
  * @property onConfirm - Callback to submit the vault creation. Should be guarded against duplicate calls in the parent.
+ * @property onCheckVaults - Opens the vault list when a create outcome is unknown.
  */
 interface CreateVaultReviewProps {
   amount: string;
@@ -30,9 +32,11 @@ interface CreateVaultReviewProps {
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
   isSubmitting?: boolean;
+  submissionUncertain?: boolean;
   error?: string | null;
   onBack?: () => void;
   onConfirm?: () => void;
+  onCheckVaults?: () => void;
 }
 
 /**
@@ -50,9 +54,11 @@ export function CreateVaultReview({
   milestone,
   milestones,
   isSubmitting,
+  submissionUncertain,
   error,
   onBack,
   onConfirm,
+  onCheckVaults,
 }: CreateVaultReviewProps) {
   // Invariant validation for boundary conditions
   const isMissingData = !amount || !deadline || !successAddress || !failureAddress;
@@ -157,7 +163,7 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Success destination
+            Success destination (If you succeed, funds go to …)
           </Text>
           <AddressDisplay address={successAddress} />
         </div>
@@ -165,10 +171,11 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Failure destination
+            Failure destination (If you fail, funds go to …)
           </Text>
           <AddressDisplay address={failureAddress} />
         </div>
+
 
         {verifierAddress ? (
           <div
@@ -243,16 +250,16 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onBack}
-          disabled={isSubmitting}
-          aria-disabled={isSubmitting}
+          disabled={isSubmitting || submissionUncertain}
+          aria-disabled={isSubmitting || submissionUncertain}
           style={{
             background: "transparent",
             color: "var(--text)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "1px solid var(--border)",
-            cursor: isSubmitting ? "not-allowed" : "pointer",
-            opacity: isSubmitting ? 0.7 : 1,
+            cursor: isSubmitting || submissionUncertain ? "not-allowed" : "pointer",
+            opacity: isSubmitting || submissionUncertain ? 0.7 : 1,
           }}
         >
           <Text role="caption" as="span">
@@ -262,27 +269,44 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isSubmitting}
-          aria-disabled={isSubmitting}
+          disabled={isSubmitting || submissionUncertain}
+          aria-disabled={isSubmitting || submissionUncertain}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: isSubmitting ? "not-allowed" : "pointer",
+            cursor: isSubmitting || submissionUncertain ? "not-allowed" : "pointer",
             fontWeight: 600,
-            opacity: isSubmitting ? 0.7 : 1,
+            opacity: isSubmitting || submissionUncertain ? 0.7 : 1,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
           }}
         >
           <Text role="caption" as="span">
-            {isSubmitting ? "Submitting..." : "Confirm Vault"}
+            {isSubmitting ? "Submitting..." : submissionUncertain ? "Status unknown" : "Confirm Vault"}
           </Text>
         </button>
       </div>
+      {submissionUncertain && onCheckVaults ? (
+        <button
+          type="button"
+          onClick={onCheckVaults}
+          style={{
+            alignSelf: "flex-start",
+            background: "transparent",
+            color: "var(--accent)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "0.75rem 1rem",
+            cursor: "pointer",
+          }}
+        >
+          View vaults
+        </button>
+      ) : null}
     </div>
   );
 }

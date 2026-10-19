@@ -11,7 +11,7 @@ interface WalletSelectionModalProps {
 }
 
 export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
-    const { connect, isConnecting, error, address } = useWallet();
+    const { connect, connectDemo, isConnecting, error, address } = useWallet();
     const isConnected = address !== null;
 
     const isMounted = useRef(true);
@@ -41,9 +41,15 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
         connectPending.current = true;
         try {
             const connected = await connect();
-            if (isMounted.current && connected) {
+            // Only close modal if connection succeeded (connect() returned true).
+            // On failed connection attempts (Freighter not installed, user rejects access,
+            // network error), leave the modal open so the error message remains visible.
+            if (isMounted.current && Boolean(connected)) {
                 onClose();
             }
+        } catch {
+            // Keep modal open so error remains visible if connect() unexpectedly rejects
+            return;
         } finally {
             if (isMounted.current) {
                 connectPending.current = false;
@@ -91,7 +97,7 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
 
                 {/* Albedo support is not yet implemented */}
                 <button
-                    className="wallet-option"
+                    className="wallet-option wallet-option-disabled"
                     disabled
                     aria-disabled="true"
                     title="Albedo support is coming soon"
@@ -102,7 +108,20 @@ export function WalletSelectionModal({ onClose }: WalletSelectionModalProps) {
                         </div>
                         <span className="wallet-name">Albedo</span>
                     </div>
-                    <span className="wallet-coming-soon">Coming soon</span>
+                    <span className="wallet-status wallet-coming-soon">Coming soon</span>
+                </button>
+                <button
+                    className="wallet-option"
+                    onClick={() => { connectDemo(); onClose(); }}
+                    title="Explore with a built-in testnet demo account, no wallet needed"
+                >
+                    <div className="wallet-option-info">
+                        <div className="wallet-icon">
+                            <ShieldCheck size={20} color="var(--accent)" />
+                        </div>
+                        <span className="wallet-name">Demo account</span>
+                    </div>
+                    <span className="wallet-status">No wallet needed</span>
                 </button>
             </div>
 

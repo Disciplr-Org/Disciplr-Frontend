@@ -1,3 +1,4 @@
+import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C } from '@/__tests__/fixtures/stellarAddresses';
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreateVaultReview } from "../CreateVaultReview";
@@ -5,9 +6,9 @@ import userEvent from "@testing-library/user-event";
 
 describe("CreateVaultReview", () => {
   it("renders the vault summary and token-styled address details", () => {
-    const successAddress = `G${"A".repeat(55)}`;
-    const failureAddress = `G${"B".repeat(55)}`;
-    const verifierAddress = `G${"C".repeat(55)}`;
+    const successAddress = ACCOUNT_A;
+    const failureAddress = ACCOUNT_B;
+    const verifierAddress = ACCOUNT_C;
 
     render(
       <CreateVaultReview
@@ -36,7 +37,14 @@ describe("CreateVaultReview", () => {
     expect(screen.getByText("2030-01-01T00:00")).toBeInTheDocument();
     expect(screen.getByTitle(successAddress)).toBeInTheDocument();
     expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
+    expect(
+      screen.getByText(/If you succeed, funds go to …/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/If you fail, funds go to …/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Verifier address")).toBeInTheDocument();
+
     expect(screen.getByText("Milestones")).toBeInTheDocument();
     expect(screen.getByText("Design approved")).toBeInTheDocument();
     expect(
@@ -53,8 +61,8 @@ describe("CreateVaultReview", () => {
       <CreateVaultReview
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
         milestone="Deliverables approved"
       />,
     );
@@ -68,8 +76,8 @@ describe("CreateVaultReview", () => {
       <CreateVaultReview
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
         isSubmitting={true}
       />,
     );
@@ -91,8 +99,8 @@ describe("CreateVaultReview", () => {
       <CreateVaultReview
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
         error={errorMsg}
       />,
     );
@@ -128,8 +136,8 @@ describe("CreateVaultReview", () => {
       <CreateVaultReview
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
         onConfirm={onConfirm}
         onBack={onBack}
       />
