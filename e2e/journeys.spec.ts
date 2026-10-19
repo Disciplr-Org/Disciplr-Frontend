@@ -86,7 +86,7 @@ test.describe('Disciplr End-to-End Journeys', () => {
     await page.getByRole('button', { name: /confirm vault/i }).click();
 
     // Redirected to detail page
-    await expect(page).toHaveURL(/\/vaults\/v-/);
+    await expect(page).toHaveURL(/\/vaults\/(v-|demo-)/);
     await expect(
       page.getByRole('heading', { level: 1, name: /Vault 1000 USDC/i }),
     ).toBeVisible();

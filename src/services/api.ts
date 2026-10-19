@@ -8,9 +8,14 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 
-const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
-export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
-export const isApiEnabled = (): boolean => API_BASE !== null;
+const getRawApiBase = (): string | null => {
+  const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
+  return raw ? raw.replace(/\/+$/, "") : null;
+};
+
+export const API_BASE: string | null = getRawApiBase();
+export const isApiEnabled = (): boolean => getRawApiBase() !== null;
+
 
 interface ApiMilestone { id: string; title: string; amount: string; dueDate: string; status: string }
 export interface ApiVault {
@@ -29,10 +34,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new ApiError("API not configured", 0);
+  const baseUrl = getRawApiBase();
+  if (!baseUrl) throw new ApiError("API not configured", 0);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
