@@ -12,6 +12,7 @@ import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
 import CommandPalette from "./CommandPalette";
+import { useOptionalWallet } from "../context/WalletContext";
 import {
   DRAWER_INITIAL_STATE,
   isDrawerOpen,
@@ -44,6 +45,9 @@ function isValidPathname(value: unknown): value is string {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const wallet = useOptionalWallet();
+  const isDemo = wallet?.isDemo ?? false;
+  const resetDemo = wallet?.resetDemo ?? (() => {});
   // All drawer transitions flow through the reducer so open/close/toggle and
   // the route-change/resize recovery events are deterministic and idempotent
   // (see src/utils/drawerState.ts for the state machine and its invariants).
@@ -55,6 +59,16 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+
+  // Announce demo mode activation for assistive tech
+  const [announcedDemo, setAnnouncedDemo] = React.useState(false);
+  useEffect(() => {
+    if (isDemo && !announcedDemo) {
+      setAnnouncedDemo(true);
+    } else if (!isDemo && announcedDemo) {
+      setAnnouncedDemo(false);
+    }
+  }, [isDemo, announcedDemo]);
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
@@ -122,6 +136,9 @@ export default function Layout({ children }: LayoutProps) {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <div className="sr-only" aria-live="polite" role="status">
+        {isDemo ? "Demo mode active: changes stay in this browser" : ""}
+      </div>
       <header className="site-header">
         <div className="header-brand" {...backgroundAccessibilityProps}>
           <Link to="/" className="header-link" aria-label="Disciplr home">
@@ -230,6 +247,22 @@ export default function Layout({ children }: LayoutProps) {
             <CommandPalette />
             <NotificationBell />
             <ThemeToggle />
+            {isDemo && (
+              <div className="demo-mode-chip desktop-demo-chip" role="status" aria-label="Demo mode">
+                <span className="demo-mode-chip-text">
+                  Demo mode: changes stay in this browser
+                </span>
+                <button
+                  type="button"
+                  className="demo-mode-reset-btn"
+                  onClick={resetDemo}
+                  title="Clear demo data and reset to initial demo state"
+                  aria-label="Reset demo"
+                >
+                  Reset demo
+                </button>
+              </div>
+            )}
             <WalletConnectButton />
           </div>
         </nav>
@@ -250,6 +283,19 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
+      {isDemo && (
+        <div className="mobile-demo-banner" role="status">
+          <span>Demo mode: changes stay in this browser</span>
+          <button
+            type="button"
+            className="demo-mode-reset-btn"
+            onClick={resetDemo}
+            aria-label="Reset demo"
+          >
+            Reset demo
+          </button>
+        </div>
+      )}
       <TrustlineBanner />
 
       <main
