@@ -77,6 +77,33 @@ export async function listVaults(): Promise<Vault[]> {
   return Object.values(MASTER_VAULTS);
 }
 
+export async function findRecentVaultByCreator(input: {
+  creator: string;
+  name: string;
+  amount: number;
+  since: number | Date;
+  signal?: AbortSignal;
+}): Promise<Vault[]> {
+  const vaults = isApiEnabled()
+    ? await apiListVaults(input.creator, input.signal)
+    : Object.values(MASTER_VAULTS);
+  const since = input.since instanceof Date
+    ? input.since.getTime()
+    : input.since;
+  const cutoff = since - 5_000;
+
+  return vaults.filter((vault) => {
+    const createdAt = new Date(vault.createdAt).getTime();
+    return (
+      vault.creatorAddress === input.creator &&
+      vault.name === input.name &&
+      vault.amount === input.amount &&
+      Number.isFinite(createdAt) &&
+      createdAt >= cutoff
+    );
+  });
+}
+
 /**
  * Return a single vault by id, or undefined if not found.
  * Does NOT throw for unknown ids — callers rely on the undefined branch.

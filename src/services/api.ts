@@ -8,9 +8,13 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 
-const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
-export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
-export const isApiEnabled = (): boolean => API_BASE !== null;
+function getApiBase(): string | null {
+  const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
+  return raw ? raw.replace(/\/+$/, "") : null;
+}
+
+export const API_BASE = getApiBase();
+export const isApiEnabled = (): boolean => getApiBase() !== null;
 
 interface ApiMilestone { id: string; title: string; amount: string; dueDate: string; status: string }
 export interface ApiVault {
@@ -22,26 +26,67 @@ export interface ApiVault {
 interface ApiActivity { id: string; type: string; vaultId: string; amount: string; status: string; hash: string; memo: string; createdAt: string }
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+    public details: string[] = [],
+    public serverError?: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
+export function classifyCreateError(err: unknown): "rejected" | "unknown" {
+  if (
+    err instanceof ApiError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 408 &&
+    err.status !== 429
+  ) {
+    return "rejected";
+  }
+  return "unknown";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new ApiError("API not configured", 0);
+  const apiBase = getApiBase();
+  if (!apiBase) throw new ApiError("API not configured", 0);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${apiBase}${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
-  } catch {
+  } catch (err) {
+    if (
+      init?.signal?.aborted ||
+      (typeof err === "object" &&
+        err !== null &&
+        "name" in err &&
+        err.name === "AbortError")
+    ) {
+      throw err;
+    }
     throw new ApiError("Could not reach the Disciplr API.", 0);
   }
-  const body = (await res.json().catch(() => ({}))) as { error?: string; details?: string[]; data?: T };
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: unknown;
+    details?: unknown;
+    data?: T;
+  };
   if (!res.ok) {
-    throw new ApiError([body.error, ...(body.details ?? [])].filter(Boolean).join(": ") || `HTTP ${res.status}`, res.status);
+    const serverError = typeof body.error === "string" ? body.error : undefined;
+    const details = Array.isArray(body.details)
+      ? body.details.filter((detail): detail is string => typeof detail === "string")
+      : [];
+    throw new ApiError(
+      [serverError, ...details].filter(Boolean).join(": ") || `HTTP ${res.status}`,
+      res.status,
+      details,
+      serverError,
+    );
   }
   return body.data as T;
 }
@@ -81,7 +126,15 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export const apiListVaults = async (): Promise<Vault[]> => (await request<ApiVault[]>("/vaults")).map(toVault);
+export async function apiListVaults(
+  creator?: string,
+  signal?: AbortSignal,
+): Promise<Vault[]> {
+  const query = creator
+    ? `?${new URLSearchParams({ creator }).toString()}`
+    : "";
+  return (await request<ApiVault[]>(`/vaults${query}`, { signal })).map(toVault);
+}
 
 export async function apiGetVault(id: string): Promise<Vault | undefined> {
   try {
