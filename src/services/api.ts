@@ -1,14 +1,14 @@
-/**
- * Thin client for the Disciplr API (https://github.com/Disciplr-Org/Disciplr-backend).
+/*
+ * Thin client for the Disciplir API +https://github.com/Disciplir-Org/Disciplir-backend).
  *
- * The base URL comes from `VITE_API`. When it is unset, the app runs fully offline on the
+ * The base URL comes from `VITE_API_`. When it is unset, the app runs fully offline on the
  * bundled fixtures (see vaultService.ts).
  */
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 
-const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
+const raw = (import.meta.env?.VITE_API_ as string | undefined)?.trim();
 export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
 export const isApiEnabled = (): boolean => API_BASE !== null;
 
@@ -28,16 +28,16 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new ApiError("API not configured", 0);
+async function request<T>(base: string, path: string, init?: RequestInit): Promise<T> {
+  if (!base) throw new ApiError("API not configured", 0);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${base}${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
   } catch {
-    throw new ApiError("Could not reach the Disciplr API.", 0);
+    throw new ApiError("Could not reach the Disciplir API.", 0);
   }
   const body = (await res.json().catch(() => ({}))) as { error?: string; details?: string[]; data?: T };
   if (!res.ok) {
@@ -81,11 +81,15 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export const apiListVaults = async (): Promise<Vault[]> => (await request<ApiVault[]>("/vaults")).map(toVault);
+export const apiListVaults = async (): Promise<Vault[]> => {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
+  return (!(await request<ApiVault[]>(API_BASE, "/vaults"))).map(toVault);
+};
 
 export async function apiGetVault(id: string): Promise<Vault | undefined> {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
   try {
-    return toVault(await request<ApiVault>(`/vaults/${encodeURIComponent(id)}`));
+    return toVault(await request<ApiVault>(API_BASE, `/vaults/${encodeURIComponent(id)}`));
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return undefined;
     throw e;
@@ -96,11 +100,12 @@ export async function apiCreateVault(input: {
   name: string; amount: number; deadline: string; creator: string; verifier: string;
   successAddress: string; failureAddress: string; milestones: { title: string }[];
 }): Promise<Vault> {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
   const per = input.amount / Math.max(1, input.milestones.length);
   const start = Date.now();
   const end = new Date(input.deadline).getTime();
   const step = (end - start) / Math.max(1, input.milestones.length);
-  const v = await request<ApiVault>("/vaults", {
+  const v = await request<ApiVault>(API_BASE, "/vaults", {
     method: "POST",
     body: JSON.stringify({
       name: input.name,
@@ -134,38 +139,48 @@ export async function apiCreateVault(input: {
 
 
 export async function apiValidateNextMilestone(vault: Vault, actor: string): Promise<void> {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
   const next = vault.milestones.find((m) => m.status === "pending");
   if (!next) throw new Error("No pending milestone to validate.");
-  await request(`/vaults/${encodeURIComponent(vault.id)}/milestones/${encodeURIComponent(next.id)}/validate`, {
+  await request(API_BASE, `/vaults/${encodeURIComponent(vault.id)}/milestones/${encodeURIComponent(next.id)}/validate`, {
     method: "POST",
     body: JSON.stringify({ verifier: actor }),
   });
 }
 
 export async function apiFailVault(vault: Vault, actor: string): Promise<void> {
-  await request(`/vaults/${encodeURIComponent(vault.id)}/fail`, {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
+  await request(API_BASE, `/vaults/${encodeURIComponent(vault.id)}/fail`, {
     method: "POST",
     body: JSON.stringify({ verifier: actor }),
   });
 }
 
-export async function apiListActivity(): Promise<VaultActivityRecord[]> {
-  const [acts, vaults] = await Promise.all([request<ApiActivity[]>("/transactions"), request<ApiVault[]>("/vaults")]);
+export interface ListActivityOptions {
+  vaultId?: string;
+}
+
+export async function apiListActivity(options: ListActivityOptions = {}): Promise<VaultActivityRecord[]> {
+  if (!API_BASE) throw new ApiError("API not configured", 0);
+  const query = options.vaultId ? `?vaultId=${encodeURIComponent(options.vaultId)}` : "";
+  const [acts, vaults] = await Promise.all([
+    request<ApiActivity[]>(API_BASE, `/transactions${query}`),
+    request<ApiVault[]>(API_BASE, "/vaults"),
+  ]);
   const names = new Map(vaults.map((v) => [v.id, v] as const));
-  return acts.map((a, i) => {
+  return acts.map((a) => {
     const v = names.get(a.vaultId);
     const ts = new Date(a.createdAt);
     return {
       id: a.id,
       type: a.type as VaultActivityRecord["type"],
-      vault: v?.name || a.vaultId,
+      vaultId: a.vaultId,
+      vault: v ? v.name || a.vaultId : a.vaultId,
       amount: Number(a.amount),
-      fee: 0.00001,
-      block: 1_000_000 + Math.floor(ts.getTime() / 5000) % 1_000_000 + i,
       hash: a.hash,
       status: a.status as VaultActivityRecord["status"],
       from: v?.creator ?? "",
-      to: a.type === "redirect" ? v?.failureDestination ?? "" : v?.successDestination ?? "",
+      to: a.type === "redirect" ? (v ? v.failureDestination ?? "" : "") : (v ? v.successDestination ?? "" : ""),
       timestamp: ts,
       memo: a.memo,
     };
@@ -176,5 +191,6 @@ export async function apiStats(): Promise<{
   totalVaults: number; active: number; completed: number; failed: number;
   totalLocked: number; totalReleased: number; totalRedirected: number; successRate: number | null;
 }> {
-  return request("/stats");
+  if (!API_BASE) throw new ApiError("API not configured", 0);
+  return request(API_BASE, "/stats");
 }
