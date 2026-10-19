@@ -15,6 +15,7 @@ import type { WalletNetwork } from "../context/WalletContext";
 import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { ActionInFlightError } from "../utils/singleFlight";
 import { ApiError } from "../services/api";
 import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
@@ -971,6 +972,9 @@ function actionBtn(color: string): React.CSSProperties {
 }
 
 function mapActionError(err: unknown): string {
+  if (err instanceof ActionInFlightError) {
+    return "Another vault action is still processing. Please wait.";
+  }
   if (err instanceof ApiError) {
     if (err.status === 403) {
       return "Only the vault's verifier can do this.";

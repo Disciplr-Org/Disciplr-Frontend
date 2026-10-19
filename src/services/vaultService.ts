@@ -204,9 +204,11 @@ export async function createVault(vaultData: {
  * cancel vault).
  *
  * Rejects unknown actions and unknown vault ids BEFORE reaching the network.
- * The operation is single-flight: overlapping calls are coalesced into one
- * execution so a double-submit (UI replay or hostile script) can never fire
- * two on-chain transactions from one confirmation.
+ * The operation is single-flight per (action, vaultId) key: identical
+ * overlapping calls are coalesced into one execution so a double-submit (UI
+ * replay or hostile script) can never fire two on-chain transactions from one
+ * confirmation, while a conflicting concurrent call for a different key is
+ * rejected with ActionInFlightError instead of silently sharing the result.
  *
  * SEAM → replace the empty body with the real Soroban invocation; the
  * single-flight guard must stay around it.
@@ -243,6 +245,10 @@ const submitVaultActionRunner = createSingleFlightRunner(
       }
     }
     return;
+  },
+  {
+    key: (action: VaultAction, vaultId: string) => `${action}:${vaultId}`,
+    onConflict: "reject",
   },
 );
 
