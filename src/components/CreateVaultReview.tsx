@@ -1,5 +1,7 @@
 import { Text } from "./Text";
 import { AddressDisplay } from "./AddressDisplay";
+import { Link } from "react-router-dom";
+import type { Vault } from "../types/vault";
 
 export interface CreateVaultReviewMilestone {
   title: string;
@@ -17,11 +19,12 @@ export interface CreateVaultReviewMilestone {
  * @property milestone - (Optional) Legacy single milestone title.
  * @property milestones - (Optional) Array of milestone objects containing title and criteria.
  * @property isSubmitting - Disables interactions and shows a busy state when true.
- * @property submissionUncertain - Locks confirmation until the user checks whether a vault was created.
+ * @property submissionUncertain - Locks edits and confirmation while the create outcome is unresolved.
  * @property error - Error message to display to the user, announced to screen readers.
+ * @property validationMessages - Safe server messages returned for a deterministic rejection.
  * @property onBack - Callback to return to the edit form.
  * @property onConfirm - Callback to submit the vault creation. Should be guarded against duplicate calls in the parent.
- * @property onCheckVaults - Opens the vault list when a create outcome is unknown.
+ * @property onCheckAgain - Retries reconciliation after an unknown create outcome.
  */
 interface CreateVaultReviewProps {
   amount: string;
@@ -34,9 +37,19 @@ interface CreateVaultReviewProps {
   isSubmitting?: boolean;
   submissionUncertain?: boolean;
   error?: string | null;
+  validationMessages?: string[];
+  reconciliationState?:
+    | "checking"
+    | "not-found"
+    | "failed"
+    | "ambiguous"
+    | "disconnected"
+    | null;
+  matchingVaults?: Vault[];
+  canCheckAgain?: boolean;
   onBack?: () => void;
   onConfirm?: () => void;
-  onCheckVaults?: () => void;
+  onCheckAgain?: () => void;
 }
 
 /**
@@ -56,9 +69,13 @@ export function CreateVaultReview({
   isSubmitting,
   submissionUncertain,
   error,
+  validationMessages = [],
+  reconciliationState,
+  matchingVaults = [],
+  canCheckAgain = false,
   onBack,
   onConfirm,
-  onCheckVaults,
+  onCheckAgain,
 }: CreateVaultReviewProps) {
   // Invariant validation for boundary conditions
   const isMissingData = !amount || !deadline || !successAddress || !failureAddress;
@@ -245,6 +262,47 @@ export function CreateVaultReview({
           </Text>
         </div>
       ) : null}
+      {validationMessages.length > 0 ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: "0.75rem",
+            background: "color-mix(in srgb, var(--danger) 10%, var(--surface))",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius)",
+            color: "var(--danger)",
+            marginTop: "0.5rem",
+          }}
+        >
+          <Text role="caption" as="p">
+            Vault creation was rejected. Review the server messages and edit the
+            details before trying again.
+          </Text>
+          <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+            {validationMessages.map((message, index) => {
+              const field = getValidationField(message);
+              return (
+                <li key={`${message}-${index}`}>
+                  {field ? <strong>{field}: </strong> : null}
+                  {message}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {matchingVaults.length > 1 ? (
+        <ul aria-label="Matching vaults" style={{ margin: 0, paddingLeft: "1.25rem" }}>
+          {matchingVaults.map((vault) => (
+            <li key={vault.id}>
+              <Link to={`/vaults/${encodeURIComponent(vault.id)}`}>
+                {vault.name} ({vault.amount} USDC)
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
         <button
@@ -286,14 +344,25 @@ export function CreateVaultReview({
           }}
         >
           <Text role="caption" as="span">
-            {isSubmitting ? "Submitting..." : submissionUncertain ? "Status unknown" : "Confirm Vault"}
+            {isSubmitting
+              ? reconciliationState === "checking"
+                ? "Checking..."
+                : "Submitting..."
+              : reconciliationState === "not-found"
+                ? "Try again"
+                : submissionUncertain
+                  ? "Status unknown"
+                  : "Confirm Vault"}
           </Text>
         </button>
       </div>
-      {submissionUncertain && onCheckVaults ? (
+      {submissionUncertain &&
+      reconciliationState !== "checking" &&
+      onCheckAgain ? (
         <button
           type="button"
-          onClick={onCheckVaults}
+          onClick={onCheckAgain}
+          disabled={!canCheckAgain || isSubmitting}
           style={{
             alignSelf: "flex-start",
             background: "transparent",
@@ -301,12 +370,24 @@ export function CreateVaultReview({
             border: "1px solid var(--border)",
             borderRadius: "var(--radius)",
             padding: "0.75rem 1rem",
-            cursor: "pointer",
+            cursor: !canCheckAgain || isSubmitting ? "not-allowed" : "pointer",
+            opacity: !canCheckAgain || isSubmitting ? 0.7 : 1,
           }}
         >
-          View vaults
+          Check again
         </button>
       ) : null}
     </div>
   );
+}
+
+function getValidationField(message: string): string | undefined {
+  const normalized = message.replace(/([a-z])([A-Z])/g, "$1 $2");
+  if (/\bverifier\b/i.test(normalized)) return "Verifier";
+  if (/\bamount\b/i.test(normalized)) return "Amount";
+  if (/\bdeadline\b|\bend\s*date\b/i.test(normalized)) return "Deadline";
+  if (/\bsuccess\s*(address|destination)\b/i.test(normalized)) return "Success destination";
+  if (/\bfailure\s*(address|destination)\b/i.test(normalized)) return "Failure destination";
+  if (/\bmilestone\b/i.test(normalized)) return "Milestone";
+  return undefined;
 }
