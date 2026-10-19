@@ -301,36 +301,41 @@ export default function ValidationDetail() {
             <Text role="body" as="p" className="font-bold mb-2">Submitted Proof:</Text>
             {task.evidenceUrl && typeof task.evidenceUrl === 'string' && task.evidenceUrl.trim() ? (
               <div className="p-4 border rounded-lg" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-3 mb-3">
-                  {(() => {
-                    const info = classifyEvidenceUrl(task.evidenceUrl);
-                    if (!info) return null;
-                    const kindLabels: Record<typeof info.kind, string> = {
-                      github: 'GitHub',
-                      figma: 'Figma',
-                      ipfs: 'IPFS',
-                      other: 'Other'
-                    };
-                    const brandColor = EVIDENCE_BADGE_COLORS[info.kind];
-                    const colors = {
-                      bg: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
-                      color: brandColor,
-                    };
-                    return (
-                      <>
-                        <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{ background: colors.bg, color: colors.color, border: `1px solid ${colors.color}` }}
-                        >
-                          {kindLabels[info.kind]}
-                        </span>
-                        <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
-                          {info.host}
-                        </Text>
-                      </>
-                    );
-                  })()}
-                </div>
+                {(() => {
+                  const info = classifyEvidenceUrl(task.evidenceUrl);
+                  if (!info) return null;
+                  const kindLabels: Record<typeof info.kind, string> = {
+                    github: 'GitHub',
+                    figma: 'Figma',
+                    ipfs: 'IPFS',
+                    other: 'Other'
+                  };
+                  const brandColor = EVIDENCE_BADGE_COLORS[info.kind];
+                  const colors = {
+                    bg: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
+                    color: brandColor,
+                  };
+                  return (
+                    <div className="flex items-center gap-3 mb-3">
+                      <span
+                        data-testid="evidence-kind-badge"
+                        className="px-3 py-1 rounded-full text-xs font-semibold"
+                        style={{ background: colors.bg, color: colors.color, border: `1px solid ${colors.color}` }}
+                      >
+                        {kindLabels[info.kind]}
+                      </span>
+                      <Text
+                        role="body"
+                        as="span"
+                        data-testid="evidence-host"
+                        className="text-sm font-mono"
+                        style={{ color: 'var(--muted)' }}
+                      >
+                        {info.host}
+                      </Text>
+                    </div>
+                  );
+                })()}
                 <SafeLink
                   href={task.evidenceUrl}
                   className="inline-block px-4 py-2 border rounded transition font-medium text-sm"

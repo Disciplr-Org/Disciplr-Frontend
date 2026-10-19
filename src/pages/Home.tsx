@@ -1,8 +1,9 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { WalletConnectButton } from '../components/Wallet/WalletConnectButton'
 import { Zap } from 'lucide-react'
 import { VaultIcon, MilestoneIcon, TimeLockIcon, TreasuryIcon } from '../components/icons'
+import { useWallet } from '../context/WalletContext'
 
 /**
  * Home page invariants:
@@ -46,6 +47,9 @@ const TRUST_SIGNALS = [
 ] as const
 
 export default function Home() {
+  const { connectDemo } = useWallet()
+  const navigate = useNavigate()
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'var(--spacing-4)' }}>
       {/* Hero Section */}
@@ -73,6 +77,25 @@ export default function Home() {
           >
             Create Your First Vault
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              connectDemo?.();
+              navigate('/dashboard');
+            }}
+            style={{
+              backgroundColor: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: 'var(--spacing-2) var(--spacing-4)',
+              borderRadius: 'var(--radius)',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: 'var(--font-size-body)',
+            }}
+          >
+            Try the demo account
+          </button>
           {SECONDARY_LINKS.map((link) => (
             <Link
               key={link.to}

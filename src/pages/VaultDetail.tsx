@@ -15,6 +15,7 @@ import type { WalletNetwork } from "../context/WalletContext";
 import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { ApiError } from "../services/api";
 import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
 import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
 import { truncateMiddle } from "../utils/truncate";
@@ -25,6 +26,7 @@ import {
   buildFundReleaseView,
   detectSettlementAnomalies,
   evalVaultActionAuth,
+  isApiMode,
   type VaultAction,
   type VaultActionAuth,
 } from "../utils/vaultState";
@@ -301,6 +303,7 @@ function VaultDetailContent({
         walletAddress,
         walletNetwork,
         expectedNetwork: APP_EXPECTED_NETWORK,
+        mode: isApiMode() ? "api" : "offline",
       });
     }
     return results;
@@ -323,15 +326,11 @@ function VaultDetailContent({
     setActionError(null);
     setIsSubmitting(true);
     try {
-      await submitVaultAction(activeAction, vault.id);
+      await submitVaultAction(activeAction, vault.id, walletAddress);
       setActiveAction(null);
       onChanged?.();
     } catch (err) {
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : "The action could not be submitted. Please try again.",
-      );
+      setActionError(mapActionError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -450,12 +449,14 @@ function VaultDetailContent({
                     onClick={() => handleActionClick("validate_milestone")}
                   />
                 )}
-                <ActionButton
-                  label="Extend Deadline"
-                  color="var(--warning)"
-                  auth={authResults.extend_deadline}
-                  onClick={() => handleActionClick("extend_deadline")}
-                />
+                {!isApiMode() && (
+                  <ActionButton
+                    label="Extend Deadline"
+                    color="var(--warning)"
+                    auth={authResults.extend_deadline}
+                    onClick={() => handleActionClick("extend_deadline")}
+                  />
+                )}
                 <ActionButton
                   label="Cancel Vault"
                   color="var(--danger)"
@@ -478,6 +479,15 @@ function VaultDetailContent({
               Actions are limited because: {authResults.extend_deadline.reasons[0]}
             </Text>
           )}
+        {isActive && isApiMode() && (
+          <Text
+            role="caption"
+            as="p"
+            style={{ color: "var(--muted)", marginTop: "0.5rem", marginBottom: 0 }}
+          >
+            Extending a deadline is not supported by the demo API.
+          </Text>
+        )}
       </Card>
 
       {/* ── Timeline ── */}
@@ -958,4 +968,18 @@ function actionBtn(color: string): React.CSSProperties {
     fontWeight: 600,
     minHeight: 36,
   };
+}
+
+function mapActionError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return "Only the vault's verifier can do this.";
+    }
+    if (err.status === 409) {
+      return "This vault is already settled or inactive.";
+    }
+  }
+  return err instanceof Error
+    ? err.message
+    : "The action could not be submitted. Please try again.";
 }

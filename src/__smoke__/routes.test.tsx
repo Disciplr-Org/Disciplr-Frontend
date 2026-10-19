@@ -3,6 +3,8 @@ import { describe, it, expect, vi } from 'vitest'
 import App from '../App'
 
 const routes = ['/', '/dashboard', '/vaults', '/transactions', '/docs', '/vaults/1', '/vaults/create', '/verifier', '/verifier/history', '/help', '/analytics', '/notifications', '/notifications/settings', '/nope']
+const protectedRoutes = ['/vaults/create', '/vaults/1', '/verifier/queue', '/verifier/queue/v1']
+
 describe('smoke', () => {
   for (const r of routes) {
     it('renders ' + r, async () => {
@@ -17,6 +19,17 @@ describe('smoke', () => {
       const bad = errs.filter((e) => String(e).match(/ReferenceError|is not defined|Cannot read/))
       expect(bad).toEqual([])
       spy.mockRestore(); cleanup()
+    })
+  }
+
+  for (const pr of protectedRoutes) {
+    it(`renders skeleton while resolving on protected route ${pr}`, () => {
+      window.history.pushState({}, '', pr)
+      const { queryByTestId, queryByText } = render(<App />)
+      expect(queryByTestId('require-wallet-resolving')).toBeInTheDocument()
+      expect(queryByText('Checking wallet…')).toBeInTheDocument()
+      expect(queryByText(/connect your wallet/i)).toBeNull()
+      cleanup()
     })
   }
 })

@@ -1,5 +1,6 @@
-import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C } from '@/__tests__/fixtures/stellarAddresses';
-import { describe, expect, it } from "vitest";
+import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C, CONTRACT_ADDRESS } from '@/__tests__/fixtures/stellarAddresses';
+import { describe, expect, it, vi } from "vitest";
+
 import {
   exceedsBalance,
   isFutureDeadline,
@@ -99,7 +100,69 @@ describe("vaultValidation", () => {
     });
   });
 
+  it("rejects contract addresses (C...) when API is enabled", async () => {
+    const apiModule = await import("../../services/api");
+    const isApiSpy = vi.spyOn(apiModule, "isApiEnabled").mockReturnValue(true);
+
+    try {
+      const errors = validateCreateVault(
+        {
+          amount: "100",
+          deadline: "2026-06-19T00:00:00Z",
+          successAddress: CONTRACT_ADDRESS,
+          failureAddress: ACCOUNT_B,
+          milestones: [{ title: "Launch", criteria: "Verifier approval" }],
+        },
+        now,
+      );
+
+      expect(errors.successAddress).toBe(
+        "Enter a Stellar account address (starts with G). Contract addresses aren't supported yet.",
+      );
+
+      const errors2 = validateCreateVault(
+        {
+          amount: "100",
+          deadline: "2026-06-19T00:00:00Z",
+          successAddress: ACCOUNT_A,
+          failureAddress: CONTRACT_ADDRESS,
+          milestones: [{ title: "Launch", criteria: "Verifier approval" }],
+        },
+        now,
+      );
+
+      expect(errors2.failureAddress).toBe(
+        "Enter a Stellar account address (starts with G). Contract addresses aren't supported yet.",
+      );
+    } finally {
+      isApiSpy.mockRestore();
+    }
+  });
+
+  it("accepts contract addresses (C...) when offline (API disabled)", async () => {
+    const apiModule = await import("../../services/api");
+    const isApiSpy = vi.spyOn(apiModule, "isApiEnabled").mockReturnValue(false);
+
+    try {
+      const errors = validateCreateVault(
+        {
+          amount: "100",
+          deadline: "2026-06-19T00:00:00Z",
+          successAddress: CONTRACT_ADDRESS,
+          failureAddress: ACCOUNT_B,
+          milestones: [{ title: "Launch", criteria: "Verifier approval" }],
+        },
+        now,
+      );
+
+      expect(errors.successAddress).toBeUndefined();
+    } finally {
+      isApiSpy.mockRestore();
+    }
+  });
+
   it("returns no errors for valid create-vault values", () => {
+
     expect(
       validateCreateVault(
         {

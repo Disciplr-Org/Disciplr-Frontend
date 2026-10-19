@@ -38,6 +38,7 @@
 import type { Milestone, MilestoneStatus, Vault, VaultStatus } from "../types/vault";
 import { isValidStellarAddress } from "./stellarAddress";
 import { isNetworkMismatch } from "./networkMismatch";
+import { isApiEnabled } from "../services/api";
 
 export { isValidStellarAddress };
 
@@ -561,6 +562,17 @@ export function isVaultAction(value: unknown): value is VaultAction {
   );
 }
 
+/** Which vault action is permitted for which vault role, per execution mode.
+ *  API mode mirrors the server's authorization (verifier-only for validate
+ *  and cancel). Offline fixture mode keeps the legacy creator-or-verifier
+ *  rules so local demos continue to work. */
+export type VaultActionMode = "api" | "offline";
+
+/** Current execution mode: "api" when VITE_API is configured, else offline fixtures. */
+export const isApiMode = (): boolean => isApiEnabled();
+
+export type VaultActionRole = "creator" | "verifier";
+
 export type WalletNetworkLike = "TESTNET" | "PUBLIC" | null | undefined;
 
 export interface EvalVaultActionAuthInput {
@@ -569,6 +581,7 @@ export interface EvalVaultActionAuthInput {
   walletAddress: string | null | undefined;
   walletNetwork: WalletNetworkLike;
   expectedNetwork?: "TESTNET" | "PUBLIC";
+  mode?: VaultActionMode;
 }
 
 export interface VaultActionAuth {
@@ -583,6 +596,25 @@ const ACTION_LABELS: Record<VaultAction, string> = {
 };
 
 const SETTLED_STATUSES: readonly VaultStatus[] = ["completed", "failed", "cancelled"];
+
+/** Data-driven role rules. API mode matches the server, which authorises
+ *  validate/fail (cancel) by the stored verifier only. Offline mode retains
+ *  the historical creator-or-verifier behaviour for fixture demos. */
+export const VAULT_ACTION_ROLES: Record<
+  VaultActionMode,
+  Record<VaultAction, readonly VaultActionRole[]>
+> = {
+  api: {
+    validate_milestone: ["verifier"],
+    extend_deadline: [],
+    cancel_vault: ["verifier"],
+  },
+  offline: {
+    validate_milestone: ["creator", "verifier"],
+    extend_deadline: ["creator"],
+    cancel_vault: ["creator"],
+  },
+};
 
 /**
  * Decides whether a wallet may perform a sensitive vault action. Every check is
@@ -599,6 +631,7 @@ export function evalVaultActionAuth({
   walletAddress,
   walletNetwork,
   expectedNetwork,
+  mode = "offline",
 }: EvalVaultActionAuthInput): VaultActionAuth {
   const reasons: string[] = [];
   const label = ACTION_LABELS[action];
@@ -626,24 +659,49 @@ export function evalVaultActionAuth({
     reasons.push("No milestone is currently pending validation.");
   }
 
-  const isCreator = walletAddress === vault.creatorAddress;
-  const isVerifier =
-    (vault.verifierAddress ?? "").length > 0 &&
-    walletAddress === vault.verifierAddress;
+  const trimmedWallet =
+    typeof walletAddress === "string" ? walletAddress.trim() : walletAddress;
+  const trimmedCreator =
+    typeof vault.creatorAddress === "string"
+      ? vault.creatorAddress.trim()
+      : vault.creatorAddress;
+  const trimmedVerifier =
+    typeof vault.verifierAddress === "string"
+      ? vault.verifierAddress.trim()
+      : vault.verifierAddress;
 
+  const isCreator =
+    isNonEmptyString(trimmedWallet) && trimmedWallet === trimmedCreator;
+  const isVerifier =
+    isNonEmptyString(trimmedVerifier) && trimmedWallet === trimmedVerifier;
+
+  const allowedRoles = VAULT_ACTION_ROLES[mode][action];
   const authorized =
-    action === "validate_milestone" ? isCreator || isVerifier : isCreator;
+    (allowedRoles.includes("creator") && isCreator) ||
+    (allowedRoles.includes("verifier") && isVerifier);
 
   if (
     reasons.length === 0 &&
-    isNonEmptyString(walletAddress) &&
+    isNonEmptyString(trimmedWallet) &&
     !authorized
   ) {
-    reasons.push(
-      `The connected wallet is not authorized to ${label}. Only the vault's creator${
-        action === "validate_milestone" ? " or verifier" : ""
-      } may do this.`,
-    );
+    if (allowedRoles.length === 0) {
+      reasons.push(
+        `This action is not supported by the current API and cannot be performed.`,
+      );
+    } else if (allowedRoles.length === 1 && allowedRoles[0] === "verifier") {
+      reasons.push(
+        `The connected wallet is not authorized to ${label}. Only the vault's verifier may do this.`,
+      );
+    } else if (allowedRoles.length === 1 && allowedRoles[0] === "creator") {
+      reasons.push(
+        `The connected wallet is not authorized to ${label}. Only the vault's creator may do this.`,
+      );
+    } else {
+      reasons.push(
+        `The connected wallet is not authorized to ${label}. Only the vault's creator or verifier may do this.`,
+      );
+    }
   }
 
   // Invariant: an action is allowed only when every precondition passed.

@@ -376,7 +376,7 @@ describe('ValidationDetail Page', () => {
     expect(screen.getByText('github.com')).toBeInTheDocument();
   });
 
-  it('renders evidence preview card with Figma badge for Figma URLs', () => {
+  it('renders evidence preview card with Figma badge and actual hostname for Figma URLs', () => {
     mockStore({
       pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: 'https://www.figma.com/file/abc123' }],
       approveValidation: mockApproveValidation,
@@ -390,7 +390,63 @@ describe('ValidationDetail Page', () => {
     );
 
     expect(screen.getByText('Figma')).toBeInTheDocument();
-    expect(screen.getByText('figma.com')).toBeInTheDocument();
+    expect(screen.getByText('www.figma.com')).toBeInTheDocument();
+  });
+
+  it('renders evidence preview card with GitHub badge and actual subdomain host for gist.github.com', () => {
+    mockStore({
+      pendingValidations: [{ ...mockPendingValidations[0], evidenceUrl: 'https://gist.github.com/user/12345' }],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('GitHub')).toBeInTheDocument();
+    expect(screen.getByText('gist.github.com')).toBeInTheDocument();
+  });
+
+  it('renders Other badge and real hostname for look-alike and punycode hosts', () => {
+    mockStore({
+      pendingValidations: [
+        { ...mockPendingValidations[0], evidenceUrl: 'https://github.com.evil.io/pull/42' },
+      ],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('evidence-kind-badge')).toHaveTextContent('Other');
+    expect(screen.queryByText('GitHub')).not.toBeInTheDocument();
+    expect(screen.getByTestId('evidence-host')).toHaveTextContent('github.com.evil.io');
+  });
+
+  it('does not render an IPFS badge above [Invalid Link] for ipfs:// scheme URLs', () => {
+    mockStore({
+      pendingValidations: [
+        { ...mockPendingValidations[0], evidenceUrl: 'ipfs://QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco' },
+      ],
+      approveValidation: mockApproveValidation,
+      rejectValidation: mockRejectValidation,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/v-101']}>
+        <ValidationDetail />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('IPFS')).not.toBeInTheDocument();
+    expect(screen.getByText('[Invalid Link]')).toBeInTheDocument();
   });
 
   it('renders evidence preview card with IPFS badge for IPFS URLs', () => {

@@ -1,1 +1,176 @@
-LyoqCiAqIFRva2VuIHZhbGlkYXRpb24gdXRpbGl0aWVzCiAqCiAqIEludmFyaWFudHM6CiAqIC0gVmFsaWRhdG9ycyBhcmUgcHVyZSBhbmQgZGV0ZXJtaW5pc3RpYzogdGhlIHNhbWUgaW5wdXQgYWx3YXlzIHlpZWxkcyB0aGUKICogICBzYW1lIGJvb2xlYW4gcmVzdWx0LCBhbmQgbm8gZXhjZXB0aW9uIGlzIHRocm93biBmb3IgYW55IGlucHV0IChpbmNsdWRpbmcKICogICBub24tc3RyaW5ncywgbnVsbCwgdW5kZWZpbmVkLCBhcnJheXMsIGFuZCBjeWNsaWMgb2JqZWN0cykuCiAqIC0gQ29sb3Igc3RyaW5nIHZhbGlkYXRpb24gaXMgc3RyaWN0IGFuZCBmdWxseSBhbmNob3JlZDsgdHJhaWxpbmcgb3IKICogICBsZWFkaW5nIGdhcmJhZ2UgaXMgcmVqZWN0ZWQuCiAqIC0gQ29sb3IgY2hhbm5lbHMgYXJlIGJvdW5kZWQgKDAuLjI1NSBmb3IgcmdiLCBodWUgMC4uMzYwLCBzYXR1cmF0aW9uL2xpZ2h0bmVzcwogKiAgIDAuLjEwMCUpIHNvIG91dC1vZi1yYW5nZSB2YWx1ZXMgY2Fubm90IHNpbGVudGx5IHBhc3MuCiAqIC0gVG9rZW4gdmFsaWRhdGlvbiBpcyBkZWZlbnNpdmU6IG5lc3RlZCBvYmplY3RzIGFyZSBndWFyZGVkIGFnYWluc3QKICogICBwcm90b3R5cGUgcG9sbHV0aW9uIGFuZCBhZ2FpbnN0IG5vbi1vYmplY3QgdHlwZXMuCiAqIC0gQ2hhcnQgdG9rZW4gdmFsaWRhdGlvbiBlbmZvcmNlcyB0aGUgbWluaW11bSByYW1wIHNpemUgYW5kIHJlcXVpcmVzIGJvdGgKICogICBsaWdodCBhbmQgZGFyayB2YXJpYW50cyBmb3IgZXZlcnkgc3RlcC4KICovCgpleHBvcnQgY29uc3QgVkFMSURfVE9LRU5fUFJFRklYRVMgPSBbCiAgJ2NoYXJ0JywKICAnY29sb3InLAogICdmb250JywKICAnc3BhY2luZycsCiAgJ3R5cG9ncmFwaHknLAogICdzaGFkb3cnLAogICdyYWRpdXMnLAogICdib3JkZXInLAogICdtb3Rpb24nLAogICd6LWluZGV4JywKXSBhcyBjb25zdDsKCmV4cG9ydCB0eXBlIFZhbGlkVG9rZW5QcmVmaXggPSAodHlwZW9mIFZBTElEX1RPS0VOX1BSRUZJWEVTKVtudW1iZXJdOwoKY29uc3QgSEVYX0NPTE9SX1JFR0VYID0gL14jKD86WzAtOUEtRl17M318WzAtOUEtRl17NH18WzAtOUEtRl17Nn18WzAtOUEtRl17OH0pJC9pOwpjb25zdCB SR0JfQ09MT1JfUkVHRVggPSAvXnJnYlwoXGQrLFxzKlxkKyxccypcZCtcKSQvOwpjb25zdCB IU0xfQ09MT1JfUkVHRVggPSAvXmhzbFwoXGQrLFxzKlxkKyUsXHMqXGQrJVwpJC87CmNvbnN0IEtFQkFCX0NBU0VfUkVHRVggPSAvXlthLXpdW2EtejAtOV0qKC1bYS16MC05XSspKiQvOwoKY29uc3QgTUFYX1JHQl9DSEFOTkVMID0gMjU1Owpjb25zdCBNQVhfSFNMX0hVRSA9IDM2MDsKY29uc3QgTUFYX0hTTF9QRVJDRU5UQUdFID0gMTAwOwoKY29uc3QgTUlOX0NIQVJUX1JBTVBfU1RFUFMgPSA1OwoKY29uc3QgQ0hBUlRfU1VSRkFDRV9LRVlTID0gWwogICdheGlzJywKICAnZ3JpZCcsCiAgJ3Rvb2x0aXBCZycsCiAgJ3Rvb2x0aXBCb3JkZXInLAogICd0b29sdGlwVGV4dCcsCiAgJ3Rvb2x0aXBMYWJlbCcsCl0gYXMgY29uc3Q7CgpmdW5jdGlvbiBpc1BsYWluT2JqZWN0KHZhbHVlOiB1bmtub3duKTogdmFsdWUgaXMgUmVjb3JkPHN0cmluZywgdW5rbm93bj4gewogIGlmICh2YWx1ZSA9PT0gbnVsbCB8fCB0eXBlb2YgdmFsdWUgIT09ICdvYmplY3QnKSByZXR1cm4gZmFsc2U7CiAgaWYgKEFycmF5LmlzQXJyYXkodmFsdWUpKSByZXR1cm4gZmFsc2U7CiAgY29uc3QgcHJvdG8gPSBPYmplY3QuZ2V0UHJvdG90eXBlT2YodmFsdWUpOwogIHJldHVybiBwcm90byA9PT0gT2JqZWN0LnByb3RvdHlwZSB8fCBwcm90byA9PT0gbnVsbDsKfQoKZnVuY3Rpb24gaGFzT3duKG9iajogUmVjb3JkPHN0cmluZywgdW5rbm93bj4sIGtleTogc3RyaW5nKTogYm9vbGVhbiB7CiAgcmV0dXJuIE9iamVjdC5wcm90b3R5cGUuaGFzT3duUHJvcGVydHkuY2FsbChvYmosIGtleSk7Cn0KCmV4cG9ydCBmdW5jdGlvbiBpc1ZhbGlkSGV4Q29sb3IoY29sb3I6IHVua25vd24pOiBib29sZWFuIHsKICByZXR1cm4gdHlwZW9mIGNvbG9yID09PSAnc3RyaW5nJyAmJiBIRVhfQ09MT1JfUkVHRVgudGVzdChjb2xvcik7Cn0KCmV4cG9ydCBmdW5jdGlvbiBpc1ZhbGlkUmdiQ29sb3IoY29sb3I6IHVua25vd24pOiBib29sZWFuIHsKICBpZiAodHlwZW9mIGNvbG9yICE9PSAnc3RyaW5nJykgcmV0dXJuIGZhbHNlOwogIGNvbnN0IG1hdGNoID0gY29sb3IubWF0Y2goL15yZ2JcKChcZCspLFxzKihcZCspLFxzKihcZCspXCkkLyk7CiAgaWYgKCFtYXRjaCkgcmV0dXJuIGZhbHNlOwogIGNvbnN0IFssIHIsIGcsIGJdID0gbWF0Y2g7CiAgcmV0dXJuIFtyLCBnLCBiXS5ldmVyeShjaGFubmVsID0+IHsKICAgIGNvbnN0IG4gPSBOdW1iZXIoY2hhbm5lbCk7CiAgICByZXR1cm4gTnVtYmVyLmlzSW50ZWdlcihuKSAmJiBuID49IDAgJiYgbiA8PSBNQVhfUkdCX0NIQU5ORUw7CiAgfSk7Cn0KCmV4cG9ydCBmdW5jdGlvbiBpc1ZhbGlkSHNsQ29sb3IoY29sb3I6IHVua25vd24pOiBib29sZWFuIHsKICBpZiAodHlwZW9mIGNvbG9yICE9PSAnc3RyaW5nJykgcmV0dXJuIGZhbHNlOwogIGNvbnN0IG1hdGNoID0gY29sb3IubWF0Y2goL15oc2xcKChcZCspLFxzKihcZCspJSxccyooXGQrKSVcKSQvKTsKICBpZiAoIW1hdGNoKSByZXR1cm4gZmFsc2U7CiAgY29uc3QgWywgaCwgcywgbF0gPSBtYXRjaDsKICBjb25zdCBodWUgPSBOdW1iZXIoaCk7CiAgY29uc3Qgc2F0ID0gTnVtYmVyKHMpOwogIGNvbnN0IGxpZ2h0ID0gTnVtYmVyKGwpOwogIHJldHVybiAoCiAgICBOdW1iZXIuaXNJbnRlZ2VyKGh1ZSkgJiYgaHVlID49IDAgJiYgaHVlIDw9IE1BWF9IU0xfSFVFICYmCiAgICBOdW1iZXIuaXNJbnRlZ2VyKHNhdCkgJiYgc2F0ID49IDAgJiYgc2F0IDw9IE1BWF9IU0xfUEVSQ0VOVEFHRSAmJgogICAgTnVtYmVyLmlzSW50ZWdlcihsaWdodCkgJiYgbGlnaHQgPj0gMCAmJiBsaWdodCA8PSBNQVhfSFNMX1BFUkNFTlRBR0UKICApOwp9CgpleHBvcnQgZnVuY3Rpb24gaXNLZWJhYkNhc2Uoc3RyOiB1bmtub3duKTogYm9vbGVhbiB7CiAgcmV0dXJuIHR5cGVvZiBzdHIgPT09ICdzdHJpbmcnICYmIEtFQkFCX0NBU0VfUkVHRVgudGVzdChzdHIpOwp9CgpleHBvcnQgZnVuY3Rpb24gaGFzVmFsaWRUb2tlblByZWZpeCh0b2tlbk5hbWU6IHVua25vd24pOiBib29sZWFuIHsKICBpZiAodHlwZW9mIHRva2VuTmFtZSAhPT0gJ3N0cmluZycpIHJldHVybiBmYWxzZTsKICByZXR1cm4gVkFMSURfVE9LRU5fUFJFRklYRVMuc29tZShwcmVmaXggPT4gdG9rZW5OYW1lLnN0YXJ0c1dpdGgocHJlZml4ICsgJy0nKSk7Cn0KCmV4cG9ydCBmdW5jdGlvbiBpc1ZhbGlkQ29sb3JTdHJpbmcoY29sb3I6IHVua25vd24pOiBib29sZWFuIHsKICByZXR1cm4gaXNWYWxpZEhleENvbG9yKGNvbG9yKSB8fCBpc1ZhbGlkUmdiQ29sb3IoY29sb3IpIHx8IGlzVmFsaWRIc2xDb2xvcihjb2xvcik7Cn0KCmV4cG9ydCBmdW5jdGlvbiBpc1ZhbGlkQ29sb3JUb2tlbih0b2tlbjogdW5rbm93bik6IGJvb2xlYW4gewogIGlmICghaXNQbGFpbk9iamVjdCh0b2tlbikpIHJldHVybiBmYWxzZTsKCiAgaWYgKHRva2VuLiR0eXBlICE9PSAnY29sb3InKSByZXR1cm4gZmFsc2U7CiAgaWYgKHR5cGVvZiB0b2tlbi4kdmFsdWUgIT09ICdzdHJpbmcnIHx8ICFpc1ZhbGlkQ29sb3JTdHJpbmcodG9rZW4uJHZhbHVlKSkgcmV0dXJuIGZhbHNlOwoKICAvLyBWYWxpZGF0ZSBhY2Nlc3NpYmlsaXR5IHByb3BlcnRpZXMgaWYgcHJlc2VudAogIGlmIChoYXNPd24odG9rZW4sICdhY2Nlc3NpYmlsaXR5JykpIHsKICAgIGNvbnN0IGFjYyA9IHRva2VuLmFjY2Vzc2liaWxpdHk7CiAgICBpZiAoIWlzUGxhaW5PYmplY3QoYWNjKSkgcmV0dXJuIGZhbHNlOwoKICAgIGlmIChoYXNPd24oYWNjLCAnd2NhZ0xldmVsJykgJiYgYWNjLndjYWdMZXZlbCAhPT0gdW5kZWZpbmVkKSB7CiAgICAgIGlmIChhY2Mud2NhZ0xldmVsICE9PSAnQUEnICYmIGFjYy53Y2FnTGV2ZWwgIT09ICdBQUEnKSByZXR1cm4gZmFsc2U7CiAgICB9CiAgICBpZiAoaGFzT3duKGFjYywgJ2NvbG9yYmxpbmRTYWZlJykgJiYgYWNjLmNvbG9yYmxpbmRTYWZlICE9PSB1bmRlZmluZWQpIHsKICAgICAgaWYgKHR5cGVvZiBhY2MuY29sb3JibGluZFNhZmUgIT09ICdib29sZWFuJykgcmV0dXJuIGZhbHNlOwogICAgfQogICAgaWYgKGhhc093bihhY2MsICdjb2xvcmJsaW5kU2ltdWxhdGlvbicpICYmIGFjYy5jb2xvcmJsaW5kU2ltdWxhdGlvbiAhPT0gdW5kZWZpbmVkKSB7CiAgICAgIGNvbnN0IHNpbSA9IGFjYy5jb2xvcmJsaW5kU2ltdWxhdGlvbjsKICAgICAgaWYgKCFpc1BsYWluT2JqZWN0KHNpbSkpIHJldHVybiBmYWxzZTsKICAgICAgY29uc3Qgc2ltS2V5cyA9IFsncHJvdGFub3BpYScsICdkZXV0ZXJhbm9waWEnLCAndHJpdGFub3BpYSddIGFzIGNvbnN0OwogICAgICBmb3IgKGNvbnN0IGtleSBvZiBzaW1LZXlzKSB7CiAgICAgICAgaWYgKGhhc093bihzaW0sIGtleSkgJiYgc2ltW2tleV0gIT09IHVuZGVmaW5lZCkgewogICAgICAgICAgaWYgKHR5cGVvZiBzaW1ba2V5XSAhPT0gJ3N0cmluZycgfHwgIWlzVmFsaWRDb2xvclN0cmluZyhzaW1ba2V5XSkpIHJldHVybiBmYWxzZTsKICAgICAgICB9CiAgICAgIH0KICAgIH0KICB9CiAgcmV0dXJuIHRydWU7Cn0KCmZ1bmN0aW9uIGlzVmFsaWRDaGFydFRva2VuR3JvdXAodmFsdWU6IHVua25vd24pOiBib29sZWFuIHsKICBpZiAoIWlzUGxhaW5PYmplY3QodmFsdWUpKSByZXR1cm4gZmFsc2U7CiAgaWYgKCFoYXNPd24odmFsdWUsICdsaWdodCcpIHx8ICFoYXNPd24odmFsdWUsICdkYXJrJykpIHJldHVybiBmYWxzZTsKICByZXR1cm4gaXNWYWxpZENvbG9yVG9rZW4odmFsdWUubGlnaHQpICYmIGlzVmFsaWRDb2xvclRva2VuKHZhbHVlLmRhcmspOwp9CgpmdW5jdGlvbiBpc1ZhbGlkUmFtcChyYW1wOiB1bmtub3duKTogYm9vbGVhbiB7CiAgaWYgKCFpc1BsYWluT2JqZWN0KHJhbXApKSByZXR1cm4gZmFsc2U7CiAgY29uc3Qgc3RlcHMgPSBPYmplY3Qua2V5cyhyYW1wKTsKICBpZiAoc3RlcHMubGVuZ3RoIDwgTUlOX0NIQVJUX1JBTVBfU1RFUFMpIHJldHVybiBmYWxzZTsKICBmb3IgKGNvbnN0IHN0ZXAgb2Ygc3RlcHMpIHsKICAgIGlmICghaXNWYWxpZENoYXJ0VG9rZW5Hcm91cChyYW1wW3N0ZXBdKSkgcmV0dXJuIGZhbHNlOwogIH0KICByZXR1cm4gdHJ1ZTsKfQoKZXhwb3J0IGZ1bmN0aW9uIGlzVmFsaWRDaGFydFRva2VucyhjaGFydDogdW5rbm93bik6IGJvb2xlYW4gewogIGlmICghaXNQbGFpbk9iamVjdChjaGFydCkpIHJldHVybiBmYWxzZTsKCiAgLy8gMS4gVmFsaWRhdGUgc3VyZmFjZSB0b2tlbnMKICBmb3IgKGNvbnN0IGtleSBvZiBDSEFSVF9TVVJGQUNFX0tFWVMpIHsKICAgIGlmICghaGFzT3duKGNoYXJ0LCBrZXkpKSByZXR1cm4gZmFsc2U7CiAgICBpZiAoIWlzVmFsaWRDaGFydFRva2VuR3JvdXAoY2hhcnRba2V5XSkpIHJldHVybiBmYWxzZTsKICB9CgogIC8vIDIuIFZhbGlkYXRlIGNhdGVnb3JpY2FsIHJhbXAKICBpZiAoIWhhc093bihjaGFydCwgJ2NhdGVnb3JpY2FsJykpIHJldHVybiBmYWxzZTsKICBpZiAoIWlzVmFsaWRSYW1wKGNoYXJ0LmNhdGVnb3JpY2FsKSkgcmV0dXJuIGZhbHNlOwoKICAvLyAzLiBWYWxpZGF0ZSBzZXF1ZW50aWFsIHJhbXAKICBpZiAoIWhhc093bihjaGFydCwgJ3NlcXVlbnRpYWwnKSkgcmV0dXJuIGZhbHNlOwogIGlmICghaXNWYWxpZFJhbXAoY2hhcnQuc2VxdWVudGlhbCkpIHJldHVybiBmYWxzZTsKCiAgcmV0dXJuIHRydWU7Cn0K
+/**
+ * Token validation utilities
+ *
+ * Invariants:
+ * - Validators are pure and deterministic: the same input always yields the
+ *   same boolean result, and no exception is thrown for any input (including
+ *   non-strings, null, undefined, arrays, and cyclic objects).
+ * - Color string validation is strict and fully anchored; trailing or
+ *   leading garbage is rejected.
+ * - Color channels are bounded (0..255 for rgb, hue 0..360, saturation/lightness
+ *   0..100%) so out-of-range values cannot silently pass.
+ * - Token validation is defensive: nested objects are guarded against
+ *   prototype pollution and against non-object types.
+ * - Chart token validation enforces the minimum ramp size and requires both
+ *   light and dark variants for every step.
+ */
+
+export const VALID_TOKEN_PREFIXES = [
+  'chart',
+  'color',
+  'font',
+  'spacing',
+  'typography',
+  'shadow',
+  'radius',
+  'border',
+  'motion',
+  'z-index',
+] as const;
+
+export type ValidTokenPrefix = (typeof VALID_TOKEN_PREFIXES)[number];
+
+const HEX_COLOR_REGEX = /^#(?:[0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$/i;
+const RGB_COLOR_REGEX = /^rgb\(\d+,\s*\d+,\s*\d+\)$/;
+const HSL_COLOR_REGEX = /^hsl\(\d+,\s*\d+%,\s*\d+%\)$/;
+const KEBAB_CASE_REGEX = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+const MAX_RGB_CHANNEL = 255;
+const MAX_HSL_HUE = 360;
+const MAX_HSL_PERCENTAGE = 100;
+
+export const MIN_CHART_RAMP_STEPS = 5;
+
+/** Ramp step keys are numeric ("1", "100") or "step-N". */
+const RAMP_STEP_KEY_REGEX = /^(?:step-)?\d+$/;
+
+const CHART_SURFACE_KEYS = [
+  'axis',
+  'grid',
+  'tooltipBg',
+  'tooltipBorder',
+  'tooltipText',
+  'tooltipLabel',
+] as const;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function hasOwn(obj: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+export function isValidHexColor(color: unknown): boolean {
+  return typeof color === 'string' && HEX_COLOR_REGEX.test(color);
+}
+
+export function isValidRgbColor(color: unknown): boolean {
+  if (typeof color !== 'string') return false;
+  const match = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (!match) return false;
+  const [, r, g, b] = match;
+  return [r, g, b].every(channel => {
+    const n = Number(channel);
+    return Number.isInteger(n) && n >= 0 && n <= MAX_RGB_CHANNEL;
+  });
+}
+
+export function isValidHslColor(color: unknown): boolean {
+  if (typeof color !== 'string') return false;
+  const match = color.match(/^hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)$/);
+  if (!match) return false;
+  const [, h, s, l] = match;
+  const hue = Number(h);
+  const sat = Number(s);
+  const light = Number(l);
+  return (
+    Number.isInteger(hue) && hue >= 0 && hue <= MAX_HSL_HUE &&
+    Number.isInteger(sat) && sat >= 0 && sat <= MAX_HSL_PERCENTAGE &&
+    Number.isInteger(light) && light >= 0 && light <= MAX_HSL_PERCENTAGE
+  );
+}
+
+export function isKebabCase(str: unknown): boolean {
+  return typeof str === 'string' && KEBAB_CASE_REGEX.test(str);
+}
+
+export function hasValidTokenPrefix(tokenName: unknown): boolean {
+  if (typeof tokenName !== 'string') return false;
+  return VALID_TOKEN_PREFIXES.some(prefix => tokenName.startsWith(prefix + '-'));
+}
+
+export function isValidColorString(color: unknown): boolean {
+  return isValidHexColor(color) || isValidRgbColor(color) || isValidHslColor(color);
+}
+
+export function isValidColorToken(token: unknown): boolean {
+  if (!isPlainObject(token)) return false;
+
+  if (token.$type !== 'color') return false;
+  if (typeof token.$value !== 'string' || !isValidColorString(token.$value)) return false;
+
+  // Validate accessibility properties if present
+  if (hasOwn(token, 'accessibility')) {
+    const acc = token.accessibility;
+    if (!isPlainObject(acc)) return false;
+
+    if (hasOwn(acc, 'wcagLevel') && acc.wcagLevel !== undefined) {
+      if (acc.wcagLevel !== 'AA' && acc.wcagLevel !== 'AAA') return false;
+    }
+    if (hasOwn(acc, 'colorblindSafe') && acc.colorblindSafe !== undefined) {
+      if (typeof acc.colorblindSafe !== 'boolean') return false;
+    }
+    if (hasOwn(acc, 'colorblindSimulation') && acc.colorblindSimulation !== undefined) {
+      const sim = acc.colorblindSimulation;
+      if (!isPlainObject(sim)) return false;
+      const simKeys = ['protanopia', 'deuteranopia', 'tritanopia'] as const;
+      for (const key of simKeys) {
+        if (hasOwn(sim, key) && sim[key] !== undefined) {
+          if (typeof sim[key] !== 'string' || !isValidColorString(sim[key])) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function isValidChartTokenGroup(value: unknown): boolean {
+  if (!isPlainObject(value)) return false;
+  if (!hasOwn(value, 'light') || !hasOwn(value, 'dark')) return false;
+  return isValidColorToken(value.light) && isValidColorToken(value.dark);
+}
+
+function isValidRamp(ramp: unknown): boolean {
+  if (!isPlainObject(ramp)) return false;
+  const steps = Object.keys(ramp);
+  if (steps.length < MIN_CHART_RAMP_STEPS) return false;
+  for (const step of steps) {
+    if (!RAMP_STEP_KEY_REGEX.test(step)) return false;
+    if (!isValidChartTokenGroup(ramp[step])) return false;
+  }
+  return true;
+}
+
+export function isValidChartTokens(chart: unknown): boolean {
+  if (!isPlainObject(chart)) return false;
+
+  // 1. Validate surface tokens
+  for (const key of CHART_SURFACE_KEYS) {
+    if (!hasOwn(chart, key)) return false;
+    if (!isValidChartTokenGroup(chart[key])) return false;
+  }
+
+  // 2. Validate categorical ramp
+  if (!hasOwn(chart, 'categorical')) return false;
+  if (!isValidRamp(chart.categorical)) return false;
+
+  // 3. Validate sequential ramp
+  if (!hasOwn(chart, 'sequential')) return false;
+  if (!isValidRamp(chart.sequential)) return false;
+
+  return true;
+}

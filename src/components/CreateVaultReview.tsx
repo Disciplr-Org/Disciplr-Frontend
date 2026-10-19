@@ -163,7 +163,7 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Success destination
+            Success destination (If you succeed, funds go to …)
           </Text>
           <AddressDisplay address={successAddress} />
         </div>
@@ -171,10 +171,11 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
-            Failure destination
+            Failure destination (If you fail, funds go to …)
           </Text>
           <AddressDisplay address={failureAddress} />
         </div>
+
 
         {verifierAddress ? (
           <div

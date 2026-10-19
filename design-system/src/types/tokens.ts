@@ -108,6 +108,8 @@ export interface DesignTokens {
   zIndex?: Record<string, ZIndexToken>;
   opacity?: Record<string, OpacityToken>;
   breakpoint?: Record<string, SpacingToken>;
+  /** Layout grid tokens from tokens/spacing.json (columns, gutter, margin per breakpoint). */
+  grid?: Record<string, Record<string, SpacingToken | ZIndexToken>>;
   /** Timing / capacity tokens from tokens/toast.json (DTCG number leaves). */
   toast?: Record<string, ToastToken>;
 }
@@ -166,7 +168,7 @@ export function validateTokenNode(
 
   const type = node.$type;
   if (type !== 'color' && type !== 'typography' && type !== 'dimension' && type !== 'shadow' && type !== 'duration' && type !== 'cubicBezier' && type !== 'number') {
-    return fail(`unsupported token ${type}` ${type}` : ''}`, path);
+    return fail(`unsupported token $type${type !== undefined ? ` ${String(type)}` : ''}`, path);
   }
 
   if (expectedType !== undefined && type !== expectedType) {

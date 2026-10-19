@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { WalletConnectButton } from './Wallet/WalletConnectButton';
+import Skeleton from './Skeleton';
 
 interface RequireWalletProps {
   children: ReactNode;
@@ -9,16 +9,17 @@ interface RequireWalletProps {
 
 /**
  * Invariants:
- * - Authorization is granted iff a non-empty wallet address is present.
- * - When authorized, the original destination (pathname + search) is restored exactly once.
- * - When unauthorized, children are never mounted and no destination redirect occurs.
- * - Repeated address changes must not cause repeated or stale redirects.
- * - Concurrent/rapid renders must not produce divergent navigation behavior.
+ * - Authorization is granted iff a non-empty wallet address is present and sessionStatus is authenticated.
+ * - While sessionStatus is 'resolving', a deterministic skeleton is rendered with aria-busy="true" and
+ *   visually hidden "Checking wallet…". Children are never mounted during resolution to prevent leaking
+ *   protected content or initiating wallet-scoped data fetches.
+ * - A hard cap (5s) prevents hung authorization checks from indefinitely displaying the skeleton.
+ * - When unauthorized ('anonymous' or resolution timed out without an address), the connect prompt is shown.
+ * - When authorized, children are rendered in place without redundant or stale navigations.
  */
 export default function RequireWallet({ children }: RequireWalletProps) {
-  const { address, isConnecting, connectDemo } = useWallet();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { address, isConnecting, connectDemo, sessionStatus } = useWallet();
+  const [timedOut, setTimedOut] = useState(false);
 
   // Normalize the address so whitespace-only or empty strings are treated as unauthorized.
   const normalizedAddress = useMemo(() => {
@@ -27,28 +28,46 @@ export default function RequireWallet({ children }: RequireWalletProps) {
     return trimmed.length > 0 ? trimmed : null;
   }, [address]);
 
-  // Capture the destination once per mount. This ensures that later location
-  // changes (e.g. redirects from connect flows) do not overwrite the intended
-  // destination.
-  const destinationRef = useRef(location.pathname + location.search);
-
-  // Guard against duplicate navigation caused by strict-mode double invocation
-  // or rapid re-renders while the address remains connected.
-  const hasNavigatedRef = useRef(false);
-
+  // Hard cap on resolving (5 seconds)
   useEffect(() => {
-    if (!normalizedAddress) {
-      // Reset the guard when authorization is lost so a future connect can
-      // restore the destination again.
-      hasNavigatedRef.current = false;
+    if (sessionStatus !== 'resolving') {
+      setTimedOut(false);
       return;
     }
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
-    navigate(destinationRef.current, { replace: true });
-  }, [normalizedAddress, navigate]);
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [sessionStatus]);
 
-  if (normalizedAddress) return <>{children}</>;
+  const isResolving = sessionStatus === 'resolving' && !timedOut;
+
+  if (isResolving) {
+    return (
+      <div role="status" aria-live="polite" aria-busy="true" data-testid="require-wallet-resolving">
+        <span
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          Checking wallet…
+        </span>
+        <Skeleton className="w-full h-screen" ariaLabel="Checking wallet…" />
+      </div>
+    );
+  }
+
+  if (normalizedAddress && sessionStatus === 'authenticated') {
+    return <>{children}</>;
+  }
 
   return (
     <div

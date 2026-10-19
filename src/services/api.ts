@@ -6,17 +6,19 @@
  */
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
+import { verifyCreateIntegrity } from "./createIntegrity";
 
 const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
 export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
 export const isApiEnabled = (): boolean => API_BASE !== null;
 
 interface ApiMilestone { id: string; title: string; amount: string; dueDate: string; status: string }
-interface ApiVault {
+export interface ApiVault {
   id: string; name?: string; creator: string; amount: string; status: string; startDate: string; endDate: string;
   verifier: string; successDestination: string; failureDestination: string; createdAt: string; updatedAt: string;
   milestones: ApiMilestone[]; activity?: ApiActivity[];
 }
+
 interface ApiActivity { id: string; type: string; vaultId: string; amount: string; status: string; hash: string; memo: string; createdAt: string }
 
 export class ApiError extends Error {
@@ -115,22 +117,35 @@ export async function apiCreateVault(input: {
       })),
     }),
   });
-  return toVault(v);
+  const vault = toVault(v);
+  verifyCreateIntegrity(
+    {
+      creator: input.creator,
+      verifier: input.verifier,
+      amount: input.amount,
+      successAddress: input.successAddress,
+      failureAddress: input.failureAddress,
+    },
+    v,
+    vault,
+  );
+  return vault;
 }
 
-export async function apiValidateNextMilestone(vault: Vault): Promise<void> {
+
+export async function apiValidateNextMilestone(vault: Vault, actor: string): Promise<void> {
   const next = vault.milestones.find((m) => m.status === "pending");
   if (!next) throw new Error("No pending milestone to validate.");
   await request(`/vaults/${encodeURIComponent(vault.id)}/milestones/${encodeURIComponent(next.id)}/validate`, {
     method: "POST",
-    body: JSON.stringify({ verifier: vault.verifierAddress }),
+    body: JSON.stringify({ verifier: actor }),
   });
 }
 
-export async function apiFailVault(vault: Vault): Promise<void> {
+export async function apiFailVault(vault: Vault, actor: string): Promise<void> {
   await request(`/vaults/${encodeURIComponent(vault.id)}/fail`, {
     method: "POST",
-    body: JSON.stringify({ verifier: vault.verifierAddress }),
+    body: JSON.stringify({ verifier: actor }),
   });
 }
 

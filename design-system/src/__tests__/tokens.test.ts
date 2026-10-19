@@ -97,7 +97,7 @@ describe('validateTokenNode failure paths', () => {
 
   it('rejects cubicBezier values that are not a 4-tuple of finite numbers', () => {
     expect(validateTokenNode({ $type: 'cubicBezier', $value: [0.1, 0.2, 0.3 ] }).ok).toBe(false);
-    expect(validateTokenNode({ $type: 'cubicBezier', $value: [0.1, 0.2, 0.3, 0.4 } }).ok).toBe(true);
+    expect(validateTokenNode({ $type: 'cubicBezier', $value: [0.1, 0.2, 0.3, 0.4] }).ok).toBe(true);
     expect(validateTokenNode({ $type: 'cubicBezier', $value: [0.1, 0.2, 0.3, NaN ] }).ok).toBe(false);
   });
 

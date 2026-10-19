@@ -1,11 +1,6 @@
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-/** Validate a Stellar account or contract StrKey, including its checksum. */
-export function isValidStellarAddress(value: string): boolean {
-  if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (!/^[GC][A-Z2-7]{55}$/.test(trimmed)) return false;
-
+function decodeAndValidateStrKey(trimmed: string, allowedVersions: number[]): boolean {
   // 56 base32 symbols encode exactly 35 bytes: version, 32-byte key,
   // and a two-byte checksum. There are no unused bits or padding.
   const decoded = new Uint8Array(35);
@@ -22,9 +17,8 @@ export function isValidStellarAddress(value: string): boolean {
     }
   }
 
-  // Checking the entire version byte also rejects unsupported algorithms
-  // whose addresses still start with G or C (SEP-23).
-  if (decoded[0] !== (6 << 3) && decoded[0] !== (2 << 3)) return false;
+  // Checking the entire version byte also rejects unsupported algorithms (SEP-23).
+  if (!allowedVersions.includes(decoded[0])) return false;
 
   // CRC16-XModem: polynomial 0x1021, initial value zero, no reflection
   // or final XOR. StrKey stores the checksum in little-endian order.
@@ -40,3 +34,22 @@ export function isValidStellarAddress(value: string): boolean {
   }
   return checksum === (decoded[33] | (decoded[34] << 8));
 }
+
+/** Validate a Stellar account or contract StrKey, including its checksum. */
+export function isValidStellarAddress(value: string): boolean {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!/^[GC][A-Z2-7]{55}$/.test(trimmed)) return false;
+
+  return decodeAndValidateStrKey(trimmed, [6 << 3, 2 << 3]);
+}
+
+/** Validate a Stellar account StrKey (starts with G), including its checksum. Contract addresses (C...) are rejected. */
+export function isAccountAddress(value: string): boolean {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!/^G[A-Z2-7]{55}$/.test(trimmed)) return false;
+
+  return decodeAndValidateStrKey(trimmed, [6 << 3]);
+}
+

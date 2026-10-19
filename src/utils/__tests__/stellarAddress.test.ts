@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ACCOUNT_A, CONTRACT_ADDRESS } from '@/__tests__/fixtures/stellarAddresses';
-import { isValidStellarAddress } from '../stellarAddress';
+import { isValidStellarAddress, isAccountAddress } from '../stellarAddress';
 
 describe('isValidStellarAddress', () => {
   it.each([ACCOUNT_A, CONTRACT_ADDRESS])('accepts a checksum-valid address: %s', (address) => {
@@ -58,3 +58,34 @@ describe('isValidStellarAddress', () => {
     expect(isValidStellarAddress(value as string)).toBe(false);
   });
 });
+
+describe('isAccountAddress', () => {
+  it('accepts a valid G address', () => {
+    expect(isAccountAddress(ACCOUNT_A)).toBe(true);
+    expect(isAccountAddress(`  ${ACCOUNT_A}  `)).toBe(true);
+  });
+
+  it('rejects a valid C contract address', () => {
+    expect(isAccountAddress(CONTRACT_ADDRESS)).toBe(false);
+    expect(isAccountAddress(`  ${CONTRACT_ADDRESS}  `)).toBe(false);
+  });
+
+  it('rejects a bad checksum on G address', () => {
+    expect(isAccountAddress(`${ACCOUNT_A.slice(0, -1)}A`)).toBe(false);
+  });
+
+  it('rejects muxed M address', () => {
+    expect(isAccountAddress(`M${ACCOUNT_A.slice(1)}`)).toBe(false);
+  });
+
+  it('rejects lowercase', () => {
+    expect(isAccountAddress(ACCOUNT_A.toLowerCase())).toBe(false);
+  });
+
+  it('rejects whitespace in between or empty inputs', () => {
+    expect(isAccountAddress('')).toBe(false);
+    expect(isAccountAddress('   ')).toBe(false);
+    expect(isAccountAddress(`${ACCOUNT_A.slice(0, 10)} ${ACCOUNT_A.slice(10)}`)).toBe(false);
+  });
+});
+

@@ -58,6 +58,10 @@ function violationsForLeaf(leaf: Leaf): string[] {
   const type = typeof node.$type === 'string' ? node.$type : undefined;
   const violations: string[] = [];
 
+  if (path.startsWith('color.') && type !== 'color') {
+    violations.push(`${path}: leaves under color.* must have $type "color"`);
+  }
+
   const requireStringValue = () => {
     if (typeof node.$value !== 'string' || node.$value.length === 0) {
       violations.push(`${path}: expected a non-empty string $value`);
@@ -211,6 +215,7 @@ const DESIGN_TOKEN_KEYS = [
   'zIndex',
   'opacity',
   'breakpoint',
+  'grid',
   'toast',
 ];
 
@@ -585,6 +590,7 @@ describe('tokens.ts — DesignTokens aggregate contract', () => {
       zIndex: { base: { $type: 'number', $value: 0 } },
       opacity: { disabled: { $type: 'number', $value: 0.5 } },
       breakpoint: { sm: { $type: 'dimension', $value: '640px' } },
+      grid: { mobile: { gutter: { $type: 'dimension', $value: '16px' } } },
       toast: { maxVisible: { $type: 'number', $value: 5 } },
     };
 
