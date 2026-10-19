@@ -17,7 +17,14 @@ import { useVaultDetail } from "../hooks/useVaultDetail";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
 import { ApiError } from "../services/api";
 import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
-import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
+import {
+  isValidIcsDeadline,
+  vaultDeadlineUid,
+  vaultToIcsEvents,
+  downloadIcsCalendar,
+  icsFilename,
+  type AlarmPreference,
+} from "../utils/ics";
 import { truncateMiddle } from "../utils/truncate";
 import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
 import { timelineProgress } from "../utils/vaultLifecycle";
@@ -342,13 +349,14 @@ function VaultDetailContent({
   const settlement = buildFundReleaseView(vault);
   const settlementAnomalies = detectSettlementAnomalies(vault);
   const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const [alarmPreference, setAlarmPreference] = useState<AlarmPreference>("both");
   const handleCalendarExport = () => {
-    downloadIcsEvent({
-      title: `${vault.name} deadline`,
-      deadline: vault.deadline,
-      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
-      uid: `vault-${vault.id}-deadline`,
-    });
+    const events = vaultToIcsEvents(vault, alarmPreference);
+    downloadIcsCalendar(
+      events,
+      icsFilename(`${vault.name} deadline`, vaultDeadlineUid(vault.id)),
+      { alarms: alarmPreference }
+    );
   };
 
   return (
@@ -540,13 +548,34 @@ function VaultDetailContent({
               Deadline {fmtDate(vault.deadline)}
             </Text>
             {canExportDeadline ? (
-              <button
-                type="button"
-                onClick={handleCalendarExport}
-                style={actionBtn("var(--accent)")}
-              >
-                Add to calendar
-              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                <select
+                  aria-label="Alarm preference"
+                  value={alarmPreference}
+                  onChange={(e) => setAlarmPreference(e.target.value as AlarmPreference)}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.25rem 0.5rem",
+                    fontSize: 12,
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="both">Alarms: 1 day & 1 hour</option>
+                  <option value="1day">1 day before</option>
+                  <option value="1hour">1 hour before</option>
+                  <option value="none">No alarms</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleCalendarExport}
+                  style={actionBtn("var(--accent)")}
+                >
+                  Add to calendar
+                </button>
+              </div>
             ) : null}
           </div>
         </div>
