@@ -7,6 +7,7 @@
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
+import { formatDate, formatUsdc } from "../utils/format";
 
 const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
 export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
@@ -58,7 +59,7 @@ export function toVault(v: ApiVault): Vault {
   const milestones: Milestone[] = v.milestones.map((m) => ({
     id: m.id,
     title: m.title,
-    description: `${Number(m.amount).toLocaleString()} USDC, due ${new Date(m.dueDate).toLocaleDateString()}`,
+    description: `${formatUsdc(m.amount)} USDC, due ${formatDate(m.dueDate)}`,
     criteria: m.title,
     status: m.status === "completed" ? "validated" : m.status === "failed" ? "failed" : "pending",
     ...(m.status === "completed" ? { validatedAt: v.updatedAt || v.createdAt } : {}),

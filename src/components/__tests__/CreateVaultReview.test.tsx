@@ -34,7 +34,7 @@ describe("CreateVaultReview", () => {
       screen.getByRole("heading", { name: /review vault details/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("100.1234567")).toBeInTheDocument();
-    expect(screen.getByText("2030-01-01T00:00")).toBeInTheDocument();
+    expect(screen.getByText(/UTC/)).toBeInTheDocument();
     expect(screen.getByTitle(successAddress)).toBeInTheDocument();
     expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
     expect(

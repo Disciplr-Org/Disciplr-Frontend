@@ -3,6 +3,7 @@ import { Text } from './Text';
 import { deadlineUrgency, type UrgencyTier } from '../utils/vaultUrgency';
 import type { Deadline } from '../utils/dashboard';
 import { downloadIcsEvent, isValidIcsDeadline } from '../utils/ics';
+import { formatUsdc } from '../utils/format';
 
 interface UpcomingDeadlinesProps {
   deadlines: Deadline[];
@@ -141,7 +142,7 @@ export default function UpcomingDeadlines({ deadlines }: UpcomingDeadlinesProps)
                   </span>
                 </div>
                 <Text role="caption" as="div" style={{ color: 'var(--muted)', marginBottom: 2 }}>
-                  {item.amount.toLocaleString()} USDC
+                  {formatUsdc(item.amount)} USDC
                 </Text>
                 <CountdownDeadline deadline={item.deadline} />
                 <button
@@ -149,7 +150,7 @@ export default function UpcomingDeadlines({ deadlines }: UpcomingDeadlinesProps)
                     downloadIcsEvent({
                       title: item.name,
                       deadline: item.deadline,
-                      description: `Vault deadline: ${item.amount.toLocaleString()} USDC`,
+                      description: `Vault deadline: ${formatUsdc(item.amount)} USDC`,
                       uid: item.id,
                     })
                   }
