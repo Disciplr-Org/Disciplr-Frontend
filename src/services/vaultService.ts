@@ -196,6 +196,7 @@ export async function createVault(vaultData: {
     ]
   };
   MASTER_VAULTS[nextId] = newVault;
+  invalidateVaultCaches(nextId);
   return newVault;
 }
 
