@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Text } from "../components/Text";
 import { listAllActivity, type VaultActivityRecord } from "../services/vaultService";
+import { formatDateTime, formatUsdc } from "../utils/format";
 
 const LABEL: Record<VaultActivityRecord["type"], string> = {
   create: "Vault created",
@@ -47,10 +48,10 @@ export default function Transactions() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--border, #8883)" }}>
-                  <td style={{ padding: 8, whiteSpace: "nowrap" }}>{r.timestamp.toLocaleString()}</td>
+                  <td style={{ padding: 8, whiteSpace: "nowrap" }}>{formatDateTime(r.timestamp)}</td>
                   <td style={{ padding: 8 }}>{LABEL[r.type] ?? r.type}</td>
                   <td style={{ padding: 8 }}>{r.vault}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>{r.amount.toLocaleString()}</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>{formatUsdc(r.amount)}</td>
                   <td style={{ padding: 8, fontFamily: "monospace" }}>{r.hash.slice(0, 10)}...</td>
                   <td style={{ padding: 8 }}>{r.status}</td>
                 </tr>

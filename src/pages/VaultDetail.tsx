@@ -32,6 +32,8 @@ import {
 } from "../utils/vaultState";
 import type { Vault } from "../types/vault";
 
+import { formatDate, formatDateTime, formatUsdc } from "../utils/format";
+
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",
   validate: "Milestone Validated",
@@ -40,22 +42,13 @@ const TX_LABELS: Record<string, string> = {
 };
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatDate(iso);
 }
 
 function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(iso);
 }
+
 
 // ── Section Card ─────────────────────────────────────────────────────────────
 function Card({
@@ -346,7 +339,7 @@ function VaultDetailContent({
     downloadIcsEvent({
       title: `${vault.name} deadline`,
       deadline: vault.deadline,
-      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
+      description: `${vault.name} vault deadline for ${formatUsdc(vault.amount)} ${vault.currency}.`,
       uid: `vault-${vault.id}-deadline`,
     });
   };
@@ -412,7 +405,7 @@ function VaultDetailContent({
               as="div"
               style={{ color: "var(--accent)", lineHeight: 1.1 }}
             >
-              {vault.amount.toLocaleString()}{" "}
+              {formatUsdc(vault.amount)}{" "}
               <span
                 style={{
                   fontSize: "0.45em",
@@ -585,7 +578,7 @@ function VaultDetailContent({
             />
             <InfoRow
               label="Amount"
-              value={`${vault.amount.toLocaleString()} ${vault.currency}`}
+              value={`${formatUsdc(vault.amount)} ${vault.currency}`}
             />
           </div>
         </Card>
@@ -703,7 +696,7 @@ function VaultDetailContent({
                     as="span"
                     style={{ color: "var(--text)", fontWeight: 600 }}
                   >
-                    {tx.amount.toLocaleString()} {vault.currency}
+                    {formatUsdc(tx.amount)} {vault.currency}
                   </Text>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

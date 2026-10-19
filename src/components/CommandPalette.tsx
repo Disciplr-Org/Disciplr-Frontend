@@ -12,6 +12,7 @@ import FocusTrap from "focus-trap-react";
 import { listVaults } from "../services/vaultService";
 import type { Vault } from "../types/vault";
 import { fuzzyMatch } from "../utils/commandPalette";
+import { formatUsdc } from "../utils/format";
 import { duration } from "../utils/motion";
 import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 
@@ -103,7 +104,7 @@ function vaultToCommand(vault: Vault): CommandItem {
   return {
     id: `vault-${vault.id}`,
     label: vault.name,
-    description: `Vault ${vault.id} · ${vault.amount.toLocaleString()} ${vault.currency}`,
+    description: `Vault ${vault.id} · ${formatUsdc(vault.amount)} ${vault.currency}`,
     to: `/vaults/${vault.id}`,
     kind: "vault",
   };

@@ -21,7 +21,9 @@ import {
   computeFutureDeadline,
   getPresetDays,
   getPresetLabel,
+  type DeadlinePreset,
 } from "../utils/deadlinePresets";
+import { toUtcIso } from "../utils/format";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
 import { createVault, CreateIntegrityError } from "../services/vaultService";
 import { isApiEnabled } from "../services/api";
@@ -59,6 +61,7 @@ export default function CreateVault() {
   );
   const [amount, setAmount] = useState(prefill?.amount ?? "");
   const [deadline, setDeadline] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<DeadlinePreset | null>(null);
   const [successAddress, setSuccessAddress] = useState(
     prefill?.successAddress ?? "",
   );
@@ -254,7 +257,7 @@ export default function CreateVault() {
         name: prefill?.sourceVaultName ? `Duplicated ${prefill.sourceVaultName}` : `Vault ${amount} USDC`,
         amount: Number(amount),
         currency: "USDC",
-        deadline,
+        deadline: toUtcIso(deadline),
         creatorAddress: address,
         successAddress,
         failureAddress,
@@ -495,13 +498,14 @@ export default function CreateVault() {
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               {DEADLINE_PRESETS.map((preset) => {
                 const days = getPresetDays(preset);
-                const isActive = deadline === computeFutureDeadline(days);
+                const isActive = selectedPreset === preset;
                 return (
                   <button
                     key={preset}
                     type="button"
                     onClick={() => {
                       setDeadline(computeFutureDeadline(days));
+                      setSelectedPreset(preset);
                       setErrors((current) => ({
                         ...current,
                         deadline: undefined,
@@ -534,6 +538,7 @@ export default function CreateVault() {
               value={deadline}
               onChange={(e) => {
                 setDeadline(e.target.value);
+                setSelectedPreset(null);
                 setErrors((current) => ({ ...current, deadline: undefined }));
               }}
               error={errors.deadline}
