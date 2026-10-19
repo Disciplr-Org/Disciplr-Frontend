@@ -6,6 +6,11 @@ import './styles/tokens.generated.css'
 import './styles/semantic.css'
 import './index.css'
 import { reportWebVitals } from './utils/reportWebVitals'
+import { logger as appLogger, configureLogger } from './utils/logger'
+
+configureLogger({
+  level: import.meta.env.PROD ? 'error' : 'debug',
+})
 
 /**
  * Entry point invariants:
@@ -75,7 +80,7 @@ function renderErrorUI(el: HTMLElement, message: string): void {
 export function bootstrap(options: BootstrapOptions = {}): Root {
   const doc = options.document ?? document
   const rootId = options.rootId ?? 'root'
-  const logger = options.logger ?? console
+  const logger = options.logger ?? appLogger
   const onWebVital = options.onWebVital ?? ((value) => logger.info('[Web Vitals]', value))
 
   // Resolve and validate the root element before any side effects.
