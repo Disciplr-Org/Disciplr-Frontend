@@ -19,7 +19,7 @@ import {
 } from "../utils/vaultState";
 import { createSingleFlightRunner } from "../utils/singleFlight";
 import { logger } from "../utils/logger";
-import { timelineProgress } from "../utils/vaultLifecycle";
+import { vaultProgressPct } from "../utils/vaultLifecycle";
 import { validateVaultPreview, sanitizeActivity } from "../utils/dashboardValidation";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ function toSafePreviews(loaded: Vault[]): VaultPreview[] {
       currency: v.currency,
       status: v.status as VaultStatus,
       deadline: v.deadline,
-      progressPct: timelineProgress(v.createdAt, v.deadline),
+      progressPct: vaultProgressPct(v),
     };
     const result = validateVaultPreview(preview);
     if (result.ok) {

@@ -68,13 +68,17 @@ export interface VaultActivityRecord {
 // Promise-based interface below and will need zero changes.
 
 /**
- * Return all vaults.
+ * Return all vaults, optionally filtered by creator address.
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(): Promise<Vault[]> {
-  if (isApiEnabled()) return apiListVaults();
-  return Object.values(MASTER_VAULTS);
+export async function listVaults(creator?: string): Promise<Vault[]> {
+  if (isApiEnabled()) return apiListVaults(creator);
+  const all = Object.values(MASTER_VAULTS);
+  if (creator) {
+    return all.filter((v) => v.creatorAddress === creator);
+  }
+  return all;
 }
 
 /**
