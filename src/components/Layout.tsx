@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useReducer, useRef, type HTMLAttributes } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "lucide-react";
+import { registerShortcut } from "../utils/shortcutRegistry";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
@@ -55,6 +56,43 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unregisterGd = registerShortcut({
+      keys: "g d",
+      description: "Go to Dashboard",
+      handler: () => navigate("/dashboard"),
+    });
+    const unregisterGv = registerShortcut({
+      keys: "g v",
+      description: "Go to Vaults",
+      handler: () => navigate("/vaults"),
+    });
+    const unregisterGq = registerShortcut({
+      keys: "g q",
+      description: "Go to Verifier Queue",
+      handler: () => navigate("/verifier/queue"),
+    });
+    const unregisterGh = registerShortcut({
+      keys: "g h",
+      description: "Go to Help",
+      handler: () => navigate("/help"),
+    });
+    const unregisterC = registerShortcut({
+      keys: "c",
+      description: "Create Vault",
+      handler: () => navigate("/vaults/create"),
+    });
+
+    return () => {
+      unregisterGd();
+      unregisterGv();
+      unregisterGq();
+      unregisterGh();
+      unregisterC();
+    };
+  }, [navigate]);
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
