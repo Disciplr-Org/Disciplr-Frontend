@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Text } from "../components/Text";
 import { Field } from "../components/Field";
@@ -29,6 +29,17 @@ import { normalizeEvidenceUrl } from "../utils/url";
 import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
 
 import { isValidStellarAddress } from "../utils/stellarAddress";
+import {
+  clearDraft,
+  createVaultDraft,
+  readDraft,
+  writeDraft,
+  type CreateVaultDraft,
+} from "../utils/createVaultDraft";
+import { registerNavigationGuard } from "../utils/navigationGuard";
+
+/** How long the form must stay idle before its draft is persisted. */
+const DRAFT_WRITE_DELAY_MS = 500;
 
 interface MilestoneFormRow extends CreateVaultMilestoneInput {
   id: string;
@@ -83,6 +94,132 @@ export default function CreateVault() {
   const [submissionUncertain, setSubmissionUncertain] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [integrityError, setIntegrityError] = useState<CreateIntegrityError | null>(null);
+  const [draftOffer, setDraftOffer] = useState<CreateVaultDraft | null>(null);
+  // Resolved once per mount: the restore prompt must not reappear after the
+  // user has already restored or discarded the draft.
+  const draftResolvedRef = useRef(false);
+
+  // The values the form starts with (a Duplicate prefill, or the empty form).
+  // Anything else counts as unsaved work worth drafting / warning about.
+  const baselineMilestones: CreateVaultMilestoneInput[] =
+    prefill?.milestones && prefill.milestones.length > 0
+      ? prefill.milestones
+      : [{ title: "Milestone 1", criteria: "Default milestone criteria" }];
+  const isDirty =
+    amount !== (prefill?.amount ?? "") ||
+    deadline !== "" ||
+    successAddress !== (prefill?.successAddress ?? "") ||
+    failureAddress !== (prefill?.failureAddress ?? "") ||
+    evidenceUrl !== undefined ||
+    milestones.length !== baselineMilestones.length ||
+    milestones.some(
+      (milestone, index) =>
+        milestone.title !== baselineMilestones[index].title ||
+        milestone.criteria !== baselineMilestones[index].criteria,
+    );
+
+  // A create whose outcome is unknown has already left the app; the form is
+  // locked and the user was told to check their vaults, so neither the
+  // leave-page prompt nor the navigation guard should trap them.
+  const hasUnsavedChanges = isDirty && !submissionUncertain;
+
+  // Offer a saved draft once the wallet address is known. A Duplicate prefill
+  // always wins: a draft is never applied (or offered) over it.
+  useEffect(() => {
+    if (draftResolvedRef.current) return;
+    if (prefill) {
+      draftResolvedRef.current = true;
+      return;
+    }
+    if (!address) return;
+    draftResolvedRef.current = true;
+    setDraftOffer(readDraft(address));
+  }, [address, prefill]);
+
+  // Debounced autosave. Drafts are written per wallet address and never
+  // contain wallet or signing material.
+  useEffect(() => {
+    if (!address || !hasUnsavedChanges) return;
+    const timeoutId = window.setTimeout(() => {
+      writeDraft(
+        address,
+        createVaultDraft({
+          amount,
+          deadline,
+          successAddress,
+          failureAddress,
+          milestones: milestones.map(({ title, criteria }) => ({
+            title,
+            criteria,
+          })),
+          evidenceUrl: evidenceUrl ?? undefined,
+        }),
+      );
+    }, DRAFT_WRITE_DELAY_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    address,
+    hasUnsavedChanges,
+    amount,
+    deadline,
+    successAddress,
+    failureAddress,
+    milestones,
+    evidenceUrl,
+  ]);
+
+  // Native leave-page prompt while the form holds unsaved changes.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // In-app navigation guard: Layout asks for confirmation before following a
+  // nav link while this guard is registered.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    return registerNavigationGuard();
+  }, [hasUnsavedChanges]);
+
+  const handleRestoreDraft = () => {
+    if (!draftOffer) return;
+    const restored = draftOffer;
+    setAmount(restored.amount);
+    setDeadline(restored.deadline);
+    setSuccessAddress(restored.successAddress);
+    setFailureAddress(restored.failureAddress);
+    setMilestones(
+      restored.milestones.map((milestone, index) => ({
+        id: `milestone-${Date.now()}-${index}`,
+        title: milestone.title,
+        criteria: milestone.criteria,
+      })),
+    );
+    setEvidenceUrl(restored.evidenceUrl);
+    // Restored text is untrusted input: run it through the same validators the
+    // live form uses so nothing can reach "ready to review" unvalidated.
+    setErrors(
+      validateCreateVault({
+        amount: restored.amount,
+        deadline: restored.deadline,
+        successAddress: restored.successAddress,
+        failureAddress: restored.failureAddress,
+        milestones: restored.milestones,
+      }),
+    );
+    setDraftOffer(null);
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft(address);
+    setDraftOffer(null);
+  };
 
   const errorFieldOrder: Array<
 
@@ -272,6 +409,9 @@ export default function CreateVault() {
         throw new Error("Malformed response from server.");
       }
 
+      // The vault exists, so this wallet's draft is done with. An unknown
+      // outcome (below) keeps it: the user may need to retry after checking.
+      clearDraft(address);
       navigate(`/vaults/${newVault.id}`);
     } catch (err) {
       if (err instanceof CreateIntegrityError) {
@@ -452,6 +592,66 @@ export default function CreateVault() {
                 Amount and destination addresses are prefilled; choose a fresh
                 deadline for this new vault.
               </Text>
+            </div>
+          )}
+
+          {draftOffer && (
+            <div
+              role="status"
+              data-testid="create-vault-draft-banner"
+              style={{
+                border: "1px solid var(--accent)",
+                borderRadius: "var(--radius)",
+                padding: "0.75rem",
+                background: "var(--surface)",
+                marginBottom: "1rem",
+                maxWidth: 400,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+            >
+              <Text role="caption" as="p" style={{ margin: 0 }}>
+                Restore draft from{" "}
+                {new Date(draftOffer.savedAt).toLocaleString()}?
+              </Text>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={handleRestoreDraft}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    border: "none",
+                    borderRadius: "var(--radius)",
+                    background: "var(--accent)",
+                    color: "var(--bg)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    minHeight: "44px",
+                  }}
+                >
+                  <Text role="caption" as="span">
+                    Restore
+                  </Text>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardDraft}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    background: "transparent",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                    minHeight: "44px",
+                  }}
+                >
+                  <Text role="caption" as="span">
+                    Discard
+                  </Text>
+                </button>
+              </div>
             </div>
           )}
 

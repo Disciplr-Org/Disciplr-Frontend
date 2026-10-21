@@ -6,6 +6,7 @@ import './styles/tokens.generated.css'
 import './styles/semantic.css'
 import './index.css'
 import { reportWebVitals } from './utils/reportWebVitals'
+import { installGlobalErrorHandlers } from './utils/errorReporter'
 
 /**
  * Entry point invariants:
@@ -86,6 +87,16 @@ export function bootstrap(options: BootstrapOptions = {}): Root {
     throw new Error(`Root element #${rootId} is already mounted`)
   }
   rootEl.setAttribute('data-app-mounted', 'true')
+
+  // Capture async failures that React error boundaries cannot see (unhandled
+  // rejections, errors raised outside render). Installed before mounting so a
+  // failure during the first render is still reported.
+  try {
+    installGlobalErrorHandlers()
+  } catch (error) {
+    // Global capture is best-effort; it must never prevent the app from mounting.
+    logger.error('[Bootstrap] failed to install global error handlers', error)
+  }
 
   safeReportWebVitals(onWebVital, logger)
 

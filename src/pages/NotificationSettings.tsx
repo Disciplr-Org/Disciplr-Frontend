@@ -3,7 +3,17 @@ import { vaults } from "@/components/Notification/exampleNotification/example";
 import { Text } from "@/components/Text";
 import { Switch } from "../components/Switch";
 import { useNotificationPreferences } from "../Zustand/Store";
-import { isValidQuietTime, isValidQuietHoursRange, isQuietHoursActive } from "../utils/quietHours";
+import {
+  DEFAULT_QUIET_HOURS_END,
+  isValidQuietTime,
+  isValidQuietHoursRange,
+  isQuietHoursActive,
+} from "../utils/quietHours";
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  type NotificationPermissionState,
+} from "../notifications/delivery";
 
 
 // Allowed notification frequency values. Anything outside this set is rejected
@@ -37,7 +47,7 @@ export default function NotificationSettings() {
   // quietHours is a single "HH:MM" boundary. Quiet is considered active if
   // the current hour:minute matches or is past the stored quiet-hours value.
   const [quietStartValue, setQuietStartValue] = useState<string>(isValidQuietTime(quietHours) ? quietHours : "22:00");
-  const [quietEndValue, setQuietEndValue] = useState<string>("07:00");
+  const [quietEndValue, setQuietEndValue] = useState<string>(DEFAULT_QUIET_HOURS_END);
   const quietRangeIsValid = isValidQuietHoursRange(quietStartValue, quietEndValue);
   const quietHoursValid = isValidQuietTime(quietHours);
   const quietHoursActive = useMemo(
@@ -78,6 +88,52 @@ export default function NotificationSettings() {
     [setFrequency]
   );
 
+  // Push delivery only works with the browser's permission, so enabling the
+  // switch is a permission request rather than a plain preference write. The
+  // stored flag is only set to true once the browser has actually granted
+  // access; a denial reverts the switch and explains how to undo it.
+  const [permission, setPermission] = useState<NotificationPermissionState>(() =>
+    getNotificationPermission()
+  );
+  const notificationsSupported = permission !== "unsupported";
+  const [pushHint, setPushHint] = useState<string | null>(
+    notificationsSupported
+      ? null
+      : "This browser does not support desktop notifications, so push delivery is unavailable."
+  );
+  const [permissionPending, setPermissionPending] = useState(false);
+
+  const handlePushChange = useCallback(
+    async (checked: boolean) => {
+      if (!checked) {
+        setPushNotification(false);
+        setPushHint(null);
+        return;
+      }
+      // Guard against a second prompt while the first is still open.
+      if (permissionPending) return;
+      setPermissionPending(true);
+      try {
+        const result = await requestNotificationPermission();
+        setPermission(result);
+        if (result === "granted") {
+          setPushNotification(true);
+          setPushHint(null);
+          return;
+        }
+        setPushNotification(false);
+        setPushHint(
+          result === "unsupported"
+            ? "This browser does not support desktop notifications, so push delivery is unavailable."
+            : "Desktop notifications are blocked for this site. Allow them in your browser's site settings, then turn Push Notification back on."
+        );
+      } finally {
+        setPermissionPending(false);
+      }
+    },
+    [permissionPending, setPushNotification]
+  );
+
   return (
     <>
       <div 
@@ -106,8 +162,18 @@ export default function NotificationSettings() {
               <Switch
                 label="Push Notification"
                 checked={pushNotification ?? false}
-                onChange={setPushNotification}
+                onChange={handlePushChange}
+                disabled={!notificationsSupported}
               />
+              {pushHint !== null && (
+                <p
+                  className="notification-settings-hint"
+                  role="status"
+                  data-testid="push-notification-hint"
+                >
+                  {pushHint}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex justify-between items-center mt-5">
@@ -240,6 +306,14 @@ export default function NotificationSettings() {
 
         .notification-settings-reset:hover {
           background: var(--border);
+        }
+
+        .notification-settings-hint {
+          max-width: 260px;
+          text-align: right;
+          font-size: 0.75rem;
+          line-height: 1.4;
+          color: var(--muted);
         }
 
       `}</style>
