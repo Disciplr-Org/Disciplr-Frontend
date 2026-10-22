@@ -1,9 +1,12 @@
 import { Text } from "./Text";
 import { AddressDisplay } from "./AddressDisplay";
+import { fromStroops, toStroops } from "../utils/milestoneAllocation";
 
 export interface CreateVaultReviewMilestone {
   title: string;
   criteria: string;
+  amount?: string;
+  dueDate?: string;
 }
 
 /**
@@ -113,6 +116,21 @@ export function CreateVaultReview({
         ? [{ title: milestone, criteria: "" }]
         : [];
 
+  const hasTranches = reviewMilestones.some((item) => item.amount || item.dueDate);
+
+  let allocatedTotal: string | null = null;
+  if (hasTranches) {
+    try {
+      const totalStroops = reviewMilestones.reduce<bigint>(
+        (sum: bigint, item) => (item.amount ? sum + toStroops(item.amount) : sum),
+        0n,
+      );
+      allocatedTotal = fromStroops(totalStroops);
+    } catch {
+      allocatedTotal = null;
+    }
+  }
+
   return (
     <div
       aria-busy={isSubmitting}
@@ -220,9 +238,34 @@ export function CreateVaultReview({
                       {item.criteria}
                     </Text>
                   ) : null}
+                  {item.amount ? (
+                    <Text
+                      role="caption"
+                      as="p"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Amount: {item.amount} USDC
+                    </Text>
+                  ) : null}
+                  {item.dueDate ? (
+                    <Text
+                      role="caption"
+                      as="p"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Due: {item.dueDate}
+                    </Text>
+                  ) : null}
                 </li>
               ))}
             </ol>
+            {hasTranches ? (
+              <Text role="caption" as="p" style={{ color: "var(--muted)" }}>
+                {allocatedTotal !== null
+                  ? `Total allocated: ${allocatedTotal} of ${amount} USDC`
+                  : `Total allocated: ${amount} USDC`}
+              </Text>
+            ) : null}
           </div>
         ) : null}
       </div>
