@@ -19,6 +19,8 @@ import {
   shouldCloseDrawerOnRouteChange,
 } from "../utils/drawerState";
 import { useBreakpoint } from "../utils/useBreakpoint";
+import RouteAnnouncer from "./RouteAnnouncer";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -55,6 +57,8 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+  const focusPathnameRef = useRef(location.pathname);
+  useScrollRestoration();
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
@@ -118,10 +122,28 @@ export default function Layout({ children }: LayoutProps) {
   // viewport will immediately force closed.
   const hamburgerDisabled = isDesktop;
 
+  useEffect(() => {
+    const pathnameChanged = focusPathnameRef.current !== location.pathname;
+    focusPathnameRef.current = location.pathname;
+    if (!pathnameChanged || document.querySelector('[role="dialog"], [aria-modal="true"]')) return
+    document.getElementById("main-content")?.focus({ preventScroll: true })
+  }, [location.pathname]);
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById("main-content")?.focus()
+        }}
+      >
+        Skip to main content
+      </a>
+      <RouteAnnouncer />
       <header className="site-header">
         <div className="header-brand" {...backgroundAccessibilityProps}>
           <Link to="/" className="header-link" aria-label="Disciplr home">
@@ -253,6 +275,8 @@ export default function Layout({ children }: LayoutProps) {
       <TrustlineBanner />
 
       <main
+        id="main-content"
+        tabIndex={-1}
         {...backgroundAccessibilityProps}
         style={{
           flex: 1,
