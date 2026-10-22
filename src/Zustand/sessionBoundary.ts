@@ -1,7 +1,7 @@
 import { isValidStellarAddress } from "../utils/stellarAddress";
 import {
   APP_EXPECTED_NETWORK,
-  isNetworkMismatch,
+isNetworkMismatch,
 } from "../utils/networkMismatch";
 import type { WalletNetwork } from "../context/WalletContext";
 import { BoundaryError } from "./boundaryErrors";

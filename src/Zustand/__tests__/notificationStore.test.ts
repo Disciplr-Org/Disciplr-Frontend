@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useNotification, useUnreadCount } from "../Store";
 import { getNotifications } from "@/components/Notification/exampleNotification/example";
+import { bindSession, clearSession, getSession } from "../sessionBoundary";
+import { useNotificationPreferences } from "../notificationPreferences";
 
 const initialNotifications = getNotifications();
 
@@ -8,6 +10,12 @@ function resetStore() {
   useNotification.setState({
     notification: initialNotifications,
   });
+  clearSession();
+  try {
+    useNotificationPreferences.persist.clearStorage();
+  } catch {
+    // ignore storage errors in test env
+  }
 }
 
 function getUnreadCount() {
@@ -300,5 +308,66 @@ describe('Issue #1261 — unreadCount is derived, not stored state', () => {
     // This test ensures the corrected helper never re-introduces that field.
     resetStore();
     expect('unreadCount' in useNotification.getState()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session boundary — wallet B must not inherit wallet A's persisted prefs.
+// ---------------------------------------------------------------------------
+describe("sessionBoundary — per-wallet preference isolation", () => {
+  const WALLET_A = "GA" + "A".repeat(54);
+  const WALLET_B = "GB" + "B".repeat(54);
+
+  beforeEach(() => {
+    resetStore();
+  });
+
+  it("binds wallet A and persists its ownerKey", () => {
+    bindSession({ address: WALLET_A, network: "TESTNET" });
+    const session = getSession();
+    expect(session.address).toBe(WALLET_A);
+    expect(session.network).toBe("TESTNET");
+    expect(session.epoch).toBeGreaterThan(0);
+  });
+
+  it("wallet B connecting after wallet A does not see A's persisted preferences", async () => {
+    // Wallet A binds and writes preferences.
+    bindSession({ address: WALLET_A, network: "TESTNET" });
+    useNotificationPreferences.getState().setPrefs({
+      emailEnabled: false,
+      pushEnabled: false,
+      inAppEnabled: false,
+    });
+    const aPrefs = useNotificationPreferences.getState().prefs;
+    expect(aPrefs.emailEnabled).toBe(false);
+
+    // Simulate a fresh page load: clear in-memory state but keep localStorage.
+    useNotificationPreferences.setState({
+      prefs: {
+        emailEnabled: true,
+        pushEnabled: true,
+        inAppEnabled: true,
+      },
+    });
+
+    // Wallet B binds — rehydration must run for the new owner.
+    bindSession({ address: WALLET_B, network: "TESTNET" });
+    await useNotificationPreferences.persist.rehydrate();
+
+    const bPrefs = useNotificationPreferences.getState().prefs;
+    // B must see defaults, not A's persisted values.
+    expect(bPrefs.emailEnabled).toBe(true);
+    expect(bPrefs.pushEnabled).toBe(true);
+    expect(bPrefs.inAppEnabled).toBe(true);
+  });
+
+  it("clears the session on disconnect", () => {
+    bindSession({ address: WALLET_A, network: "TESTNET" });
+    const epochBefore = getSession().epoch;
+    clearSession();
+    const session = getSession();
+    expect(session.address).toBeNull();
+    expect(session.network).toBeNull();
+    expect(session.epoch).toBeGreaterThan(epochBefore);
   });
 });

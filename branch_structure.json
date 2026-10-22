@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "main",
+    "origin",
+    "security/issue-1532-session-bind-the-live-wallet-to-sessionboundary"
+  ],
+  "parent": {
+    "main": null,
+    "origin": "main",
+    "security/issue-1532-session-bind-the-live-wallet-to-sessionboundary": "main"
+  },
+  "order": [
+    "main",
+    "origin",
+    "security/issue-1532-session-bind-the-live-wallet-to-sessionboundary"
+  ]
+}
