@@ -10,6 +10,7 @@ import { classifyEvidenceUrl, EVIDENCE_BADGE_COLORS } from '../utils/evidenceKin
 import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notesDraft';
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
 
@@ -87,6 +88,7 @@ export default function ValidationDetail() {
   const cleanVaultId = typeof vaultId === 'string' ? vaultId.trim() : '';
   const taskList = Array.isArray(pendingValidations) ? pendingValidations : [];
   const task = taskList.find((t) => Boolean(t) && t.id === cleanVaultId);
+  useDocumentTitle(task?.vaultName ? `${task.vaultName} · Validation` : '');
   const { notes, setNotes, clearDraft } = useNotesDraft(task?.id);
 
   // Deduplicate and sanitize criteria strings

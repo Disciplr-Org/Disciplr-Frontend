@@ -14,6 +14,7 @@ import { useWallet } from "../context/WalletContext";
 import type { WalletNetwork } from "../context/WalletContext";
 import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
 import { ApiError } from "../services/api";
 import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
@@ -110,6 +111,7 @@ export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const { view, retry } = useVaultDetail(id);
   const { address, network } = useWallet();
+  useDocumentTitle(view.status === "ready" ? `${view.vault.name} · Vault` : "");
 
   switch (view.status) {
     case "loading":
