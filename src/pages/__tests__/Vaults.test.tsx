@@ -92,8 +92,8 @@ describe("Vaults Explorer Page", () => {
       expect(screen.queryByText(/loading vaults/i)).not.toBeInTheDocument();
     });
 
-    // Verify creator param was passed to listVaults
-    expect(vaultService.listVaults).toHaveBeenCalledWith("GCREATOR_USER");
+    // Vaults are fetched once; the "mine" scope is applied client-side
+    expect(vaultService.listVaults).toHaveBeenCalled();
 
     // Scope 'mine' should be pressed
     const mineScopeBtn = screen.getByRole("button", { name: "Created by me" });

@@ -8,7 +8,7 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 
-const getRawApiBase = (): string | null => {
+export const getRawApiBase = (): string | null => {
   const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
   return raw ? raw.replace(/\/+$/, "") : null;
 };
@@ -25,6 +25,8 @@ export interface ApiVault {
 }
 
 interface ApiActivity { id: string; type: string; vaultId: string; amount: string; status: string; hash: string; memo: string; createdAt: string }
+
+import { useConnectivityStore } from "./connectivity";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -43,10 +45,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
   } catch {
+    useConnectivityStore.getState().reportApiFailure(0);
     throw new ApiError("Could not reach the Disciplr API.", 0);
   }
   const body = (await res.json().catch(() => ({}))) as { error?: string; details?: string[]; data?: T };
   if (!res.ok) {
+    if (res.status >= 500) {
+      useConnectivityStore.getState().reportApiFailure(res.status);
+    }
     throw new ApiError([body.error, ...(body.details ?? [])].filter(Boolean).join(": ") || `HTTP ${res.status}`, res.status);
   }
   return body.data as T;

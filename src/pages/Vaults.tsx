@@ -22,6 +22,7 @@ import {
   type VaultStatusFilter,
 } from "../utils/vaultsQuery";
 import type { Vault } from "../types/vault";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 
 const SCOPE_LABELS: Record<VaultScope, string> = {
   all: "All Vaults",
@@ -104,11 +105,9 @@ export default function Vaults() {
     setLoading(true);
     setError(null);
 
-    // If scope is "mine" and user is connected, call listVaults(creator)
-    // Otherwise list all vaults
-    const creatorParam = scope === "mine" && normalizedUserAddress ? normalizedUserAddress : undefined;
-
-    listVaults(creatorParam)
+    // listVaults has no creator filter; scope ("mine"/"verifying") is applied
+    // client-side by filterVaults below.
+    listVaults()
       .then((loaded) => {
         if (!cancelled) {
           setVaults(loaded);
@@ -186,6 +185,9 @@ export default function Vaults() {
     updateQueryParams({ status: nextStatus, page: 1 });
     tabButtonRefs.current[nextIndex]?.focus();
   };
+
+  // Refetch automatically when connectivity recovers.
+  useOnRecovered(retry);
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "var(--spacing-4)" }}>

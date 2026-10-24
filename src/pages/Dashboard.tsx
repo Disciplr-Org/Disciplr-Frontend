@@ -27,6 +27,7 @@ import { validateVaultPreview, sanitizeActivity } from "../utils/dashboardValida
 // vaultService (see Dashboard component below).
 import { ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
 import { listVaults } from "../services/vaultService";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -425,6 +426,8 @@ export default function Dashboard({
     setRetryCount((c) => c + 1);
     setRequestId((r) => r + 1);
   }, []);
+
+  useOnRecovered(retryVaults);
 
   // INVARIANT: vault-derived state is surfaced only in the "data" state. Gating
   // at render time (rather than relying on every failure path remembering to
