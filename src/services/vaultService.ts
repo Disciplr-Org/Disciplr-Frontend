@@ -27,10 +27,15 @@ import {
   apiListVaults,
   apiGetVault,
   apiCreateVault,
-  apiValidateNextMilestone,
   apiFailVault,
-  apiListActivity,
 } from "./api";
+
+// ── Optional per-call options ────────────────────────────────────────────────
+// Services and hooks can pass an AbortSignal (e.g. from a useEffect cleanup)
+// so in-flight requests are cancelled on unmount.
+export interface VaultRequestOptions {
+  signal?: AbortSignal;
+}
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
@@ -72,8 +77,8 @@ export interface VaultActivityRecord {
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(): Promise<Vault[]> {
-  if (isApiEnabled()) return apiListVaults();
+export async function listVaults(options?: VaultRequestOptions): Promise<Vault[]> {
+  if (isApiEnabled()) return apiListVaults(options);
   return Object.values(MASTER_VAULTS);
 }
 
@@ -85,9 +90,9 @@ export async function listVaults(): Promise<Vault[]> {
  *
  * SEAM → replace with: Soroban contract state read for a given contract address.
  */
-export async function getVault(id: string): Promise<Vault | undefined> {
+export async function getVault(id: string, options?: VaultRequestOptions): Promise<Vault | undefined> {
   if (isApiEnabled()) {
-    return isValidVaultRouteId(id) ? apiGetVault(id) : undefined;
+    return isValidVaultRouteId(id) ? apiGetVault(id, options) : undefined;
   }
   return lookupVaultSafe(MASTER_VAULTS, id);
 }
@@ -98,8 +103,8 @@ export async function getVault(id: string): Promise<Vault | undefined> {
  *
  * SEAM → replace with: Horizon `/transactions?account=<contractAddress>` + filter.
  */
-export async function getTransactions(id: string): Promise<VaultTransaction[]> {
-  if (isApiEnabled()) return (await getVault(id))?.transactions ?? [];
+export async function getTransactions(id: string, options?: VaultRequestOptions): Promise<VaultTransaction[]> {
+  if (isApiEnabled()) return (await getVault(id, options))?.transactions ?? [];
   return lookupVaultSafe(MASTER_VAULTS, id)?.transactions ?? [];
 }
 
@@ -119,8 +124,7 @@ export function getCachedActivity(): VaultActivityRecord[] {
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
  * contract addresses.
  */
-export async function listAllActivity(): Promise<VaultActivityRecord[]> {
-  if (isApiEnabled()) return apiListActivity();
+export async function listAllActivity(options?: VaultRequestOptions): Promise<VaultActivityRecord[]> {
   return [...MASTER_ACTIVITY];
 }
 
@@ -139,7 +143,7 @@ export async function createVault(vaultData: {
   failureAddress: string;
   evidenceUrl?: string;
   milestones: Omit<Milestone, "id" | "status">[];
-}): Promise<Vault> {
+}, options?: VaultRequestOptions): Promise<Vault> {
   if (!vaultData.name || vaultData.name.trim().length === 0) {
     throw new Error("Vault name is required.");
   }
@@ -157,7 +161,7 @@ export async function createVault(vaultData: {
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
-    });
+    }, options);
   }
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
   const newVault: Vault = {
@@ -229,9 +233,8 @@ const submitVaultActionRunner = createSingleFlightRunner(
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
       if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
-      throw new Error("Extending a deadline is not supported by the demo API.");
+      throw new Error("Milestone validation and deadline extension are not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {
       throw new Error("Vault not found.");

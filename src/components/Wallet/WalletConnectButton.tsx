@@ -64,6 +64,33 @@ export function WalletConnectButton() {
         );
     }
 
+    if (error && !address) {
+        return (
+            <div className="wallet-dropdown-container">
+                <button
+                    className="wallet-connect-btn error"
+                    onClick={() => setIsModalOpen(true)}
+                    title={error}
+                >
+                    <AlertCircle size={16} />
+                    <span>Connection Failed</span>
+                </button>
+                {isModalOpen && (
+                    <WalletSelectionModal onClose={() => setIsModalOpen(false)} />
+                )}
+            </div>
+        );
+    }
+
+    if (isConnecting && !address) {
+        return (
+            <button className="wallet-connect-btn connecting" disabled>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Connecting...</span>
+            </button>
+        );
+    }
+
     return (
         <>
             {address ? (

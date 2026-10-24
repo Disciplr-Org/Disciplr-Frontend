@@ -15,12 +15,17 @@ export default function Vaults() {
   const [filter, setFilter] = useState<"all" | VaultStatus>("all");
 
   useEffect(() => {
-    let cancelled = false;
-    listVaults()
-      .then((v) => !cancelled && setVaults(v))
-      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : "Could not load vaults."));
+    const controller = new AbortController();
+    listVaults({ signal: controller.signal })
+      .then((v) => {
+        if (!controller.signal.aborted) setVaults(v);
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "Could not load vaults.");
+      });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, []);
 
