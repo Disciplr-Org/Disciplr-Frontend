@@ -324,7 +324,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             clearInterval(id);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [address, fetchNetworkAndBalance]);
+    }, [state.address, fetchNetworkAndBalance]);
 
     const performConnect = async (attempt: number): Promise<boolean> => {
         const seq = ++operationSeqRef.current;

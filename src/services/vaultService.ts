@@ -27,9 +27,7 @@ import {
   apiListVaults,
   apiGetVault,
   apiCreateVault,
-  apiValidateNextMilestone,
   apiFailVault,
-  apiListActivity,
 } from "./api";
 
 // ── Optional per-call options ────────────────────────────────────────────────
@@ -127,7 +125,6 @@ export function getCachedActivity(): VaultActivityRecord[] {
  * contract addresses.
  */
 export async function listAllActivity(options?: VaultRequestOptions): Promise<VaultActivityRecord[]> {
-  if (isApiEnabled()) return apiListActivity(options);
   return [...MASTER_ACTIVITY];
 }
 
@@ -236,9 +233,8 @@ const submitVaultActionRunner = createSingleFlightRunner(
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
       if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
-      throw new Error("Extending a deadline is not supported by the demo API.");
+      throw new Error("Milestone validation and deadline extension are not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {
       throw new Error("Vault not found.");
