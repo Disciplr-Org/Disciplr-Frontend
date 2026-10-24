@@ -19,7 +19,7 @@ import {
 } from "../utils/vaultState";
 import { createSingleFlightRunner } from "../utils/singleFlight";
 import { logger } from "../utils/logger";
-import { timelineProgress } from "../utils/vaultLifecycle";
+import { vaultProgressPct } from "../utils/vaultLifecycle";
 import { validateVaultPreview, sanitizeActivity } from "../utils/dashboardValidation";
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ import { validateVaultPreview, sanitizeActivity } from "../utils/dashboardValida
 // vaultService (see Dashboard component below).
 import { ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
 import { listVaults } from "../services/vaultService";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ function toSafePreviews(loaded: Vault[]): VaultPreview[] {
       currency: v.currency,
       status: v.status as VaultStatus,
       deadline: v.deadline,
-      progressPct: timelineProgress(v.createdAt, v.deadline),
+      progressPct: vaultProgressPct(v),
     };
     const result = validateVaultPreview(preview);
     if (result.ok) {
@@ -426,6 +427,8 @@ export default function Dashboard({
     setRequestId((r) => r + 1);
   }, []);
 
+  useOnRecovered(retryVaults);
+
   // INVARIANT: vault-derived state is surfaced only in the "data" state. Gating
   // at render time (rather than relying on every failure path remembering to
   // clear) means the summary cards can never contradict the vault list — e.g.
@@ -767,7 +770,7 @@ export default function Dashboard({
         <div
           style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
         >
-          <UpcomingDeadlines deadlines={safeDeadlines} />
+          <UpcomingDeadlines deadlines={safeDeadlines} vaults={shownFullVaults} />
 
           {/* Success Rate Chart (sparkline bars) */}
           <div

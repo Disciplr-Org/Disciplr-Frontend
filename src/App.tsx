@@ -25,6 +25,7 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 const Notification = lazy(() => import('./pages/Notification'))
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 const VaultTransactions = lazy(() => import('./pages/VaultTransactions'))
+const HelpArticle = lazy(() => import('./pages/HelpArticle'))
 
 // Test-only: throws during render so the visual suite can snapshot the ErrorBoundary.
 function VisualCrash(): never {
@@ -121,6 +122,16 @@ export default function App() {
                 <Route path="/verifier/history" element={<RouteErrorBoundary><ValidationHistory /></RouteErrorBoundary>} />
                 <Route path="/help" element={<RouteErrorBoundary><HelpCenter /></RouteErrorBoundary>} />
                 <Route path="/help/search" element={<RouteErrorBoundary><HelpCenter /></RouteErrorBoundary>} />
+                <Route
+                  path="/help/articles/:slug"
+                  element={
+                    <RouteErrorBoundary>
+                      <LazyRoute>
+                        <HelpArticle />
+                      </LazyRoute>
+                    </RouteErrorBoundary>
+                  }
+                />
                 <Route
                   path="/analytics"
                   element={
