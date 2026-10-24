@@ -351,20 +351,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 if (!access) {
                     const errorMsg = 'Wallet access denied.';
                     dispatch({ type: 'CONNECT_ERROR', payload: { error: errorMsg } });
-                
-                if (pubKey && !addrError) {
-                    localStorage.removeItem(WALLET_DISCONNECTED_KEY);
-                    // A real wallet connection supersedes demo mode.
-                    demoModeRef.current = false;
-                    localStorage.removeItem(DEMO_MODE_KEY);
-                    lastKnownAddressRef.current = pubKey;
-                    const netDetails = await getNetworkDetails();
-                    if (seq !== operationSeqRef.current) return false;
-                    const activeNetwork = normalizeNetwork(netDetails.network);
-                    lastKnownNetworkRef.current = activeNetwork;
-                    
-                    dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
-                    await fetchNetworkAndBalance(pubKey, seq);
                     recordWalletTelemetry({
                         event: 'wallet.connect.failure',
                         ts: Date.now(),
@@ -394,6 +380,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 }
 
                 localStorage.removeItem(WALLET_DISCONNECTED_KEY);
+                // A real wallet connection supersedes demo mode.
+                demoModeRef.current = false;
+                localStorage.removeItem(DEMO_MODE_KEY);
                 lastKnownAddressRef.current = pubKey;
                 const netDetails = await getNetworkDetails();
                 if (seq !== operationSeqRef.current) return false;

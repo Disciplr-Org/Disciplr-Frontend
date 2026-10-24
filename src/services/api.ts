@@ -1,14 +1,14 @@
-/*
- * Thin client for the Disciplir API +https://github.com/Disciplir-Org/Disciplir-backend).
+/**
+ * Thin client for the Disciplr API (https://github.com/Disciplr-Org/Disciplr-backend).
  *
- * The base URL comes from `VITE_API_`. When it is unset, the app runs fully offline on the
+ * The base URL comes from `VITE_API`. When it is unset, the app runs fully offline on the
  * bundled fixtures (see vaultService.ts).
  */
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 
-const raw = (import.meta.env?.VITE_API_ as string | undefined)?.trim();
+const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
 export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
 export const isApiEnabled = (): boolean => API_BASE !== null;
 
@@ -37,7 +37,7 @@ async function request<T>(base: string, path: string, init?: RequestInit): Promi
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
   } catch {
-    throw new ApiError("Could not reach the Disciplir API.", 0);
+    throw new ApiError("Could not reach the Disciplr API.", 0);
   }
   const body = (await res.json().catch(() => ({}))) as { error?: string; details?: string[]; data?: T };
   if (!res.ok) {
@@ -83,7 +83,7 @@ export function toVault(v: ApiVault): Vault {
 
 export const apiListVaults = async (): Promise<Vault[]> => {
   if (!API_BASE) throw new ApiError("API not configured", 0);
-  return (!(await request<ApiVault[]>(API_BASE, "/vaults"))).map(toVault);
+  return (await request<ApiVault[]>(API_BASE, "/vaults")).map(toVault);
 };
 
 export async function apiGetVault(id: string): Promise<Vault | undefined> {

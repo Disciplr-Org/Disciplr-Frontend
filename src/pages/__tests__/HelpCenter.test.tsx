@@ -28,7 +28,7 @@ describe('HelpCenter', () => {
     expect(emailLink).toHaveAttribute('href', 'mailto:support@disciplr.app')
 
     // Live chat clearly marked as unavailable
-    expect(screen.getByText(/Unavailable/i)).toBeInTheDocument()
+    expect(screen.getByText('Unavailable')).toBeInTheDocument()
   })
 
   it('renders a keyword search results page with ranked results and text highlighting', () => {

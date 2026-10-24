@@ -31,6 +31,17 @@ import {
   apiFailVault,
   apiListActivity,
 } from "./api";
+import { cached, invalidate, type CacheOptions } from "./queryCache";
+
+/**
+ * Drop cached reads affected by a vault write. Call after any successful
+ * mutation (create, validate, fail, ...).
+ */
+export function invalidateVaultCaches(id?: string): void {
+  invalidate("vaults");
+  invalidate("activity");
+  invalidate(id === undefined ? "vault:" : `vault:${id}`);
+}
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
@@ -72,13 +83,12 @@ export interface VaultActivityRecord {
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(creator?: string): Promise<Vault[]> {
-  if (isApiEnabled()) return apiListVaults(creator);
-  const all = Object.values(MASTER_VAULTS);
-  if (creator) {
-    return all.filter((v) => v.creatorAddress === creator);
-  }
-  return all;
+export async function listVaults(options?: CacheOptions): Promise<Vault[]> {
+  return cached(
+    "vaults",
+    async () => (isApiEnabled() ? apiListVaults() : Object.values(MASTER_VAULTS)),
+    options,
+  );
 }
 
 /**
@@ -89,11 +99,21 @@ export async function listVaults(creator?: string): Promise<Vault[]> {
  *
  * SEAM → replace with: Soroban contract state read for a given contract address.
  */
-export async function getVault(id: string): Promise<Vault | undefined> {
-  if (isApiEnabled()) {
-    return isValidVaultRouteId(id) ? apiGetVault(id) : undefined;
-  }
-  return lookupVaultSafe(MASTER_VAULTS, id);
+export async function getVault(
+  id: string,
+  options?: CacheOptions,
+): Promise<Vault | undefined> {
+  // Map-backed cache: ids such as "__proto__" cannot pollute keys.
+  return cached(
+    `vault:${id}`,
+    async () => {
+      if (isApiEnabled()) {
+        return isValidVaultRouteId(id) ? apiGetVault(id) : undefined;
+      }
+      return lookupVaultSafe(MASTER_VAULTS, id);
+    },
+    options,
+  );
 }
 
 /**
@@ -123,9 +143,14 @@ export function getCachedActivity(): VaultActivityRecord[] {
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
  * contract addresses.
  */
-export async function listAllActivity(): Promise<VaultActivityRecord[]> {
-  if (isApiEnabled()) return apiListActivity();
-  return [...MASTER_ACTIVITY];
+export async function listAllActivity(
+  options?: CacheOptions,
+): Promise<VaultActivityRecord[]> {
+  return cached(
+    "activity",
+    async () => (isApiEnabled() ? apiListActivity() : [...MASTER_ACTIVITY]),
+    options,
+  );
 }
 
 /**
@@ -152,7 +177,7 @@ export async function createVault(vaultData: {
     throw new Error("Vault amount must be a positive finite number.");
   }
   if (isApiEnabled()) {
-    return apiCreateVault({
+    const created = await apiCreateVault({
       name: vaultData.name,
       amount: vaultData.amount,
       deadline: vaultData.deadline,
@@ -162,6 +187,8 @@ export async function createVault(vaultData: {
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
     });
+    invalidateVaultCaches(created.id);
+    return created;
   }
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
   const newVault: Vault = {
@@ -235,8 +262,16 @@ const submitVaultActionRunner = createSingleFlightRunner(
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
-      if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
+      if (action === "validate_milestone") {
+        await apiValidateNextMilestone(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
+      if (action === "cancel_vault") {
+        await apiFailVault(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
       throw new Error("Extending a deadline is not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {

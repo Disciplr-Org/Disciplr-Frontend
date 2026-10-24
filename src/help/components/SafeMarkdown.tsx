@@ -39,7 +39,7 @@ export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element 
           <code
             key={i}
             style={{
-              background: 'var(--surface-variant, #27272a)',
+              background: 'var(--surface-raised, #27272a)',
               padding: '0.15rem 0.4rem',
               borderRadius: 'var(--radius-sm, 4px)',
               fontSize: '0.9em',

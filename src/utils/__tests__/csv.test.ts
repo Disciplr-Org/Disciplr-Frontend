@@ -267,7 +267,7 @@ describe('toCsv transaction numeric normalization', () => {
     const tx = baseTx({ amount: NaN, fee: Infinity });
     const result = toCsv([tx], 'transactions');
     expect(result).toContain(
-      `tx-001,create,Alpha Vault,,,confirmed,2026-01-01T00:00:00.000Z,hash123,,G1,G2,`,
+      `tx-001,create,Alpha Vault,,,confirmed,2026-01-01T00:00:00.000Z,hash123,—,G1,G2,`,
     );
   });
 
