@@ -767,7 +767,7 @@ export default function Dashboard({
         <div
           style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
         >
-          <UpcomingDeadlines deadlines={safeDeadlines} />
+          <UpcomingDeadlines deadlines={safeDeadlines} vaults={shownFullVaults} />
 
           {/* Success Rate Chart (sparkline bars) */}
           <div
