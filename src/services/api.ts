@@ -9,9 +9,14 @@ import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
 
-const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
-export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
-export const isApiEnabled = (): boolean => API_BASE !== null;
+const getRawApiBase = (): string | null => {
+  const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
+  return raw ? raw.replace(/\/+$/, "") : null;
+};
+
+export const API_BASE: string | null = getRawApiBase();
+export const isApiEnabled = (): boolean => getRawApiBase() !== null;
+
 
 interface ApiMilestone { id: string; title: string; amount: string; dueDate: string; status: string }
 export interface ApiVault {
@@ -30,10 +35,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new ApiError("API not configured", 0);
+  const baseUrl = getRawApiBase();
+  if (!baseUrl) throw new ApiError("API not configured", 0);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
@@ -82,9 +88,13 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export const apiListVaults = async (): Promise<Vault[]> => (await request<ApiVault[]>("/vaults")).map(toVault);
+export const apiListVaults = async (): Promise<Vault[]> => {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+  return (await request<ApiVault[]>("/vaults")).map(toVault);
+};
 
 export async function apiGetVault(id: string): Promise<Vault | undefined> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   try {
     return toVault(await request<ApiVault>(`/vaults/${encodeURIComponent(id)}`));
   } catch (e) {
@@ -97,6 +107,7 @@ export async function apiCreateVault(input: {
   name: string; amount: number; deadline: string; creator: string; verifier: string;
   successAddress: string; failureAddress: string; milestones: { title: string }[];
 }): Promise<Vault> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   const per = input.amount / Math.max(1, input.milestones.length);
   const start = Date.now();
   const end = new Date(input.deadline).getTime();
@@ -135,6 +146,7 @@ export async function apiCreateVault(input: {
 
 
 export async function apiValidateNextMilestone(vault: Vault, actor: string): Promise<void> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   const next = vault.milestones.find((m) => m.status === "pending");
   if (!next) throw new Error("No pending milestone to validate.");
   await request(`/vaults/${encodeURIComponent(vault.id)}/milestones/${encodeURIComponent(next.id)}/validate`, {
@@ -144,29 +156,38 @@ export async function apiValidateNextMilestone(vault: Vault, actor: string): Pro
 }
 
 export async function apiFailVault(vault: Vault, actor: string): Promise<void> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   await request(`/vaults/${encodeURIComponent(vault.id)}/fail`, {
     method: "POST",
     body: JSON.stringify({ verifier: actor }),
   });
 }
 
-export async function apiListActivity(): Promise<VaultActivityRecord[]> {
-  const [acts, vaults] = await Promise.all([request<ApiActivity[]>("/transactions"), request<ApiVault[]>("/vaults")]);
+export interface ListActivityOptions {
+  vaultId?: string;
+}
+
+export async function apiListActivity(options: ListActivityOptions = {}): Promise<VaultActivityRecord[]> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+  const query = options.vaultId ? `?vaultId=${encodeURIComponent(options.vaultId)}` : "";
+  const [acts, vaults] = await Promise.all([
+    request<ApiActivity[]>(`/transactions${query}`),
+    request<ApiVault[]>("/vaults"),
+  ]);
   const names = new Map(vaults.map((v) => [v.id, v] as const));
-  return acts.map((a, i) => {
+  return acts.map((a) => {
     const v = names.get(a.vaultId);
     const ts = new Date(a.createdAt);
     return {
       id: a.id,
       type: a.type as VaultActivityRecord["type"],
-      vault: v?.name || a.vaultId,
+      vaultId: a.vaultId,
+      vault: v ? v.name || a.vaultId : a.vaultId,
       amount: Number(a.amount),
-      fee: 0.00001,
-      block: 1_000_000 + Math.floor(ts.getTime() / 5000) % 1_000_000 + i,
       hash: a.hash,
       status: a.status as VaultActivityRecord["status"],
       from: v?.creator ?? "",
-      to: a.type === "redirect" ? v?.failureDestination ?? "" : v?.successDestination ?? "",
+      to: a.type === "redirect" ? (v ? v.failureDestination ?? "" : "") : (v ? v.successDestination ?? "" : ""),
       timestamp: ts,
       memo: a.memo,
     };
@@ -177,5 +198,6 @@ export async function apiStats(): Promise<{
   totalVaults: number; active: number; completed: number; failed: number;
   totalLocked: number; totalReleased: number; totalRedirected: number; successRate: number | null;
 }> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   return request("/stats");
 }

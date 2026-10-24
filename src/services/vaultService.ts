@@ -31,6 +31,26 @@ import {
   apiFailVault,
   apiListActivity,
 } from "./api";
+import {
+  getDemoStore,
+  demoCreateVault,
+  demoValidateMilestone,
+  demoFailVault,
+  mergeDemoVaults,
+  mergeDemoActivity,
+  isDemoId,
+} from "./demoStore";
+import { cached, invalidate, type CacheOptions } from "./queryCache";
+
+/**
+ * Drop cached reads affected by a vault write. Call after any successful
+ * mutation (create, validate, fail, ...).
+ */
+export function invalidateVaultCaches(id?: string): void {
+  invalidate("vaults");
+  invalidate("activity");
+  invalidate(id === undefined ? "vault:" : `vault:${id}`);
+}
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
@@ -57,10 +77,18 @@ export interface VaultActivityRecord {
   memo: string;
 }
 
-// ── Mock datasets moved to src/fixtures/ ──────────────────────────────────────
-// MASTER_VAULTS lives in src/fixtures/vaults.ts and MASTER_ACTIVITY in
-// src/fixtures/transactions.ts. They are imported above so this module stays a
-// thin Promise-based seam. See docs/VAULT_DATA_LAYER.md.
+// ── Demo mode routing state ──────────────────────────────────────────────────
+// Driven explicitly by WalletProvider via setDemoMode(boolean), not global
+// React state polling.
+let demoModeActive = false;
+
+export function setDemoMode(active: boolean): void {
+  demoModeActive = active;
+}
+
+export function isDemoModeActive(): boolean {
+  return demoModeActive;
+}
 
 // ── Service API ───────────────────────────────────────────────────────────────
 // SEAM: Replace only the internals of these functions with Soroban/Horizon calls
@@ -69,27 +97,55 @@ export interface VaultActivityRecord {
 
 /**
  * Return all vaults.
+ * In demo mode, live reads (or mock data) are merged with demo overlay vaults.
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(): Promise<Vault[]> {
-  if (isApiEnabled()) return apiListVaults();
-  return Object.values(MASTER_VAULTS);
+export async function listVaults(options?: CacheOptions): Promise<Vault[]> {
+  const baseVaults = await cached(
+    "vaults",
+    async () => (isApiEnabled() ? apiListVaults() : Object.values(MASTER_VAULTS)),
+    options,
+  );
+
+  // The demo overlay is local and never cached, so demo writes show up at once.
+  if (demoModeActive) {
+    return mergeDemoVaults(baseVaults);
+  }
+  return baseVaults;
 }
 
 /**
  * Return a single vault by id, or undefined if not found.
- * Does NOT throw for unknown ids — callers rely on the undefined branch.
- * Uses a prototype-safe lookup so hostile ids (e.g. "__proto__") can never
- * reach inherited object members.
+ * In demo mode, if the id is a demo id or exists in the overlay, it returns
+ * from the overlay without hitting the network.
+ * Demo ids must never hit the API.
  *
  * SEAM → replace with: Soroban contract state read for a given contract address.
  */
-export async function getVault(id: string): Promise<Vault | undefined> {
-  if (isApiEnabled()) {
-    return isValidVaultRouteId(id) ? apiGetVault(id) : undefined;
+export async function getVault(
+  id: string,
+  options?: CacheOptions,
+): Promise<Vault | undefined> {
+  if (!isValidVaultRouteId(id)) return undefined;
+
+  // Demo IDs must never be sent to the API
+  if (isDemoId(id)) {
+    return getDemoStore().vaults[id];
   }
-  return lookupVaultSafe(MASTER_VAULTS, id);
+
+  // If in demo mode and an overlay version exists for this id, return it
+  if (demoModeActive) {
+    const overlayVault = getDemoStore().vaults[id];
+    if (overlayVault) return overlayVault;
+  }
+
+  // Map-backed cache: ids such as "__proto__" cannot pollute keys.
+  return cached(
+    `vault:${id}`,
+    async () => (isApiEnabled() ? apiGetVault(id) : lookupVaultSafe(MASTER_VAULTS, id)),
+    options,
+  );
 }
 
 /**
@@ -99,33 +155,46 @@ export async function getVault(id: string): Promise<Vault | undefined> {
  * SEAM → replace with: Horizon `/transactions?account=<contractAddress>` + filter.
  */
 export async function getTransactions(id: string): Promise<VaultTransaction[]> {
-  if (isApiEnabled()) return (await getVault(id))?.transactions ?? [];
-  return lookupVaultSafe(MASTER_VAULTS, id)?.transactions ?? [];
+  const vault = await getVault(id);
+  return vault?.transactions ?? [];
 }
 
 /**
  * Return the current in-memory activity snapshot synchronously.
- *
- * This keeps the mock-backed UI populated on first render while the Promise
- * seam remains the long-term replacement point for live Horizon/Soroban data.
  */
 export function getCachedActivity(): VaultActivityRecord[] {
-  return [...MASTER_ACTIVITY];
+  const base = [...MASTER_ACTIVITY];
+  if (demoModeActive) {
+    return mergeDemoActivity(base);
+  }
+  return base;
 }
 
 /**
- * Return the rich activity feed used by the VaultTransactions explorer page.
+ * Return the rich activity feed used by the Transactions explorer page.
+ * Merges demo overlay activity when demo mode is active.
  *
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
  * contract addresses.
  */
-export async function listAllActivity(): Promise<VaultActivityRecord[]> {
-  if (isApiEnabled()) return apiListActivity();
-  return [...MASTER_ACTIVITY];
+export async function listAllActivity(
+  options?: CacheOptions,
+): Promise<VaultActivityRecord[]> {
+  const base = await cached(
+    "activity",
+    async () => (isApiEnabled() ? apiListActivity() : [...MASTER_ACTIVITY]),
+    options,
+  );
+
+  if (demoModeActive) {
+    return mergeDemoActivity(base);
+  }
+  return base;
 }
 
 /**
- * Create a new vault in mock memory.
+ * Create a new vault.
+ * Routes to the demoStore overlay when demo mode is active (no API POST).
  * 
  * SEAM → replace with: Soroban contract initialization invocation.
  */
@@ -135,6 +204,7 @@ export async function createVault(vaultData: {
   currency: string;
   deadline: string;
   creatorAddress: string;
+  verifierAddress: string;
   successAddress: string;
   failureAddress: string;
   evidenceUrl?: string;
@@ -146,19 +216,27 @@ export async function createVault(vaultData: {
   if (!Number.isFinite(vaultData.amount) || vaultData.amount <= 0) {
     throw new Error("Vault amount must be a positive finite number.");
   }
+
+  if (demoModeActive) {
+    return demoCreateVault(vaultData);
+  }
+
   if (isApiEnabled()) {
-    // Demo: the creator acts as their own verifier unless the API is given another one.
-    return apiCreateVault({
+    // Creator acts as their own verifier unless the API is given another one.
+    const created = await apiCreateVault({
       name: vaultData.name,
       amount: vaultData.amount,
       deadline: vaultData.deadline,
       creator: vaultData.creatorAddress,
-      verifier: vaultData.creatorAddress,
+      verifier: vaultData.verifierAddress,
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
     });
+    invalidateVaultCaches(created.id);
+    return created;
   }
+
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
   const newVault: Vault = {
     id: nextId,
@@ -169,6 +247,7 @@ export async function createVault(vaultData: {
     createdAt: new Date().toISOString(),
     deadline: vaultData.deadline,
     creatorAddress: vaultData.creatorAddress,
+    verifierAddress: vaultData.verifierAddress,
     successAddress: vaultData.successAddress,
     failureAddress: vaultData.failureAddress,
     contractAddress: `GCONT${nextId}KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK`,
@@ -196,6 +275,7 @@ export async function createVault(vaultData: {
     ]
   };
   MASTER_VAULTS[nextId] = newVault;
+  invalidateVaultCaches(nextId);
   return newVault;
 }
 
@@ -207,9 +287,6 @@ export async function createVault(vaultData: {
  * The operation is single-flight: overlapping calls are coalesced into one
  * execution so a double-submit (UI replay or hostile script) can never fire
  * two on-chain transactions from one confirmation.
- *
- * SEAM → replace the empty body with the real Soroban invocation; the
- * single-flight guard must stay around it.
  */
 const submitVaultActionRunner = createSingleFlightRunner(
   async (action: VaultAction, vaultId: string, actor: string): Promise<void> => {
@@ -223,14 +300,45 @@ const submitVaultActionRunner = createSingleFlightRunner(
     if (!isValidStellarAddress(actingAddress)) {
       throw new Error("A valid connected wallet address is required.");
     }
+
+    // In demo mode or for demo IDs: route action to demo overlay
+    if (demoModeActive || isDemoId(vaultId)) {
+      let baseVault: Vault | undefined = getDemoStore().vaults[vaultId];
+      if (!baseVault) {
+        if (isApiEnabled()) {
+          baseVault = await apiGetVault(vaultId);
+        } else {
+          baseVault = lookupVaultSafe(MASTER_VAULTS, vaultId);
+        }
+      }
+
+      if (action === "validate_milestone") {
+        demoValidateMilestone(vaultId, actingAddress, baseVault);
+        return;
+      }
+      if (action === "cancel_vault") {
+        demoFailVault(vaultId, actingAddress, baseVault);
+        return;
+      }
+      throw new Error("Extending a deadline is not supported by the demo sandbox.");
+    }
+
     if (isApiEnabled()) {
       const vault = await apiGetVault(vaultId);
       if (!vault) throw new Error("Vault not found.");
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
-      if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
+      if (action === "validate_milestone") {
+        await apiValidateNextMilestone(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
+      if (action === "cancel_vault") {
+        await apiFailVault(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
       throw new Error("Extending a deadline is not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {

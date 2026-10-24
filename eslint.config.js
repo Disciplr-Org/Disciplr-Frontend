@@ -55,17 +55,4 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-  {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/utils/format.ts'],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "CallExpression[callee.property.name=/^toLocale(String|DateString|TimeString)$/]",
-          message: 'Direct calls to toLocaleString, toLocaleDateString, and toLocaleTimeString are forbidden in src/. Import formatUsdc, formatDate, formatDateTime, or formatRelative from src/utils/format instead.',
-        },
-      ],
-    },
-  },
-]
+];

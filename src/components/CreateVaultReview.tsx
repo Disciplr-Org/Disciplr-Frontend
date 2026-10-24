@@ -14,7 +14,7 @@ export interface CreateVaultReviewMilestone {
  * @property deadline - ISO datetime string for the vault deadline. Must not be empty.
  * @property successAddress - Destination address if milestones succeed. Must not be empty.
  * @property failureAddress - Destination address if milestones fail. Must not be empty.
- * @property verifierAddress - (Optional) The address of the verifier.
+ * @property verifierAddress - The address of the verifier.
  * @property milestone - (Optional) Legacy single milestone title.
  * @property milestones - (Optional) Array of milestone objects containing title and criteria.
  * @property isSubmitting - Disables interactions and shows a busy state when true.
@@ -25,11 +25,12 @@ export interface CreateVaultReviewMilestone {
  * @property onCheckVaults - Opens the vault list when a create outcome is unknown.
  */
 interface CreateVaultReviewProps {
+  name: string;
   amount: string;
   deadline: string;
   successAddress: string;
   failureAddress: string;
-  verifierAddress?: string;
+  verifierAddress: string;
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
   isSubmitting?: boolean;
@@ -42,11 +43,12 @@ interface CreateVaultReviewProps {
 
 /**
  * Renders a review screen for vault creation.
- * Enforces boundary invariants: Requires amount, deadline, successAddress, and failureAddress.
+ * Enforces boundary invariants for all required vault details.
  * If required data is missing, an accessible error state is displayed prompting the user to go back.
  * Handles loading (isSubmitting) and error states with appropriate ARIA attributes for screen readers.
  */
 export function CreateVaultReview({
+  name,
   amount,
   deadline,
   successAddress,
@@ -62,7 +64,8 @@ export function CreateVaultReview({
   onCheckVaults,
 }: CreateVaultReviewProps) {
   // Invariant validation for boundary conditions
-  const isMissingData = !amount || !deadline || !successAddress || !failureAddress;
+  const isMissingData =
+    !name || !amount || !deadline || !successAddress || !failureAddress || !verifierAddress;
 
   if (isMissingData) {
     return (
@@ -142,6 +145,16 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Vault name
+          </Text>
+          <Text role="body" as="p">
+            {name}
+          </Text>
+        </div>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
             Amount (USDC)
           </Text>
           <Text role="body" as="p">
@@ -189,9 +202,7 @@ export function CreateVaultReview({
             <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
               Verifier address
             </Text>
-            <Text role="body" as="p">
-              {verifierAddress}
-            </Text>
+            <AddressDisplay address={verifierAddress} />
           </div>
         ) : null}
 
