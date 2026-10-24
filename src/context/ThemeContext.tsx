@@ -74,10 +74,49 @@ function resolveTheme(preference: UserPreference): Theme {
   return preference;
 }
 
+const THEME_COLORS: Record<Theme, string> = {
+  light: '#F9FAFB',
+  dark: '#111827',
+};
+
+function updateThemeColorMeta(theme: Theme): void {
+  if (typeof document === 'undefined') return;
+  // Look for a theme-color meta tag without a media attribute, or create one if absent
+  let meta = document.querySelector('meta[name="theme-color"]:not([media])') as HTMLMetaElement | null;
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', THEME_COLORS[theme]);
+}
+
+function withTransitionDisabled(action: () => void): void {
+  if (typeof document === 'undefined') {
+    action();
+    return;
+  }
+  const root = document.documentElement;
+  root.classList.add('theme-changing');
+  action();
+  // Force reflow/two animation frames before removing class so transition is suppressed
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove('theme-changing');
+    });
+  });
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<UserPreference>(() => {
     const stored = getStoredPreference();
     if (stored) return stored;
+    if (typeof document !== 'undefined') {
+      const initialDataTheme = document.documentElement.dataset.theme;
+      if (isValidPreference(initialDataTheme)) {
+        return initialDataTheme;
+      }
+    }
     // Default to system when no stored preference exists
     return 'system';
   });
@@ -87,12 +126,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const theme = useMemo(() => resolveTheme(preference), [preference, osTick]);
 
-  // Apply data-theme and persist preference whenever it changes
+  // Apply data-theme, style.colorScheme, and theme-color meta whenever theme changes
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
-    safeSetItem(THEME_STORAGE_KEY, preference);
-  }, [theme, preference]);
+    root.style.colorScheme = theme;
+    updateThemeColorMeta(theme);
+  }, [theme]);
+
+  // Cross-tab synchronization via storage event
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== THEME_STORAGE_KEY) return;
+      if (event.newValue === null) {
+        withTransitionDisabled(() => {
+          setPreferenceState('system');
+        });
+      } else if (isValidPreference(event.newValue)) {
+        const nextPref = event.newValue;
+        withTransitionDisabled(() => {
+          setPreferenceState(nextPref);
+        });
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   // Listen for OS preference changes when in system mode
   useEffect(() => {
@@ -109,7 +169,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   const toggleTheme = useCallback(() => {
-    setPreferenceState((prev) => NEXT_PREFERENCE[prev]);
+    withTransitionDisabled(() => {
+      setPreferenceState((prev) => {
+        const next = NEXT_PREFERENCE[prev];
+        safeSetItem(THEME_STORAGE_KEY, next);
+        return next;
+      });
+    });
   }, []);
 
   // Validate input at the boundary: ignore invalid preferences rather than
@@ -121,8 +187,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       logger.warn('useTheme.setTheme ignored an invalid theme preference');
       return;
     }
-    setPreferenceState(newPreference);
-    safeSetItem(THEME_STORAGE_KEY, newPreference);
+    withTransitionDisabled(() => {
+      setPreferenceState(newPreference);
+      safeSetItem(THEME_STORAGE_KEY, newPreference);
+    });
   }, []);
 
   return (
