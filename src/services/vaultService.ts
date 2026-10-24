@@ -40,6 +40,17 @@ import {
   mergeDemoActivity,
   isDemoId,
 } from "./demoStore";
+import { cached, invalidate, type CacheOptions } from "./queryCache";
+
+/**
+ * Drop cached reads affected by a vault write. Call after any successful
+ * mutation (create, validate, fail, ...).
+ */
+export function invalidateVaultCaches(id?: string): void {
+  invalidate("vaults");
+  invalidate("activity");
+  invalidate(id === undefined ? "vault:" : `vault:${id}`);
+}
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
@@ -90,11 +101,14 @@ export function isDemoModeActive(): boolean {
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(): Promise<Vault[]> {
-  const baseVaults = isApiEnabled()
-    ? await apiListVaults()
-    : Object.values(MASTER_VAULTS);
+export async function listVaults(options?: CacheOptions): Promise<Vault[]> {
+  const baseVaults = await cached(
+    "vaults",
+    async () => (isApiEnabled() ? apiListVaults() : Object.values(MASTER_VAULTS)),
+    options,
+  );
 
+  // The demo overlay is local and never cached, so demo writes show up at once.
   if (demoModeActive) {
     return mergeDemoVaults(baseVaults);
   }
@@ -109,7 +123,10 @@ export async function listVaults(): Promise<Vault[]> {
  *
  * SEAM → replace with: Soroban contract state read for a given contract address.
  */
-export async function getVault(id: string): Promise<Vault | undefined> {
+export async function getVault(
+  id: string,
+  options?: CacheOptions,
+): Promise<Vault | undefined> {
   if (!isValidVaultRouteId(id)) return undefined;
 
   // Demo IDs must never be sent to the API
@@ -123,10 +140,12 @@ export async function getVault(id: string): Promise<Vault | undefined> {
     if (overlayVault) return overlayVault;
   }
 
-  if (isApiEnabled()) {
-    return apiGetVault(id);
-  }
-  return lookupVaultSafe(MASTER_VAULTS, id);
+  // Map-backed cache: ids such as "__proto__" cannot pollute keys.
+  return cached(
+    `vault:${id}`,
+    async () => (isApiEnabled() ? apiGetVault(id) : lookupVaultSafe(MASTER_VAULTS, id)),
+    options,
+  );
 }
 
 /**
@@ -158,10 +177,14 @@ export function getCachedActivity(): VaultActivityRecord[] {
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
  * contract addresses.
  */
-export async function listAllActivity(): Promise<VaultActivityRecord[]> {
-  const base = isApiEnabled()
-    ? await apiListActivity()
-    : [...MASTER_ACTIVITY];
+export async function listAllActivity(
+  options?: CacheOptions,
+): Promise<VaultActivityRecord[]> {
+  const base = await cached(
+    "activity",
+    async () => (isApiEnabled() ? apiListActivity() : [...MASTER_ACTIVITY]),
+    options,
+  );
 
   if (demoModeActive) {
     return mergeDemoActivity(base);
@@ -181,6 +204,7 @@ export async function createVault(vaultData: {
   currency: string;
   deadline: string;
   creatorAddress: string;
+  verifierAddress: string;
   successAddress: string;
   failureAddress: string;
   evidenceUrl?: string;
@@ -199,16 +223,18 @@ export async function createVault(vaultData: {
 
   if (isApiEnabled()) {
     // Creator acts as their own verifier unless the API is given another one.
-    return apiCreateVault({
+    const created = await apiCreateVault({
       name: vaultData.name,
       amount: vaultData.amount,
       deadline: vaultData.deadline,
       creator: vaultData.creatorAddress,
-      verifier: vaultData.creatorAddress,
+      verifier: vaultData.verifierAddress,
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
     });
+    invalidateVaultCaches(created.id);
+    return created;
   }
 
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
@@ -221,6 +247,7 @@ export async function createVault(vaultData: {
     createdAt: new Date().toISOString(),
     deadline: vaultData.deadline,
     creatorAddress: vaultData.creatorAddress,
+    verifierAddress: vaultData.verifierAddress,
     successAddress: vaultData.successAddress,
     failureAddress: vaultData.failureAddress,
     contractAddress: `GCONT${nextId}KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK`,
@@ -248,6 +275,7 @@ export async function createVault(vaultData: {
     ]
   };
   MASTER_VAULTS[nextId] = newVault;
+  invalidateVaultCaches(nextId);
   return newVault;
 }
 
@@ -275,7 +303,7 @@ const submitVaultActionRunner = createSingleFlightRunner(
 
     // In demo mode or for demo IDs: route action to demo overlay
     if (demoModeActive || isDemoId(vaultId)) {
-      let baseVault = getDemoStore().vaults[vaultId];
+      let baseVault: Vault | undefined = getDemoStore().vaults[vaultId];
       if (!baseVault) {
         if (isApiEnabled()) {
           baseVault = await apiGetVault(vaultId);
@@ -301,8 +329,16 @@ const submitVaultActionRunner = createSingleFlightRunner(
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
-      if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
+      if (action === "validate_milestone") {
+        await apiValidateNextMilestone(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
+      if (action === "cancel_vault") {
+        await apiFailVault(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
       throw new Error("Extending a deadline is not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {

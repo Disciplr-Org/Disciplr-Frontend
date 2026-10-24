@@ -47,16 +47,19 @@ export default function CreateVault() {
   const navigate = useNavigate();
   const prefill = getCreateVaultPrefill(location.state);
   const { balance, balanceStatus, address, network } = useWallet();
+  const nameRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
   const successAddressRef = useRef<HTMLInputElement>(null);
   const failureAddressRef = useRef<HTMLInputElement>(null);
+  const verifierAddressRef = useRef<HTMLInputElement>(null);
   const milestoneTitleRefs = useRef<Record<string, HTMLInputElement | null>>(
     {},
   );
   const milestoneCriteriaRefs = useRef<Record<string, HTMLInputElement | null>>(
     {},
   );
+  const [name, setName] = useState(prefill?.name ?? "");
   const [amount, setAmount] = useState(prefill?.amount ?? "");
   const [deadline, setDeadline] = useState("");
   const [successAddress, setSuccessAddress] = useState(
@@ -64,6 +67,9 @@ export default function CreateVault() {
   );
   const [failureAddress, setFailureAddress] = useState(
     prefill?.failureAddress ?? "",
+  );
+  const [verifierAddress, setVerifierAddress] = useState(
+    prefill?.verifierAddress ?? "",
   );
   const [milestones, setMilestones] = useState<MilestoneFormRow[]>(() => {
     if (prefill?.milestones && prefill.milestones.length > 0) {
@@ -85,15 +91,16 @@ export default function CreateVault() {
   const [integrityError, setIntegrityError] = useState<CreateIntegrityError | null>(null);
 
   const errorFieldOrder: Array<
-
-    "amount" | "deadline" | "successAddress" | "failureAddress"
-  > = ["amount", "deadline", "successAddress", "failureAddress"];
+    "name" | "amount" | "deadline" | "successAddress" | "failureAddress" | "verifierAddress"
+  > = ["name", "amount", "deadline", "successAddress", "failureAddress", "verifierAddress"];
 
   const fieldRefs = {
+    name: nameRef,
     amount: amountRef,
     deadline: deadlineRef,
     successAddress: successAddressRef,
     failureAddress: failureAddressRef,
+    verifierAddress: verifierAddressRef,
   };
 
   const errorEntries = errorFieldOrder.flatMap((field) =>
@@ -185,12 +192,14 @@ export default function CreateVault() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors = validateCreateVault({
+      name,
       amount,
       deadline,
       successAddress,
       failureAddress,
+      verifierAddress,
       milestones,
-    });
+    }, new Date(), address);
     setErrors(nextErrors);
 
     if (hasCreateVaultErrors(nextErrors)) {
@@ -224,14 +233,17 @@ export default function CreateVault() {
     }
 
     const nextErrors = validateCreateVault({
+      name,
       amount,
       deadline,
       successAddress,
       failureAddress,
+      verifierAddress,
       milestones,
-    });
+    }, new Date(), address);
     if (hasCreateVaultErrors(nextErrors)) {
-      setSubmitError("Form data is invalid or was tampered with.");
+      setErrors(nextErrors);
+      setShowReview(false);
       return;
     }
 
@@ -251,11 +263,12 @@ export default function CreateVault() {
 
     try {
       const newVault = await createVault({
-        name: prefill?.sourceVaultName ? `Duplicated ${prefill.sourceVaultName}` : `Vault ${amount} USDC`,
+        name: name.trim(),
         amount: Number(amount),
         currency: "USDC",
         deadline,
         creatorAddress: address,
+        verifierAddress: verifierAddress.trim(),
         successAddress,
         failureAddress,
         milestones: milestones.map(({ title, criteria }, index) => ({
@@ -385,10 +398,12 @@ export default function CreateVault() {
         </div>
       ) : showReview ? (
         <CreateVaultReview
+          name={name.trim()}
           amount={amount}
           deadline={deadline}
           successAddress={successAddress}
           failureAddress={failureAddress}
+          verifierAddress={verifierAddress.trim()}
           milestones={milestones}
           isSubmitting={isSubmitting}
           submissionUncertain={submissionUncertain}
@@ -465,6 +480,21 @@ export default function CreateVault() {
               maxWidth: 400,
             }}
           >
+            <Field
+              ref={nameRef}
+              id="create-vault-name"
+              label="Vault name"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setErrors((current) => ({ ...current, name: undefined }));
+              }}
+              placeholder="Website redesign"
+              maxLength={80}
+              error={errors.name}
+              required
+            />
             <Field
               ref={amountRef}
               id="create-vault-amount"
@@ -571,6 +601,23 @@ export default function CreateVault() {
               }}
               placeholder="G..."
               error={errors.failureAddress}
+              required
+            />
+            <Field
+              ref={verifierAddressRef}
+              id="create-vault-verifier-address"
+              label="Verifier address"
+              type="text"
+              value={verifierAddress}
+              onChange={(e) => {
+                setVerifierAddress(e.target.value);
+                setErrors((current) => ({
+                  ...current,
+                  verifierAddress: undefined,
+                }));
+              }}
+              placeholder="G..."
+              error={errors.verifierAddress}
               required
             />
             <section
