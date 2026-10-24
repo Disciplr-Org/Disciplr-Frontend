@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Text } from "../components/Text";
 import { listAllActivity, type VaultActivityRecord } from "../services/vaultService";
 import { formatDateTime, formatUsdc } from "../utils/format";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 
 const LABEL: Record<VaultActivityRecord["type"], string> = {
   create: "Vault created",
@@ -16,6 +17,13 @@ export default function Transactions() {
   const [rows, setRows] = useState<VaultActivityRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const load = () => {
+    setError(null);
+    listAllActivity()
+      .then((r) => setRows([...r].sort((a, b) => +b.timestamp - +a.timestamp)))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Could not load activity."));
+  };
+
   useEffect(() => {
     let cancelled = false;
     listAllActivity()
@@ -25,6 +33,8 @@ export default function Transactions() {
       cancelled = true;
     };
   }, []);
+
+  useOnRecovered(load);
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "var(--spacing-4)" }}>

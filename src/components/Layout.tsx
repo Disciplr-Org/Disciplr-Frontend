@@ -7,6 +7,8 @@ import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
+import { ConnectivityBanner } from "./ConnectivityBanner";
+import { initConnectivityListeners } from "../services/connectivity";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
@@ -107,6 +109,10 @@ export default function Layout({ children }: LayoutProps) {
       setAnnouncedDemo(false);
     }
   }, [isDemo, announcedDemo]);
+
+  useEffect(() => {
+    initConnectivityListeners();
+  }, []);
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
@@ -321,6 +327,7 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
+      <ConnectivityBanner />
       {isDemo && (
         <div className="mobile-demo-banner" role="status">
           <span>Demo mode: changes stay in this browser</span>

@@ -16,6 +16,7 @@ import { duration } from "../utils/motion";
 import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 import { useTheme } from "../context/ThemeContext";
 import { registerShortcut } from "../utils/shortcutRegistry";
+import { formatUsdc } from "../utils/format";
 
 const RECENTS_STORAGE_KEY = "disciplr:palette:recent:v1";
 

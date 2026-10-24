@@ -4,6 +4,7 @@ import { Text } from './Text';
 import { deadlineUrgency, type UrgencyTier } from '../utils/vaultUrgency';
 import type { Deadline } from '../utils/dashboard';
 import type { Vault } from '../types/vault';
+import { formatUsdc } from '../utils/format';
 import {
   downloadIcsEvent,
   downloadIcsCalendar,

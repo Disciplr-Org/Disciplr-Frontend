@@ -1,6 +1,8 @@
 import { Text } from "./Text";
 import { AddressDisplay } from "./AddressDisplay";
 import { formatDateTime, formatUsdc } from "../utils/format";
+import { isApiEnabled } from "../services/api";
+import { useConnectivityStore } from "../services/connectivity";
 
 export interface CreateVaultReviewMilestone {
   title: string;
@@ -63,6 +65,9 @@ export function CreateVaultReview({
   onConfirm,
   onCheckVaults,
 }: CreateVaultReviewProps) {
+  const connectivityStatus = useConnectivityStore((state) => state.status);
+  const isDegraded = isApiEnabled() && connectivityStatus !== 'online';
+
   // Invariant validation for boundary conditions
   const isMissingData =
     !name || !amount || !deadline || !successAddress || !failureAddress || !verifierAddress;
@@ -262,6 +267,26 @@ export function CreateVaultReview({
         </div>
       ) : null}
 
+      {isApiEnabled() && connectivityStatus !== 'online' ? (
+        <div
+          role="alert"
+          style={{
+            padding: "0.75rem",
+            background: "color-mix(in srgb, var(--warning) 10%, var(--surface))",
+            border: "1px solid var(--warning)",
+            borderRadius: "var(--radius)",
+            color: "var(--warning)",
+            marginTop: "0.5rem",
+          }}
+        >
+          <Text role="caption" as="p">
+            {connectivityStatus === 'offline'
+              ? 'You are currently offline. Actions are disabled until reconnected.'
+              : 'The Disciplr service is currently unavailable. Actions are disabled.'}
+          </Text>
+        </div>
+      ) : null}
+
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
         <button
           type="button"
@@ -285,17 +310,17 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isSubmitting || submissionUncertain}
-          aria-disabled={isSubmitting || submissionUncertain}
+          disabled={isSubmitting || submissionUncertain || isDegraded}
+          aria-disabled={isSubmitting || submissionUncertain || isDegraded}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: isSubmitting || submissionUncertain ? "not-allowed" : "pointer",
+            cursor: isSubmitting || submissionUncertain || isDegraded ? "not-allowed" : "pointer",
             fontWeight: 600,
-            opacity: isSubmitting || submissionUncertain ? 0.7 : 1,
+            opacity: isSubmitting || submissionUncertain || isDegraded ? 0.5 : 1,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
