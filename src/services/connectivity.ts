@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE, isApiEnabled } from './api';
+import { getRawApiBase, isApiEnabled } from './api';
 
 export type ConnectivityStatus = 'online' | 'offline' | 'api-down' | 'checking';
 
@@ -79,7 +79,7 @@ export const useConnectivityStore = create<ConnectivityState>((set, get) => ({
     set({ probeInProgress: true });
 
     try {
-      const res = await fetch(`${API_BASE}/health`, {
+      const res = await fetch(`${getRawApiBase()}/health`, {
         method: 'GET',
         headers: { 'content-type': 'application/json' },
       });

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   useConnectivityStore,
@@ -9,12 +10,14 @@ import {
 describe('Connectivity Monitor & Store', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubEnv('VITE_API', 'https://api.disciplr.example');
     useConnectivityStore.getState().reset();
     resetBackoffSchedule();
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.useRealTimers();
   });
 
