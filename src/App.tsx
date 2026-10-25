@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { WalletProvider } from './context/WalletContext'
 import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -24,6 +24,8 @@ import Docs from './pages/Docs'
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Notification = lazy(() => import('./pages/Notification'))
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
+const VaultTransactions = lazy(() => import('./pages/VaultTransactions'))
+const HelpArticle = lazy(() => import('./pages/HelpArticle'))
 
 // Test-only: throws during render so the visual suite can snapshot the ErrorBoundary.
 function VisualCrash(): never {
@@ -64,18 +66,18 @@ function LazyRoute({ children }: ProtectedRouteProps) {
 
 /**
  * Route table invariants (regression coverage in src/App.test.tsx):
- * 1. Protected paths: /vaults/create, /vaults/:id, /verifier/queue,
+ * 1. Protected paths: /vaults/create, /verifier/queue,
  *    /verifier/queue/:vaultId. These require a connected wallet.
- * 2. Public paths: /, /dashboard, /vaults, /vaults/:id/transactions,
+ * 2. Public paths: /, /dashboard, /vaults, /vaults/:id, /vaults/:id/transactions,
  *    /transactions, /verifier, /verifier/history, /help, /help/search.
- * 3. Lazy paths: /analytics, /notifications, /notifications/settings.
+ * 3. Lazy paths: /analytics, /notifications, /notifications/settings,
+ *    /vaults/:id/transactions.
  * 4. Unknown paths fall through to NotFound (deterministic 404).
  * 5. Route order matters: more specific paths must be declared before
  *    wildcard/param routes that could shadow them.
  */
 const PROTECTED_PATHS = [
   '/vaults/create',
-  '/vaults/:id',
   '/verifier/queue',
   '/verifier/queue/:vaultId',
 ] as const
@@ -85,8 +87,19 @@ const PROTECTED_PATHS = [
 // nav, and mobile drawer (rendered by Layout outside of <main>) remain mounted
 // and navigable when a single page crashes. Layout also provides a secondary
 // ErrorBoundary around its <main> content as a backstop.
-function RouteErrorBoundary({ children }: { children: ReactNode }) {
-  return <ErrorBoundary>{children}</ErrorBoundary>
+//
+// React Router renders the matched element at the same tree position for every
+// route, so this boundary instance survives navigation and would otherwise keep
+// its error state forever. `resetKeys` is the current pathname: navigating to
+// another route drops the error and renders the new page. The `section` variant
+// keeps the fallback inside <main> instead of taking over the viewport.
+export function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  return (
+    <ErrorBoundary variant="section" resetKeys={[location.pathname]}>
+      {children}
+    </ErrorBoundary>
+  )
 }
 
 export default function App() {
@@ -103,13 +116,33 @@ export default function App() {
                 <Route path="/transactions" element={<RouteErrorBoundary><Transactions /></RouteErrorBoundary>} />
                 <Route path="/docs" element={<RouteErrorBoundary><Docs /></RouteErrorBoundary>} />
                 <Route path="/vaults/create" element={<RouteErrorBoundary><ProtectedRoute routeKey="/vaults/create"><CreateVault /></ProtectedRoute></RouteErrorBoundary>} />
-                <Route path="/vaults/:id" element={<RouteErrorBoundary><ProtectedRoute routeKey="/vaults/:id"><VaultDetail /></ProtectedRoute></RouteErrorBoundary>} />
+                <Route
+                  path="/vaults/:id/transactions"
+                  element={
+                    <RouteErrorBoundary>
+                      <LazyRoute>
+                        <VaultTransactions />
+                      </LazyRoute>
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route path="/vaults/:id" element={<RouteErrorBoundary><VaultDetail /></RouteErrorBoundary>} />
                 <Route path="/verifier" element={<RouteErrorBoundary><VerifierDashboard /></RouteErrorBoundary>} />
                 <Route path="/verifier/queue" element={<RouteErrorBoundary><ProtectedRoute routeKey="/verifier/queue"><PendingValidations /></ProtectedRoute></RouteErrorBoundary>} />
                 <Route path="/verifier/queue/:vaultId" element={<RouteErrorBoundary><ProtectedRoute routeKey="/verifier/queue/:vaultId"><ValidationDetail /></ProtectedRoute></RouteErrorBoundary>} />
                 <Route path="/verifier/history" element={<RouteErrorBoundary><ValidationHistory /></RouteErrorBoundary>} />
                 <Route path="/help" element={<RouteErrorBoundary><HelpCenter /></RouteErrorBoundary>} />
                 <Route path="/help/search" element={<RouteErrorBoundary><HelpCenter /></RouteErrorBoundary>} />
+                <Route
+                  path="/help/articles/:slug"
+                  element={
+                    <RouteErrorBoundary>
+                      <LazyRoute>
+                        <HelpArticle />
+                      </LazyRoute>
+                    </RouteErrorBoundary>
+                  }
+                />
                 <Route
                   path="/analytics"
                   element={
