@@ -11,6 +11,7 @@ import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notes
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useWriteGuard } from '../hooks/useWriteGuard';
 import { logger } from '../utils/logger';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
@@ -84,6 +85,9 @@ export default function ValidationDetail() {
   const [checkedCriteria, setCheckedCriteria] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Shared writes guard: refuses approve/reject while the wallet session,
+  // address or network is not in a verified-good state.
+  const writeGuard = useWriteGuard();
 
   // Input validation & boundary handling for vaultId and store state
   const cleanVaultId = typeof vaultId === 'string' ? vaultId.trim() : '';
@@ -140,6 +144,10 @@ export default function ValidationDetail() {
   const gateOpen = isCriteriaGateOpen(sanitizedCriteria, checkedCriteria);
 
   const handleOpenModal = (action: 'approve' | 'reject') => {
+    if (!writeGuard.canWrite) {
+      setActionError(writeGuard.reason ?? 'Unable to submit right now.');
+      return;
+    }
     if (action === 'approve' && !gateOpen) {
       setActionError('Cannot initiate approval: milestone criteria gate is not open.');
       return;
@@ -152,6 +160,14 @@ export default function ValidationDetail() {
   const executeAction = (decision: 'approve' | 'reject', modalNotes: string) => {
     // Single-flight / idempotency guard
     if (isSubmitting) {
+      return;
+    }
+
+    // Submit-time re-check: even when the handler is called directly (e.g. the
+    // wallet state changed after the modal opened), a wallet on the wrong
+    // network must never reach the decision services.
+    if (!writeGuard.canWrite) {
+      setActionError(writeGuard.reason ?? 'Unable to submit right now.');
       return;
     }
 
@@ -403,8 +419,11 @@ export default function ValidationDetail() {
             <div className="flex flex-col gap-3 mt-auto">
               <button
                 onClick={() => handleOpenModal('approve')}
-                disabled={!gateOpen || isSubmitting}
-                aria-disabled={!gateOpen || isSubmitting}
+                disabled={!gateOpen || isSubmitting || !writeGuard.canWrite}
+                aria-disabled={!gateOpen || isSubmitting || !writeGuard.canWrite}
+                aria-describedby={
+                  !writeGuard.canWrite && writeGuard.reason ? 'write-guard-reason' : undefined
+                }
                 className="w-full py-3 font-bold rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: gateOpen ? 'var(--success)' : 'var(--muted)',
@@ -417,12 +436,20 @@ export default function ValidationDetail() {
               </button>
               <button
                 onClick={() => handleOpenModal('reject')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !writeGuard.canWrite}
+                aria-describedby={
+                  !writeGuard.canWrite && writeGuard.reason ? 'write-guard-reason' : undefined
+                }
                 className="w-full py-3 font-bold rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--danger)', color: 'white' }}
               >
                 {isSubmitting && confirmAction === 'reject' ? 'Rejecting…' : 'Reject Milestone'}
               </button>
+              {!writeGuard.canWrite && writeGuard.reason && (
+                <span id="write-guard-reason" className="sr-only">
+                  {writeGuard.reason}
+                </span>
+              )}
             </div>
           </section>
         </div>

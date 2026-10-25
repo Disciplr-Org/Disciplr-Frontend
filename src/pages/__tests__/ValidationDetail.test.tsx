@@ -4,6 +4,20 @@ import { MemoryRouter } from 'react-router-dom';
 import ValidationDetail from '../ValidationDetail';
 import { useVerifierStore } from '../../Zustand/Store';
 import { getNotesDraftKey } from '../../utils/notesDraft';
+import { ACCOUNT_A } from '@/__tests__/fixtures/stellarAddresses';
+
+// The shared write guard reads the wallet context; provide a good-state
+// wallet so approve/reject remain enabled in these decision-flow tests.
+vi.mock('../../context/WalletContext', () => {
+  const mockWallet = () => ({
+    status: 'connected' as const,
+    address: ACCOUNT_A,
+    network: 'TESTNET' as const,
+    isConnecting: false,
+    isDemo: false,
+  });
+  return { useWallet: mockWallet, useOptionalWallet: mockWallet };
+});
 
 // Mock focus-trap-react as it can be tricky in jsdom
 vi.mock('focus-trap-react', () => ({

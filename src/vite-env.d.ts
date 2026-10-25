@@ -22,6 +22,11 @@ interface ImportMetaEnv {
   readonly VITE_VITALS_ENDPOINT: string | undefined;
   /** Web-vitals sampling rate (0..1); defaults to 0.1 when unset/invalid. */
   readonly VITE_VITALS_SAMPLE_RATE: string | undefined;
+  /**
+   * Target Stellar network the app is pinned to ('PUBLIC' or 'TESTNET').
+   * Optional; anything other than 'PUBLIC' resolves to TESTNET.
+   */
+  readonly VITE_DISCIPLR_NETWORK: string | undefined;
 }
 
 interface ImportMeta {

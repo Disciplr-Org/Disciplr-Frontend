@@ -7,6 +7,7 @@ import Layout from '../Layout'
 vi.mock('../MobileDrawer', () => ({ default: () => null }))
 vi.mock('../Wallet/WalletConnectButton', () => ({ WalletConnectButton: () => null }))
 vi.mock('../TrustlineBanner', () => ({ TrustlineBanner: () => null }))
+vi.mock('../NetworkMismatchBanner', () => ({ NetworkMismatchBanner: () => null }))
 vi.mock('../Notification/NotificationBell', () => ({ default: () => null }))
 vi.mock('../ShortcutsHelp', () => ({ ShortcutsHelp: () => null }))
 vi.mock('../ToastViewport', () => ({ ToastViewport: () => null }))

@@ -15,6 +15,7 @@ import type { WalletNetwork } from "../context/WalletContext";
 import { WalletConnectButton } from "../components/Wallet/WalletConnectButton";
 import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
+import { useWriteGuard } from "../hooks/useWriteGuard";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useOnRecovered } from "../hooks/useOnRecovered";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
@@ -296,6 +297,9 @@ function VaultDetailContent({
   onChanged,
 }: VaultDetailContentProps) {
   const { network, connectDemo } = useWallet();
+  // Shared writes guard: re-checked at submit time so a network flip after the
+  // modal opens can still never reach the service.
+  const writeGuard = useWriteGuard();
 
   const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -329,6 +333,14 @@ function VaultDetailContent({
 
   const handleActionConfirm = async () => {
     if (!activeAction || !walletAddress || isSubmitting) return;
+
+    // Submit-time re-check: buttons are already gated by evalVaultActionAuth,
+    // but a wallet/session/state change between click and confirm must still
+    // never reach the service.
+    if (!writeGuard.canWrite) {
+      setActionError(writeGuard.reason ?? "Unable to confirm right now.");
+      return;
+    }
 
     setActionError(null);
     setIsSubmitting(true);
