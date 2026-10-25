@@ -39,7 +39,7 @@ const VARIANTS = new Set<ToastVariant>(["info", "success", "error"]);
 function prefersReducedMotion(): boolean {
   return (
     typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)
   );
 }
 

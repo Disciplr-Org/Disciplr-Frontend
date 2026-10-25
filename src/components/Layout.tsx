@@ -1,17 +1,21 @@
-import React, { useCallback, useEffect, useReducer, useRef, type HTMLAttributes } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useCallback, useEffect, useReducer, useRef, useState, type HTMLAttributes } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "lucide-react";
+import { registerShortcut } from "../utils/shortcutRegistry";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
+import { ConnectivityBanner } from "./ConnectivityBanner";
+import { initConnectivityListeners } from "../services/connectivity";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
 import CommandPalette from "./CommandPalette";
+import { useOptionalWallet } from "../context/WalletContext";
 import {
   DRAWER_INITIAL_STATE,
   isDrawerOpen,
@@ -19,6 +23,11 @@ import {
   shouldCloseDrawerOnRouteChange,
 } from "../utils/drawerState";
 import { useBreakpoint } from "../utils/useBreakpoint";
+import RouteAnnouncer from "./RouteAnnouncer";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { usePushDelivery } from "../notifications/usePushDelivery";
+import { hasActiveNavigationGuard } from "../utils/navigationGuard";
+import { ConfirmationModal } from "./ConfirmationModal";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -44,6 +53,9 @@ function isValidPathname(value: unknown): value is string {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const wallet = useOptionalWallet();
+  const isDemo = wallet?.isDemo ?? false;
+  const resetDemo = wallet?.resetDemo ?? (() => {});
   // All drawer transitions flow through the reducer so open/close/toggle and
   // the route-change/resize recovery events are deterministic and idempotent
   // (see src/utils/drawerState.ts for the state machine and its invariants).
@@ -55,6 +67,63 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+  const focusPathnameRef = useRef(location.pathname);
+  useScrollRestoration();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unregisterGd = registerShortcut({
+      keys: "g d",
+      description: "Go to Dashboard",
+      handler: () => navigate("/dashboard"),
+    });
+    const unregisterGv = registerShortcut({
+      keys: "g v",
+      description: "Go to Vaults",
+      handler: () => navigate("/vaults"),
+    });
+    const unregisterGq = registerShortcut({
+      keys: "g q",
+      description: "Go to Verifier Queue",
+      handler: () => navigate("/verifier/queue"),
+    });
+    const unregisterGh = registerShortcut({
+      keys: "g h",
+      description: "Go to Help",
+      handler: () => navigate("/help"),
+    });
+    const unregisterC = registerShortcut({
+      keys: "c",
+      description: "Create Vault",
+      handler: () => navigate("/vaults/create"),
+    });
+
+    return () => {
+      unregisterGd();
+      unregisterGv();
+      unregisterGq();
+      unregisterGh();
+      unregisterC();
+    };
+  }, [navigate]);
+
+  // Announce demo mode activation for assistive tech
+  const [announcedDemo, setAnnouncedDemo] = React.useState(false);
+  useEffect(() => {
+    if (isDemo && !announcedDemo) {
+      setAnnouncedDemo(true);
+    } else if (!isDemo && announcedDemo) {
+      setAnnouncedDemo(false);
+    }
+  }, [isDemo, announcedDemo]);
+
+  useEffect(() => {
+    initConnectivityListeners();
+  }, []);
+
+  // Push delivery is mounted exactly once, here: a single subscriber owns the
+  // notification store diff and the OS notification queue for the whole app.
+  usePushDelivery();
 
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
@@ -118,10 +187,75 @@ export default function Layout({ children }: LayoutProps) {
   // viewport will immediately force closed.
   const hamburgerDisabled = isDesktop;
 
+  useEffect(() => {
+    const pathnameChanged = focusPathnameRef.current !== location.pathname;
+    focusPathnameRef.current = location.pathname;
+    if (!pathnameChanged || document.querySelector('[role="dialog"], [aria-modal="true"]')) return
+    document.getElementById("main-content")?.focus({ preventScroll: true })
+  }, [location.pathname]);
+  // Unsaved-changes navigation guard.
+  //
+  // The app renders a declarative <BrowserRouter>, so `useBlocker` (data
+  // routers only) is unavailable. Instead, a page with unsaved state
+  // registers a guard (src/utils/navigationGuard.ts) and this capture-phase
+  // listener asks for confirmation before any internal link is followed.
+  // Capture phase + preventDefault is what stops React Router's <Link> from
+  // navigating, without touching every link in the tree.
+  // (`navigate` is declared above for the keyboard shortcuts.)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!hasActiveNavigationGuard()) return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest("a");
+      if (!anchor) return;
+      if (anchor.hasAttribute("download")) return;
+      if (anchor.getAttribute("target")) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || !href.startsWith("/")) return;
+      // Re-clicking the current page is not a navigation worth blocking.
+      if (href === `${location.pathname}${location.search}`) return;
+
+      event.preventDefault();
+      setPendingNavigation(href);
+    };
+
+    document.addEventListener("click", handleLinkClick, true);
+    return () => document.removeEventListener("click", handleLinkClick, true);
+  }, [location.pathname, location.search]);
+
+  const handleConfirmNavigation = () => {
+    const href = pendingNavigation;
+    setPendingNavigation(null);
+    if (href) navigate(href);
+  };
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById("main-content")?.focus()
+        }}
+      >
+        Skip to main content
+      </a>
+      <RouteAnnouncer />
+      <div className="sr-only" aria-live="polite" role="status">
+        {isDemo ? "Demo mode active: changes stay in this browser" : ""}
+      </div>
       <header className="site-header">
         <div className="header-brand" {...backgroundAccessibilityProps}>
           <Link to="/" className="header-link" aria-label="Disciplr home">
@@ -230,6 +364,22 @@ export default function Layout({ children }: LayoutProps) {
             <CommandPalette />
             <NotificationBell />
             <ThemeToggle />
+            {isDemo && (
+              <div className="demo-mode-chip desktop-demo-chip" role="status" aria-label="Demo mode">
+                <span className="demo-mode-chip-text">
+                  Demo mode: changes stay in this browser
+                </span>
+                <button
+                  type="button"
+                  className="demo-mode-reset-btn"
+                  onClick={resetDemo}
+                  title="Clear demo data and reset to initial demo state"
+                  aria-label="Reset demo"
+                >
+                  Reset demo
+                </button>
+              </div>
+            )}
             <WalletConnectButton />
           </div>
         </nav>
@@ -250,9 +400,25 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
+      <ConnectivityBanner />
+      {isDemo && (
+        <div className="mobile-demo-banner" role="status">
+          <span>Demo mode: changes stay in this browser</span>
+          <button
+            type="button"
+            className="demo-mode-reset-btn"
+            onClick={resetDemo}
+            aria-label="Reset demo"
+          >
+            Reset demo
+          </button>
+        </div>
+      )}
       <TrustlineBanner />
 
       <main
+        id="main-content"
+        tabIndex={-1}
         {...backgroundAccessibilityProps}
         style={{
           flex: 1,
@@ -264,7 +430,13 @@ export default function Layout({ children }: LayoutProps) {
           boxSizing: "border-box",
         }}
       >
-        <ErrorBoundary>{children}</ErrorBoundary>
+        {/*
+          Backstop boundary around <main>. Layout never unmounts, so without
+          `resetKeys` a crash here would leave every subsequent route showing
+          the fallback until a full reload. Keying on the pathname clears it
+          as soon as the user navigates.
+        */}
+        <ErrorBoundary resetKeys={[location.pathname]}>{children}</ErrorBoundary>
       </main>
       <footer
         {...backgroundAccessibilityProps}
@@ -289,6 +461,19 @@ export default function Layout({ children }: LayoutProps) {
       </footer>
       <ShortcutsHelp />
       <ToastViewport />
+      {pendingNavigation !== null && (
+        <ConfirmationModal
+          isOpen
+          onClose={() => setPendingNavigation(null)}
+          onConfirm={handleConfirmNavigation}
+          simpleConfirm={{
+            title: "Leave this page?",
+            message:
+              "You have unsaved changes on this page. Your draft is saved locally, but you will need to restore it when you come back.",
+            confirmLabel: "Leave page",
+          }}
+        />
+      )}
     </div>
   );
 }

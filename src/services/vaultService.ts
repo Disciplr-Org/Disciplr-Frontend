@@ -13,6 +13,7 @@
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import { MASTER_VAULTS } from "../fixtures/vaults";
 import { MASTER_ACTIVITY } from "../fixtures/transactions";
+import { cached, invalidate, type CacheOptions } from "./queryCache";
 import {
   isValidVaultRouteId,
   isValidStellarAddress,
@@ -30,7 +31,32 @@ import {
   apiValidateNextMilestone,
   apiFailVault,
   apiListActivity,
+  apiListTransactions,
+  apiStats,
+  buildVaultQuery,
+  type ApiStats,
+  type VaultFilter,
 } from "./api";
+import {
+  getDemoStore,
+  demoCreateVault,
+  demoValidateMilestone,
+  demoFailVault,
+  mergeDemoVaults,
+  mergeDemoActivity,
+  isDemoId,
+} from "./demoStore";
+
+/**
+ * Drop cached reads affected by a vault write. Call after any successful
+ * mutation (create, validate, fail, ...).
+ */
+export function invalidateVaultCaches(id?: string): void {
+  invalidate("vaults");
+  invalidate("activity");
+  invalidate("stats");
+  invalidate(id === undefined ? "vault:" : `vault:${id}`);
+}
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
@@ -57,39 +83,170 @@ export interface VaultActivityRecord {
   memo: string;
 }
 
-// ── Mock datasets moved to src/fixtures/ ──────────────────────────────────────
-// MASTER_VAULTS lives in src/fixtures/vaults.ts and MASTER_ACTIVITY in
-// src/fixtures/transactions.ts. They are imported above so this module stays a
-// thin Promise-based seam. See docs/VAULT_DATA_LAYER.md.
+// ── Demo mode routing state ──────────────────────────────────────────────────
+// Driven explicitly by WalletProvider via setDemoMode(boolean), not global
+// React state polling.
+let demoModeActive = false;
+
+export function setDemoMode(active: boolean): void {
+  demoModeActive = active;
+}
+
+export function isDemoModeActive(): boolean {
+  return demoModeActive;
+}
 
 // ── Service API ───────────────────────────────────────────────────────────────
 // SEAM: Replace only the internals of these functions with Soroban/Horizon calls
 // when the real backend lands. Page components depend solely on the
 // Promise-based interface below and will need zero changes.
 
+export type { VaultFilter } from "./api";
+
+/** Offline equivalent of the API's `?creator=&status=` query, for fixtures. */
+export function filterVaults(vaults: Vault[], filter?: VaultFilter): Vault[] {
+  if (!filter?.creator && !filter?.status) return vaults;
+  return vaults.filter(
+    (v) =>
+      (!filter.creator || v.creatorAddress === filter.creator) &&
+      (!filter.status || v.status === filter.status),
+  );
+}
+
 /**
- * Return all vaults.
+ * Return vaults, optionally narrowed by creator and/or status. The filter is
+ * sent to the API (`GET /vaults?creator=`) and applied locally for fixtures.
+ * In demo mode, live reads (or mock data) are merged with demo overlay vaults.
  *
  * SEAM → replace with: Horizon account fetch + Soroban contract reads.
  */
-export async function listVaults(): Promise<Vault[]> {
-  if (isApiEnabled()) return apiListVaults();
-  return Object.values(MASTER_VAULTS);
+export async function listVaults(
+  filter?: VaultFilter,
+  options?: CacheOptions,
+): Promise<Vault[]> {
+  const baseVaults = await cached(
+    `vaults${buildVaultQuery(filter)}`,
+    async () => {
+      if (isApiEnabled()) return apiListVaults(filter);
+      return filterVaults(Object.values(MASTER_VAULTS), filter);
+    },
+    options,
+  );
+
+  // The demo overlay is local and never cached, so demo writes show up at once.
+  if (demoModeActive) {
+    return filterVaults(mergeDemoVaults(baseVaults), filter);
+  }
+  return baseVaults;
+}
+
+/** Summary stats scoped to a creator (`GET /stats?creator=`); null offline. */
+export async function getStats(
+  { creator }: { creator: string },
+  options?: CacheOptions,
+): Promise<ApiStats | null> {
+  if (!isApiEnabled()) return null;
+  return cached(`stats${buildVaultQuery({ creator })}`, () => apiStats(creator), options);
+}
+
+/** A raw vault transaction tagged with the vault it belongs to. */
+export interface VaultTxRecord {
+  id: string;
+  type: string;
+  vaultId: string;
+  amount: number;
+  timestamp: string;
+}
+
+/**
+ * Transactions belonging to the given vaults only. With the API this reads
+ * `GET /transactions` and filters to the vault ids; offline it reads the
+ * transactions embedded in the vaults.
+ */
+export async function listTransactionsForVaults(vaults: Vault[]): Promise<VaultTxRecord[]> {
+  const ids = new Set(vaults.map((v) => v.id));
+  if (ids.size === 0) return [];
+  if (isApiEnabled()) {
+    const all = await apiListTransactions();
+    return all
+      .filter((a) => ids.has(a.vaultId))
+      .map((a) => ({
+        id: a.id,
+        type: a.type,
+        vaultId: a.vaultId,
+        amount: Number(a.amount),
+        timestamp: a.createdAt,
+      }));
+  }
+  return vaults.flatMap((v) =>
+    (v.transactions ?? []).map((t) => ({
+      id: t.id,
+      type: t.type,
+      vaultId: v.id,
+      amount: t.amount ?? 0,
+      timestamp: t.timestamp,
+    })),
+  );
+}
+
+export async function findRecentVaultByCreator(input: {
+  creator: string;
+  name: string;
+  amount: number;
+  since: number | Date;
+  signal?: AbortSignal;
+}): Promise<Vault[]> {
+  const vaults = isApiEnabled()
+    ? await apiListVaults({ creator: input.creator }, input.signal)
+    : Object.values(MASTER_VAULTS);
+  const since = input.since instanceof Date
+    ? input.since.getTime()
+    : input.since;
+  const cutoff = since - 5_000;
+
+  return vaults.filter((vault) => {
+    const createdAt = new Date(vault.createdAt).getTime();
+    return (
+      vault.creatorAddress === input.creator &&
+      vault.name === input.name &&
+      vault.amount === input.amount &&
+      Number.isFinite(createdAt) &&
+      createdAt >= cutoff
+    );
+  });
 }
 
 /**
  * Return a single vault by id, or undefined if not found.
- * Does NOT throw for unknown ids — callers rely on the undefined branch.
- * Uses a prototype-safe lookup so hostile ids (e.g. "__proto__") can never
- * reach inherited object members.
+ * In demo mode, if the id is a demo id or exists in the overlay, it returns
+ * from the overlay without hitting the network.
+ * Demo ids must never hit the API.
  *
  * SEAM → replace with: Soroban contract state read for a given contract address.
  */
-export async function getVault(id: string): Promise<Vault | undefined> {
-  if (isApiEnabled()) {
-    return isValidVaultRouteId(id) ? apiGetVault(id) : undefined;
+export async function getVault(
+  id: string,
+  options?: CacheOptions,
+): Promise<Vault | undefined> {
+  if (!isValidVaultRouteId(id)) return undefined;
+
+  // Demo IDs must never be sent to the API
+  if (isDemoId(id)) {
+    return getDemoStore().vaults[id];
   }
-  return lookupVaultSafe(MASTER_VAULTS, id);
+
+  // If in demo mode and an overlay version exists for this id, return it
+  if (demoModeActive) {
+    const overlayVault = getDemoStore().vaults[id];
+    if (overlayVault) return overlayVault;
+  }
+
+  // Map-backed cache: ids such as "__proto__" cannot pollute keys.
+  return cached(
+    `vault:${id}`,
+    async () => (isApiEnabled() ? apiGetVault(id) : lookupVaultSafe(MASTER_VAULTS, id)),
+    options,
+  );
 }
 
 /**
@@ -99,33 +256,46 @@ export async function getVault(id: string): Promise<Vault | undefined> {
  * SEAM → replace with: Horizon `/transactions?account=<contractAddress>` + filter.
  */
 export async function getTransactions(id: string): Promise<VaultTransaction[]> {
-  if (isApiEnabled()) return (await getVault(id))?.transactions ?? [];
-  return lookupVaultSafe(MASTER_VAULTS, id)?.transactions ?? [];
+  const vault = await getVault(id);
+  return vault?.transactions ?? [];
 }
 
 /**
  * Return the current in-memory activity snapshot synchronously.
- *
- * This keeps the mock-backed UI populated on first render while the Promise
- * seam remains the long-term replacement point for live Horizon/Soroban data.
  */
 export function getCachedActivity(): VaultActivityRecord[] {
-  return [...MASTER_ACTIVITY];
+  const base = [...MASTER_ACTIVITY];
+  if (demoModeActive) {
+    return mergeDemoActivity(base);
+  }
+  return base;
 }
 
 /**
- * Return the rich activity feed used by the VaultTransactions explorer page.
+ * Return the rich activity feed used by the Transactions explorer page.
+ * Merges demo overlay activity when demo mode is active.
  *
  * SEAM → replace with: Horizon transaction stream aggregated across all vault
  * contract addresses.
  */
-export async function listAllActivity(): Promise<VaultActivityRecord[]> {
-  if (isApiEnabled()) return apiListActivity();
-  return [...MASTER_ACTIVITY];
+export async function listAllActivity(
+  options?: CacheOptions,
+): Promise<VaultActivityRecord[]> {
+  const base = await cached(
+    "activity",
+    async () => (isApiEnabled() ? apiListActivity() : [...MASTER_ACTIVITY]),
+    options,
+  );
+
+  if (demoModeActive) {
+    return mergeDemoActivity(base);
+  }
+  return base;
 }
 
 /**
- * Create a new vault in mock memory.
+ * Create a new vault.
+ * Routes to the demoStore overlay when demo mode is active (no API POST).
  * 
  * SEAM → replace with: Soroban contract initialization invocation.
  */
@@ -135,6 +305,7 @@ export async function createVault(vaultData: {
   currency: string;
   deadline: string;
   creatorAddress: string;
+  verifierAddress: string;
   successAddress: string;
   failureAddress: string;
   evidenceUrl?: string;
@@ -146,19 +317,27 @@ export async function createVault(vaultData: {
   if (!Number.isFinite(vaultData.amount) || vaultData.amount <= 0) {
     throw new Error("Vault amount must be a positive finite number.");
   }
+
+  if (demoModeActive) {
+    return demoCreateVault(vaultData);
+  }
+
   if (isApiEnabled()) {
-    // Demo: the creator acts as their own verifier unless the API is given another one.
-    return apiCreateVault({
+    // Creator acts as their own verifier unless the API is given another one.
+    const created = await apiCreateVault({
       name: vaultData.name,
       amount: vaultData.amount,
       deadline: vaultData.deadline,
       creator: vaultData.creatorAddress,
-      verifier: vaultData.creatorAddress,
+      verifier: vaultData.verifierAddress,
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
     });
+    invalidateVaultCaches(created.id);
+    return created;
   }
+
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
   const newVault: Vault = {
     id: nextId,
@@ -169,6 +348,7 @@ export async function createVault(vaultData: {
     createdAt: new Date().toISOString(),
     deadline: vaultData.deadline,
     creatorAddress: vaultData.creatorAddress,
+    verifierAddress: vaultData.verifierAddress,
     successAddress: vaultData.successAddress,
     failureAddress: vaultData.failureAddress,
     contractAddress: `GCONT${nextId}KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK`,
@@ -196,6 +376,7 @@ export async function createVault(vaultData: {
     ]
   };
   MASTER_VAULTS[nextId] = newVault;
+  invalidateVaultCaches(nextId);
   return newVault;
 }
 
@@ -207,9 +388,6 @@ export async function createVault(vaultData: {
  * The operation is single-flight: overlapping calls are coalesced into one
  * execution so a double-submit (UI replay or hostile script) can never fire
  * two on-chain transactions from one confirmation.
- *
- * SEAM → replace the empty body with the real Soroban invocation; the
- * single-flight guard must stay around it.
  */
 const submitVaultActionRunner = createSingleFlightRunner(
   async (action: VaultAction, vaultId: string, actor: string): Promise<void> => {
@@ -223,14 +401,45 @@ const submitVaultActionRunner = createSingleFlightRunner(
     if (!isValidStellarAddress(actingAddress)) {
       throw new Error("A valid connected wallet address is required.");
     }
+
+    // In demo mode or for demo IDs: route action to demo overlay
+    if (demoModeActive || isDemoId(vaultId)) {
+      let baseVault: Vault | undefined = getDemoStore().vaults[vaultId];
+      if (!baseVault) {
+        if (isApiEnabled()) {
+          baseVault = await apiGetVault(vaultId);
+        } else {
+          baseVault = lookupVaultSafe(MASTER_VAULTS, vaultId);
+        }
+      }
+
+      if (action === "validate_milestone") {
+        demoValidateMilestone(vaultId, actingAddress, baseVault);
+        return;
+      }
+      if (action === "cancel_vault") {
+        demoFailVault(vaultId, actingAddress, baseVault);
+        return;
+      }
+      throw new Error("Extending a deadline is not supported by the demo sandbox.");
+    }
+
     if (isApiEnabled()) {
       const vault = await apiGetVault(vaultId);
       if (!vault) throw new Error("Vault not found.");
       if (vault.status !== "active" && vault.status !== "pending_validation") {
         throw new Error("Vault is not active.");
       }
-      if (action === "validate_milestone") return apiValidateNextMilestone(vault, actingAddress);
-      if (action === "cancel_vault") return apiFailVault(vault, actingAddress);
+      if (action === "validate_milestone") {
+        await apiValidateNextMilestone(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
+      if (action === "cancel_vault") {
+        await apiFailVault(vault, actingAddress);
+        invalidateVaultCaches(vaultId);
+        return;
+      }
       throw new Error("Extending a deadline is not supported by the demo API.");
     }
     if (!lookupVaultSafe(MASTER_VAULTS, vaultId)) {
