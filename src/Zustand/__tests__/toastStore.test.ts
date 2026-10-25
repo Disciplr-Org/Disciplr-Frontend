@@ -13,14 +13,20 @@ import {
   __resetToastStoreForTests,
   useToastStore,
 } from "../toastStore";
+import {
+  __resetSessionForTests,
+  bindSession,
+} from "../sessionBoundary";
 
 describe("toastStore", () => {
   beforeEach(() => {
     __resetToastStoreForTests();
+    __resetSessionForTests();
   });
 
   afterEach(() => {
     __resetToastStoreForTests();
+    __resetSessionForTests();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -163,6 +169,25 @@ describe("toastStore", () => {
     act(() => {
       vi.advanceTimersByTime(20_000);
     });
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it("drops toasts from the previous session after an account switch", () => {
+    vi.useFakeTimers();
+    bindSession({
+      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+      network: "TESTNET",
+    });
+    useToastStore.getState().push({ message: "wallet-a", durationMs: 0 });
+    expect(useToastStore.getState().toasts).toHaveLength(1);
+
+    act(() => {
+      bindSession({
+        address: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        network: "TESTNET",
+      });
+    });
+
     expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 

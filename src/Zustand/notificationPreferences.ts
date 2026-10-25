@@ -361,7 +361,12 @@ export const useNotificationPreferences = create<NotificationPreferencesState>()
         if (session.address) {
           const live = sessionKey(session);
           if (persistedOwner && persistedOwner !== live) {
-            return current;
+            return {
+              ...current,
+              ...PREFERENCE_DEFAULTS,
+              ownerKey: live,
+              lastNonce: null,
+            };
           }
         }
 

@@ -45,7 +45,7 @@ export const test = base.extend<TestFixtures>({
   fakeApi: [
     async ({ page }, use) => {
       // Note: because fakeApi route is registered AFTER the external origin guard,
-      // Playwright evaluates routes LIFO (last-in, first-out), so **/api/** is matched first.
+      // Playwright evaluates routes LIFO (last-in, first-out), so **\/api\/** is matched first.
       const api = setupFakeApi(page);
       await use(api);
     },
