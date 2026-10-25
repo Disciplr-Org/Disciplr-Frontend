@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type ReactNode, type CSSProperties } from "react";
+import { useMemo, useState, type ReactNode, type CSSProperties } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MilestoneTracker } from "../components/MilestoneTracker";
 import { VaultProgressBar } from "../components/VaultProgressBar";
@@ -15,6 +15,7 @@ import type { WalletNetwork } from "../context/WalletContext";
 import { WalletConnectButton } from "../components/Wallet/WalletConnectButton";
 import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useOnRecovered } from "../hooks/useOnRecovered";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
 import { ApiError } from "../services/api";
@@ -112,6 +113,8 @@ export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const { view, retry } = useVaultDetail(id);
   const { address, network } = useWallet();
+  // Page title is "<vault name> · Disciplr" (see useDocumentTitle).
+  useDocumentTitle(view.status === "ready" ? view.vault.name : "");
 
   useOnRecovered(retry);
 
@@ -293,12 +296,6 @@ function VaultDetailContent({
   onChanged,
 }: VaultDetailContentProps) {
   const { network, connectDemo } = useWallet();
-
-  useEffect(() => {
-    if (vault?.name) {
-      document.title = `${vault.name} · Disciplr`;
-    }
-  }, [vault?.name]);
 
   const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

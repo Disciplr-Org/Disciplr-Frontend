@@ -23,6 +23,8 @@ import {
   shouldCloseDrawerOnRouteChange,
 } from "../utils/drawerState";
 import { useBreakpoint } from "../utils/useBreakpoint";
+import RouteAnnouncer from "./RouteAnnouncer";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { usePushDelivery } from "../notifications/usePushDelivery";
 import { hasActiveNavigationGuard } from "../utils/navigationGuard";
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -65,6 +67,8 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+  const focusPathnameRef = useRef(location.pathname);
+  useScrollRestoration();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -183,6 +187,12 @@ export default function Layout({ children }: LayoutProps) {
   // viewport will immediately force closed.
   const hamburgerDisabled = isDesktop;
 
+  useEffect(() => {
+    const pathnameChanged = focusPathnameRef.current !== location.pathname;
+    focusPathnameRef.current = location.pathname;
+    if (!pathnameChanged || document.querySelector('[role="dialog"], [aria-modal="true"]')) return
+    document.getElementById("main-content")?.focus({ preventScroll: true })
+  }, [location.pathname]);
   // Unsaved-changes navigation guard.
   //
   // The app renders a declarative <BrowserRouter>, so `useBlocker` (data
@@ -232,6 +242,17 @@ export default function Layout({ children }: LayoutProps) {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById("main-content")?.focus()
+        }}
+      >
+        Skip to main content
+      </a>
+      <RouteAnnouncer />
       <div className="sr-only" aria-live="polite" role="status">
         {isDemo ? "Demo mode active: changes stay in this browser" : ""}
       </div>
@@ -396,6 +417,8 @@ export default function Layout({ children }: LayoutProps) {
       <TrustlineBanner />
 
       <main
+        id="main-content"
+        tabIndex={-1}
         {...backgroundAccessibilityProps}
         style={{
           flex: 1,
