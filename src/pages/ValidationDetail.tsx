@@ -11,6 +11,7 @@ import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notes
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { logger } from '../utils/logger';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
 
@@ -49,7 +50,7 @@ function useNotesDraft(taskId: string | undefined) {
           clearNotesDraft(taskId);
         }
       } catch (err) {
-        console.warn('[ValidationDetail] Failed to persist notes draft:', err);
+        logger.warn('[ValidationDetail] Failed to persist notes draft:', err);
       }
     }, NOTES_DRAFT_WRITE_DELAY_MS);
 
@@ -61,7 +62,7 @@ function useNotesDraft(taskId: string | undefined) {
     try {
       clearNotesDraft(taskId);
     } catch (err) {
-      console.warn('[ValidationDetail] Failed to clear notes draft:', err);
+      logger.warn('[ValidationDetail] Failed to clear notes draft:', err);
     }
     setNotes('');
   };
@@ -184,7 +185,7 @@ export default function ValidationDetail() {
           })
           .catch((err) => {
             const message = err instanceof Error ? err.message : 'An error occurred while processing validation.';
-            console.error('[ValidationDetail] Action execution failed:', err);
+            logger.error('[ValidationDetail] Action execution failed:', err);
             setActionError(message);
           })
           .finally(() => {
@@ -198,7 +199,7 @@ export default function ValidationDetail() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred while processing validation.';
-      console.error('[ValidationDetail] Action execution failed:', err);
+      logger.error('[ValidationDetail] Action execution failed:', err);
       setActionError(message);
       setIsSubmitting(false);
     }
