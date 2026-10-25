@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useReducer, useRef, type HTMLAttributes } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState, type HTMLAttributes } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { registerShortcut } from "../utils/shortcutRegistry";
@@ -23,6 +23,9 @@ import {
   shouldCloseDrawerOnRouteChange,
 } from "../utils/drawerState";
 import { useBreakpoint } from "../utils/useBreakpoint";
+import { usePushDelivery } from "../notifications/usePushDelivery";
+import { hasActiveNavigationGuard } from "../utils/navigationGuard";
+import { ConfirmationModal } from "./ConfirmationModal";
 import "./Layout.css";
 
 interface LayoutProps {
@@ -114,6 +117,10 @@ export default function Layout({ children }: LayoutProps) {
     initConnectivityListeners();
   }, []);
 
+  // Push delivery is mounted exactly once, here: a single subscriber owns the
+  // notification store diff and the OS notification queue for the whole app.
+  usePushDelivery();
+
   // Deep-link / navigation recovery: close the drawer whenever the route
   // actually changes (in-app navigation, browser back/forward, deep links).
   // Guarded by shouldCloseDrawerOnRouteChange so a stale location object with
@@ -175,6 +182,51 @@ export default function Layout({ children }: LayoutProps) {
   // but we also disable it so a keyboard user cannot open a drawer that the
   // viewport will immediately force closed.
   const hamburgerDisabled = isDesktop;
+
+  // Unsaved-changes navigation guard.
+  //
+  // The app renders a declarative <BrowserRouter>, so `useBlocker` (data
+  // routers only) is unavailable. Instead, a page with unsaved state
+  // registers a guard (src/utils/navigationGuard.ts) and this capture-phase
+  // listener asks for confirmation before any internal link is followed.
+  // Capture phase + preventDefault is what stops React Router's <Link> from
+  // navigating, without touching every link in the tree.
+  // (`navigate` is declared above for the keyboard shortcuts.)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!hasActiveNavigationGuard()) return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest("a");
+      if (!anchor) return;
+      if (anchor.hasAttribute("download")) return;
+      if (anchor.getAttribute("target")) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || !href.startsWith("/")) return;
+      // Re-clicking the current page is not a navigation worth blocking.
+      if (href === `${location.pathname}${location.search}`) return;
+
+      event.preventDefault();
+      setPendingNavigation(href);
+    };
+
+    document.addEventListener("click", handleLinkClick, true);
+    return () => document.removeEventListener("click", handleLinkClick, true);
+  }, [location.pathname, location.search]);
+
+  const handleConfirmNavigation = () => {
+    const href = pendingNavigation;
+    setPendingNavigation(null);
+    if (href) navigate(href);
+  };
 
   return (
     <div
@@ -355,7 +407,13 @@ export default function Layout({ children }: LayoutProps) {
           boxSizing: "border-box",
         }}
       >
-        <ErrorBoundary>{children}</ErrorBoundary>
+        {/*
+          Backstop boundary around <main>. Layout never unmounts, so without
+          `resetKeys` a crash here would leave every subsequent route showing
+          the fallback until a full reload. Keying on the pathname clears it
+          as soon as the user navigates.
+        */}
+        <ErrorBoundary resetKeys={[location.pathname]}>{children}</ErrorBoundary>
       </main>
       <footer
         {...backgroundAccessibilityProps}
@@ -380,6 +438,19 @@ export default function Layout({ children }: LayoutProps) {
       </footer>
       <ShortcutsHelp />
       <ToastViewport />
+      {pendingNavigation !== null && (
+        <ConfirmationModal
+          isOpen
+          onClose={() => setPendingNavigation(null)}
+          onConfirm={handleConfirmNavigation}
+          simpleConfirm={{
+            title: "Leave this page?",
+            message:
+              "You have unsaved changes on this page. Your draft is saved locally, but you will need to restore it when you come back.",
+            confirmLabel: "Leave page",
+          }}
+        />
+      )}
     </div>
   );
 }

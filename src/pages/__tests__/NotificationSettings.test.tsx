@@ -92,7 +92,10 @@ describe("NotificationSettings", () => {
     let rejectFetch!: (reason: Error) => void;
     listVaultsMock.mockImplementationOnce(() => new Promise((_, reject) => { rejectFetch = reject; }));
     renderSettings();
-    expect(screen.getByRole("status")).toHaveTextContent("Loading vaults");
+    // jsdom has no Notification API, so the push hint is also a status region.
+    expect(
+      screen.getAllByRole("status").some((el) => /Loading vaults/.test(el.textContent ?? "")),
+    ).toBe(true);
     await act(async () => rejectFetch(new Error("offline")));
     expect(screen.getByRole("alert")).toHaveTextContent("Vaults could not be loaded");
     expect(useNotificationPreferences.getState().vaultOverrides).toEqual({ "v-101": true });

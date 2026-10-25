@@ -8,6 +8,7 @@ import {
     WatchWalletChanges,
 } from '@stellar/freighter-api';
 import { fetchUsdcBalance } from '../utils/horizon';
+import { clearDraft as clearCreateVaultDraft } from '../utils/createVaultDraft';
 import { logger } from '../utils/logger';
 import {
     recordWalletTelemetry,
@@ -574,6 +575,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         connectStartTsRef.current = null;
         localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
         persistDemoSession(false);
+        // The disconnecting wallet's Create Vault draft must not outlive the
+        // session, and must never be offered to whichever wallet connects next.
+        clearCreateVaultDraft(lastKnownAddressRef.current);
         lastKnownAddressRef.current = null;
         lastKnownNetworkRef.current = null;
         dispatch({ type: 'DISCONNECT' });

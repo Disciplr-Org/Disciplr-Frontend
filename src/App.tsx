@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { WalletProvider } from './context/WalletContext'
 import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -87,8 +87,19 @@ const PROTECTED_PATHS = [
 // nav, and mobile drawer (rendered by Layout outside of <main>) remain mounted
 // and navigable when a single page crashes. Layout also provides a secondary
 // ErrorBoundary around its <main> content as a backstop.
-function RouteErrorBoundary({ children }: { children: ReactNode }) {
-  return <ErrorBoundary>{children}</ErrorBoundary>
+//
+// React Router renders the matched element at the same tree position for every
+// route, so this boundary instance survives navigation and would otherwise keep
+// its error state forever. `resetKeys` is the current pathname: navigating to
+// another route drops the error and renders the new page. The `section` variant
+// keeps the fallback inside <main> instead of taking over the viewport.
+export function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  return (
+    <ErrorBoundary variant="section" resetKeys={[location.pathname]}>
+      {children}
+    </ErrorBoundary>
+  )
 }
 
 export default function App() {
