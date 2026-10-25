@@ -2,6 +2,9 @@ import { Text } from "./Text";
 import { AddressDisplay } from "./AddressDisplay";
 import { Link } from "react-router-dom";
 import type { Vault } from "../types/vault";
+import { formatDateTime, formatUsdc } from "../utils/format";
+import { isApiEnabled } from "../services/api";
+import { useConnectivityStore } from "../services/connectivity";
 
 export interface CreateVaultReviewMilestone {
   title: string;
@@ -15,7 +18,7 @@ export interface CreateVaultReviewMilestone {
  * @property deadline - ISO datetime string for the vault deadline. Must not be empty.
  * @property successAddress - Destination address if milestones succeed. Must not be empty.
  * @property failureAddress - Destination address if milestones fail. Must not be empty.
- * @property verifierAddress - (Optional) The address of the verifier.
+ * @property verifierAddress - The address of the verifier.
  * @property milestone - (Optional) Legacy single milestone title.
  * @property milestones - (Optional) Array of milestone objects containing title and criteria.
  * @property isSubmitting - Disables interactions and shows a busy state when true.
@@ -27,11 +30,12 @@ export interface CreateVaultReviewMilestone {
  * @property onCheckAgain - Retries reconciliation after an unknown create outcome.
  */
 interface CreateVaultReviewProps {
+  name: string;
   amount: string;
   deadline: string;
   successAddress: string;
   failureAddress: string;
-  verifierAddress?: string;
+  verifierAddress: string;
   milestone?: string;
   milestones?: CreateVaultReviewMilestone[];
   isSubmitting?: boolean;
@@ -54,11 +58,12 @@ interface CreateVaultReviewProps {
 
 /**
  * Renders a review screen for vault creation.
- * Enforces boundary invariants: Requires amount, deadline, successAddress, and failureAddress.
+ * Enforces boundary invariants for all required vault details.
  * If required data is missing, an accessible error state is displayed prompting the user to go back.
  * Handles loading (isSubmitting) and error states with appropriate ARIA attributes for screen readers.
  */
 export function CreateVaultReview({
+  name,
   amount,
   deadline,
   successAddress,
@@ -77,8 +82,12 @@ export function CreateVaultReview({
   onConfirm,
   onCheckAgain,
 }: CreateVaultReviewProps) {
+  const connectivityStatus = useConnectivityStore((state) => state.status);
+  const isDegraded = isApiEnabled() && connectivityStatus !== 'online';
+
   // Invariant validation for boundary conditions
-  const isMissingData = !amount || !deadline || !successAddress || !failureAddress;
+  const isMissingData =
+    !name || !amount || !deadline || !successAddress || !failureAddress || !verifierAddress;
 
   if (isMissingData) {
     return (
@@ -158,10 +167,20 @@ export function CreateVaultReview({
           style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
         >
           <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
+            Vault name
+          </Text>
+          <Text role="body" as="p">
+            {name}
+          </Text>
+        </div>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
+          <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
             Amount (USDC)
           </Text>
           <Text role="body" as="p">
-            {amount}
+            {formatUsdc(amount)}
           </Text>
         </div>
 
@@ -172,7 +191,11 @@ export function CreateVaultReview({
             Deadline
           </Text>
           <Text role="body" as="p">
-            {deadline}
+            {(() => {
+              const localFormatted = formatDateTime(deadline);
+              const utcFormatted = formatDateTime(deadline, { timeZone: "UTC" });
+              return `${localFormatted} (${utcFormatted} UTC)`;
+            })()}
           </Text>
         </div>
 
@@ -201,9 +224,7 @@ export function CreateVaultReview({
             <Text role="caption" as="span" style={{ color: "var(--muted)" }}>
               Verifier address
             </Text>
-            <Text role="body" as="p">
-              {verifierAddress}
-            </Text>
+            <AddressDisplay address={verifierAddress} />
           </div>
         ) : null}
 
@@ -304,6 +325,26 @@ export function CreateVaultReview({
         </ul>
       ) : null}
 
+      {isApiEnabled() && connectivityStatus !== 'online' ? (
+        <div
+          role="alert"
+          style={{
+            padding: "0.75rem",
+            background: "color-mix(in srgb, var(--warning) 10%, var(--surface))",
+            border: "1px solid var(--warning)",
+            borderRadius: "var(--radius)",
+            color: "var(--warning)",
+            marginTop: "0.5rem",
+          }}
+        >
+          <Text role="caption" as="p">
+            {connectivityStatus === 'offline'
+              ? 'You are currently offline. Actions are disabled until reconnected.'
+              : 'The Disciplr service is currently unavailable. Actions are disabled.'}
+          </Text>
+        </div>
+      ) : null}
+
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
         <button
           type="button"
@@ -327,17 +368,17 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isSubmitting || submissionUncertain}
-          aria-disabled={isSubmitting || submissionUncertain}
+          disabled={isSubmitting || submissionUncertain || isDegraded}
+          aria-disabled={isSubmitting || submissionUncertain || isDegraded}
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: isSubmitting || submissionUncertain ? "not-allowed" : "pointer",
+            cursor: isSubmitting || submissionUncertain || isDegraded ? "not-allowed" : "pointer",
             fontWeight: 600,
-            opacity: isSubmitting || submissionUncertain ? 0.7 : 1,
+            opacity: isSubmitting || submissionUncertain || isDegraded ? 0.5 : 1,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",

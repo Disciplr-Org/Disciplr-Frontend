@@ -3,15 +3,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import CreateVault from "../CreateVault";
 import { useToastStore } from "../../Zustand/toastStore";
+import { useConnectivityStore } from "../../services/connectivity";
 import {
   ACCOUNT_A,
   ACCOUNT_B,
   ACCOUNT_C,
+  ACCOUNT_D,
 } from "@/__tests__/fixtures/stellarAddresses";
 
 const creator = ACCOUNT_A;
 const successAddress = ACCOUNT_B;
 const failureAddress = ACCOUNT_C;
+const verifier = ACCOUNT_D;
 
 vi.mock("../../context/WalletContext", () => ({
   useWallet: () => ({
@@ -44,7 +47,7 @@ function vaultRecord(overrides: Record<string, unknown> = {}) {
     status: "active",
     startDate: "2026-10-19T00:00:00.000Z",
     endDate: "2030-01-01T12:00:00.000Z",
-    verifier: creator,
+    verifier,
     successDestination: successAddress,
     failureDestination: failureAddress,
     createdAt: new Date().toISOString(),
@@ -75,6 +78,9 @@ function renderCreateVault() {
 }
 
 function enterValidDetails(amount = "100") {
+  fireEvent.change(screen.getByLabelText("Vault name"), {
+    target: { value: `Vault ${amount} USDC` },
+  });
   fireEvent.change(screen.getByLabelText(/amount/i), {
     target: { value: amount },
   });
@@ -87,6 +93,9 @@ function enterValidDetails(amount = "100") {
   fireEvent.change(screen.getByLabelText(/failure destination/i), {
     target: { value: failureAddress },
   });
+  fireEvent.change(screen.getByLabelText("Verifier address"), {
+    target: { value: verifier },
+  });
 }
 
 function openReview(amount?: string) {
@@ -94,6 +103,9 @@ function openReview(amount?: string) {
   fireEvent.click(screen.getByRole("button", { name: /^create vault$/i }));
   return screen.findByRole("heading", { name: /review vault details/i });
 }
+
+// Full form + review + reconciliation flows are slow under jsdom.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe("CreateVault create outcomes", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -103,6 +115,10 @@ describe("CreateVault create outcomes", () => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     useToastStore.getState().clear();
+    // These tests assert the create/reconcile requests only; keep the global
+    // connectivity monitor from flipping to degraded mode and probing /health.
+    useConnectivityStore.getState().reset();
+    vi.spyOn(useConnectivityStore.getState(), "reportApiFailure").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -144,7 +160,7 @@ describe("CreateVault create outcomes", () => {
     await screen.findByRole("heading", { name: /review vault details/i });
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(await screen.findByText("Vault Detail Page")).toBeInTheDocument();
+    expect(await screen.findByText("Vault Detail Page", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([url, init]) =>
       String(url).endsWith("/vaults") && init?.method === "POST",
     )).toHaveLength(2);
@@ -161,7 +177,7 @@ describe("CreateVault create outcomes", () => {
     await openReview();
     fireEvent.click(screen.getByRole("button", { name: /confirm vault/i }));
 
-    expect(await screen.findByText("Vault Detail Page")).toBeInTheDocument();
+    expect(await screen.findByText("Vault Detail Page", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1][0])).toContain(
       `creator=${encodeURIComponent(creator)}`,
@@ -216,6 +232,6 @@ describe("CreateVault create outcomes", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][1]?.method).toBe("POST");
     resolvePost(apiResponse({ data: vaultRecord() }));
-    expect(await screen.findByText("Vault Detail Page")).toBeInTheDocument();
+    expect(await screen.findByText("Vault Detail Page", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });
