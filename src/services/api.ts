@@ -30,10 +30,28 @@ export interface ApiActivity { id: string; type: string; vaultId: string; amount
 import { useConnectivityStore } from "./connectivity";
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+    public details: string[] = [],
+    public serverError?: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export function classifyCreateError(err: unknown): "rejected" | "unknown" {
+  if (
+    err instanceof ApiError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 408 &&
+    err.status !== 429
+  ) {
+    return "rejected";
+  }
+  return "unknown";
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -45,16 +63,38 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
-  } catch {
+  } catch (err) {
+    if (
+      init?.signal?.aborted ||
+      (typeof err === "object" &&
+        err !== null &&
+        "name" in err &&
+        err.name === "AbortError")
+    ) {
+      throw err;
+    }
     useConnectivityStore.getState().reportApiFailure(0);
     throw new ApiError("Could not reach the Disciplr API.", 0);
   }
-  const body = (await res.json().catch(() => ({}))) as { error?: string; details?: string[]; data?: T };
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: unknown;
+    details?: unknown;
+    data?: T;
+  };
   if (!res.ok) {
     if (res.status >= 500) {
       useConnectivityStore.getState().reportApiFailure(res.status);
     }
-    throw new ApiError([body.error, ...(body.details ?? [])].filter(Boolean).join(": ") || `HTTP ${res.status}`, res.status);
+    const serverError = typeof body.error === "string" ? body.error : undefined;
+    const details = Array.isArray(body.details)
+      ? body.details.filter((detail): detail is string => typeof detail === "string")
+      : [];
+    throw new ApiError(
+      [serverError, ...details].filter(Boolean).join(": ") || `HTTP ${res.status}`,
+      res.status,
+      details,
+      serverError,
+    );
   }
   return body.data as T;
 }
@@ -105,9 +145,12 @@ export function buildVaultQuery(filter?: VaultFilter): string {
   return parts.length ? `?${parts.join("&")}` : "";
 }
 
-export const apiListVaults = async (filter?: VaultFilter): Promise<Vault[]> => {
+export const apiListVaults = async (
+  filter?: VaultFilter,
+  signal?: AbortSignal,
+): Promise<Vault[]> => {
   if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  return (await request<ApiVault[]>(`/vaults${buildVaultQuery(filter)}`)).map(toVault);
+  return (await request<ApiVault[]>(`/vaults${buildVaultQuery(filter)}`, signal ? { signal } : undefined)).map(toVault);
 };
 
 /** Raw `/transactions` feed (all vaults); callers filter to the vaults they own. */

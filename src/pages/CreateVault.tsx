@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Text } from "../components/Text";
 import { Field } from "../components/Field";
@@ -25,12 +25,17 @@ import {
 } from "../utils/deadlinePresets";
 import { toUtcIso } from "../utils/format";
 import { getCreateVaultPrefill } from "../utils/vaultPrefill";
-import { createVault, CreateIntegrityError } from "../services/vaultService";
-import { isApiEnabled } from "../services/api";
+import {
+  createVault,
+  CreateIntegrityError,
+  findRecentVaultByCreator,
+} from "../services/vaultService";
+import { ApiError, classifyCreateError, isApiEnabled } from "../services/api";
 import { normalizeEvidenceUrl } from "../utils/url";
 import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
-
 import { isValidStellarAddress } from "../utils/stellarAddress";
+import { useToastStore } from "../Zustand/toastStore";
+import type { Vault } from "../types/vault";
 
 interface MilestoneFormRow extends CreateVaultMilestoneInput {
   id: string;
@@ -91,7 +96,26 @@ export default function CreateVault() {
   const isSubmittingRef = useRef(false);
   const [submissionUncertain, setSubmissionUncertain] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [validationMessages, setValidationMessages] = useState<string[]>([]);
+  const [reconciliationState, setReconciliationState] = useState<
+    "checking" | "not-found" | "failed" | "ambiguous" | "disconnected" | null
+  >(null);
+  const [matchingVaults, setMatchingVaults] = useState<Vault[]>([]);
   const [integrityError, setIntegrityError] = useState<CreateIntegrityError | null>(null);
+  const addressRef = useRef(address);
+  const reconciliationControllerRef = useRef<AbortController | null>(null);
+  const uncertainCreateRef = useRef<{
+    creator: string;
+    name: string;
+    amount: number;
+    since: number;
+  } | null>(null);
+  addressRef.current = address;
+
+  useEffect(() => {
+    if (!address) reconciliationControllerRef.current?.abort();
+    return () => reconciliationControllerRef.current?.abort();
+  }, [address]);
 
   const errorFieldOrder: Array<
     "name" | "amount" | "deadline" | "successAddress" | "failureAddress" | "verifierAddress"
@@ -220,9 +244,99 @@ export default function CreateVault() {
     setShowReview(true);
   };
 
+  const reconcileCreate = async (pendingCreate: {
+    creator: string;
+    name: string;
+    amount: number;
+    since: number;
+  }) => {
+    reconciliationControllerRef.current?.abort();
+    const controller = new AbortController();
+    reconciliationControllerRef.current = controller;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setReconciliationState("checking");
+    setMatchingVaults([]);
+    setSubmitError("Checking whether your vault was created...");
+
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (addressRef.current !== pendingCreate.creator) {
+          setReconciliationState("disconnected");
+          setSubmitError("Your wallet disconnected. Reconnect it, then check again.");
+          return;
+        }
+
+        const matches = await findRecentVaultByCreator({
+          ...pendingCreate,
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted || addressRef.current !== pendingCreate.creator) {
+          setReconciliationState("disconnected");
+          setSubmitError("Your wallet disconnected. Reconnect it, then check again.");
+          return;
+        }
+        if (matches.length === 1) {
+          useToastStore.getState().push({
+            message: "Your vault was created.",
+            variant: "success",
+          });
+          setSubmissionUncertain(false);
+          navigate(`/vaults/${matches[0].id}`);
+          return;
+        }
+        if (matches.length > 1) {
+          setMatchingVaults(matches);
+          setReconciliationState("ambiguous");
+          setSubmitError(
+            "More than one matching vault was found. Choose the vault you created before taking any further action.",
+          );
+          return;
+        }
+
+        if (attempt === 0) {
+          await new Promise<void>((resolve, reject) => {
+            if (controller.signal.aborted) {
+              reject(new DOMException("Reconciliation aborted.", "AbortError"));
+              return;
+            }
+            const timer = window.setTimeout(() => {
+              controller.signal.removeEventListener("abort", onAbort);
+              resolve();
+            }, 250);
+            const onAbort = () => {
+              window.clearTimeout(timer);
+              reject(new DOMException("Reconciliation aborted.", "AbortError"));
+            };
+            controller.signal.addEventListener("abort", onAbort, { once: true });
+          });
+        }
+      }
+
+      setSubmissionUncertain(false);
+      setReconciliationState("not-found");
+      setSubmitError("No matching vault was found. You can safely try again.");
+    } catch {
+      const disconnected =
+        controller.signal.aborted || addressRef.current !== pendingCreate.creator;
+      logger.error("Vault creation reconciliation failed");
+      setReconciliationState(disconnected ? "disconnected" : "failed");
+      setSubmitError(
+        disconnected
+          ? "Your wallet disconnected. Reconnect it, then check again."
+          : "We couldn't check whether your vault was created. Check again before retrying.",
+      );
+    } finally {
+      if (reconciliationControllerRef.current === controller) {
+        reconciliationControllerRef.current = null;
+      }
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
   const handleConfirm = async () => {
-    // A failed create call can have committed before its response was lost.
-    // Without a service idempotency key, this page must not offer a retry.
     if (isSubmittingRef.current || submissionUncertain) return;
 
     if (!address || !isValidStellarAddress(address)) {
@@ -258,11 +372,20 @@ export default function CreateVault() {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
+    setValidationMessages([]);
+    setReconciliationState(null);
+    setMatchingVaults([]);
 
     const normalizedEvidence = evidenceUrl
       ? normalizeEvidenceUrl(evidenceUrl) ?? undefined
       : undefined;
     const apiEnabled = isApiEnabled();
+    const pendingCreate = {
+      creator: address,
+      name: name.trim(),
+      amount: Number(amount),
+      since: Date.now(),
+    };
 
     try {
       const newVault = await createVault({
@@ -288,6 +411,8 @@ export default function CreateVault() {
         throw new Error("Malformed response from server.");
       }
 
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       navigate(`/vaults/${newVault.id}`);
     } catch (err) {
       if (err instanceof CreateIntegrityError) {
@@ -295,22 +420,54 @@ export default function CreateVault() {
         // Don't log full addresses in the integrity error.
         logger.error("Vault creation integrity mismatch detected");
         setIntegrityError(err);
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
 
-      // The service may have created the vault even when its response failed.
-      // Do not expose raw service errors or silently make a second create call.
+      if (
+        err instanceof ApiError &&
+        classifyCreateError(err) === "rejected"
+      ) {
+        const apiError = err;
+        logger.warn("Vault creation was rejected by the API");
+        setValidationMessages(
+          [apiError.serverError, ...apiError.details].filter(
+            (message): message is string => Boolean(message),
+          ),
+        );
+        setSubmitError(
+          apiError.details.length > 0 ? null : apiError.serverError ?? "Vault creation was rejected.",
+        );
+        setSubmissionUncertain(false);
+        setReconciliationState(null);
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+
       logger.error("Vault creation outcome unknown");
-      setSubmitError("Vault creation status is unknown. Check your vaults before trying again.");
+      uncertainCreateRef.current = pendingCreate;
       setSubmissionUncertain(true);
-      // Keep the synchronous guard engaged even before React renders the error.
-      setIsSubmitting(false);
+      setReconciliationState("checking");
+      await reconcileCreate(pendingCreate);
     }
   };
 
   const handleBackToEdit = () => {
     setShowReview(false);
+    setSubmitError(null);
+    setValidationMessages([]);
+  };
+
+  const handleCheckAgain = () => {
+    if (
+      !address ||
+      address !== uncertainCreateRef.current?.creator ||
+      !uncertainCreateRef.current ||
+      isSubmittingRef.current
+    ) return;
+    void reconcileCreate(uncertainCreateRef.current);
   };
 
   return (
@@ -411,9 +568,13 @@ export default function CreateVault() {
           isSubmitting={isSubmitting}
           submissionUncertain={submissionUncertain}
           error={submitError}
+          validationMessages={validationMessages}
+          reconciliationState={reconciliationState}
+          matchingVaults={matchingVaults}
+          canCheckAgain={Boolean(address && address === uncertainCreateRef.current?.creator)}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
-          onCheckVaults={() => navigate("/vaults")}
+          onCheckAgain={handleCheckAgain}
         />
       ) : (
 
