@@ -3,16 +3,22 @@
   "branches": [
     "main",
     "origin",
+    "security/issue-1504-create-vault-capture-per-milestone-amounts-and",
+    "security/issue-1508-vault-actions-stop-single-flight-from-resolving",
     "security/issue-1515-transactions-remove-fabricated-fee-block-data"
   ],
   "parent": {
     "main": null,
     "origin": "main",
+    "security/issue-1504-create-vault-capture-per-milestone-amounts-and": "main",
+    "security/issue-1508-vault-actions-stop-single-flight-from-resolving": "main",
     "security/issue-1515-transactions-remove-fabricated-fee-block-data": "main"
   },
   "order": [
     "main",
     "origin",
+    "security/issue-1504-create-vault-capture-per-milestone-amounts-and",
+    "security/issue-1508-vault-actions-stop-single-flight-from-resolving",
     "security/issue-1515-transactions-remove-fabricated-fee-block-data"
   ]
 }

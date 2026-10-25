@@ -171,7 +171,8 @@ export async function apiGetVault(id: string): Promise<Vault | undefined> {
 
 export async function apiCreateVault(input: {
   name: string; amount: number; deadline: string; creator: string; verifier: string;
-  successAddress: string; failureAddress: string; milestones: { title: string }[];
+  successAddress: string; failureAddress: string;
+  milestones: { title: string; amount: string; dueDate: string }[];
 }): Promise<Vault> {
   if (!isApiEnabled()) throw new ApiError("API not configured", 0);
   const per = input.amount / Math.max(1, input.milestones.length);
@@ -185,14 +186,16 @@ export async function apiCreateVault(input: {
       creator: input.creator,
       verifier: input.verifier,
       amount: input.amount,
-      endDate: new Date(end).toISOString(),
+      endDate: new Date(input.deadline).toISOString(),
       successDestination: input.successAddress,
       failureDestination: input.failureAddress,
-      milestones: input.milestones.map((m, i) => ({
+      milestones: input.milestones.map((m) => ({
         title: m.title,
-        amount: Number(per.toFixed(7)),
-        dueDate: new Date(start + step * (i + 1)).toISOString(),
+        amount: m.amount,
+        dueDate: new Date(m.dueDate).toISOString(),
       })),
+      // Tranche amounts and due dates are supplied by the caller (validated to sum
+      // exactly to `amount` in stroops); the API layer no longer splits evenly.
     }),
   });
   const vault = toVault(v);
