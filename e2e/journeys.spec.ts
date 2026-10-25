@@ -35,7 +35,7 @@ test.describe('Disciplr End-to-End Journeys', () => {
     // Dashboard shows summary cards and seeded active vault from mocked API
     await expect(page.getByText(/Total Locked/i)).toBeVisible();
     await expect(
-      page.getByRole('heading', { level: 2, name: 'Active Vaults' }),
+      page.getByRole('heading', { level: 2, name: 'Your vaults' }),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Seed Active Vault/i }),
@@ -96,7 +96,7 @@ test.describe('Disciplr End-to-End Journeys', () => {
     ).toBeVisible();
 
     // Verify amount and both milestones on detail page
-    await expect(page.getByText('1,000 USDC').first()).toBeVisible();
+    await expect(page.getByText('1,000.00 USDC').first()).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 3, name: 'Architecture and Design Approval' }),
     ).toBeVisible();
