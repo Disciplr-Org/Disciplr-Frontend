@@ -32,7 +32,7 @@ import {
 } from "../services/vaultService";
 import { ApiError, classifyCreateError, isApiEnabled } from "../services/api";
 import { normalizeEvidenceUrl } from "../utils/url";
-import { isNetworkMismatch, APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { useWriteGuard } from "../hooks/useWriteGuard";
 import { isValidStellarAddress } from "../utils/stellarAddress";
 import { useToastStore } from "../Zustand/toastStore";
 import type { Vault } from "../types/vault";
@@ -64,7 +64,10 @@ export default function CreateVault() {
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = getCreateVaultPrefill(location.state);
-  const { balance, balanceStatus, address, network } = useWallet();
+  const { balance, balanceStatus, address } = useWallet();
+  // Shared writes guard: refuses submission while the wallet session, address
+  // or network is not in a verified-good state (see src/hooks/useWriteGuard.ts).
+  const writeGuard = useWriteGuard();
   const nameRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   const deadlineRef = useRef<HTMLInputElement>(null);
@@ -496,8 +499,8 @@ export default function CreateVault() {
       return;
     }
 
-    if (!network || isNetworkMismatch(network)) {
-      setSubmitError(`Wallet network unavailable or incorrect. Please switch to ${APP_EXPECTED_NETWORK}.`);
+    if (!writeGuard.canWrite) {
+      setSubmitError(writeGuard.reason);
       return;
     }
 
@@ -727,6 +730,8 @@ export default function CreateVault() {
           reconciliationState={reconciliationState}
           matchingVaults={matchingVaults}
           canCheckAgain={Boolean(address && address === uncertainCreateRef.current?.creator)}
+          confirmDisabled={!writeGuard.canWrite}
+          confirmDisabledReason={writeGuard.reason}
           onBack={handleBackToEdit}
           onConfirm={handleConfirm}
           onCheckAgain={handleCheckAgain}

@@ -8,6 +8,7 @@ import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
 import { ConnectivityBanner } from "./ConnectivityBanner";
+import { NetworkMismatchBanner } from "./NetworkMismatchBanner";
 import { initConnectivityListeners } from "../services/connectivity";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
@@ -415,6 +416,8 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       )}
       <TrustlineBanner />
+      {/* App-wide network mismatch warning: role="alert" region before <main>. */}
+      <NetworkMismatchBanner />
 
       <main
         id="main-content"

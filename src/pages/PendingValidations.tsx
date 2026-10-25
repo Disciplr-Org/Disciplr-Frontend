@@ -11,6 +11,7 @@ import { filterPending } from '../utils/filterPending';
 import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { useWriteGuard } from '../hooks/useWriteGuard';
 
 /**
  * Invariants enforced by this page:
@@ -53,6 +54,9 @@ export default function PendingValidations() {
   const [actionError, setActionError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const submitLockRef = useRef(false);
+  // Shared writes guard: refuses approve/reject while the wallet session,
+  // address or network is not in a verified-good state.
+  const writeGuard = useWriteGuard();
 
   // Get unique milestones from all pending validations
   const availableMilestones = useMemo(() => {
@@ -120,6 +124,10 @@ export default function PendingValidations() {
 
   const openBatch = (decision: BatchDecision) => {
     if (isSubmitting) return;
+    if (!writeGuard.canWrite) {
+      setActionError(writeGuard.reason ?? 'Unable to submit right now.');
+      return;
+    }
     if (validSelectedIds.length === 0) return;
     setActionError(null);
     setPendingDecision(decision);
@@ -138,6 +146,13 @@ export default function PendingValidations() {
       // double-fired modal events. The ref is synchronous so it closes the
       // race window that state-based guards leave open.
       if (submitLockRef.current) return;
+
+      // Submit-time re-check: a wallet/session/network change between opening
+      // the modal and confirming must never reach the batch decision services.
+      if (!writeGuard.canWrite) {
+        setActionError(writeGuard.reason ?? 'Unable to complete the batch action.');
+        return;
+      }
 
       if (decision !== 'approve' && decision !== 'reject') {
         setActionError('Unsupported decision.');
@@ -182,7 +197,7 @@ export default function PendingValidations() {
         setIsSubmitting(false);
       }
     },
-    [batchApprove, batchReject, pendingValidations, validSelectedIds],
+    [batchApprove, batchReject, pendingValidations, validSelectedIds, writeGuard],
   );
 
   const hasSelection = validSelectedIds.length > 0 && !isSubmitting;
@@ -424,7 +439,10 @@ export default function PendingValidations() {
         <div className="flex gap-3">
           <button
             onClick={() => openBatch('reject')}
-            disabled={!hasSelection}
+            disabled={!hasSelection || !writeGuard.canWrite}
+            aria-describedby={
+              !writeGuard.canWrite && writeGuard.reason ? 'batch-guard-reason' : undefined
+            }
             className="px-4 py-2 text-sm font-medium rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'var(--danger-transparent)', color: 'var(--danger)' }}
           >
@@ -432,12 +450,20 @@ export default function PendingValidations() {
           </button>
           <button
             onClick={() => openBatch('approve')}
-            disabled={!hasSelection}
+            disabled={!hasSelection || !writeGuard.canWrite}
+            aria-describedby={
+              !writeGuard.canWrite && writeGuard.reason ? 'batch-guard-reason' : undefined
+            }
             className="px-4 py-2 text-sm font-bold rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'var(--success)', color: 'white' }}
           >
             {isSubmitting ? 'Processing…' : 'Approve Selected'}
           </button>
+          {!writeGuard.canWrite && writeGuard.reason && (
+            <span id="batch-guard-reason" className="sr-only">
+              {writeGuard.reason}
+            </span>
+          )}
         </div>
       </div>
 

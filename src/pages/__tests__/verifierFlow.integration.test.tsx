@@ -1,11 +1,25 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import ValidationDetail from '../ValidationDetail';
 import ValidationHistory from '../ValidationHistory';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+import { ACCOUNT_A } from '@/__tests__/fixtures/stellarAddresses';
+
+// The shared write guard reads the wallet context; provide a good-state
+// wallet so approve/reject flows keep resolving the decision stores.
+vi.mock('../../context/WalletContext', () => {
+  const mockWallet = () => ({
+    status: 'connected' as const,
+    address: ACCOUNT_A,
+    network: 'TESTNET' as const,
+    isConnecting: false,
+    isDemo: false,
+  });
+  return { useWallet: mockWallet, useOptionalWallet: mockWallet };
+});
 
 // The pending queue is sorted by deadline (ascending) by default, so the
 // on-screen row order does not match insertion order in the store. Look the

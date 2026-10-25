@@ -7,8 +7,9 @@ import CreateVault from "../CreateVault";
 import * as vaultService from "../../services/vaultService";
 import type { Vault } from "../../types/vault";
 
-vi.mock("../../context/WalletContext", () => ({
-  useWallet: () => ({
+vi.mock("../../context/WalletContext", () => {
+  const mockWallet = () => ({
+    status: "connected" as const,
     address: ACCOUNT_A,
     network: "TESTNET",
     balance: "10000",
@@ -18,8 +19,9 @@ vi.mock("../../context/WalletContext", () => ({
     connect: async () => {},
     disconnect: () => {},
     checkConnection: async () => {},
-  }),
-}));
+  });
+  return { useWallet: mockWallet, useOptionalWallet: mockWallet };
+});
 
 const createdVault: Vault = {
   id: "created-vault",

@@ -27,6 +27,8 @@ export interface CreateVaultReviewMilestone {
  * @property validationMessages - Safe server messages returned for a deterministic rejection.
  * @property onBack - Callback to return to the edit form.
  * @property onConfirm - Callback to submit the vault creation. Should be guarded against duplicate calls in the parent.
+ * @property confirmDisabled - When true, disables Confirm Vault while the shared wallet write guard refuses submission (e.g. wrong Freighter network).
+ * @property confirmDisabledReason - Accessible explanation shown (screen-reader only) and referenced via aria-describedby while confirmDisabled is set.
  * @property onCheckAgain - Retries reconciliation after an unknown create outcome.
  */
 interface CreateVaultReviewProps {
@@ -51,6 +53,8 @@ interface CreateVaultReviewProps {
     | null;
   matchingVaults?: Vault[];
   canCheckAgain?: boolean;
+  confirmDisabled?: boolean;
+  confirmDisabledReason?: string | null;
   onBack?: () => void;
   onConfirm?: () => void;
   onCheckAgain?: () => void;
@@ -78,12 +82,16 @@ export function CreateVaultReview({
   reconciliationState,
   matchingVaults = [],
   canCheckAgain = false,
+  confirmDisabled = false,
+  confirmDisabledReason,
   onBack,
   onConfirm,
   onCheckAgain,
 }: CreateVaultReviewProps) {
   const connectivityStatus = useConnectivityStore((state) => state.status);
   const isDegraded = isApiEnabled() && connectivityStatus !== 'online';
+  const confirmBlocked = Boolean(confirmDisabled);
+  const GUARD_REASON_ID = "create-vault-review-guard-reason";
 
   // Invariant validation for boundary conditions
   const isMissingData =
@@ -345,7 +353,25 @@ export function CreateVaultReview({
         </div>
       ) : null}
 
-      <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", position: "relative" }}>
+        {confirmBlocked && confirmDisabledReason ? (
+          <span
+            id={GUARD_REASON_ID}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0 0 0 0)",
+              whiteSpace: "nowrap",
+              border: 0,
+            }}
+          >
+            {confirmDisabledReason}
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={onBack}
@@ -368,17 +394,26 @@ export function CreateVaultReview({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isSubmitting || submissionUncertain || isDegraded}
-          aria-disabled={isSubmitting || submissionUncertain || isDegraded}
+          disabled={isSubmitting || submissionUncertain || isDegraded || confirmBlocked}
+          aria-disabled={isSubmitting || submissionUncertain || isDegraded || confirmBlocked}
+          aria-describedby={
+            confirmBlocked && confirmDisabledReason ? GUARD_REASON_ID : undefined
+          }
           style={{
             background: "var(--accent)",
             color: "var(--bg)",
             padding: "0.75rem 1rem",
             borderRadius: "var(--radius)",
             border: "none",
-            cursor: isSubmitting || submissionUncertain || isDegraded ? "not-allowed" : "pointer",
+            cursor:
+              isSubmitting || submissionUncertain || isDegraded || confirmBlocked
+                ? "not-allowed"
+                : "pointer",
             fontWeight: 600,
-            opacity: isSubmitting || submissionUncertain || isDegraded ? 0.5 : 1,
+            opacity:
+              isSubmitting || submissionUncertain || isDegraded || confirmBlocked
+                ? 0.5
+                : 1,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
