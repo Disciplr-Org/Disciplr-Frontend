@@ -18,6 +18,7 @@ import { useVaultDetail } from "../hooks/useVaultDetail";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useOnRecovered } from "../hooks/useOnRecovered";
 import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
+import { ActionInFlightError } from "../utils/singleFlight";
 import { ApiError } from "../services/api";
 import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
 import {
@@ -1063,6 +1064,9 @@ function actionBtn(color: string): React.CSSProperties {
 }
 
 function mapActionError(err: unknown): string {
+  if (err instanceof ActionInFlightError) {
+    return "Another vault action is still processing. Please wait.";
+  }
   if (err instanceof ApiError) {
     if (err.status === 403) {
       return "Only the vault's verifier can do this.";
