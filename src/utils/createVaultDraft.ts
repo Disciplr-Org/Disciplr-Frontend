@@ -29,6 +29,8 @@ export interface CreateVaultDraftMilestone {
 }
 
 export interface CreateVaultDraftValues {
+  name?: string;
+  verifierAddress?: string;
   amount: string;
   deadline: string;
   successAddress: string;
@@ -86,6 +88,8 @@ export function createVaultDraft(
   return {
     v: CREATE_VAULT_DRAFT_VERSION,
     savedAt: now,
+    ...(values.name ? { name: values.name } : {}),
+    ...(values.verifierAddress ? { verifierAddress: values.verifierAddress } : {}),
     amount: values.amount,
     deadline: values.deadline,
     successAddress: values.successAddress,
@@ -142,6 +146,15 @@ function parseDraft(raw: string, now: number): CreateVaultDraft | null {
     milestones.push({ title, criteria });
   }
 
+  // Optional text fields added after v1 drafts shipped; absent is fine.
+  const optionalText: { name?: string; verifierAddress?: string } = {};
+  for (const field of ['name', 'verifierAddress'] as const) {
+    if (parsed[field] === undefined) continue;
+    const value = readString(parsed[field]);
+    if (value === null) return null;
+    optionalText[field] = value;
+  }
+
   let evidenceUrl: string | undefined;
   if (parsed.evidenceUrl !== undefined) {
     const parsedEvidenceUrl = readString(parsed.evidenceUrl);
@@ -152,6 +165,7 @@ function parseDraft(raw: string, now: number): CreateVaultDraft | null {
   return {
     v: CREATE_VAULT_DRAFT_VERSION,
     savedAt,
+    ...optionalText,
     amount,
     deadline,
     successAddress,

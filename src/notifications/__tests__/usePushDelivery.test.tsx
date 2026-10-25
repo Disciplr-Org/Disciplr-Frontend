@@ -91,7 +91,7 @@ describe("usePushDelivery", () => {
     useNotificationPreferences.setState({
       push: true,
       frequency: "1",
-      quietHours: "22:00",
+      quietHours: { enabled: true, start: "22:00", end: "07:00" },
     });
   });
 

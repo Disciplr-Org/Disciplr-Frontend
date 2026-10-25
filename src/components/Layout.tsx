@@ -1,17 +1,21 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState, type HTMLAttributes } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu } from "lucide-react";
+import { registerShortcut } from "../utils/shortcutRegistry";
 import { WalletConnectButton } from "./Wallet/WalletConnectButton";
 import MobileDrawer from "./MobileDrawer";
 import NavLink from "./NavLink";
 import { Text } from "./Text";
 import { TrustlineBanner } from "./TrustlineBanner";
+import { ConnectivityBanner } from "./ConnectivityBanner";
+import { initConnectivityListeners } from "../services/connectivity";
 import NotificationBell from "./Notification/NotificationBell";
 import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
 import CommandPalette from "./CommandPalette";
+import { useOptionalWallet } from "../context/WalletContext";
 import {
   DRAWER_INITIAL_STATE,
   isDrawerOpen,
@@ -47,6 +51,9 @@ function isValidPathname(value: unknown): value is string {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const wallet = useOptionalWallet();
+  const isDemo = wallet?.isDemo ?? false;
+  const resetDemo = wallet?.resetDemo ?? (() => {});
   // All drawer transitions flow through the reducer so open/close/toggle and
   // the route-change/resize recovery events are deterministic and idempotent
   // (see src/utils/drawerState.ts for the state machine and its invariants).
@@ -58,6 +65,57 @@ export default function Layout({ children }: LayoutProps) {
   const closeDrawer = useCallback(() => dispatchDrawer({ type: "CLOSE" }), []);
   const toggleDrawer = () => dispatchDrawer({ type: "TOGGLE"});
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unregisterGd = registerShortcut({
+      keys: "g d",
+      description: "Go to Dashboard",
+      handler: () => navigate("/dashboard"),
+    });
+    const unregisterGv = registerShortcut({
+      keys: "g v",
+      description: "Go to Vaults",
+      handler: () => navigate("/vaults"),
+    });
+    const unregisterGq = registerShortcut({
+      keys: "g q",
+      description: "Go to Verifier Queue",
+      handler: () => navigate("/verifier/queue"),
+    });
+    const unregisterGh = registerShortcut({
+      keys: "g h",
+      description: "Go to Help",
+      handler: () => navigate("/help"),
+    });
+    const unregisterC = registerShortcut({
+      keys: "c",
+      description: "Create Vault",
+      handler: () => navigate("/vaults/create"),
+    });
+
+    return () => {
+      unregisterGd();
+      unregisterGv();
+      unregisterGq();
+      unregisterGh();
+      unregisterC();
+    };
+  }, [navigate]);
+
+  // Announce demo mode activation for assistive tech
+  const [announcedDemo, setAnnouncedDemo] = React.useState(false);
+  useEffect(() => {
+    if (isDemo && !announcedDemo) {
+      setAnnouncedDemo(true);
+    } else if (!isDemo && announcedDemo) {
+      setAnnouncedDemo(false);
+    }
+  }, [isDemo, announcedDemo]);
+
+  useEffect(() => {
+    initConnectivityListeners();
+  }, []);
 
   // Push delivery is mounted exactly once, here: a single subscriber owns the
   // notification store diff and the OS notification queue for the whole app.
@@ -133,7 +191,7 @@ export default function Layout({ children }: LayoutProps) {
   // listener asks for confirmation before any internal link is followed.
   // Capture phase + preventDefault is what stops React Router's <Link> from
   // navigating, without touching every link in the tree.
-  const navigate = useNavigate();
+  // (`navigate` is declared above for the keyboard shortcuts.)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   useEffect(() => {
@@ -174,6 +232,9 @@ export default function Layout({ children }: LayoutProps) {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <div className="sr-only" aria-live="polite" role="status">
+        {isDemo ? "Demo mode active: changes stay in this browser" : ""}
+      </div>
       <header className="site-header">
         <div className="header-brand" {...backgroundAccessibilityProps}>
           <Link to="/" className="header-link" aria-label="Disciplr home">
@@ -282,6 +343,22 @@ export default function Layout({ children }: LayoutProps) {
             <CommandPalette />
             <NotificationBell />
             <ThemeToggle />
+            {isDemo && (
+              <div className="demo-mode-chip desktop-demo-chip" role="status" aria-label="Demo mode">
+                <span className="demo-mode-chip-text">
+                  Demo mode: changes stay in this browser
+                </span>
+                <button
+                  type="button"
+                  className="demo-mode-reset-btn"
+                  onClick={resetDemo}
+                  title="Clear demo data and reset to initial demo state"
+                  aria-label="Reset demo"
+                >
+                  Reset demo
+                </button>
+              </div>
+            )}
             <WalletConnectButton />
           </div>
         </nav>
@@ -302,6 +379,20 @@ export default function Layout({ children }: LayoutProps) {
         </button>
         <MobileDrawer isOpen={effectiveDrawerIsOpen} onClose={closeDrawer} />
       </header>
+      <ConnectivityBanner />
+      {isDemo && (
+        <div className="mobile-demo-banner" role="status">
+          <span>Demo mode: changes stay in this browser</span>
+          <button
+            type="button"
+            className="demo-mode-reset-btn"
+            onClick={resetDemo}
+            aria-label="Reset demo"
+          >
+            Reset demo
+          </button>
+        </div>
+      )}
       <TrustlineBanner />
 
       <main

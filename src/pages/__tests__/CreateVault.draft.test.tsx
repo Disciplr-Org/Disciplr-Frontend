@@ -16,7 +16,7 @@ import {
   hasActiveNavigationGuard,
   resetNavigationGuards,
 } from '../../utils/navigationGuard';
-import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C } from '@/__tests__/fixtures/stellarAddresses';
+import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C, ACCOUNT_D } from '@/__tests__/fixtures/stellarAddresses';
 
 const wallet = vi.hoisted(() => ({
   address: 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ' as string | null,
@@ -25,20 +25,23 @@ const wallet = vi.hoisted(() => ({
 /** Mirrors the autosave debounce in CreateVault. */
 const DRAFT_WRITE_DELAY_MS = 500;
 
-vi.mock('../../context/WalletContext', () => ({
-  useWallet: () => ({
+vi.mock('../../context/WalletContext', () => {
+  const mockWallet = () => ({
     address: wallet.address,
     network: 'TESTNET',
     balance: '10000',
     balanceStatus: 'success',
     isConnecting: false,
+    isDemo: false,
     error: null,
     connect: async () => true,
     disconnect: () => {},
     checkConnection: async () => {},
     connectDemo: () => {},
-  }),
-}));
+    resetDemo: () => {},
+  });
+  return { useWallet: mockWallet, useOptionalWallet: mockWallet };
+});
 
 // Keep the shared chrome light: these surfaces are irrelevant to drafting.
 vi.mock('../../components/Wallet/WalletConnectButton', () => ({
@@ -82,6 +85,8 @@ function renderCreateVault(
 const input = (name: RegExp) => screen.getByLabelText(name) as HTMLInputElement;
 
 function fillValidForm() {
+  fireEvent.change(input(/vault name/i), { target: { value: 'Draft vault' } });
+  fireEvent.change(input(/verifier address/i), { target: { value: ACCOUNT_D } });
   fireEvent.change(input(/amount \(usdc\)/i), { target: { value: '100' } });
   fireEvent.change(input(/deadline/i), { target: { value: '2030-01-01T12:00' } });
   fireEvent.change(input(/success destination/i), { target: { value: ACCOUNT_B } });
@@ -237,9 +242,13 @@ describe('CreateVault draft persistence', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /confirm vault/i }));
     });
-    await act(async () => {});
+    // An unknown outcome now triggers reconciliation (two lookups 250ms
+    // apart); offline fixtures hold no matching vault.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/status is unknown/i);
+    expect(screen.getByText(/no matching vault was found/i)).toBeInTheDocument();
     expect(readDraft(ACCOUNT_A)?.amount).toBe('100');
   });
 

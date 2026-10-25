@@ -79,7 +79,14 @@ function toDeliveryItem(value: unknown): DeliveryItem | null {
 /** Latest preferences, read straight from the store so timer callbacks agree. */
 function currentPreferences(): DeliveryPreferences {
   const { push, frequency, quietHours } = useNotificationPreferences.getState();
-  return { push, frequency, quietHours };
+  // Quiet hours are stored as { enabled, start, end }. A disabled window maps to
+  // an empty start, which isQuietHoursActive treats as "never quiet".
+  return {
+    push,
+    frequency,
+    quietHours: quietHours.enabled ? quietHours.start : "",
+    quietHoursEnd: quietHours.end,
+  };
 }
 
 /** A visible tab is handled by the in-app bell, so the OS is left alone. */
