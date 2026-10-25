@@ -7,10 +7,17 @@
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
+import { formatDate, formatUsdc } from "../utils/format";
+import { useConnectivityStore } from "./connectivity";
 
-const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
-export const API_BASE: string | null = raw ? raw.replace(/\/+$/, "") : null;
-export const isApiEnabled = (): boolean => API_BASE !== null;
+export const getRawApiBase = (): string | null => {
+  const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
+  return raw ? raw.replace(/\/+$/, "") : null;
+};
+
+export const API_BASE: string | null = getRawApiBase();
+export const isApiEnabled = (): boolean => getRawApiBase() !== null;
+
 
 interface ApiMilestone { id: string; title: string; amount: string; dueDate: string; status: string }
 export interface ApiVault {
@@ -24,7 +31,13 @@ export interface ApiActivity { id: string; type: string; vaultId: string; amount
 export type ApiErrorCode = "network" | "timeout" | "aborted" | "http" | "invalid_response";
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number, readonly code: ApiErrorCode = "http") {
+  constructor(
+    message: string,
+    public status: number,
+    readonly code: ApiErrorCode = "http",
+    public details: string[] = [],
+    public serverError?: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -104,6 +117,19 @@ function isRetriableStatus(status: number): boolean {
   return status === 502 || status === 503 || status === 504 || status === 429;
 }
 
+export function classifyCreateError(err: unknown): "rejected" | "unknown" {
+  if (
+    err instanceof ApiError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 408 &&
+    err.status !== 429
+  ) {
+    return "rejected";
+  }
+  return "unknown";
+}
+
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   if (!API_BASE) throw new ApiError("API not configured", 0, "network");
   const method = (opts.method ?? "GET").toUpperCase();
@@ -141,6 +167,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       if (opts.signal?.aborted) throw new ApiError("Request aborted", 0, "aborted");
       if (timeoutCtrl.signal.aborted) throw new ApiError("Request timed out", 0, "timeout");
       if (isAbortError(e)) throw new ApiError("Request aborted", 0, "aborted");
+      useConnectivityStore.getState().reportApiFailure(0);
       if (attempt < maxRetries) {
         const wait = backoffMs(attempt);
         attempt++;
@@ -161,9 +188,16 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
         catch { throw new ApiError("Request aborted", 0, "aborted"); }
         continue;
       }
-      const errorBody = (await res.json().catch(() => ({}))) as { error?: string; details?: string[] };
-      const msg = [errorBody.error, ...(errorBody.details ?? [])].filter(Boolean).join(": ") || `HTTP ${res.status}`;
-      throw new ApiError(msg, res.status, "http");
+      if (res.status >= 500) {
+        useConnectivityStore.getState().reportApiFailure(res.status);
+      }
+      const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown; details?: unknown };
+      const serverError = typeof errorBody.error === "string" ? errorBody.error : undefined;
+      const details = Array.isArray(errorBody.details)
+        ? errorBody.details.filter((d): d is string => typeof d === "string")
+        : [];
+      const msg = [serverError, ...details].filter(Boolean).join(": ") || `HTTP ${res.status}`;
+      throw new ApiError(msg, res.status, "http", details, serverError);
     }
 
     const body = (await res.json().catch(() => null)) as unknown;
@@ -186,9 +220,10 @@ export function toVault(v: ApiVault): Vault {
   const milestones: Milestone[] = v.milestones.map((m) => ({
     id: m.id,
     title: m.title,
-    description: `${Number(m.amount).toLocaleString()} USDC, due ${new Date(m.dueDate).toLocaleDateString()}`,
+    description: `${formatUsdc(m.amount)} USDC, due ${formatDate(m.dueDate)}`,
     criteria: m.title,
     status: m.status === "completed" ? "validated" : m.status === "failed" ? "failed" : "pending",
+    dueDate: m.dueDate,
     ...(m.status === "completed" ? { validatedAt: v.updatedAt || v.createdAt } : {}),
   }));
   return {
@@ -211,8 +246,25 @@ export function toVault(v: ApiVault): Vault {
 
 export interface SignalOptions { signal?: AbortSignal }
 
-export const apiListVaults = async (opts: SignalOptions = {}): Promise<Vault[]> =>
-  (await request<ApiVault[]>("/vaults", { signal: opts.signal })).map(toVault);
+export interface VaultFilter { creator?: string; status?: string }
+
+/** Builds `?creator=..&status=..` with every value URI-encoded; empty when no filter is set. */
+export function buildVaultQuery(filter?: VaultFilter): string {
+  const parts: string[] = [];
+  if (filter?.creator) parts.push(`creator=${encodeURIComponent(filter.creator)}`);
+  if (filter?.status) parts.push(`status=${encodeURIComponent(filter.status)}`);
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
+export const apiListVaults = async (
+  filter?: VaultFilter,
+  opts: SignalOptions = {},
+): Promise<Vault[]> =>
+  (await request<ApiVault[]>(`/vaults${buildVaultQuery(filter)}`, { signal: opts.signal })).map(toVault);
+
+/** Raw `/transactions` feed (all vaults); callers filter to the vaults they own. */
+export const apiListTransactions = (opts: SignalOptions = {}): Promise<ApiActivity[]> =>
+  request<ApiActivity[]>("/transactions", { signal: opts.signal });
 
 export async function apiGetVault(id: string, opts: SignalOptions = {}): Promise<Vault | undefined> {
   try {
@@ -223,8 +275,32 @@ export async function apiGetVault(id: string, opts: SignalOptions = {}): Promise
   }
 }
 
-export async function apiListActivity(opts: SignalOptions = {}): Promise<VaultActivityRecord[]> {
-  return request<VaultActivityRecord[]>("/activity", { signal: opts.signal });
+export async function apiListActivity(
+  options: { vaultId?: string } & SignalOptions = {},
+): Promise<VaultActivityRecord[]> {
+  const query = options.vaultId ? `?vaultId=${encodeURIComponent(options.vaultId)}` : "";
+  const [acts, vaults] = await Promise.all([
+    request<ApiActivity[]>(`/transactions${query}`, { signal: options.signal }),
+    request<ApiVault[]>("/vaults", { signal: options.signal }),
+  ]);
+  const names = new Map(vaults.map((v) => [v.id, v] as const));
+  return acts.map((a) => {
+    const v = names.get(a.vaultId);
+    const ts = new Date(a.createdAt);
+    return {
+      id: a.id,
+      type: a.type as VaultActivityRecord["type"],
+      vaultId: a.vaultId,
+      vault: v ? v.name || a.vaultId : a.vaultId,
+      amount: Number(a.amount),
+      hash: a.hash,
+      status: a.status as VaultActivityRecord["status"],
+      from: v?.creator ?? "",
+      to: a.type === "redirect" ? (v ? v.failureDestination ?? "" : "") : (v ? v.successDestination ?? "" : ""),
+      timestamp: ts,
+      memo: a.memo,
+    };
+  });
 }
 
 export async function apiCreateVault(input: unknown, opts: SignalOptions = {}): Promise<Vault> {
@@ -261,4 +337,13 @@ export async function apiFailVault(id: string, opts: SignalOptions = {}): Promis
     signal: opts.signal,
   });
   return toVault(response);
+}
+
+export interface ApiStats {
+  totalVaults: number; active: number; completed: number; failed: number;
+  totalLocked: number; totalReleased: number; totalRedirected: number; successRate: number | null;
+}
+
+export async function apiStats(creator?: string, opts: SignalOptions = {}): Promise<ApiStats> {
+  return request(`/stats${buildVaultQuery({ creator })}`, { signal: opts.signal });
 }
