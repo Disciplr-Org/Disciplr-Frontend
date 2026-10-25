@@ -5,13 +5,23 @@
  *   - The header / nav / wallet-connect button remain in the DOM.
  *   - The broken route shows the ErrorBoundary fallback UI.
  *   - The fallback offers a "Contact support" link and a Refresh button.
+ *
+ * Extended for the error-recovery issue: navigating away from a crashed route
+ * must drop the fallback (see the "route navigation recovery" suite below).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from '../components/Layout';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { RouteErrorBoundary } from '../App';
 
 // ---------------------------------------------------------------------------
 // Module mocks — keep chrome deps from exploding in the test environment
@@ -195,5 +205,146 @@ describe('ErrorBoundary — scoped to route content (issue #654)', () => {
     );
     expect(screen.getByTestId('healthy-page')).toBeInTheDocument();
     expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Navigation recovery
+//
+// React Router renders the matched element at the same tree position for every
+// route, so a boundary created without `resetKeys` keeps its error state and
+// the fallback sticks until a full reload. Keyed on the pathname, the boundary
+// drops the error as soon as the user navigates.
+// ---------------------------------------------------------------------------
+
+function CrashingPage() {
+  throw new Error('route A crashed');
+}
+
+function HealthyPage() {
+  return <div data-testid="healthy-page">Vaults page</div>;
+}
+
+function GoToVaults() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate('/vaults')}>
+      go to vaults
+    </button>
+  );
+}
+
+function CrashAtA() {
+  const location = useLocation();
+  if (location.pathname === '/a') throw new Error('layout backstop crashed');
+  return <div data-testid="layout-recovered">Recovered at {location.pathname}</div>;
+}
+
+function GoToB() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate('/b')}>
+      go to b
+    </button>
+  );
+}
+
+describe('ErrorBoundary — route navigation recovery', () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it('renders the destination route after navigating away from a crashed route', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <GoToVaults />
+        <Routes>
+          <Route
+            path="/dashboard"
+            element={
+              <RouteErrorBoundary>
+                <CrashingPage />
+              </RouteErrorBoundary>
+            }
+          />
+          <Route
+            path="/vaults"
+            element={
+              <RouteErrorBoundary>
+                <HealthyPage />
+              </RouteErrorBoundary>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /go to vaults/i }));
+
+    expect(screen.getByTestId('healthy-page')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps the fallback after navigation when the boundary has no resetKeys (regression guard)', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <GoToVaults />
+        <Routes>
+          <Route
+            path="/dashboard"
+            element={
+              <ErrorBoundary variant="section">
+                <CrashingPage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/vaults"
+            element={
+              <ErrorBoundary variant="section">
+                <HealthyPage />
+              </ErrorBoundary>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /go to vaults/i }));
+
+    // Without `resetKeys` the same boundary instance keeps its error state and
+    // the destination route never renders. Pinned so the fix cannot regress.
+    expect(screen.queryByTestId('healthy-page')).toBeNull();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('resets the Layout backstop boundary when the route changes', () => {
+    render(
+      <MemoryRouter initialEntries={['/a']}>
+        <GoToB />
+        <Layout>
+          <CrashAtA />
+        </Layout>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // The chrome stays mounted and usable while a page is broken.
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /go to b/i }));
+
+    expect(screen.getByTestId('layout-recovered')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
