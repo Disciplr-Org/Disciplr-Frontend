@@ -5,7 +5,14 @@ import './tailwind.css'
 import './styles/tokens.generated.css'
 import './styles/semantic.css'
 import './index.css'
-import { reportWebVitals } from './utils/reportWebVitals'
+import { reportWebVitals, type Metric } from './utils/reportWebVitals'
+import { createVitalsSink } from './utils/vitalsSink'
+import { logger as appLogger, configureLogger } from './utils/logger'
+
+configureLogger({
+  level: import.meta.env.PROD ? 'error' : 'debug',
+})
+import { installGlobalErrorHandlers } from './utils/errorReporter'
 
 /**
  * Entry point invariants:
@@ -66,6 +73,23 @@ function safeReportWebVitals(
   }
 }
 
+/**
+ * Default vitals handler: routes metrics to the opt-in vitals sink, which
+ * logs via the dev-only logger and batches to VITE_VITALS_ENDPOINT when
+ * configured. Production builds therefore emit no console output for vitals.
+ */
+function defaultVitalsHandler(
+  logger: { info: (... args: unknown[]) => void; error: (... args: unknown[]) => void },
+): (value: unknown) => void {
+  try {
+    const sink = createVitalsSink()
+    return (value) => sink.onMetric(value as Metric)
+  } catch (error) {
+    logger.error(REPORT_WEB_VITALS_FAILURE_LOG, error)
+    return () => {}
+  }
+}
+
 function renderErrorUI(el: HTMLElement, message: string): void {
   el.setAttribute('role', 'alert')
   el.setAttribute('data-app-error', 'true')
@@ -75,8 +99,8 @@ function renderErrorUI(el: HTMLElement, message: string): void {
 export function bootstrap(options: BootstrapOptions = {}): Root {
   const doc = options.document ?? document
   const rootId = options.rootId ?? 'root'
-  const logger = options.logger ?? console
-  const onWebVital = options.onWebVital ?? ((value) => logger.info('[Web Vitals]', value))
+  const logger = options.logger ?? appLogger
+  const onWebVital = options.onWebVital ?? defaultVitalsHandler(logger)
 
   // Resolve and validate the root element before any side effects.
   const rootEl = resolveRootElement(doc, rootId)
@@ -86,6 +110,16 @@ export function bootstrap(options: BootstrapOptions = {}): Root {
     throw new Error(`Root element #${rootId} is already mounted`)
   }
   rootEl.setAttribute('data-app-mounted', 'true')
+
+  // Capture async failures that React error boundaries cannot see (unhandled
+  // rejections, errors raised outside render). Installed before mounting so a
+  // failure during the first render is still reported.
+  try {
+    installGlobalErrorHandlers()
+  } catch (error) {
+    // Global capture is best-effort; it must never prevent the app from mounting.
+    logger.error('[Bootstrap] failed to install global error handlers', error)
+  }
 
   safeReportWebVitals(onWebVital, logger)
 
