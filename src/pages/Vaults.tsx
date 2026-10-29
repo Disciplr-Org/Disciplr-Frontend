@@ -101,28 +101,27 @@ export default function Vaults() {
 
   // Data fetching
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
     // listVaults has no creator filter; scope ("mine"/"verifying") is applied
     // client-side by filterVaults below.
-    listVaults()
+    listVaults({ signal: controller.signal })
       .then((loaded) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setVaults(loaded);
           setLoading(false);
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not load vaults.");
-          setLoading(false);
-        }
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Could not load vaults.");
+        setLoading(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [scope, normalizedUserAddress, reloadToken]);
 

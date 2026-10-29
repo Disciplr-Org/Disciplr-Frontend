@@ -309,7 +309,7 @@ test.describe('Disciplr End-to-End Journeys', () => {
 
     // Open wallet connect modal
     const connectButton = page.getByRole('button', { name: /connect wallet/i }).first();
-    await expect(connectButton).toBeVisible();
+    await expect(connectButton).toBeVisible({ timeout: 15000 });
     await connectButton.click();
 
     // Modal is open

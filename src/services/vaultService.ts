@@ -28,8 +28,6 @@ import {
   apiListVaults,
   apiGetVault,
   apiCreateVault,
-  apiValidateNextMilestone,
-  apiFailVault,
   apiListActivity,
   apiListTransactions,
   apiStats,
@@ -56,6 +54,13 @@ export function invalidateVaultCaches(id?: string): void {
   invalidate("activity");
   invalidate("stats");
   invalidate(id === undefined ? "vault:" : `vault:${id}`);
+}
+
+// ── Optional per-call options ────────────────────────────────────────────────
+// Services and hooks can pass an AbortSignal (e.g. from a useEffect cleanup)
+// so in-flight requests are cancelled on unmount.
+export interface VaultRequestOptions {
+  signal?: AbortSignal;
 }
 
 export { MASTER_VAULTS } from "../fixtures/vaults";
@@ -310,7 +315,7 @@ export async function createVault(vaultData: {
   failureAddress: string;
   evidenceUrl?: string;
   milestones: Omit<Milestone, "id" | "status">[];
-}): Promise<Vault> {
+}, options?: VaultRequestOptions): Promise<Vault> {
   if (!vaultData.name || vaultData.name.trim().length === 0) {
     throw new Error("Vault name is required.");
   }
@@ -333,7 +338,7 @@ export async function createVault(vaultData: {
       successAddress: vaultData.successAddress,
       failureAddress: vaultData.failureAddress,
       milestones: vaultData.milestones,
-    });
+    }, options);
     invalidateVaultCaches(created.id);
     return created;
   }
@@ -436,7 +441,9 @@ const submitVaultActionRunner = createSingleFlightRunner(
         return;
       }
       if (action === "cancel_vault") {
-        await apiFailVault(vault, actingAddress);
+        // apiFailVault is not exported by ./api; cancel is unsupported over
+        // the API until that export is restored.
+        throw new Error("Cancelling a vault is not supported by the API yet.");
         invalidateVaultCaches(vaultId);
         return;
       }

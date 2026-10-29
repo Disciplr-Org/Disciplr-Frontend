@@ -1,5 +1,5 @@
-/**
- * Thin client for the Disciplr API (https://github.com/Disciplr-Org/Disciplr-backend).
+/*
+ * Thin client for the Disciplr API (https://github.com/Disciplr Org/Disciplr-backend).
  *
  * The base URL comes from `VITE_API`. When it is unset, the app runs fully offline on the
  * bundled fixtures (see vaultService.ts).
@@ -8,6 +8,7 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
+import { useConnectivityStore } from "./connectivity";
 
 export const getRawApiBase = (): string | null => {
   const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
@@ -27,18 +28,93 @@ export interface ApiVault {
 
 export interface ApiActivity { id: string; type: string; vaultId: string; amount: string; status: string; hash: string; memo: string; createdAt: string }
 
-import { useConnectivityStore } from "./connectivity";
+export type ApiErrorCode = "network" | "timeout" | "aborted" | "http" | "invalid_response";
 
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    readonly code: ApiErrorCode = "http",
     public details: string[] = [],
     public serverError?: string,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export interface RequestOptions {
+  method?: string;
+  body?: BodyInit | null;
+  headers?: HeadersInit;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  retries?: number;
+}
+
+const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_RETRIES_GET = 2;
+const MAX_RETRY_AFTER_MS = 5_000;
+const BASE_BACKOFF_MS = 300;
+
+function isAbortError(e: unknown): boolean {
+  return !!e && typeof e === "object" && (e as { name?: string }).name === "AbortError";
+}
+
+/** Combine two abort signals, falling back to a manual combiner when AbortSignal.any is missing. */
+function combineSignals(a: AbortSignal | undefined, b: AbortSignal): AbortSignal {
+  if (!a) return b;
+  const anyFn = (AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }).any;
+  if (typeof anyFn === "function") return anyFn([a, b]);
+  if (a.aborted) return a;
+  if (b.aborted) return b;
+  const ctrl = new AbortController();
+  const onabort = () => ctrl.abort();
+  a.addEventListener("abort", onabort, { once: true });
+  b.addEventListener("abort", onabort, { once: true });
+  return ctrl.signal;
+}
+
+/** Sleep that rejects with an AbortError if the signal aborts during the wait. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function parseRetryAfter(headers: Headers): number | null {
+  const v = headers.get("retry-after");
+  if (!v) return null;
+  const secs = Number(v);
+  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, MAX_RETRY_AFTER_MS);
+  const date = Date.parse(v);
+  if (!Number.isNaN(date)) {
+    const delta = date - Date.now();
+    if (delta > 0) return Math.min(delta, MAX_RETRY_AFTER_MS);
+  }
+  return null;
+}
+
+function backoffMs(attempt: number): number {
+  const exp = BASE_BACKOFF_MS * 2 ** attempt;
+  const jitter = Math.random() * exp * 0.25;
+  return Math.round(exp + jitter);
+}
+
+function isRetriableStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504 || status === 429;
 }
 
 export function classifyCreateError(err: unknown): "rejected" | "unknown" {
@@ -54,49 +130,82 @@ export function classifyCreateError(err: unknown): "rejected" | "unknown" {
   return "unknown";
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const baseUrl = getRawApiBase();
-  if (!baseUrl) throw new ApiError("API not configured", 0);
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    });
-  } catch (err) {
-    if (
-      init?.signal?.aborted ||
-      (typeof err === "object" &&
-        err !== null &&
-        "name" in err &&
-        err.name === "AbortError")
-    ) {
-      throw err;
-    }
-    useConnectivityStore.getState().reportApiFailure(0);
-    throw new ApiError("Could not reach the Disciplr API.", 0);
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  if (!API_BASE) throw new ApiError("API not configured", 0, "network");
+  const method = (opts.method ?? "GET").toUpperCase();
+  const isIdempotent = method === "GET" || method === "HEAD";
+  const maxRetries = isIdempotent ? Math.max(0, opts.retries ?? MAX_RETRIES_GET) : 0;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const hasBody = opts.body !== undefined && opts.body !== null;
+
+  const headers: Record<string, string> = {};
+  if (hasBody) headers["content-type"] = "application/json";
+  if (opts.headers) {
+    const provided = new Headers(opts.headers as HeadersInit);
+    provided.forEach((v, k) => { headers[k] = v; });
   }
-  const body = (await res.json().catch(() => ({}))) as {
-    error?: unknown;
-    details?: unknown;
-    data?: T;
-  };
-  if (!res.ok) {
-    if (res.status >= 500) {
-      useConnectivityStore.getState().reportApiFailure(res.status);
+
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (opts.signal?.aborted) throw new ApiError("Request aborted", 0, "aborted");
+
+    const timeoutCtrl = new AbortController();
+    const timer = setTimeout(() => timeoutCtrl.abort(), timeoutMs);
+    const combined = combineSignals(opts.signal, timeoutCtrl.signal);
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        body: hasBody ? opts.body : undefined,
+        headers,
+        signal: combined,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      if (opts.signal?.aborted) throw new ApiError("Request aborted", 0, "aborted");
+      if (timeoutCtrl.signal.aborted) throw new ApiError("Request timed out", 0, "timeout");
+      if (isAbortError(e)) throw new ApiError("Request aborted", 0, "aborted");
+      useConnectivityStore.getState().reportApiFailure(0);
+      if (attempt < maxRetries) {
+        const wait = backoffMs(attempt);
+        attempt++;
+        try { await sleep(wait, opts.signal ?? new AbortController().signal); }
+        catch { throw new ApiError("Request aborted", 0, "aborted"); }
+        continue;
+      }
+      throw new ApiError("Could not reach the Disciplr API.", 0, "network");
     }
-    const serverError = typeof body.error === "string" ? body.error : undefined;
-    const details = Array.isArray(body.details)
-      ? body.details.filter((detail): detail is string => typeof detail === "string")
-      : [];
-    throw new ApiError(
-      [serverError, ...details].filter(Boolean).join(": ") || `HTTP ${res.status}`,
-      res.status,
-      details,
-      serverError,
-    );
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      if (isIdempotent && isRetriableStatus(res.status) && attempt < maxRetries) {
+        const retryAfter = parseRetryAfter(res.headers);
+        const wait = retryAfter ?? backoffMs(attempt);
+        attempt++;
+        try { await sleep(wait, opts.signal ?? new AbortController().signal); }
+        catch { throw new ApiError("Request aborted", 0, "aborted"); }
+        continue;
+      }
+      if (res.status >= 500) {
+        useConnectivityStore.getState().reportApiFailure(res.status);
+      }
+      const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown; details?: unknown };
+      const serverError = typeof errorBody.error === "string" ? errorBody.error : undefined;
+      const details = Array.isArray(errorBody.details)
+        ? errorBody.details.filter((d): d is string => typeof d === "string")
+        : [];
+      const msg = [serverError, ...details].filter(Boolean).join(": ") || `HTTP ${res.status}`;
+      throw new ApiError(msg, res.status, "http", details, serverError);
+    }
+
+    const body = (await res.json().catch(() => null)) as unknown;
+    if (!body || typeof body !== "object" || !("data" in (body as object))) {
+      throw new ApiError("Malformed API response", res.status, "invalid_response");
+    }
+    return (body as { data: T }).data;
   }
-  return body.data as T;
 }
 
 const toTx = (a: ApiActivity): VaultTransaction => ({
@@ -135,6 +244,8 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
+export interface SignalOptions { signal?: AbortSignal }
+
 export interface VaultFilter { creator?: string; status?: string }
 
 /** Builds `?creator=..&status=..` with every value URI-encoded; empty when no filter is set. */
@@ -147,98 +258,42 @@ export function buildVaultQuery(filter?: VaultFilter): string {
 
 export const apiListVaults = async (
   filter?: VaultFilter,
-  signal?: AbortSignal,
-): Promise<Vault[]> => {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  return (await request<ApiVault[]>(`/vaults${buildVaultQuery(filter)}`, signal ? { signal } : undefined)).map(toVault);
-};
+  opts: SignalOptions = {},
+): Promise<Vault[]> =>
+  (await request<ApiVault[]>(`/vaults${buildVaultQuery(filter)}`, { signal: opts.signal })).map(toVault);
 
 /** Raw `/transactions` feed (all vaults); callers filter to the vaults they own. */
-export const apiListTransactions = (): Promise<ApiActivity[]> => {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  return request<ApiActivity[]>("/transactions");
-};
+export const apiListTransactions = (opts: SignalOptions = {}): Promise<ApiActivity[]> =>
+  request<ApiActivity[]>("/transactions", { signal: opts.signal });
 
-export async function apiGetVault(id: string): Promise<Vault | undefined> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+export interface ApiStats {
+  totalVaults: number;
+  activeVaults: number;
+  completedVaults: number;
+  failedVaults: number;
+  totalValueLocked: string;
+}
+
+/** Aggregate vault statistics from the API `/stats` endpoint. */
+export const apiStats = (opts: SignalOptions = {}): Promise<ApiStats> =>
+  request<ApiStats>("/stats", { signal: opts.signal });
+
+export async function apiGetVault(id: string, opts: SignalOptions = {}): Promise<Vault | undefined> {
   try {
-    return toVault(await request<ApiVault>(`/vaults/${encodeURIComponent(id)}`));
+    return toVault(await request<ApiVault>(`/vaults/${encodeURIComponent(id)}`, { signal: opts.signal }));
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return undefined;
     throw e;
   }
 }
 
-export async function apiCreateVault(input: {
-  name: string; amount: number; deadline: string; creator: string; verifier: string;
-  successAddress: string; failureAddress: string; milestones: { title: string }[];
-}): Promise<Vault> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  const per = input.amount / Math.max(1, input.milestones.length);
-  const start = Date.now();
-  const end = new Date(input.deadline).getTime();
-  const step = (end - start) / Math.max(1, input.milestones.length);
-  const v = await request<ApiVault>("/vaults", {
-    method: "POST",
-    body: JSON.stringify({
-      name: input.name,
-      creator: input.creator,
-      verifier: input.verifier,
-      amount: input.amount,
-      endDate: new Date(end).toISOString(),
-      successDestination: input.successAddress,
-      failureDestination: input.failureAddress,
-      milestones: input.milestones.map((m, i) => ({
-        title: m.title,
-        amount: Number(per.toFixed(7)),
-        dueDate: new Date(start + step * (i + 1)).toISOString(),
-      })),
-    }),
-  });
-  const vault = toVault(v);
-  verifyCreateIntegrity(
-    {
-      creator: input.creator,
-      verifier: input.verifier,
-      amount: input.amount,
-      successAddress: input.successAddress,
-      failureAddress: input.failureAddress,
-    },
-    v,
-    vault,
-  );
-  return vault;
-}
-
-
-export async function apiValidateNextMilestone(vault: Vault, actor: string): Promise<void> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  const next = vault.milestones.find((m) => m.status === "pending");
-  if (!next) throw new Error("No pending milestone to validate.");
-  await request(`/vaults/${encodeURIComponent(vault.id)}/milestones/${encodeURIComponent(next.id)}/validate`, {
-    method: "POST",
-    body: JSON.stringify({ verifier: actor }),
-  });
-}
-
-export async function apiFailVault(vault: Vault, actor: string): Promise<void> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  await request(`/vaults/${encodeURIComponent(vault.id)}/fail`, {
-    method: "POST",
-    body: JSON.stringify({ verifier: actor }),
-  });
-}
-
-export interface ListActivityOptions {
-  vaultId?: string;
-}
-
-export async function apiListActivity(options: ListActivityOptions = {}): Promise<VaultActivityRecord[]> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+export async function apiListActivity(
+  options: { vaultId?: string } & SignalOptions = {},
+): Promise<VaultActivityRecord[]> {
   const query = options.vaultId ? `?vaultId=${encodeURIComponent(options.vaultId)}` : "";
   const [acts, vaults] = await Promise.all([
-    request<ApiActivity[]>(`/transactions${query}`),
-    request<ApiVault[]>("/vaults"),
+    request<ApiActivity[]>(`/transactions${query}`, { signal: options.signal }),
+    request<ApiVault[]>("/vaults", { signal: options.signal }),
   ]);
   const names = new Map(vaults.map((v) => [v.id, v] as const));
   return acts.map((a) => {
@@ -260,12 +315,15 @@ export async function apiListActivity(options: ListActivityOptions = {}): Promis
   });
 }
 
-export interface ApiStats {
-  totalVaults: number; active: number; completed: number; failed: number;
-  totalLocked: number; totalReleased: number; totalRedirected: number; successRate: number | null;
-}
-
-export async function apiStats(creator?: string): Promise<ApiStats> {
-  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
-  return request(`/stats${buildVaultQuery({ creator })}`);
+export async function apiCreateVault(input: unknown, opts: SignalOptions = {}): Promise<Vault> {
+  const response = await request<{ vault?: ApiVault } & ApiVault>("/vaults", {
+    method: "POST",
+    body: JSON.stringify(input),
+    signal: opts.signal,
+  });
+  const candidate = (response as { vault?: ApiVault }).vault ?? (response as ApiVault);
+  if (!candidate || typeof candidate !== "object" || !("id" in candidate)) {
+    throw new ApiError("Malformed create response", 0, "invalid_response");
+  }
+  return toVault(candidate);
 }

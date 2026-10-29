@@ -1,9 +1,8 @@
-import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import type { WalletNetwork } from '../context/WalletContext';
 import { Text } from './Text';
 import { SafeLink } from './SafeLink';
-import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
 import { truncateMiddle as truncateMiddleCanonical } from '../utils/truncate';
 import {
@@ -74,20 +73,6 @@ function formatTimestamp(timestamp?: string): string {
   }
 
   return formatDateTime(parsed);
-}
-
-function checkInvariants(outcome: FundReleaseOutcome, transaction?: SettlementTransaction): Error | null {
-  const hasTx = !!(transaction?.hash || transaction?.timestamp);
-
-  if ((outcome === 'released' || outcome === 'redirected') && !hasTx) {
-    return new Error(`Settlement transaction details are required for ${outcome} funds.`);
-  }
-
-  if (outcome === 'pending' && hasTx) {
-    return new Error(`Pending settlement cannot have transaction details.`);
-  }
-
-  return null;
 }
 
 const OUTCOME_COPY = {
