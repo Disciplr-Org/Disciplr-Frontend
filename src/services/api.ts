@@ -266,6 +266,18 @@ export const apiListVaults = async (
 export const apiListTransactions = (opts: SignalOptions = {}): Promise<ApiActivity[]> =>
   request<ApiActivity[]>("/transactions", { signal: opts.signal });
 
+export interface ApiStats {
+  totalVaults: number;
+  activeVaults: number;
+  completedVaults: number;
+  failedVaults: number;
+  totalValueLocked: string;
+}
+
+/** Aggregate vault statistics from the API `/stats` endpoint. */
+export const apiStats = (opts: SignalOptions = {}): Promise<ApiStats> =>
+  request<ApiStats>("/stats", { signal: opts.signal });
+
 export async function apiGetVault(id: string, opts: SignalOptions = {}): Promise<Vault | undefined> {
   try {
     return toVault(await request<ApiVault>(`/vaults/${encodeURIComponent(id)}`, { signal: opts.signal }));
@@ -310,40 +322,8 @@ export async function apiCreateVault(input: unknown, opts: SignalOptions = {}): 
     signal: opts.signal,
   });
   const candidate = (response as { vault?: ApiVault }).vault ?? (response as ApiVault);
+  if (!candidate || typeof candidate !== "object" || !("id" in candidate)) {
+    throw new ApiError("Malformed create response", 0, "invalid_response");
+  }
   return toVault(candidate);
-}
-
-/**
- * Validate the next pending milestone of a vault.
- * Sends a POST to `/vaults/:id/milestones/next/validate`; not retried since it is not idempotent.
- */
-export async function apiValidateNextMilestone(id: string, opts: SignalOptions = {}): Promise<Vault> {
-  const response = await request<ApiVault>(`/vaults/${encodeURIComponent(id)}/milestones/next/validate`, {
-    method: "POST",
-    body: JSON.stringify({}),
-    signal: opts.signal,
-  });
-  return toVault(response);
-}
-
-/**
- * Mark a vault as failed.
- * Sends a POST to `/vaults/:id/fail`; not retried since it is not idempotent.
- */
-export async function apiFailVault(id: string, opts: SignalOptions = {}): Promise<Vault> {
-  const response = await request<ApiVault>(`/vaults/${encodeURIComponent(id)}/fail`, {
-    method: "POST",
-    body: JSON.stringify({}),
-    signal: opts.signal,
-  });
-  return toVault(response);
-}
-
-export interface ApiStats {
-  totalVaults: number; active: number; completed: number; failed: number;
-  totalLocked: number; totalReleased: number; totalRedirected: number; successRate: number | null;
-}
-
-export async function apiStats(creator?: string, opts: SignalOptions = {}): Promise<ApiStats> {
-  return request(`/stats${buildVaultQuery({ creator })}`, { signal: opts.signal });
 }

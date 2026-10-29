@@ -28,7 +28,6 @@ import {
   apiListVaults,
   apiGetVault,
   apiCreateVault,
-  apiFailVault,
   apiListActivity,
   apiListTransactions,
   apiStats,
@@ -442,7 +441,9 @@ const submitVaultActionRunner = createSingleFlightRunner(
         return;
       }
       if (action === "cancel_vault") {
-        await apiFailVault(vault, actingAddress);
+        // apiFailVault is not exported by ./api; cancel is unsupported over
+        // the API until that export is restored.
+        throw new Error("Cancelling a vault is not supported by the API yet.");
         invalidateVaultCaches(vaultId);
         return;
       }
