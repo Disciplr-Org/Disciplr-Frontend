@@ -1,10 +1,12 @@
 /**
  * queryCache.ts
  *
- * Small in-memory query cache for the service layer. Dedupes concurrent
- * requests per key, serves fresh data instantly, revalidates stale data in the
- * background (stale-while-revalidate) and evicts entries older than `maxAgeMs`.
- * Errors are never cached. Backed by a Map so keys like "__proto__" are safe.
+ * Small bounded in-memory LRU query cache for the service layer. Dedupes
+ * concurrent requests per key, serves fresh data instantly, revalidates stale
+ * data in the background (stale-while-revalidate), evicts entries older than
+ * `maxAgeMs`, and evicts least-recently-used non-in-flight entries when the
+ * entry cap is exceeded. Errors are never cached. Backed by a Map so keys like
+ * "__proto__" are safe.
  */
 
 export interface CacheOptions {
@@ -23,11 +25,42 @@ interface Entry {
 
 const DEFAULT_STALE_MS = 15_000;
 const DEFAULT_MAX_AGE_MS = 5 * 60_000;
+export const DEFAULT_MAX_ENTRIES = 200;
+
+let maxEntries = DEFAULT_MAX_ENTRIES;
 
 const entries = new Map<string, Entry>();
 const inflight = new Map<string, Promise<unknown>>();
 const generations = new Map<string, number>();
 const listeners = new Map<string, Set<() => void>>();
+
+function touch(key: string, entry: Entry): void {
+  entries.delete(key);
+  entries.set(key, entry);
+}
+
+function evictOverflow(): void {
+  if (entries.size <= maxEntries) return;
+  for (const key of entries.keys()) {
+    if (entries.size <= maxEntries) break;
+    if (inflight.has(key)) continue;
+    entries.delete(key);
+  }
+}
+
+function setEntry(key: string, entry: Entry): void {
+  touch(key, entry);
+  evictOverflow();
+}
+
+/** Configure the maximum number of cached entries (primarily for tests). */
+export function setMaxEntries(cap: number): void {
+  if (!Number.isFinite(cap) || cap < 1) {
+    throw new RangeError("maxEntries must be a positive finite number");
+  }
+  maxEntries = Math.floor(cap);
+  evictOverflow();
+}
 
 function generationOf(key: string): number {
   return generations.get(key) ?? 0;
@@ -46,13 +79,16 @@ function load<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
     .then((data) => {
       // Skip storing if the key was invalidated while the request was in flight.
       if (generationOf(key) === gen) {
-        entries.set(key, { data, at: Date.now() });
+        setEntry(key, { data, at: Date.now() });
         notify(key);
       }
       return data;
     })
     .finally(() => {
-      if (inflight.get(key) === promise) inflight.delete(key);
+      if (inflight.get(key) === promise) {
+        inflight.delete(key);
+        evictOverflow();
+      }
     });
   inflight.set(key, promise);
   return promise;
@@ -74,8 +110,12 @@ export function cached<T>(
   const entry = entries.get(key);
   if (entry) {
     const age = Date.now() - entry.at;
-    if (age < staleMs) return Promise.resolve(entry.data as T);
+    if (age < staleMs) {
+      touch(key, entry);
+      return Promise.resolve(entry.data as T);
+    }
     if (age < maxAgeMs) {
+      touch(key, entry);
       // Stale-while-revalidate: return old data, refresh in background.
       load(key, fetcher).catch(() => undefined);
       return Promise.resolve(entry.data as T);

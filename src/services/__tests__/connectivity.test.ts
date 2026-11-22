@@ -26,6 +26,7 @@ describe('Connectivity Monitor & Store', () => {
     expect(state.status).toBe('online');
     expect(state.probeInProgress).toBe(false);
     expect(state.lastHealthyAt).toBeNull();
+    expect(state.degradedSince).toBeNull();
   });
 
   it('transitions to api-down on reportApiFailure(0) or reportApiFailure(503)', () => {
@@ -95,6 +96,37 @@ describe('Connectivity Monitor & Store', () => {
 
     await vi.advanceTimersByTimeAsync(60000);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sets degradedSince on the first transition to api-down', () => {
+    const t0 = Date.now();
+    useConnectivityStore.getState().reportApiFailure(500);
+    const { degradedSince } = useConnectivityStore.getState();
+    expect(degradedSince).not.toBeNull();
+    expect(degradedSince).toBeGreaterThanOrEqual(t0);
+  });
+
+  it('does not reset degradedSince on repeated failures', () => {
+    useConnectivityStore.getState().reportApiFailure(500);
+    const first = useConnectivityStore.getState().degradedSince;
+
+    vi.advanceTimersByTime(60_000);
+    useConnectivityStore.getState().reportApiFailure(503);
+    const second = useConnectivityStore.getState().degradedSince;
+
+    expect(second).toBe(first);
+  });
+
+  it('clears degradedSince on recovery', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) });
+    global.fetch = fetchMock;
+
+    useConnectivityStore.getState().reportApiFailure(500);
+    expect(useConnectivityStore.getState().degradedSince).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(useConnectivityStore.getState().status).toBe('online');
+    expect(useConnectivityStore.getState().degradedSince).toBeNull();
   });
 
   it('retryNow triggers immediate health probe and resets delay', async () => {

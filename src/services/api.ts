@@ -9,6 +9,7 @@ import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
 import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
+import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
 import { logger } from "../utils/logger";
 import { useConnectivityStore } from "./connectivity";
 
