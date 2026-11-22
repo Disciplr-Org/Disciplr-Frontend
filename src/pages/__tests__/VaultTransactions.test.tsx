@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import VaultTransactions from '../VaultTransactions';
 import * as vaultService from '../../services/vaultService';
+import { DEFAULT_VALIDATION_HISTORY_PAGE_SIZE } from '../../utils/pageSizePref';
 import type { Vault, VaultTransaction } from '../../types/vault';
 
 vi.mock('../../context/WalletContext', () => ({
@@ -55,14 +56,25 @@ const mockTransactions: VaultTransaction[] = [
   },
 ];
 
-function renderVaultTransactions(vaultId = '1') {
+function renderVaultTransactions(vaultId = '1', path?: string) {
   return render(
-    <MemoryRouter initialEntries={[`/vaults/${vaultId}/transactions`]}>
+    <MemoryRouter initialEntries={[path ?? `/vaults/${vaultId}/transactions`]}>
       <Routes>
         <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
       </Routes>
     </MemoryRouter>
   );
+}
+
+/** Build a deterministic list of transactions, newest (tx-N) to oldest (tx-1). */
+function makeTransactions(count: number): VaultTransaction[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `tx-${index + 1}`,
+    type: 'create' as const,
+    hash: `0x${String(index + 1).padStart(32, '0')}`,
+    timestamp: new Date(Date.UTC(2026, 0, index + 1, 10, 0, 0)).toISOString(),
+    amount: 100 * (index + 1),
+  }));
 }
 
 describe('VaultTransactions Page', () => {
@@ -151,5 +163,92 @@ describe('VaultTransactions Page', () => {
     fireEvent.click(sortButton);
     const reSortedTxElements = screen.getAllByTestId(/^vault-tx-/);
     expect(reSortedTxElements[0]).toHaveAttribute('data-testid', 'vault-tx-tx-3');
+  });
+});
+
+describe('VaultTransactions pagination', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Force the default page size so page maths are deterministic.
+    window.localStorage.clear();
+  });
+
+  async function renderWithTransactions(count: number, path?: string) {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(makeTransactions(count));
+
+    renderVaultTransactions('1', path);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Alpha Vault Transactions'
+      );
+    });
+  }
+
+  it('renders only the first page of rows and announces the page indicator', async () => {
+    await renderWithTransactions(25);
+
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+    // Newest-first: tx-25 down to tx-16 on page 1.
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-25');
+    expect(rows[rows.length - 1]).toHaveAttribute('data-testid', 'vault-tx-tx-16');
+
+    const indicator = screen.getByText('Page 1 of 3');
+    expect(indicator).toBeInTheDocument();
+    expect(indicator).toHaveAttribute('aria-live', 'polite');
+
+    expect(screen.getByLabelText('Vault transaction pagination')).toBeInTheDocument();
+  });
+
+  it('shows the remaining rows on the last page', async () => {
+    await renderWithTransactions(25);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to page 3' }));
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-5');
+    expect(rows[4]).toHaveAttribute('data-testid', 'vault-tx-tx-1');
+  });
+
+  it('clamps an out-of-range page param to the last page', async () => {
+    await renderWithTransactions(25, '/vaults/1/transactions?page=9');
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^vault-tx-/)).toHaveLength(5);
+  });
+
+  it('hides pagination when the list fits on a single page', async () => {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(mockTransactions);
+
+    renderVaultTransactions('1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Alpha Vault Transactions'
+      );
+    });
+
+    expect(screen.getAllByTestId(/^vault-tx-/)).toHaveLength(3);
+    expect(screen.queryByLabelText('Vault transaction pagination')).not.toBeInTheDocument();
+  });
+
+  it('returns to the first page when the sort order is toggled', async () => {
+    await renderWithTransactions(25, '/vaults/1/transactions?page=3');
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Toggle sort order/i }));
+
+    expect(screen.getByText(/Sort: Oldest first/i)).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+    // Oldest-first after the toggle: tx-1 is now the first row.
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-1');
   });
 });

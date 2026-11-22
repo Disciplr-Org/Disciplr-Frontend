@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { Text } from "../components/Text";
 import Skeleton from "../components/Skeleton";
 import Breadcrumb from "../components/Breadcrumb";
+import { Pagination } from "../components/Pagination";
 import { useWallet } from "../context/WalletContext";
 import { getVault, getTransactions } from "../services/vaultService";
 import { isValidVaultRouteId } from "../utils/vaultState";
 import { getExplorerTxUrl } from "../utils/explorer";
 import { truncateMiddle } from "../utils/truncate";
+import { paginate } from "../utils/paginate";
+import { readValidationHistoryPageSize } from "../utils/pageSizePref";
 import type { Vault, VaultTransaction } from "../types/vault";
 import { InvalidIdView, NotFoundView } from "./VaultDetail";
 
@@ -28,9 +31,19 @@ function fmtDateTime(iso: string): string {
   });
 }
 
+/** Parse the `?page=` search param into a positive integer (default 1). */
+function parsePageParam(value: string | null): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
 export default function VaultTransactions() {
   const { id } = useParams<{ id: string }>();
   const { network } = useWallet();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Page lives in the URL so it survives refreshes and back/forward.
+  const page = parsePageParam(searchParams.get("page"));
 
   const [loading, setLoading] = useState(true);
   const [vault, setVault] = useState<Vault | null>(null);
@@ -38,6 +51,7 @@ export default function VaultTransactions() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [pageSize] = useState(() => readValidationHistoryPageSize());
 
   const isValidId = isValidVaultRouteId(id);
 
@@ -87,6 +101,35 @@ export default function VaultTransactions() {
       return sortOrder === "desc" ? diff : -diff;
     });
   }, [transactions, sortOrder]);
+
+  const pagination = useMemo(
+    () => paginate(sortedTransactions, page, pageSize),
+    [sortedTransactions, page, pageSize],
+  );
+
+  const goToPage = useCallback(
+    (nextPage: number) => {
+      const next = new URLSearchParams(searchParams);
+      if (nextPage > 1) next.set("page", String(nextPage));
+      else next.delete("page");
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Keep ?page within range when the list shrinks or the sort order changes.
+  // Guard on a non-empty list so the clamp does not fire while data is loading
+  // (an empty list would otherwise reset a deep-linked page back to 1).
+  useEffect(() => {
+    if (sortedTransactions.length > 0 && page > pagination.currentPage) {
+      goToPage(pagination.currentPage);
+    }
+  }, [sortedTransactions.length, page, pagination.currentPage, goToPage]);
+
+  const handleToggleSort = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+    goToPage(1);
+  };
 
   if (!isValidId) {
     return <InvalidIdView id={id ?? ""} />;
@@ -158,7 +201,7 @@ export default function VaultTransactions() {
 
           <button
             type="button"
-            onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+            onClick={handleToggleSort}
             aria-label="Toggle sort order"
             style={{
               background: "transparent",
@@ -197,16 +240,17 @@ export default function VaultTransactions() {
           </Text>
         </div>
       ) : (
-        <div
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-            padding: "1.25rem",
-          }}
-        >
+        <>
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "1.25rem",
+            }}
+          >
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {sortedTransactions.map((tx) => (
+            {pagination.items.map((tx) => (
               <div
                 key={tx.id}
                 data-testid={`vault-tx-${tx.id}`}
@@ -290,7 +334,18 @@ export default function VaultTransactions() {
               </div>
             ))}
           </div>
-        </div>
+          </div>
+
+          {pagination.pageCount > 1 && (
+            <div style={{ marginTop: 24 }}>
+              <Pagination
+                pagination={pagination}
+                onPageChange={goToPage}
+                ariaLabel="Vault transaction pagination"
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
