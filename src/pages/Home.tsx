@@ -8,10 +8,11 @@ import { useWallet } from '../context/WalletContext'
 /**
  * Home page invariants:
  * - The page is a pure presentational component: it must never throw during render,
- *   regardless of auth / wallet state. All navigation links are static and
- *   deterministic.
- * - The hero must always expose exactly one H1 and one primary CTA targeting
- *   /vaults/create so the entry point is discoverable and accessible.
+ *   regardless of auth / wallet state. All navigation links are deterministic.
+ * - The hero must always expose exactly one H1 and one primary CTA:
+ *   - When connected (including demo mode), the primary CTA links to /vaults/create.
+ *   - When disconnected, the primary CTA triggers the connect flow (and no link to
+ *     /vaults/create is shown as the primary CTA).
  * - Wallet connection failures are isolated to the WalletConnectButton and
  *   must not cascade into the rest of the page.
  */
@@ -47,8 +48,9 @@ const TRUST_SIGNALS = [
 ] as const
 
 export default function Home() {
-  const { connectDemo } = useWallet()
+  const { address, status, isDemo, connectDemo } = useWallet()
   const navigate = useNavigate()
+  const isConnected = Boolean(address) || status === 'connected' || Boolean(isDemo)
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'var(--spacing-4)' }}>
@@ -64,19 +66,23 @@ export default function Home() {
           Time‑locked capital vaults on Stellar that release on validation or redirect on failure.
         </Text>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-4)', flexWrap: 'wrap', marginBottom: 'var(--spacing-4)' }}>
-          <Link
-            to={PRIMARY_CTA_PATH}
-            style={{
-              backgroundColor: 'var(--accent)',
-              color: 'white',
-              padding: 'var(--spacing-2) var(--spacing-4)',
-              borderRadius: 'var(--radius)',
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
-            Create Your First Vault
-          </Link>
+          {isConnected ? (
+            <Link
+              to={PRIMARY_CTA_PATH}
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: 'white',
+                padding: 'var(--spacing-2) var(--spacing-4)',
+                borderRadius: 'var(--radius)',
+                textDecoration: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Create Your First Vault
+            </Link>
+          ) : (
+            <WalletConnectButton />
+          )}
           <button
             type="button"
             onClick={() => {
