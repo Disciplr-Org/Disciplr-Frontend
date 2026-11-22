@@ -1,12 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { cached, invalidate, subscribe, clearCache } from "../queryCache";
+import {
+  cached,
+  invalidate,
+  subscribe,
+  clearCache,
+  setMaxEntries,
+  DEFAULT_MAX_ENTRIES,
+} from "../queryCache";
 
 describe("queryCache", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    setMaxEntries(DEFAULT_MAX_ENTRIES);
     clearCache();
   });
   afterEach(() => {
+    setMaxEntries(DEFAULT_MAX_ENTRIES);
     vi.useRealTimers();
   });
 
@@ -85,5 +94,94 @@ describe("queryCache", () => {
   it("handles __proto__ keys safely", async () => {
     expect(await cached("vault:__proto__", async () => "p")).toBe("p");
     expect(({} as Record<string, unknown>).data).toBeUndefined();
+  });
+
+  it("evicts least recently used key when cap is exceeded and reads refresh recency", async () => {
+    setMaxEntries(3);
+    const fa = vi.fn().mockResolvedValue("A");
+    const fb = vi.fn().mockResolvedValue("B");
+    const fc = vi.fn().mockResolvedValue("C");
+    const fd = vi.fn().mockResolvedValue("D");
+
+    await cached("a", fa);
+    await cached("b", fb);
+    await cached("c", fc);
+
+    // Read "a" so "b" becomes the least recently used key.
+    expect(await cached("a", fa)).toBe("A");
+    expect(fa).toHaveBeenCalledTimes(1);
+
+    // Writing "d" exceeds cap 3 and should evict "b".
+    await cached("d", fd);
+
+    expect(await cached("a", fa)).toBe("A");
+    expect(await cached("c", fc)).toBe("C");
+    expect(await cached("d", fd)).toBe("D");
+    expect(fa).toHaveBeenCalledTimes(1);
+    expect(fc).toHaveBeenCalledTimes(1);
+    expect(fd).toHaveBeenCalledTimes(1);
+
+    // "b" was evicted, so reading it triggers a new fetch.
+    expect(await cached("b", fb)).toBe("B");
+    expect(fb).toHaveBeenCalledTimes(2);
+  });
+
+  it("never evicts an in-flight key when cap is exceeded", async () => {
+    setMaxEntries(3);
+    const fa = vi.fn().mockResolvedValue("A1");
+    const fb = vi.fn().mockResolvedValue("B1");
+    const fc = vi.fn().mockResolvedValue("C1");
+    const fd = vi.fn().mockResolvedValue("D1");
+
+    await cached("a", fa);
+    await cached("b", fb);
+    await cached("c", fc);
+
+    // Start an in-flight force refresh on the oldest key "a".
+    let resolveA2!: (v: string) => void;
+    const inflightA = cached(
+      "a",
+      () =>
+        new Promise<string>((resolve) => {
+          resolveA2 = resolve;
+        }),
+      { force: true },
+    );
+
+    // Insert "d" while "a" is in-flight: "a" must not be evicted, so "b" is evicted.
+    await cached("d", fd);
+
+    // "b" should have been evicted.
+    await cached("b", fb);
+    expect(fb).toHaveBeenCalledTimes(2);
+
+    // "a" is still in-flight and resolves cleanly without being dropped.
+    resolveA2("A2");
+    expect(await inflightA).toBe("A2");
+    expect(await cached("a", fa)).toBe("A2");
+    expect(fa).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates setMaxEntries and trims existing overflow", async () => {
+    expect(() => setMaxEntries(0)).toThrow(RangeError);
+    expect(() => setMaxEntries(-5)).toThrow(RangeError);
+    expect(() => setMaxEntries(Number.NaN)).toThrow(RangeError);
+
+    const fa = vi.fn().mockResolvedValue("A");
+    const fb = vi.fn().mockResolvedValue("B");
+    const fc = vi.fn().mockResolvedValue("C");
+    await cached("a", fa);
+    await cached("b", fb);
+    await cached("c", fc);
+
+    setMaxEntries(2);
+    // "a" (oldest) should be trimmed immediately.
+    await cached("b", fb);
+    await cached("c", fc);
+    expect(fb).toHaveBeenCalledTimes(1);
+    expect(fc).toHaveBeenCalledTimes(1);
+
+    await cached("a", fa);
+    expect(fa).toHaveBeenCalledTimes(2);
   });
 });
