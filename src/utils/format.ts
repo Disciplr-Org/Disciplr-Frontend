@@ -6,6 +6,7 @@
  */
 
 let testLocaleOverride: string | null = null;
+let appLocale: string | null = null;
 
 /**
  * Override the locale used by formatting utilities (primarily for unit tests).
@@ -16,14 +17,26 @@ export function setTestLocale(locale: string | null): void {
 }
 
 /**
+ * Set the active application locale (synced by LocaleProvider).
+ * Pass `null` to fall back to runtime detection.
+ */
+export function setFormatLocale(locale: string | null): void {
+  appLocale = locale;
+}
+
+/**
  * Returns the current active locale:
  * 1. Test override if set via `setTestLocale()`.
- * 2. `navigator.languages[0]` or `navigator.language` if available in the runtime environment.
- * 3. Fallback to 'en'.
+ * 2. Application locale if set via `setFormatLocale()`.
+ * 3. `navigator.languages[0]` or `navigator.language` if available in the runtime environment.
+ * 4. Fallback to 'en'.
  */
 export function getLocale(): string {
   if (testLocaleOverride) {
     return testLocaleOverride;
+  }
+  if (appLocale) {
+    return appLocale;
   }
   if (typeof navigator !== 'undefined') {
     if (Array.isArray(navigator.languages) && navigator.languages.length > 0 && navigator.languages[0]) {

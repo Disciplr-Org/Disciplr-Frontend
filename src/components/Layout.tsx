@@ -14,6 +14,8 @@ import { ShortcutsHelp } from "./ShortcutsHelp";
 import ErrorBoundary from "./ErrorBoundary";
 import { ToastViewport } from "./ToastViewport";
 import ThemeToggle from "./ThemeToggle";
+import LanguageSelector from "./LanguageSelector";
+import { useT } from "../i18n";
 import CommandPalette from "./CommandPalette";
 import { useOptionalWallet } from "../context/WalletContext";
 import {
@@ -53,6 +55,7 @@ function isValidPathname(value: unknown): value is string {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const t = useT();
   const wallet = useOptionalWallet();
   const isDemo = wallet?.isDemo ?? false;
   const resetDemo = wallet?.resetDemo ?? (() => {});
@@ -250,7 +253,7 @@ export default function Layout({ children }: LayoutProps) {
           document.getElementById("main-content")?.focus()
         }}
       >
-        Skip to main content
+        {t("nav.skipToMain")}
       </a>
       <RouteAnnouncer />
       <div className="sr-only" aria-live="polite" role="status">
@@ -258,7 +261,7 @@ export default function Layout({ children }: LayoutProps) {
       </div>
       <header className="site-header">
         <div className="header-brand" {...backgroundAccessibilityProps}>
-          <Link to="/" className="header-link" aria-label="Disciplr home">
+          <Link to="/" className="header-link" aria-label={t("nav.brandAria")}>
             <Text role="title" as="span">
               Disciplr
             </Text>
@@ -266,9 +269,9 @@ export default function Layout({ children }: LayoutProps) {
           <NavLink
             to="/transactions"
             className="header-link"
-            ariaLabel="Transactions"
+            ariaLabel={t("nav.transactions")}
           >
-            <span className="header-transactions-label">Transactions</span>
+            <span className="header-transactions-label">{t("nav.transactions")}</span>
             <span
               aria-hidden="true"
               className="header-transactions-icon"
@@ -280,7 +283,7 @@ export default function Layout({ children }: LayoutProps) {
 
         <nav
           className="desktop-nav"
-          aria-label="Main navigation"
+          aria-label={t("nav.mainAria")}
           {...backgroundAccessibilityProps}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -290,13 +293,13 @@ export default function Layout({ children }: LayoutProps) {
               aria-current={location.pathname === "/" ? "page" : undefined}
             >
               <Text role="caption" as="span">
-                Home
+                {t("nav.home")}
               </Text>
             </NavLink>
 
             <NavLink to="/dashboard" className="header-link">
               <Text role="caption" as="span">
-                Dashboard
+                {t("nav.dashboard")}
               </Text>
             </NavLink>
 
@@ -314,13 +317,13 @@ export default function Layout({ children }: LayoutProps) {
               }
             >
               <Text role="caption" as="span">
-                Vaults
+                {t("nav.vaults")}
               </Text>
             </NavLink>
 
             <NavLink to="/verifier" className="header-link">
               <Text role="caption" as="span">
-                Verifier
+                {t("nav.verifier")}
               </Text>
             </NavLink>
 
@@ -332,13 +335,13 @@ export default function Layout({ children }: LayoutProps) {
               }
             >
               <Text role="caption" as="span">
-                Analytics
+                {t("nav.analytics")}
               </Text>
             </NavLink>
 
             <NavLink to="/docs" className="header-link">
               <Text role="caption" as="span">
-                Docs
+                {t("nav.docs")}
               </Text>
             </NavLink>
 
@@ -348,7 +351,7 @@ export default function Layout({ children }: LayoutProps) {
               aria-current={location.pathname.startsWith('/help') ? 'page' : undefined}
             >
               <Text role="caption" as="span">
-                Help
+                {t("nav.help")}
               </Text>
             </NavLink>
 
@@ -359,10 +362,11 @@ export default function Layout({ children }: LayoutProps) {
                 location.pathname === "/vaults/create" ? "page" : undefined
               }
             >
-              Create Vault
+              {t("nav.createVault")}
             </Link>
             <CommandPalette />
             <NotificationBell />
+            <LanguageSelector />
             <ThemeToggle />
             {isDemo && (
               <div className="demo-mode-chip desktop-demo-chip" role="status" aria-label="Demo mode">
@@ -390,7 +394,7 @@ export default function Layout({ children }: LayoutProps) {
         <button
           type="button"
           className="mobile-hamburger"
-          aria-label="Open navigation menu"
+          aria-label={t("nav.openMenu")}
           aria-controls="mobile-drawer"
           aria-expanded={effectiveDrawerIsOpen}
           disabled={hamburgerDisabled}
@@ -452,12 +456,12 @@ export default function Layout({ children }: LayoutProps) {
         }}
       >
         <a href="https://github.com/Disciplr-Org/Disciplr-Frontend" target="_blank" rel="noopener noreferrer">
-          GitHub
+          {t("footer.github")}
         </a>
         <a href="https://disciplr-frontend-alpha.vercel.app" target="_blank" rel="noopener noreferrer">
-          Live demo
+          {t("footer.liveDemo")}
         </a>
-        <Link to="/docs">Docs</Link>
+        <Link to="/docs">{t("footer.docs")}</Link>
       </footer>
       <ShortcutsHelp />
       <ToastViewport />

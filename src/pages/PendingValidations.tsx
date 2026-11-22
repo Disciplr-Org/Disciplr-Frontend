@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CountdownDeadline } from '../components/CountdownDeadline';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
@@ -9,6 +9,11 @@ import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
 import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
+import {
+  parsePendingQuery,
+  serializePendingQuery,
+  type PendingQueryState,
+} from '../utils/pendingQuery';
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
 
@@ -39,11 +44,19 @@ export default function PendingValidations() {
     [pendingValidations, validationHistory, now],
   );
 
-  // Filter and sort state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [sortKey, setSortKey] = useState<PendingSortKey>('deadline');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  // Filter and sort state synced with URL search params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryState = useMemo(() => parsePendingQuery(searchParams), [searchParams]);
+  const { q: searchQuery, milestone: selectedMilestone, sort: sortKey, dir: sortDir } = queryState;
+
+  const updateQueryParams = useCallback(
+    (updates: Partial<PendingQueryState>, replace = false) => {
+      const nextState = { ...queryState, ...updates };
+      const nextParams = serializePendingQuery(nextState);
+      setSearchParams(nextParams, { replace });
+    },
+    [queryState, setSearchParams],
+  );
 
   // Multi-select state for batch actions.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -74,14 +87,21 @@ export default function PendingValidations() {
   );
 
   // Keep selection in sync with the queue and reset it when the active filters change.
+  const prevFiltersRef = useRef({ searchQuery, selectedMilestone });
   useEffect(() => {
-    setSelectedIds((prev) => {
-      if (searchQuery || selectedMilestone) {
-        return prev.length === 0 ? prev : [];
-      }
+    const filtersChanged =
+      prevFiltersRef.current.searchQuery !== searchQuery ||
+      prevFiltersRef.current.selectedMilestone !== selectedMilestone;
+    prevFiltersRef.current = { searchQuery, selectedMilestone };
 
-      // Drop ids that no longer exist in the queue (stale selection after
-      // concurrent updates, batch completion, or external store mutations).
+    if (filtersChanged) {
+      setSelectedIds([]);
+      return;
+    }
+
+    // Drop ids that no longer exist in the queue (stale selection after
+    // concurrent updates, batch completion, or external store mutations).
+    setSelectedIds((prev) => {
       const next = prev.filter((id) => pendingValidations.some((t) => t.id === id));
       return next.length === prev.length ? prev : next;
     });
@@ -189,10 +209,9 @@ export default function PendingValidations() {
   const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const handleHeaderSort = (key: PendingSortKey) => {
     if (sortKey === key) {
-      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      updateQueryParams({ dir: sortDir === 'asc' ? 'desc' : 'asc' }, false);
     } else {
-      setSortKey(key);
-      setSortDir('asc');
+      updateQueryParams({ sort: key, dir: 'asc' }, false);
     }
   };
 
@@ -224,8 +243,11 @@ export default function PendingValidations() {
           <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
             Sort by
             <select
+              aria-label="Sort by"
               value={sortKey}
-              onChange={(event) => setSortKey(event.target.value as PendingSortKey)}
+              onChange={(event) =>
+                updateQueryParams({ sort: event.target.value as PendingSortKey }, false)
+              }
               className="px-3 py-2 border rounded text-sm"
               style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
             >
@@ -235,7 +257,9 @@ export default function PendingValidations() {
             </select>
           </label>
           <button
-            onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            onClick={() =>
+              updateQueryParams({ dir: sortDir === 'asc' ? 'desc' : 'asc' }, false)
+            }
             className="self-end px-4 py-2 border rounded text-sm font-medium transition"
             style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
           >
@@ -267,7 +291,7 @@ export default function PendingValidations() {
             type="search"
             aria-label="Search by Vault Name or Owner"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => updateQueryParams({ q: event.target.value }, true)}
             className="px-3 py-2 border rounded"
             placeholder="Search vaults or owners"
             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
@@ -278,7 +302,7 @@ export default function PendingValidations() {
           <select
             aria-label="Filter by Milestone"
             value={selectedMilestone}
-            onChange={(event) => setSelectedMilestone(event.target.value)}
+            onChange={(event) => updateQueryParams({ milestone: event.target.value }, true)}
             className="px-3 py-2 border rounded"
             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
           >
