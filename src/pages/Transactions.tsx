@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Text } from "../components/Text";
 import { listAllActivity, type VaultActivityRecord } from "../services/vaultService";
@@ -12,27 +12,41 @@ const LABEL: Record<VaultActivityRecord["type"], string> = {
   redirect: "Funds redirected",
 };
 
-/** Activity feed across all vaults. */
-export default function Transactions() {
+function useActivityLoader() {
   const [rows, setRows] = useState<VaultActivityRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
 
-  const load = () => {
+  const load = useCallback(() => {
+    const reqId = ++requestIdRef.current;
     setError(null);
     listAllActivity()
-      .then((r) => setRows([...r].sort((a, b) => +b.timestamp - +a.timestamp)))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Could not load activity."));
-  };
+      .then((r) => {
+        if (!mountedRef.current || reqId !== requestIdRef.current) return;
+        setRows([...r].sort((a, b) => +b.timestamp - +a.timestamp));
+      })
+      .catch((e: unknown) => {
+        if (!mountedRef.current || reqId !== requestIdRef.current) return;
+        setError(e instanceof Error ? e.message : "Could not load activity.");
+      });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    listAllActivity()
-      .then((r) => !cancelled && setRows([...r].sort((a, b) => +b.timestamp - +a.timestamp)))
-      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : "Could not load activity."));
+    mountedRef.current = true;
+    load();
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
+      requestIdRef.current += 1;
     };
-  }, []);
+  }, [load]);
+
+  return { rows, error, load };
+}
+
+/** Activity feed across all vaults. */
+export default function Transactions() {
+  const { rows, error, load } = useActivityLoader();
 
   useOnRecovered(load);
 
