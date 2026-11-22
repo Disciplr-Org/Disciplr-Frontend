@@ -57,6 +57,8 @@ export interface VaultTransaction {
   hash: string;
   timestamp: string;
   amount?: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
 }
 
 /** Full vault record — canonical shape used across all pages. */
@@ -65,6 +67,8 @@ export interface Vault {
   name: string;
   status: VaultStatus;
   amount: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
   currency: string;
   createdAt: string;
   deadline: string;

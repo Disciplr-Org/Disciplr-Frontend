@@ -8,6 +8,7 @@ import type { Vault, VaultTransaction, Milestone } from "../types/vault";
 import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
+import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
 
 export const getRawApiBase = (): string | null => {
   const raw = (import.meta.env?.VITE_API as string | undefined)?.trim();
@@ -35,10 +36,162 @@ export class ApiError extends Error {
     public status: number,
     public details: string[] = [],
     public serverError?: string,
+    public attempts: number = 1,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+export const DEFAULT_MAX_RETRIES = 2;
+export const DEFAULT_BASE_BACKOFF_MS = 300;
+export const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+
+export type SleepFn = (ms: number, signal?: AbortSignal) => Promise<void>;
+
+export interface FetchPolicyOptions {
+  timeoutMs?: number;
+  maxRetries?: number;
+  baseBackoffMs?: number;
+  sleep?: SleepFn;
+  random?: () => number;
+  fetchImpl?: typeof fetch;
+}
+
+export interface FetchPolicyResult {
+  response: Response;
+  attempts: number;
+}
+
+function createAbortError(signal?: AbortSignal): Error {
+  if (signal?.reason instanceof Error) {
+    return signal.reason;
+  }
+  const err = new Error("The operation was aborted.");
+  err.name = "AbortError";
+  return err;
+}
+
+function isAbortError(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as { name?: unknown }).name === "AbortError"
+  );
+}
+
+/**
+ * Computes jittered exponential backoff in milliseconds.
+ * Full-half jitter: [0.5 * base * 2^retryIndex, base * 2^retryIndex].
+ */
+export function computeBackoffMs(
+  retryIndex: number,
+  baseMs: number = DEFAULT_BASE_BACKOFF_MS,
+  random: () => number = Math.random,
+): number {
+  const exponential = baseMs * 2 ** retryIndex;
+  const jitter = 0.5 + random() * 0.5;
+  return Math.round(exponential * jitter);
+}
+
+export function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError(signal));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(createAbortError(signal));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+export async function fetchWithPolicy(
+  url: string,
+  init?: RequestInit,
+  policy?: FetchPolicyOptions,
+): Promise<FetchPolicyResult> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const isIdempotent = method === "GET";
+  const maxRetries = isIdempotent ? (policy?.maxRetries ?? DEFAULT_MAX_RETRIES) : 0;
+  const timeoutMs = policy?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const baseBackoffMs = policy?.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS;
+  const sleep = policy?.sleep ?? defaultSleep;
+  const random = policy?.random ?? Math.random;
+  const fetchFn = policy?.fetchImpl ?? fetch;
+  const callerSignal = init?.signal ?? undefined;
+
+  if (callerSignal?.aborted) {
+    throw createAbortError(callerSignal);
+  }
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    const attemptController = new AbortController();
+    let timedOut = false;
+
+    const onCallerAbort = () => {
+      attemptController.abort(callerSignal?.reason);
+    };
+
+    if (callerSignal) {
+      if (callerSignal.aborted) {
+        throw createAbortError(callerSignal);
+      }
+      callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+    }
+
+    let res: Response;
+    try {
+      const wrapped = withTimeout(
+        fetchFn(url, { ...init, signal: attemptController.signal }),
+        timeoutMs,
+        () => {
+          timedOut = true;
+          attemptController.abort();
+        },
+      );
+      res = await wrapped;
+    } catch (err) {
+      if (callerSignal?.aborted || (!timedOut && isAbortError(err))) {
+        throw err;
+      }
+      if (timedOut || err instanceof ConnectTimeoutError) {
+        throw new ApiError(
+          `Request timed out after ${timeoutMs}ms.`,
+          0,
+          [],
+          undefined,
+          attempt,
+        );
+      }
+      if (attempt <= maxRetries) {
+        const delay = computeBackoffMs(attempt - 1, baseBackoffMs, random);
+        await sleep(delay, callerSignal);
+        continue;
+      }
+      throw new ApiError("Could not reach the Disciplr API.", 0, [], undefined, attempt);
+    } finally {
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    }
+
+    if (RETRYABLE_STATUSES.has(res.status) && attempt <= maxRetries) {
+      const delay = computeBackoffMs(attempt - 1, baseBackoffMs, random);
+      await sleep(delay, callerSignal);
+      continue;
+    }
+
+    return { response: res, attempts: attempt };
+  }
+
+  throw new ApiError("Could not reach the Disciplr API.", 0, [], undefined, maxRetries + 1);
 }
 
 export function classifyCreateError(err: unknown): "rejected" | "unknown" {
@@ -54,26 +207,34 @@ export function classifyCreateError(err: unknown): "rejected" | "unknown" {
   return "unknown";
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit & { timeoutMs?: number },
+): Promise<T> {
   const baseUrl = getRawApiBase();
   if (!baseUrl) throw new ApiError("API not configured", 0);
+  const { timeoutMs, ...fetchInit } = init ?? {};
   let res: Response;
+  let attempts: number;
   try {
-    res = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    });
+    const result = await fetchWithPolicy(
+      `${baseUrl}${path}`,
+      {
+        ...fetchInit,
+        headers: { "content-type": "application/json", ...(fetchInit.headers ?? {}) },
+      },
+      timeoutMs !== undefined ? { timeoutMs } : undefined,
+    );
+    res = result.response;
+    attempts = result.attempts;
   } catch (err) {
-    if (
-      init?.signal?.aborted ||
-      (typeof err === "object" &&
-        err !== null &&
-        "name" in err &&
-        err.name === "AbortError")
-    ) {
+    if (isAbortError(err, fetchInit.signal ?? undefined)) {
       throw err;
     }
     useConnectivityStore.getState().reportApiFailure(0);
+    if (err instanceof ApiError) {
+      throw err;
+    }
     throw new ApiError("Could not reach the Disciplr API.", 0);
   }
   const body = (await res.json().catch(() => ({}))) as {
@@ -94,6 +255,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       res.status,
       details,
       serverError,
+      attempts,
     );
   }
   return body.data as T;
@@ -105,6 +267,7 @@ const toTx = (a: ApiActivity): VaultTransaction => ({
   hash: a.hash,
   timestamp: a.createdAt,
   amount: Number(a.amount),
+  rawAmount: a.amount,
 });
 
 export function toVault(v: ApiVault): Vault {
@@ -122,6 +285,7 @@ export function toVault(v: ApiVault): Vault {
     name: v.name || `Vault ${v.id}`,
     status: v.status as Vault["status"],
     amount: Number(v.amount),
+    rawAmount: v.amount,
     currency: "USDC",
     createdAt: v.createdAt,
     deadline: v.endDate,

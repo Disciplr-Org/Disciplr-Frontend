@@ -1,22 +1,37 @@
 import React from 'react'
+import { makeSlugContext } from '../utils/slugify'
+
+export interface HeadingEntry {
+  id: string
+  level: 2 | 3
+  text: string
+}
 
 interface SafeMarkdownProps {
   content: string
+  /** If provided, called once after all headings are extracted. */
+  onHeadings?: (headings: HeadingEntry[]) => void
 }
 
 /**
  * A lightweight, safe renderer for markdown articles without dangerouslySetInnerHTML.
  * Parses headings (###, ##, #), bullet lists (- or *), bold/inline code, and paragraphs.
+ *
+ * When `onHeadings` is supplied the component reports all ## and ### headings
+ * (with their generated slug ids) so the parent can render a table of contents.
  */
-export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element {
+export function SafeMarkdown({ content, onHeadings }: SafeMarkdownProps): React.JSX.Element {
   if (!content) return <div></div>
 
   const lines = content.split('\n')
   const elements: React.JSX.Element[] = []
+  const headings: HeadingEntry[] = []
 
   let inList = false
   let currentListItems: React.JSX.Element[] = []
   let listKey = 0
+
+  const slugContext = makeSlugContext()
 
   const flushList = () => {
     if (inList && currentListItems.length > 0) {
@@ -31,7 +46,6 @@ export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element 
   }
 
   const renderInline = (text: string): React.ReactNode[] => {
-    // Match inline code `code` or bold **bold**
     const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
     return parts.map((part, i) => {
       if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
@@ -71,9 +85,17 @@ export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element 
 
     if (trimmed.startsWith('### ')) {
       flushList()
+      const text = trimmed.slice(4)
+      const id = slugContext(text)
+      headings.push({ id, level: 3, text })
       elements.push(
-        <h3 key={`h3-${index}`} style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.2rem', color: 'var(--text)' }}>
-          {renderInline(trimmed.slice(4))}
+        <h3
+          key={`h3-${index}`}
+          id={id}
+          tabIndex={-1}
+          style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.2rem', color: 'var(--text)' }}
+        >
+          {renderInline(text)}
         </h3>
       )
       return
@@ -81,9 +103,17 @@ export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element 
 
     if (trimmed.startsWith('## ')) {
       flushList()
+      const text = trimmed.slice(3)
+      const id = slugContext(text)
+      headings.push({ id, level: 2, text })
       elements.push(
-        <h2 key={`h2-${index}`} style={{ margin: '1.5rem 0 0.6rem', fontSize: '1.4rem', color: 'var(--text)' }}>
-          {renderInline(trimmed.slice(3))}
+        <h2
+          key={`h2-${index}`}
+          id={id}
+          tabIndex={-1}
+          style={{ margin: '1.5rem 0 0.6rem', fontSize: '1.4rem', color: 'var(--text)' }}
+        >
+          {renderInline(text)}
         </h2>
       )
       return
@@ -118,6 +148,11 @@ export function SafeMarkdown({ content }: SafeMarkdownProps): React.JSX.Element 
   })
 
   flushList()
+
+  // Report headings to the parent after render (synchronous — same tick as render).
+  if (onHeadings) {
+    onHeadings(headings)
+  }
 
   return <div style={{ display: 'grid', gap: '0.5rem' }}>{elements}</div>
 }

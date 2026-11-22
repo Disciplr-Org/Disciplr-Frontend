@@ -10,35 +10,82 @@ import { useWallet } from "../context/WalletContext";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { getAtRiskVaults } from "../utils/atRiskVaults";
 import * as dashboardUtils from "../utils/dashboard";
-import type { VaultPreview } from "../utils/dashboard";
-import { sanitizeActivity } from "../utils/dashboardValidation";
+import type { VaultPreview, Activity, Deadline } from "../utils/dashboard";
+import type { Milestone, Vault, VaultStatus } from "../types/vault";
+import {
+  isValidVaultRouteId,
+  isNonEmptyString,
+  isVaultStatus,
+  isPositiveAmount,
+  isValidCurrency,
+  isValidIsoTimestamp,
+} from "../utils/vaultState";
+import { logger } from "../utils/logger";
+import { vaultProgressPct } from "../utils/vaultLifecycle";
+import { validateVaultPreview, sanitizeActivity } from "../utils/dashboardValidation";
 
-const CARD_STYLE = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
-  padding: "1.25rem",
-} as const;
+// ── Mock Data ─────────────────────────────────────────────────────────────────
+// Seed data lives in src/fixtures/dashboard.ts. VAULTS are loaded async from
+// vaultService (see Dashboard component below).
+import { ACTIVITY, DEADLINES, CHART_DATA } from "../fixtures/dashboard";
+import {
+  listVaults,
+  getStats,
+  listTransactionsForVaults,
+} from "../services/vaultService";
+import { isApiEnabled, type ApiStats } from "../services/api";
+import { useWallet } from "../context/WalletContext";
+import {
+  mergeUserVaults,
+  deriveActivity,
+  deriveDeadlines,
+  sortActiveFirst,
+} from "../utils/dashboardDerive";
+import { useOnRecovered } from "../hooks/useOnRecovered";
+import { useT } from "../i18n";
 
-const COL_STACK_STYLE = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "1.25rem",
-} as const;
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const QUICK_ACTIONS = [
-  {
-    to: "/vaults/create",
-    label: "+ Create Vault",
-    style: {
-      background: "var(--accent)",
-      color: "var(--bg)",
-      padding: "0.6rem 1.25rem",
-      borderRadius: "var(--radius)",
-      fontWeight: 600,
-      fontSize: 14,
-      textDecoration: "none",
-    },
+
+/**
+ * Invariant: only vaults whose preview passes validation are rendered.
+ * Invalid entries are dropped and logged (no sensitive fields) so that
+ * malformed upstream data cannot produce inconsistent summaries or cards.
+ */
+function toSafePreviews(loaded: Vault[]): VaultPreview[] {
+  const safe: VaultPreview[] = [];
+  for (const v of loaded) {
+    const preview: VaultPreview = {
+      id: v.id,
+      name: v.name,
+      amount: v.amount,
+      currency: v.currency,
+      status: v.status as VaultStatus,
+      deadline: v.deadline,
+      progressPct: vaultProgressPct(v),
+    };
+    const result = validateVaultPreview(preview);
+    if (result.ok) {
+      safe.push(preview);
+    } else {
+      logger.warn("[Dashboard] dropped invalid vault preview", {
+        id: v.id,
+        reason: result.reason,
+      });
+    }
+  }
+  return safe;
+}
+
+const ACTIVITY_CFG: Record<
+  Activity["type"],
+  { label: string; icon: string; color: string }
+> = {
+  created: { label: "Vault created", icon: "＋", color: "var(--accent)" },
+  validated: {
+    label: "Milestone validated",
+    icon: "✓",
+    color: "var(--success)",
   },
   {
     to: "/vaults",
@@ -101,6 +148,7 @@ function SectionHeader({
 }
 
 function AtRiskSection({ vaults }: { vaults: VaultPreview[] }) {
+  const t = useT();
   const atRiskVaults = getAtRiskVaults(vaults);
   if (atRiskVaults.length === 0) return null;
 
@@ -114,9 +162,15 @@ function AtRiskSection({ vaults }: { vaults: VaultPreview[] }) {
         padding: "1.25rem",
       }}
     >
-      <SectionHeader title={`⚠️ At Risk (${atRiskVaults.length})`} />
-      <Text role="caption" as="p" style={{ color: "var(--danger)", margin: "0 0 1rem" }}>
-        These vaults need immediate attention — their deadlines are approaching or critical.
+      <SectionHeader
+        title={t("dashboard.atRisk.title", { count: atRiskVaults.length })}
+      />
+      <Text
+        role="caption"
+        as="p"
+        style={{ color: "var(--danger)", margin: "0 0 1rem" }}
+      >
+        {t("dashboard.atRisk.description")}
       </Text>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {atRiskVaults.map((v) => (
@@ -128,6 +182,7 @@ function AtRiskSection({ vaults }: { vaults: VaultPreview[] }) {
 }
 
 export default function Dashboard() {
+  const t = useT();
   const { address, connect } = useWallet();
   const { status: viewStatus, data, retry: retryVaults } = useDashboardData(address);
   const {
@@ -165,7 +220,7 @@ export default function Dashboard() {
     return (
       <div style={{ maxWidth: "var(--container-wide)", margin: "0 auto", padding: "0 0 3rem" }}>
         <Text role="title" as="h1" style={{ margin: "0 0 0.25rem" }}>
-          Dashboard
+          {t("dashboard.title")}
         </Text>
         <div
           style={{
@@ -176,13 +231,13 @@ export default function Dashboard() {
           }}
         >
           <Text role="body" as="p" style={{ fontWeight: 600 }}>
-            Connect your wallet to see your vaults
+            {t("dashboard.connectPrompt.title")}
           </Text>
           <Text role="caption" as="p">
-            Your vaults, activity and deadlines appear here once a wallet is connected.
+            {t("dashboard.connectPrompt.body")}
           </Text>
           <button type="button" onClick={() => void connect()}>
-            Connect wallet
+            {t("dashboard.connectPrompt.cta")}
           </button>
         </div>
       </div>
@@ -194,23 +249,96 @@ export default function Dashboard() {
       {/* Welcome */}
       <div style={{ marginBottom: "1.75rem" }}>
         <Text role="title" as="h1" style={{ margin: "0 0 0.25rem" }}>
-          Dashboard
+          {t("dashboard.title")}
         </Text>
         <Text role="body" as="p" style={{ color: "var(--muted)", margin: 0 }}>
-          Your vault overview at a glance.
+          {t("dashboard.subtitle")}
         </Text>
       </div>
 
       {/* ── Summary Cards ── */}
-      <SummaryCards summary={memoizedSummary} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "1rem",
+          marginBottom: "1.75rem",
+        }}
+      >
+        <SummaryCard
+          label={t("dashboard.summary.totalLocked")}
+          value={memoizedSummary.totalLocked}
+          sub="USDC"
+          accent
+        />
+        <SummaryCard
+          label={t("dashboard.summary.activeVaults")}
+          value={memoizedSummary.activeVaults}
+        />
+        <SummaryCard
+          label={t("dashboard.summary.pendingMilestones")}
+          value={memoizedSummary.pendingMilestones}
+        />
+        <SummaryCard
+          label={t("dashboard.summary.completionRate")}
+          value={memoizedSummary.completionRate}
+          sub={t("dashboard.summary.allTime")}
+        />
+      </div>
 
       {/* ── Quick Actions ── */}
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.75rem" }}>
-        {QUICK_ACTIONS.map((a) => (
-          <Link key={a.to} to={a.to} style={a.style}>
-            {a.label}
-          </Link>
-        ))}
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+          marginBottom: "1.75rem",
+        }}
+      >
+        <Link
+          to="/vaults/create"
+          style={{
+            background: "var(--accent)",
+            color: "var(--bg)",
+            padding: "0.6rem 1.25rem",
+            borderRadius: "var(--radius)",
+            fontWeight: 600,
+            fontSize: 14,
+            textDecoration: "none",
+          }}
+        >
+          {t("dashboard.actions.createVault")}
+        </Link>
+        <Link
+          to="/vaults"
+          style={{
+            background: "var(--surface)",
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            padding: "0.6rem 1.25rem",
+            borderRadius: "var(--radius)",
+            fontWeight: 500,
+            fontSize: 14,
+            textDecoration: "none",
+          }}
+        >
+          {t("dashboard.actions.viewAllVaults")}
+        </Link>
+        <Link
+          to="/verifier/queue"
+          style={{
+            background: "var(--surface)",
+            color: "var(--warning)",
+            border: "1px solid var(--warning)",
+            padding: "0.6rem 1.25rem",
+            borderRadius: "var(--radius)",
+            fontWeight: 500,
+            fontSize: 14,
+            textDecoration: "none",
+          }}
+        >
+          {t("dashboard.actions.verifyMilestone")}
+        </Link>
       </div>
 
       {/* ── At Risk Vaults ── */}
@@ -221,11 +349,22 @@ export default function Dashboard() {
         {/* Left column */}
         <div style={COL_STACK_STYLE}>
           {/* Vault Preview List */}
-          <div style={CARD_STYLE}>
-            <SectionHeader title="Your vaults" action="View all →" to="/vaults" />
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "1.25rem",
+            }}
+          >
+            <SectionHeader
+              title={t("dashboard.yourVaults.title")}
+              action={t("dashboard.yourVaults.viewAll")}
+              to="/vaults"
+            />
             {viewStatus === "loading" && (
               <Text role="body" as="p" style={{ color: "var(--muted)" }}>
-                <span role="status">Loading vaults…</span>
+                <span role="status">{t("dashboard.yourVaults.loading")}</span>
               </Text>
             )}
 
@@ -235,10 +374,10 @@ export default function Dashboard() {
                 style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--muted)" }}
               >
                 <Text role="body" as="p">
-                  Failed to load vaults.
+                  {t("dashboard.yourVaults.error")}
                 </Text>
                 <button type="button" onClick={retryVaults}>
-                  Retry
+                  {t("dashboard.yourVaults.retry")}
                 </button>
               </div>
             )}
@@ -246,11 +385,15 @@ export default function Dashboard() {
             {viewStatus === "empty" && (
               <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--muted)" }}>
                 <div style={{ fontSize: 40, marginBottom: "0.75rem" }}>🔒</div>
-                <Text role="body" as="div" style={{ fontWeight: 600, marginBottom: 4 }}>
-                  No vaults yet
+                <Text
+                  role="body"
+                  as="div"
+                  style={{ fontWeight: 600, marginBottom: 4 }}
+                >
+                  {t("dashboard.yourVaults.emptyTitle")}
                 </Text>
                 <Text role="caption" as="div" style={{ marginBottom: "1rem" }}>
-                  Create your first vault to start locking capital.
+                  {t("dashboard.yourVaults.emptyBody")}
                 </Text>
                 <Link
                   to="/vaults/create"
@@ -265,7 +408,7 @@ export default function Dashboard() {
                     display: "inline-block",
                   }}
                 >
-                  Create Vault
+                  {t("dashboard.yourVaults.emptyCta")}
                 </Link>
               </div>
             )}
@@ -275,9 +418,9 @@ export default function Dashboard() {
                 {rejectedCount > 0 && (
                   <Text role="caption" as="p" style={{ color: "var(--warning)", margin: 0 }}>
                     <span role="status">
-                      {rejectedCount === 1
-                        ? "1 vault could not be verified and is not shown."
-                        : `${rejectedCount} vaults could not be verified and are not shown.`}
+                      {t("dashboard.yourVaults.unverifiedCount", {
+                        count: rejectedCount,
+                      })}
                     </span>
                   </Text>
                 )}
@@ -289,7 +432,84 @@ export default function Dashboard() {
           </div>
 
           {/* Recent Activity */}
-          <ActivityFeed activity={memoizedActivity} />
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "1.25rem",
+            }}
+          >
+            <SectionHeader title={t("dashboard.recentActivity.title")} />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
+              {memoizedActivity.map((a) => {
+                const cfg = activityConfig(a.type);
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.5rem 0",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        background: "var(--bg)",
+                        border: `1px solid var(--border)`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: cfg.color,
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {cfg.icon}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text role="caption" as="div" style={{ fontWeight: 600 }}>
+                        {cfg.label} ·{" "}
+                        <span
+                          style={{ color: "var(--muted)", fontWeight: 400 }}
+                        >
+                          {a.vault}
+                        </span>
+                      </Text>
+                      {a.formattedAmount != null && (
+                        <Text
+                          role="caption"
+                          as="div"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {a.formattedAmount}
+                        </Text>
+                      )}
+                    </div>
+                    <Text
+                      role="caption"
+                      as="span"
+                      style={{ color: "var(--muted)", whiteSpace: "nowrap" }}
+                    >
+                      {a.relativeTime}
+                    </Text>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Right sidebar */}
@@ -297,10 +517,21 @@ export default function Dashboard() {
           <UpcomingDeadlines deadlines={safeDeadlines} vaults={shownFullVaults} />
 
           {/* Success Rate Chart (sparkline bars) */}
-          <div style={CARD_STYLE}>
-            <SectionHeader title="Success Rate" />
-            <Text role="caption" as="div" style={{ color: "var(--muted)", marginBottom: "0.75rem" }}>
-              Last 6 months
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "1.25rem",
+            }}
+          >
+            <SectionHeader title={t("dashboard.successRate.title")} />
+            <Text
+              role="caption"
+              as="div"
+              style={{ color: "var(--muted)", marginBottom: "0.75rem" }}
+            >
+              {t("dashboard.successRate.lastSixMonths")}
             </Text>
             <SuccessChart />
           </div>

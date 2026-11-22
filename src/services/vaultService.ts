@@ -294,12 +294,10 @@ export async function listAllActivity(
 }
 
 /**
- * Create a new vault.
- * Routes to the demoStore overlay when demo mode is active (no API POST).
- * 
- * SEAM → replace with: Soroban contract initialization invocation.
+ * Demo strategy: create a vault via the in-memory demo overlay.
+ * Called by createVault when demo mode is active.
  */
-export async function createVault(vaultData: {
+export async function createVaultDemo(vaultData: {
   name: string;
   amount: number;
   currency: string;
@@ -311,33 +309,58 @@ export async function createVault(vaultData: {
   evidenceUrl?: string;
   milestones: Omit<Milestone, "id" | "status">[];
 }): Promise<Vault> {
-  if (!vaultData.name || vaultData.name.trim().length === 0) {
-    throw new Error("Vault name is required.");
-  }
-  if (!Number.isFinite(vaultData.amount) || vaultData.amount <= 0) {
-    throw new Error("Vault amount must be a positive finite number.");
-  }
+  return demoCreateVault(vaultData);
+}
 
-  if (demoModeActive) {
-    return demoCreateVault(vaultData);
-  }
+/**
+ * API strategy: POST to the backend and invalidate relevant caches.
+ * Called by createVault when the API is enabled and demo mode is off.
+ *
+ * SEAM → replace internals with: Soroban contract initialization invocation.
+ */
+export async function createVaultApi(vaultData: {
+  name: string;
+  amount: number;
+  currency: string;
+  deadline: string;
+  creatorAddress: string;
+  verifierAddress: string;
+  successAddress: string;
+  failureAddress: string;
+  evidenceUrl?: string;
+  milestones: Omit<Milestone, "id" | "status">[];
+}): Promise<Vault> {
+  // Creator acts as their own verifier unless the API is given another one.
+  const created = await apiCreateVault({
+    name: vaultData.name,
+    amount: vaultData.amount,
+    deadline: vaultData.deadline,
+    creator: vaultData.creatorAddress,
+    verifier: vaultData.verifierAddress,
+    successAddress: vaultData.successAddress,
+    failureAddress: vaultData.failureAddress,
+    milestones: vaultData.milestones,
+  });
+  invalidateVaultCaches(created.id);
+  return created;
+}
 
-  if (isApiEnabled()) {
-    // Creator acts as their own verifier unless the API is given another one.
-    const created = await apiCreateVault({
-      name: vaultData.name,
-      amount: vaultData.amount,
-      deadline: vaultData.deadline,
-      creator: vaultData.creatorAddress,
-      verifier: vaultData.verifierAddress,
-      successAddress: vaultData.successAddress,
-      failureAddress: vaultData.failureAddress,
-      milestones: vaultData.milestones,
-    });
-    invalidateVaultCaches(created.id);
-    return created;
-  }
-
+/**
+ * Offline fixture strategy: build a vault from local fixture data.
+ * Called by createVault when neither demo mode nor the API is active.
+ */
+export async function createVaultOffline(vaultData: {
+  name: string;
+  amount: number;
+  currency: string;
+  deadline: string;
+  creatorAddress: string;
+  verifierAddress: string;
+  successAddress: string;
+  failureAddress: string;
+  evidenceUrl?: string;
+  milestones: Omit<Milestone, "id" | "status">[];
+}): Promise<Vault> {
   const nextId = String(Object.keys(MASTER_VAULTS).length + 1);
   const newVault: Vault = {
     id: nextId,
@@ -378,6 +401,45 @@ export async function createVault(vaultData: {
   MASTER_VAULTS[nextId] = newVault;
   invalidateVaultCaches(nextId);
   return newVault;
+}
+
+/**
+ * Create a new vault.
+ * Validates input then dispatches to one of three strategies:
+ *   createVaultDemo    — demo overlay (no network)
+ *   createVaultApi     — backend API POST
+ *   createVaultOffline — local fixture data
+ *
+ * SEAM → replace createVaultApi internals with: Soroban contract initialization.
+ */
+export async function createVault(vaultData: {
+  name: string;
+  amount: number;
+  currency: string;
+  deadline: string;
+  creatorAddress: string;
+  verifierAddress: string;
+  successAddress: string;
+  failureAddress: string;
+  evidenceUrl?: string;
+  milestones: Omit<Milestone, "id" | "status">[];
+}): Promise<Vault> {
+  if (!vaultData.name || vaultData.name.trim().length === 0) {
+    throw new Error("Vault name is required.");
+  }
+  if (!Number.isFinite(vaultData.amount) || vaultData.amount <= 0) {
+    throw new Error("Vault amount must be a positive finite number.");
+  }
+
+  if (demoModeActive) {
+    return createVaultDemo(vaultData);
+  }
+
+  if (isApiEnabled()) {
+    return createVaultApi(vaultData);
+  }
+
+  return createVaultOffline(vaultData);
 }
 
 /**

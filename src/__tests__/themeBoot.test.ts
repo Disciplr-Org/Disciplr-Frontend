@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 import themeBootScript from '../../public/theme-boot.js?raw';
 
@@ -16,15 +16,14 @@ describe('theme-boot.js', () => {
 
     const { window } = dom;
 
-    if (options.throwStorage) {
-      Object.defineProperty(window, 'localStorage', {
-        get() {
-          throw new Error('Storage disabled');
-        },
-        configurable: true,
-      });
-    } else if (options.storedTheme !== undefined && options.storedTheme !== null) {
+    if (options.storedTheme !== undefined && options.storedTheme !== null) {
       window.localStorage.setItem('disciplr-theme', options.storedTheme);
+    }
+
+    if (options.throwStorage) {
+      vi.spyOn(window.Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('Storage disabled');
+      });
     }
 
     if (options.missingMatchMedia) {
@@ -91,13 +90,13 @@ describe('theme-boot.js', () => {
     expect(resLight.colorScheme).toBe('light');
   });
 
-  test('falls back to OS preference when stored value is invalid', () => {
-    const res = runBootScript({ storedTheme: 'invalid-val', osDarkMode: true });
+  test('ignores an HTML-like stored value and uses the OS preference', () => {
+    const res = runBootScript({ storedTheme: '<script>', osDarkMode: true });
     expect(res.dataTheme).toBe('dark');
     expect(res.colorScheme).toBe('dark');
   });
 
-  test('handles throwing localStorage and falls back to OS preference', () => {
+  test('handles localStorage.getItem throwing and falls back to OS preference', () => {
     const res = runBootScript({ throwStorage: true, osDarkMode: true });
     expect(res.dataTheme).toBe('dark');
     expect(res.colorScheme).toBe('dark');
