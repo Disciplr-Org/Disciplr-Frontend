@@ -67,7 +67,7 @@ export default function ValidationHistory() {
         <button 
           onClick={() => navigate('/verifier')}
           className="mb-2 text-sm font-medium transition"
-          style={{ color: 'var(--muted)' }}
+          style={{ color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           &larr; Back to Dashboard
         </button>
@@ -216,7 +216,7 @@ export default function ValidationHistory() {
         <div className="flex flex-col gap-1 self-end">
           <Text role="caption" as="span" style={{ color: 'var(--muted)' }}>&nbsp;</Text>
           <button
-            aria-label="Export filtered validation history as CSV"
+            aria-label="Export CSV of filtered validation history"
             onClick={() => downloadCsv(toCsv(filteredHistory), 'validation-history.csv')}
             style={{
               background: 'var(--bg)',

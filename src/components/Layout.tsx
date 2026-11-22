@@ -444,7 +444,6 @@ export default function Layout({ children }: LayoutProps) {
           padding: "var(--spacing-4, 1rem) var(--spacing-8, 2rem)",
           textAlign: "center",
           fontSize: "0.875rem",
-          opacity: 0.85,
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",

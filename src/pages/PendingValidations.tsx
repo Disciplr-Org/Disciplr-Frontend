@@ -203,7 +203,7 @@ export default function PendingValidations() {
           <button
             onClick={() => navigate('/verifier')}
             className="mb-2 text-sm font-medium transition"
-            style={{ color: 'var(--muted)' }}
+            style={{ color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             &larr; Back to Dashboard
           </button>
@@ -385,7 +385,7 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger-text)' : 'var(--success-text)' }}>
                           {remaining} days left
                         </span>
                         {remaining <= CRITICAL_DAYS_THRESHOLD && (

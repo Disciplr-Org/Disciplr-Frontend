@@ -310,7 +310,7 @@ export default function Vaults() {
                 font: "inherit",
                 fontSize: 13,
                 background: isSelected ? "var(--accent)" : "transparent",
-                color: isSelected ? "#fff" : "inherit",
+                color: isSelected ? "var(--accent-fg)" : "inherit",
               }}
             >
               {STATUS_LABELS[st]}

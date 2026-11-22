@@ -723,7 +723,7 @@ const currentStreak = useMemo(() => {
                   {stat.icon}
                 </div>
                 <div style={{ fontSize: '1.55rem', fontWeight: 800, marginBottom: '0.2rem' }}>{stat.value}</div>
-                <div style={{ fontSize: '0.75rem', color: stat.up ? seriesColors.success : seriesColors.failed, display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                <div style={{ fontSize: '0.75rem', color: stat.up ? 'var(--accent)' : 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
                   {stat.up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                   {stat.sub}
                 </div>
@@ -881,13 +881,13 @@ const currentStreak = useMemo(() => {
                 <div key={i}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
                     <span style={{ color: 'var(--muted)' }}>{item.metric}</span>
-                    <span style={{ color: item.you >= item.platform ? seriesColors.success : seriesColors.failed, fontWeight: 700 }}>
+                    <span style={{ color: item.you >= item.platform ? 'var(--accent)' : 'var(--danger-text)', fontWeight: 700 }}>
                       {item.you >= item.platform ? '↑' : '↓'} You: {item.you}{item.unit}
                     </span>
                   </div>
                   {/* Your bar */}
                   <div style={{ marginBottom: '0.25rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: seriesColors.success, marginBottom: '0.15rem' }}>You</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--accent)', marginBottom: '0.15rem' }}>You</div>
                     <div style={{ height: 8, background: 'var(--border)', borderRadius: 99 }}>
                       <div className="disciplr-progress-bar" style={{ height: '100%', width: `${Math.min((item.you / (Math.max(item.you, item.platform) * 1.2)) * 100, 100)}%`, background: seriesColors.success, borderRadius: 99 }} />
                     </div>
@@ -928,7 +928,7 @@ const currentStreak = useMemo(() => {
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
                     <span style={{ color: 'var(--muted)' }}>Current: {formatPercentage(kpis.averageSuccessRate)}</span>
-                    <span style={{ color: rateGoalMet ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: rateGoalMet ? 'var(--accent)' : 'var(--warning-text)' }}>
                       Goal: {rateGoal.value !== null ? `${rateGoal.value}%` : '—'}
                     </span>
                   </div>
@@ -942,7 +942,7 @@ const currentStreak = useMemo(() => {
                       }} />
                     )}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? 'var(--accent)' : 'var(--muted)', marginTop: '0.3rem' }}>
                     {kpis.averageSuccessRate >= (rateGoal.value ?? 90) ? '✓ Goal achieved!' : `${((rateGoal.value ?? 90) - kpis.averageSuccessRate).toFixed(1)}% to go`}
                   </div>
                 </div>
@@ -961,7 +961,7 @@ const currentStreak = useMemo(() => {
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.25rem' }}>
                     <span style={{ color: 'var(--muted)' }}>Current: {formatCurrency(kpis.totalCapital)}</span>
-                    <span style={{ color: capitalGoalMet ? seriesColors.success : seriesColors.comparison }}>
+                    <span style={{ color: capitalGoalMet ? 'var(--accent)' : 'var(--warning-text)' }}>
                       Goal: {capitalGoal.value !== null ? `$${formatUsdc(capitalGoal.value)}` : '—'}
                     </span>
                   </div>
@@ -973,7 +973,7 @@ const currentStreak = useMemo(() => {
                       width: 3, height: 12, background: seriesColors.comparison, borderRadius: 2, transform: 'translateX(-50%)',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? seriesColors.success : 'var(--muted)', marginTop: '0.3rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? 'var(--accent)' : 'var(--muted)', marginTop: '0.3rem' }}>
                     {kpis.totalCapital >= (capitalGoal.value ?? 5000) ? '✓ Goal achieved!' : `$${formatUsdc((capitalGoal.value ?? 5000) - kpis.totalCapital)} to go`}
                   </div>
                 </div>
@@ -1008,7 +1008,7 @@ const currentStreak = useMemo(() => {
             <span style={{
               fontSize: '0.7rem',
               background: seriesColors.warning,
-              color: 'var(--bg)',
+              color: '#111827',
               padding: '0.15rem 0.5rem',
               borderRadius: '999px',
               fontWeight: 700,
@@ -1042,7 +1042,7 @@ const currentStreak = useMemo(() => {
               onClick={() => window.open('mailto:sales@disciplr.app?subject=Enterprise%20Upgrade%20Inquiry', '_blank')}
               style={{
               background: seriesColors.warning,
-              color: 'var(--bg)',
+              color: '#111827',
               border: 'none',
               padding: '0.55rem 1.25rem',
               borderRadius: '999px',
@@ -1094,7 +1094,7 @@ const currentStreak = useMemo(() => {
                     {member.name}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, color: seriesColors.success }}>{member.score}%</div>
+                    <div style={{ fontWeight: 700, color: 'var(--accent)' }}>{member.score}%</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{member.vaults} vaults</div>
                   </div>
                 </div>

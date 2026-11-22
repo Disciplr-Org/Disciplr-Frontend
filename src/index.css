@@ -279,7 +279,7 @@ a:hover {
 
 .notfound-action--primary {
   background-color: var(--accent);
-  color: white;
+  color: var(--accent-fg);
   border: none;
 }
 

@@ -217,7 +217,7 @@ export default function Notification() {
                 }
                 setIsFilterOpen((prev) => !prev);
               }}
-              className="bg-[var(--accent)] px-3 py-2 rounded-md"
+              className="bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-2 rounded-md"
             >
               Filter
             </button>
@@ -269,7 +269,7 @@ export default function Notification() {
           {notifications.length > 0 && (
             <button
               onClick={() => setShowClearModal(true)}
-              className="bg-red-500 px-3 py-2 rounded-md text-white text-sm"
+              className="bg-red-700 px-3 py-2 rounded-md text-white text-sm"
             >
               Clear all
             </button>
@@ -283,7 +283,7 @@ export default function Notification() {
           return groups.map((group: { bucket: string; items: NotificationItem[] }) => (
             <div key={group.bucket}>
               <div
-                className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2 mt-1"
+                className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)] mb-2 mt-1"
                 style={{ letterSpacing: '0.08em' }}
               >
                 {group.bucket}

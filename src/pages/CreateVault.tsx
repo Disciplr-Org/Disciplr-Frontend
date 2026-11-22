@@ -1110,7 +1110,7 @@ export default function CreateVault() {
                           type="button"
                           onClick={() => moveMilestone(milestone.id, "up")}
                           disabled={!canMoveUp}
-                          aria-label={`Move milestone ${index + 1} up`}
+                          aria-label={`Move up milestone ${index + 1}`}
                           style={{
                             padding: "0.4rem 0.75rem",
                             border: "1px solid var(--border)",
@@ -1127,7 +1127,7 @@ export default function CreateVault() {
                           type="button"
                           onClick={() => moveMilestone(milestone.id, "down")}
                           disabled={!canMoveDown}
-                          aria-label={`Move milestone ${index + 1} down`}
+                          aria-label={`Move down milestone ${index + 1}`}
                           style={{
                             padding: "0.4rem 0.75rem",
                             border: "1px solid var(--border)",
