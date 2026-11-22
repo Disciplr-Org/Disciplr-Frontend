@@ -824,14 +824,19 @@ function VaultDetailContent({
                   >
                     ⎘
                   </button>
-                  <a
-                    href={getExplorerTxUrl(tx.hash, network)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "var(--accent)", fontSize: 11 }}
-                  >
-                    ↗
-                  </a>
+                  {(() => {
+                    const txUrl = getExplorerTxUrl(tx.hash, network);
+                    return txUrl ? (
+                      <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--accent)", fontSize: 11 }}
+                      >
+                        ↗
+                      </a>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             </div>
