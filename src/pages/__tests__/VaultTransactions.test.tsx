@@ -114,6 +114,27 @@ describe('VaultTransactions Page', () => {
     expect(backLink).toHaveAttribute('href', '/vaults/1');
   });
 
+  it('renders "Unknown Transaction" label for a transaction with type "unknown"', async () => {
+    const unknownTx: VaultTransaction = {
+      id: 'tx-unknown',
+      type: 'unknown',
+      hash: '0xdeadbeefdeadbeefdeadbeef',
+      timestamp: '2026-04-01T10:00:00.000Z',
+      amount: 0,
+    };
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue([unknownTx]);
+
+    renderVaultTransactions('1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Alpha Vault Transactions');
+    });
+
+    expect(screen.getByText('Unknown Transaction')).toBeInTheDocument();
+    expect(screen.queryByTestId('vault-tx-tx-unknown')).toBeInTheDocument();
+  });
+
   it('renders transaction list sorted newest first by default and allows toggling sort order', async () => {
     vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
     vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(mockTransactions);

@@ -30,10 +30,12 @@ const BAD_GATEWAY_STATUS = 502;
 
 /**
  * Fallback transaction/activity type used when the API returns an unrecognized
- * `type` string. Mapping to `"create"` keeps the record renderable without
- * casting arbitrary strings into the `TxType` union.
+ * `type` string. Consumers must render a safe label for this value.
  */
-export const FALLBACK_ACTIVITY_TYPE: VaultTransaction["type"] = "create";
+export const FALLBACK_ACTIVITY_TYPE: VaultTransaction["type"] = "unknown";
+
+/** Tracks which unknown type strings have already been logged to avoid log spam. */
+const _loggedUnknownTypes = new Set<string>();
 
 /**
  * Fallback activity status used when the API returns an unrecognized `status`
@@ -91,7 +93,17 @@ export function normalizeActivityType(type: unknown): VaultTransaction["type"] {
   if (typeof type === "string" && VALID_ACTIVITY_TYPES.has(type)) {
     return type as VaultTransaction["type"];
   }
+  const key = typeof type === "string" ? type : String(type);
+  if (!_loggedUnknownTypes.has(key)) {
+    _loggedUnknownTypes.add(key);
+    logger.warn("normalizeActivityType: unrecognised transaction type; mapping to 'unknown'", { type });
+  }
   return FALLBACK_ACTIVITY_TYPE;
+}
+
+/** Exposed for tests only — resets the once-per-type log guard. */
+export function _resetLoggedUnknownTypes(): void {
+  _loggedUnknownTypes.clear();
 }
 
 export function normalizeActivityStatus(status: unknown): VaultActivityRecord["status"] {

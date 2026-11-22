@@ -13,6 +13,7 @@ const TX_LABELS: Record<string, string> = {
   validate: "Milestone Validated",
   release: "Funds Released",
   redirect: "Funds Redirected",
+  unknown: "Unknown Transaction",
 };
 
 export interface VaultTransactionsCardProps {
@@ -42,7 +43,7 @@ export function VaultTransactionsCard({
           <div key={tx.id} className="vault-tx-row">
             <div>
               <Text role="caption" as="div" className="vault-tx-row__type">
-                {TX_LABELS[tx.type]}
+                {TX_LABELS[tx.type] ?? tx.type}
               </Text>
               <Text role="caption" as="div" className="vault-tx-row__muted">
                 {formatDateTime(tx.timestamp)}
