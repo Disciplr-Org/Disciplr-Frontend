@@ -3,6 +3,32 @@ export interface MatchResult {
   ranges: [number, number][];
 }
 
+export type CommandGroup = "Recent" | "Navigation" | "Vaults" | "Actions";
+
+export interface PaletteItem {
+  id: string;
+  label: string;
+  description: string;
+  to?: string;
+  kind?: "action" | "vault";
+  group: CommandGroup;
+  keywords?: string[];
+  perform?: () => void | Promise<void>;
+}
+
+export interface RankedPaletteItem {
+  item: PaletteItem;
+  score: number;
+  labelRanges?: [number, number][];
+  descRanges?: [number, number][];
+}
+
+interface ScoredPaletteItem extends RankedPaletteItem {
+  isPrefix: boolean;
+  recentIndex: number;
+  sourceIndex: number;
+}
+
 function isWordBoundary(text: string, idx: number): boolean {
   if (idx === 0) return true;
   const prev = text.charCodeAt(idx - 1);
@@ -176,4 +202,79 @@ export function scoreMatch(query: string, text: string): MatchResult | null {
  */
 export function fuzzyMatch(query: string, value: string): boolean {
   return scoreMatch(query, value) !== null;
+}
+
+function normalizeForPrefix(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+export function rankPaletteItems(
+  items: PaletteItem[],
+  query: string,
+  recentIds: string[] = [],
+): RankedPaletteItem[] {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+    const usedIds = new Set<string>();
+    const recentItems: RankedPaletteItem[] = [];
+
+    for (const id of recentIds) {
+      const item = itemsById.get(id);
+      if (item && !usedIds.has(id)) {
+        usedIds.add(id);
+        recentItems.push({ item: { ...item, group: "Recent" }, score: 0 });
+      }
+    }
+
+    return [
+      ...recentItems,
+      ...items
+        .filter((item) => !usedIds.has(item.id))
+        .map((item) => ({ item, score: 0 })),
+    ];
+  }
+
+  const normalizedQuery = normalizeForPrefix(trimmedQuery);
+  const recentOrder = new Map(recentIds.map((id, index) => [id, index]));
+  const scored: ScoredPaletteItem[] = [];
+
+  for (const [sourceIndex, item] of items.entries()) {
+    const labelMatch = scoreMatch(trimmedQuery, item.label);
+    let bestScore = labelMatch?.score ?? -Infinity;
+
+    if (item.keywords) {
+      for (const keyword of item.keywords) {
+        const keywordMatch = scoreMatch(trimmedQuery, keyword);
+        if (keywordMatch) bestScore = Math.max(bestScore, keywordMatch.score * 0.8);
+      }
+    }
+
+    const descriptionMatch = scoreMatch(trimmedQuery, item.description);
+    if (descriptionMatch) {
+      bestScore = Math.max(bestScore, descriptionMatch.score * 0.4);
+    }
+
+    if (bestScore > -Infinity) {
+      scored.push({
+        item,
+        score: bestScore,
+        labelRanges: labelMatch?.ranges,
+        descRanges: descriptionMatch?.ranges,
+        isPrefix: normalizeForPrefix(item.label).startsWith(normalizedQuery),
+        recentIndex: recentOrder.get(item.id) ?? Number.POSITIVE_INFINITY,
+        sourceIndex,
+      });
+    }
+  }
+
+  scored.sort(
+    (a, b) =>
+      Number(b.isPrefix) - Number(a.isPrefix) ||
+      b.score - a.score ||
+      a.recentIndex - b.recentIndex ||
+      a.sourceIndex - b.sourceIndex,
+  );
+
+  return scored.map(({ isPrefix: _isPrefix, recentIndex: _recentIndex, sourceIndex: _sourceIndex, ...result }) => result);
 }

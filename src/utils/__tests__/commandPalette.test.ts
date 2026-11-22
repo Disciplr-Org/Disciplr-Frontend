@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fuzzyMatch, scoreMatch } from "../commandPalette";
+import {
+  fuzzyMatch,
+  rankPaletteItems,
+  scoreMatch,
+  type PaletteItem,
+} from "../commandPalette";
 
 describe("scoreMatch", () => {
   it("handles empty query", () => {
@@ -114,5 +119,44 @@ describe("fuzzyMatch", () => {
     expect(fuzzyMatch("av", "Alpha Vault")).toBe(true);
     expect(fuzzyMatch("b2", "beta-2")).toBe(true);
     expect(fuzzyMatch("zz", "Alpha Vault")).toBe(false);
+  });
+});
+
+describe("rankPaletteItems", () => {
+  const items: PaletteItem[] = [
+    {
+      id: "first",
+      label: "Alpha",
+      description: "First result",
+      group: "Navigation",
+    },
+    {
+      id: "second",
+      label: "Alpine",
+      description: "Second result",
+      group: "Navigation",
+    },
+    {
+      id: "prefix",
+      label: "Al",
+      description: "Exact prefix",
+      group: "Actions",
+    },
+  ];
+
+  it("ranks label prefixes before fuzzy results", () => {
+    const fuzzyResult: PaletteItem = {
+      id: "fuzzy",
+      label: "The Alpha",
+      description: "Interior match",
+      group: "Navigation",
+    };
+    const results = rankPaletteItems([fuzzyResult, items[0]], "al", ["fuzzy"]);
+    expect(results[0].item.id).toBe("first");
+  });
+
+  it("uses recency to break equal fuzzy-score ties", () => {
+    const results = rankPaletteItems(items.slice(0, 2), "al", ["second"]);
+    expect(results.map(({ item }) => item.id)).toEqual(["second", "first"]);
   });
 });

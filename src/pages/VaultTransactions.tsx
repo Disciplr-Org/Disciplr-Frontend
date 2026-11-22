@@ -9,7 +9,7 @@ import { isValidVaultRouteId } from "../utils/vaultState";
 import { getExplorerTxUrl } from "../utils/explorer";
 import { truncateMiddle } from "../utils/truncate";
 import type { Vault, VaultTransaction } from "../types/vault";
-import { InvalidIdView, NotFoundView } from "./VaultDetail";
+import { InvalidIdView, NotFoundView } from "../components/vault/VaultStateViews";
 
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",

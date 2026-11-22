@@ -33,6 +33,47 @@ React 18 + Vite + Tailwind 4 + Zustand
 
 `vaultService` calls the API when `VITE_API` is set and otherwise serves bundled fixtures.
 
+### Routes and request flow
+
+The route definitions below reflect [`src/App.tsx`](src/App.tsx). Public routes
+can be opened without a connected wallet; wallet routes are guarded by
+`ProtectedRoute` and require a connected wallet. Lazy routes load their page
+component on demand.
+
+| Path | Page component | Auth | Lazy |
+| --- | --- | --- | --- |
+| `/` | `Home` | public | no |
+| `/dashboard` | `Dashboard` | public | no |
+| `/vaults` | `Vaults` | public | no |
+| `/transactions` | `Transactions` | public | no |
+| `/docs` | `Docs` | public | no |
+| `/vaults/create` | `CreateVault` | wallet | no |
+| `/vaults/:id/transactions` | `VaultTransactions` | public | yes |
+| `/vaults/:id` | `VaultDetail` | public | no |
+| `/verifier` | `VerifierDashboard` | public | no |
+| `/verifier/queue` | `PendingValidations` | wallet | no |
+| `/verifier/queue/:vaultId` | `ValidationDetail` | wallet | no |
+| `/verifier/history` | `ValidationHistory` | public | no |
+| `/help` | `HelpCenter` | public | no |
+| `/help/search` | `HelpCenter` | public | no |
+| `/help/articles/:slug` | `HelpArticle` | public | yes |
+| `/analytics` | `Analytics` | public | yes |
+| `/notifications` | `Notification` | public | yes |
+| `/notifications/settings` | `NotificationSettings` | public | yes |
+| `/__visual__/crash` | `VisualCrash` (visual mode only) | public | no |
+| `*` | `NotFound` | public | no |
+
+Unknown paths render `NotFound`. Each route's `RouteErrorBoundary` scopes a
+page crash to its slot inside `<main>`, leaving the shared layout available.
+Requests flow through providers in this order:
+`ThemeProvider > WalletProvider > AppConfigProvider > BrowserRouter > Layout`.
+`Layout` wraps the matched route in its `<main>` content. See the fuller
+[architecture overview](docs/ARCHITECTURE.md) and
+[wallet integration guide](docs/WALLET_INTEGRATION.md) for details.
+
+Update this reference when routes change; changing route behavior is outside
+this documentation update.
+
 ## Setup
 
 ```bash

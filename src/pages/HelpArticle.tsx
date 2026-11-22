@@ -1,13 +1,31 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getArticleBySlug } from '../help/articles'
-import { SafeMarkdown } from '../help/components/SafeMarkdown'
+import { SafeMarkdown, HeadingEntry } from '../help/components/SafeMarkdown'
 import NotFound from './NotFound'
+
+function usePrefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 export default function HelpArticle() {
   const { slug } = useParams<{ slug: string }>()
   const article = slug ? getArticleBySlug(slug) : undefined
   const [feedbackGiven, setFeedbackGiven] = useState<'yes' | 'no' | null>(null)
+  const [headings, setHeadings] = useState<HeadingEntry[]>([])
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const headingsRef = useRef<HeadingEntry[]>([])
+
+  const handleHeadings = useCallback((h: HeadingEntry[]) => {
+    // Only update state if the headings actually changed (avoid infinite loops).
+    const next = JSON.stringify(h)
+    const prev = JSON.stringify(headingsRef.current)
+    if (next !== prev) {
+      headingsRef.current = h
+      setHeadings(h)
+    }
+  }, [])
 
   if (!article) {
     return <NotFound />
@@ -16,6 +34,17 @@ export default function HelpArticle() {
   const relatedArticles = article.related
     .map((rSlug) => getArticleBySlug(rSlug))
     .filter((a): a is NonNullable<typeof a> => Boolean(a))
+
+  // Only show the TOC when there are two or more ## headings.
+  const h2Headings = headings.filter((h) => h.level === 2)
+  const showToc = h2Headings.length >= 2
+
+  const handleTocClick = (id: string) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+    el.focus({ preventScroll: true })
+  }
 
   return (
     <div style={{ display: 'grid', gap: '2rem', maxWidth: '860px', margin: '0 auto', width: '100%' }}>
@@ -65,8 +94,43 @@ export default function HelpArticle() {
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: '1.05rem', lineHeight: 1.5 }}>{article.summary}</p>
         </header>
 
+        {/* Table of Contents — shown only when there are >= 2 ## headings */}
+        {showToc && (
+          <nav
+            aria-label="On this page"
+            style={{
+              padding: '1rem 1.25rem',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              background: 'var(--bg)',
+              display: 'grid',
+              gap: '0.5rem',
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              On this page
+            </span>
+            <ol style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.3rem' }}>
+              {h2Headings.map((h) => (
+                <li key={h.id}>
+                  <a
+                    href={`#${h.id}`}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleTocClick(h.id)
+                    }}
+                    style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: '0.9rem' }}
+                  >
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+
         <div style={{ color: 'var(--text)', fontSize: '1rem' }}>
-          <SafeMarkdown content={article.body} />
+          <SafeMarkdown content={article.body} onHeadings={handleHeadings} />
         </div>
 
         {/* Was this helpful? Section */}

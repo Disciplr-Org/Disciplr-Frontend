@@ -81,8 +81,22 @@ describe('format module', () => {
 
     it('throws on NaN or invalid strings', () => {
       expect(() => formatUsdc(NaN)).toThrow(/Invalid USDC amount/);
+      expect(() => formatUsdc('abc')).toThrow(/Invalid USDC amount/);
       expect(() => formatUsdc('not-a-number')).toThrow(/Invalid USDC amount/);
       expect(() => formatUsdc('')).toThrow(/Invalid USDC amount/);
+    });
+
+    it('formats decimal strings above 2^53 exactly without float rounding', () => {
+      setTestLocale('en-US');
+      expect(formatUsdc('9007199254740993.5')).toBe('9,007,199,254,740,993.50');
+      expect(formatUsdc('9007199254740993.1234567')).toBe('9,007,199,254,740,993.1234567');
+      expect(formatUsdc('9007199254740993.1234567', { exact: true })).toBe('9,007,199,254,740,993.1234567');
+      expect(formatUsdc('9007199254740993.5000000')).toBe('9,007,199,254,740,993.50');
+      expect(formatUsdc('9007199254740993.5000000', { exact: true })).toBe('9,007,199,254,740,993.5');
+      expect(formatUsdc(1234.5)).toBe('1,234.50');
+
+      setTestLocale('de-DE');
+      expect(formatUsdc('9007199254740993.1234567')).toBe('9.007.199.254.740.993,1234567');
     });
 
     it('fast-check property test: exact formatting round-trip preserves normalized amount', () => {
