@@ -135,13 +135,27 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export interface VaultFilter { creator?: string; status?: string }
+export interface VaultFilter { creator?: string; status?: string | string[] }
 
-/** Builds `?creator=..&status=..` with every value URI-encoded; empty when no filter is set. */
+/** Reduce a status select (single or list) to its non-blank values. */
+export function normalizeStatusValues(status?: string | string[]): string[] {
+  if (!status) return [];
+  const values = Array.isArray(status) ? status : [status];
+  return values.filter((value) => value.trim().length > 0);
+}
+
+/**
+ * Builds `?creator=..&status=..`. A status list is emitted as repeated
+ * `status=` params (sorted so the query, and any cache key built from it, is
+ * deterministic). Every value is URI-encoded; empty lists/blank values are
+ * omitted and no filter yields an empty string.
+ */
 export function buildVaultQuery(filter?: VaultFilter): string {
   const parts: string[] = [];
   if (filter?.creator) parts.push(`creator=${encodeURIComponent(filter.creator)}`);
-  if (filter?.status) parts.push(`status=${encodeURIComponent(filter.status)}`);
+  for (const status of normalizeStatusValues(filter?.status).sort()) {
+    parts.push(`status=${encodeURIComponent(status)}`);
+  }
   return parts.length ? `?${parts.join("&")}` : "";
 }
 

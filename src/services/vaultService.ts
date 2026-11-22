@@ -34,6 +34,7 @@ import {
   apiListTransactions,
   apiStats,
   buildVaultQuery,
+  normalizeStatusValues,
   type ApiStats,
   type VaultFilter,
 } from "./api";
@@ -103,13 +104,19 @@ export function isDemoModeActive(): boolean {
 
 export type { VaultFilter } from "./api";
 
-/** Offline equivalent of the API's `?creator=&status=` query, for fixtures. */
+/**
+ * Offline equivalent of the API's `?creator=&status=` query, for fixtures.
+ * A status list matches any of its values (OR), mirroring the repeated
+ * `status=` query params sent to the API.
+ */
 export function filterVaults(vaults: Vault[], filter?: VaultFilter): Vault[] {
-  if (!filter?.creator && !filter?.status) return vaults;
+  const creator = filter?.creator;
+  const statuses = normalizeStatusValues(filter?.status);
+  if (!creator && statuses.length === 0) return vaults;
   return vaults.filter(
     (v) =>
-      (!filter.creator || v.creatorAddress === filter.creator) &&
-      (!filter.status || v.status === filter.status),
+      (!creator || v.creatorAddress === creator) &&
+      (statuses.length === 0 || statuses.includes(v.status)),
   );
 }
 
