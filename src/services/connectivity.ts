@@ -6,6 +6,7 @@ export type ConnectivityStatus = 'online' | 'offline' | 'api-down' | 'checking';
 export interface ConnectivityState {
   status: ConnectivityStatus;
   lastHealthyAt: number | null;
+  degradedSince: number | null;
   probeInProgress: boolean;
   setStatus: (status: ConnectivityStatus) => void;
   reportApiFailure: (status: number) => void;
@@ -32,6 +33,7 @@ export const getBackoffDelay = () => currentDelayMs;
 export const useConnectivityStore = create<ConnectivityState>((set, get) => ({
   status: 'online',
   lastHealthyAt: null,
+  degradedSince: null,
   probeInProgress: false,
 
   setStatus: (status: ConnectivityStatus) => set({ status }),
@@ -41,6 +43,7 @@ export const useConnectivityStore = create<ConnectivityState>((set, get) => ({
     set({
       status: 'online',
       lastHealthyAt: null,
+      degradedSince: null,
       probeInProgress: false,
     });
   },
@@ -53,7 +56,8 @@ export const useConnectivityStore = create<ConnectivityState>((set, get) => ({
       if (state.status === 'offline') return;
 
       if (state.status !== 'api-down') {
-        set({ status: 'api-down' });
+        // First transition into degraded — record timestamp only once.
+        set({ status: 'api-down', degradedSince: state.degradedSince ?? Date.now() });
       }
 
       startBackoffLoop();
@@ -90,19 +94,24 @@ export const useConnectivityStore = create<ConnectivityState>((set, get) => ({
         set({
           status: 'online',
           lastHealthyAt: now,
+          degradedSince: null,
           probeInProgress: false,
         });
         return true;
       } else {
+        const state = get();
         set({
           status: 'api-down',
+          degradedSince: state.degradedSince ?? Date.now(),
           probeInProgress: false,
         });
         return false;
       }
     } catch {
+      const state = get();
       set({
         status: 'api-down',
+        degradedSince: state.degradedSince ?? Date.now(),
         probeInProgress: false,
       });
       return false;

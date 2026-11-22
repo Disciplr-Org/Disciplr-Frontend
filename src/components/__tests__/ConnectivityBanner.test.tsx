@@ -8,6 +8,11 @@ vi.mock('../../services/api', () => ({
   API_BASE: 'https://api.disciplr.app',
 }));
 
+// Keep useCurrentTime returning a stable value so relative timestamps are deterministic.
+vi.mock('../../hooks/useCurrentTime', () => ({
+  useCurrentTime: () => 1_700_000_000_000,
+}));
+
 describe('ConnectivityBanner', () => {
   beforeEach(() => {
     useConnectivityStore.getState().reset();
@@ -34,7 +39,30 @@ describe('ConnectivityBanner', () => {
     useConnectivityStore.getState().setStatus('api-down');
     render(<ConnectivityBanner />);
 
-    expect(screen.getByText(/Disciplr service is unavailable, retrying…/i)).toBeInTheDocument();
+    expect(screen.getByText(/Disciplr service is unavailable/i)).toBeInTheDocument();
+  });
+
+  it('shows since text when api-down and degradedSince is set', () => {
+    // degradedSince is 2 minutes before the mocked now (1_700_000_000_000)
+    const degradedSince = 1_700_000_000_000 - 2 * 60 * 1000;
+    useConnectivityStore.setState({ status: 'api-down', degradedSince });
+    render(<ConnectivityBanner />);
+
+    expect(screen.getByText(/since/i)).toBeInTheDocument();
+  });
+
+  it('does not show since text when offline', () => {
+    useConnectivityStore.setState({ status: 'offline', degradedSince: null });
+    render(<ConnectivityBanner />);
+
+    expect(screen.queryByText(/since/i)).toBeNull();
+  });
+
+  it('does not show since text when degradedSince is null', () => {
+    useConnectivityStore.setState({ status: 'api-down', degradedSince: null });
+    render(<ConnectivityBanner />);
+
+    expect(screen.queryByText(/since/i)).toBeNull();
   });
 
   it('triggers retryNow when "Retry now" button is clicked', async () => {
