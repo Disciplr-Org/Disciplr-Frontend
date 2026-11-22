@@ -514,11 +514,18 @@ const toTx = (a: ApiActivity): VaultTransaction => ({
 });
 
 export function toVault(v: ApiVault): Vault {
+  const amount = parseFiniteAmount(v.amount, 0);
+  if (!isFiniteNumericValue(v.amount)) {
+    logger.warn(`Invalid vault amount for vault ${v.id}; defaulting to 0`, {
+      vaultId: v.id,
+      amount: v.amount,
+    });
+  }
   const rawMilestones = Array.isArray(v.milestones) ? v.milestones : [];
   const milestones: Milestone[] = rawMilestones.map((m) => ({
     id: m.id,
     title: m.title,
-    description: `${formatUsdc(m.amount)} USDC, due ${formatDate(m.dueDate)}`,
+    description: `${formatUsdc(parseFiniteAmount(m.amount))} USDC, due ${formatDate(m.dueDate)}`,
     criteria: m.title,
     status: m.status === "completed" ? "validated" : m.status === "failed" ? "failed" : "pending",
     dueDate: m.dueDate,
@@ -531,7 +538,7 @@ export function toVault(v: ApiVault): Vault {
     id: v.id,
     name: v.name || `Vault ${v.id}`,
     status,
-    amount: parseFiniteAmount(v.amount, 0),
+    amount,
     currency: "USDC",
     createdAt: v.createdAt,
     deadline: v.endDate,
