@@ -72,6 +72,7 @@ export type { Vault, VaultTransaction };
 export interface VaultActivityRecord {
   id: string;
   type: "create" | "validate" | "release" | "redirect";
+  vaultId?: string;
   vault: string;
   amount: number;
   fee: number;

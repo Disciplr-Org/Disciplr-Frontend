@@ -3,6 +3,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { SafeMarkdown } from '../components/SafeMarkdown'
 
 describe('SafeMarkdown heading ids', () => {
+  it('renders all heading levels with inline formatting', () => {
+    render(<SafeMarkdown content={'# **Title**\n## **Section**\n### `Step`'} />)
+
+    expect(screen.getByRole('heading', { level: 1 }).querySelector('strong')).toHaveTextContent('Title')
+    expect(screen.getByRole('heading', { level: 2 }).querySelector('strong')).toHaveTextContent('Section')
+    expect(screen.getByRole('heading', { level: 3 }).querySelector('code')).toHaveTextContent('Step')
+  })
+
   it('gives ## headings slug ids', () => {
     render(<SafeMarkdown content={'## Hello World'} />)
     expect(document.getElementById('hello-world')).not.toBeNull()
@@ -76,6 +84,21 @@ describe('SafeMarkdown onHeadings callback', () => {
 })
 
 describe('SafeMarkdown lists, links, and inline content', () => {
+  it('renders consecutive bullet lines as one list and closes the list at a blank line', () => {
+    const { container } = render(<SafeMarkdown content={'- a\n- b\n\npara'} />)
+
+    expect(container.querySelectorAll('ul')).toHaveLength(1)
+    expect(container.querySelectorAll('ul li')).toHaveLength(2)
+    expect(screen.getByText('para').tagName).toBe('P')
+  })
+
+  it('starts a new list after a blank line', () => {
+    const { container } = render(<SafeMarkdown content={'- a\n\n- b'} />)
+
+    expect(container.querySelectorAll('ul')).toHaveLength(2)
+    expect(container.querySelectorAll('ul li')).toHaveLength(2)
+  })
+
   it('renders consecutive numbered lines as one ordered list', () => {
     render(<SafeMarkdown content={'1. First\n2. Second'} />)
 
@@ -130,5 +153,33 @@ describe('SafeMarkdown lists, links, and inline content', () => {
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByText(markdown)).toBeInTheDocument()
+  })
+
+  it.each([
+    '<script>alert(1)</script>',
+    '<img src=x onerror=alert(1)>',
+  ])('renders hostile HTML as literal text: %s', (payload) => {
+    const { container } = render(<SafeMarkdown content={payload} />)
+
+    expect(screen.getByText(payload)).toBeInTheDocument()
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('renders empty content as an empty container', () => {
+    const { container } = render(<SafeMarkdown content="" />)
+
+    expect(container.firstElementChild).toBeInTheDocument()
+    expect(container.firstElementChild?.childElementCount).toBe(0)
+    expect(container.firstElementChild).toBeEmptyDOMElement()
+  })
+
+  it('leaves unclosed bold markers and a lone backtick literal', () => {
+    const markdown = '**unclosed and `'
+    const { container } = render(<SafeMarkdown content={markdown} />)
+
+    expect(screen.getByText(markdown)).toBeInTheDocument()
+    expect(container.querySelector('strong')).toBeNull()
+    expect(container.querySelector('code')).toBeNull()
   })
 })
