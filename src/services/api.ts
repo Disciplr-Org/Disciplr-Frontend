@@ -195,37 +195,7 @@ export interface ApiVault {
   milestones: ApiMilestone[]; activity?: ApiActivity[];
 }
 
-export function parseApiVault(raw: unknown): ParseResult<ApiVault> {
-  if (!isRecord(raw)) {
-    return { ok: false, issues: ["Vault must be an object."] };
-  }
-  const issues: string[] = [];
-  if (!isNonEmptyString(raw.id)) issues.push("Vault id must be a non-empty string.");
-  if (raw.name !== undefined && typeof raw.name !== "string") {
-    issues.push("Vault name must be a string when present.");
-  }
-  if (!isNonEmptyString(raw.creator)) issues.push("Vault creator must be a non-empty string.");
-  if (!isFiniteNumericValue(raw.amount)) issues.push("Vault amount must be a finite numeric value.");
-  if (typeof raw.status !== "string" || !VALID_VAULT_STATUSES.has(raw.status)) {
-    issues.push("Vault status must be a known vault status.");
-  }
-  if (raw.startDate !== undefined && typeof raw.startDate !== "string") {
-    issues.push("Vault startDate must be a string when present.");
-  }
-  if (!isNonEmptyString(raw.endDate)) issues.push("Vault endDate must be a non-empty string.");
-  if (raw.verifier !== undefined && typeof raw.verifier !== "string") {
-    issues.push("Vault verifier must be a string when present.");
-  }
-  if (typeof raw.successDestination !== "string") {
-    issues.push("Vault successDestination must be a string.");
-  }
-  if (typeof raw.failureDestination !== "string") {
-    issues.push("Vault failureDestination must be a string.");
-  }
-  if (!isNonEmptyString(raw.createdAt)) issues.push("Vault createdAt must be a non-empty string.");
-  if (raw.updatedAt !== undefined && typeof raw.updatedAt !== "string") {
-    issues.push("Vault updatedAt must be a string when present.");
-  }
+export interface ApiActivity { id: string; type: string; vaultId: string; amount: string; fee?: string | number; status: string; hash: string; memo: string; createdAt: string }
 
   const milestones: ApiMilestone[] = [];
   if (raw.milestones !== undefined && raw.milestones !== null) {
@@ -522,15 +492,24 @@ const toTx = (a: ApiActivity): VaultTransaction => ({
   type: normalizeActivityType(a.type),
   hash: a.hash,
   timestamp: a.createdAt,
+  rawAmount: a.amount,
   amount: parseFiniteAmount(a.amount, 0),
+  ...(a.fee != null ? { fee: Number(a.fee) } : {}),
 });
 
 export function toVault(v: ApiVault): Vault {
+  const amount = parseFiniteAmount(v.amount, 0);
+  if (!isFiniteNumericValue(v.amount)) {
+    logger.warn(`Invalid vault amount for vault ${v.id}; defaulting to 0`, {
+      vaultId: v.id,
+      amount: v.amount,
+    });
+  }
   const rawMilestones = Array.isArray(v.milestones) ? v.milestones : [];
   const milestones: Milestone[] = rawMilestones.map((m) => ({
     id: m.id,
     title: m.title,
-    description: `${formatUsdc(m.amount)} USDC, due ${formatDate(m.dueDate)}`,
+    description: `${formatUsdc(parseFiniteAmount(m.amount))} USDC, due ${formatDate(m.dueDate)}`,
     criteria: m.title,
     status: m.status === "completed" ? "validated" : m.status === "failed" ? "failed" : "pending",
     dueDate: m.dueDate,
@@ -542,8 +521,9 @@ export function toVault(v: ApiVault): Vault {
   return {
     id: v.id,
     name: v.name || `Vault ${v.id}`,
+    rawAmount: v.amount,
     status,
-    amount: parseFiniteAmount(v.amount, 0),
+    amount,
     currency: "USDC",
     createdAt: v.createdAt,
     deadline: v.endDate,
@@ -557,13 +537,27 @@ export function toVault(v: ApiVault): Vault {
   };
 }
 
-export interface VaultFilter { creator?: string; status?: string }
+export interface VaultFilter { creator?: string; status?: string | string[] }
 
-/** Builds `?creator=..&status=..` with every value URI-encoded; empty when no filter is set. */
+/** Reduce a status select (single or list) to its non-blank values. */
+export function normalizeStatusValues(status?: string | string[]): string[] {
+  if (!status) return [];
+  const values = Array.isArray(status) ? status : [status];
+  return values.filter((value) => value.trim().length > 0);
+}
+
+/**
+ * Builds `?creator=..&status=..`. A status list is emitted as repeated
+ * `status=` params (sorted so the query, and any cache key built from it, is
+ * deterministic). Every value is URI-encoded; empty lists/blank values are
+ * omitted and no filter yields an empty string.
+ */
 export function buildVaultQuery(filter?: VaultFilter): string {
   const parts: string[] = [];
   if (filter?.creator) parts.push(`creator=${encodeURIComponent(filter.creator)}`);
-  if (filter?.status) parts.push(`status=${encodeURIComponent(filter.status)}`);
+  for (const status of normalizeStatusValues(filter?.status).sort()) {
+    parts.push(`status=${encodeURIComponent(status)}`);
+  }
   return parts.length ? `?${parts.join("&")}` : "";
 }
 

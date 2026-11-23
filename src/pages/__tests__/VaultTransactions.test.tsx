@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import VaultTransactions from '../VaultTransactions';
 import * as vaultService from '../../services/vaultService';
+import { DEFAULT_VALIDATION_HISTORY_PAGE_SIZE } from '../../utils/pageSizePref';
 import type { Vault, VaultTransaction } from '../../types/vault';
 
 vi.mock('../../context/WalletContext', () => ({
@@ -55,14 +56,25 @@ const mockTransactions: VaultTransaction[] = [
   },
 ];
 
-function renderVaultTransactions(vaultId = '1') {
+function renderVaultTransactions(vaultId = '1', path?: string) {
   return render(
-    <MemoryRouter initialEntries={[`/vaults/${vaultId}/transactions`]}>
+    <MemoryRouter initialEntries={[path ?? `/vaults/${vaultId}/transactions`]}>
       <Routes>
         <Route path="/vaults/:id/transactions" element={<VaultTransactions />} />
       </Routes>
     </MemoryRouter>
   );
+}
+
+/** Build a deterministic list of transactions, newest (tx-N) to oldest (tx-1). */
+function makeTransactions(count: number): VaultTransaction[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `tx-${index + 1}`,
+    type: 'create' as const,
+    hash: `0x${String(index + 1).padStart(32, '0')}`,
+    timestamp: new Date(Date.UTC(2026, 0, index + 1, 10, 0, 0)).toISOString(),
+    amount: 100 * (index + 1),
+  }));
 }
 
 describe('VaultTransactions Page', () => {
@@ -106,12 +118,69 @@ describe('VaultTransactions Page', () => {
     });
 
     expect(screen.getByText(/No transactions found for this vault/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Transaction totals')).not.toBeInTheDocument();
     expect(document.title).toBe('Alpha Vault · Disciplr');
 
     // Back link is present
     const backLink = screen.getByRole('link', { name: /Back to Vault/i });
     expect(backLink).toBeInTheDocument();
     expect(backLink).toHaveAttribute('href', '/vaults/1');
+  });
+
+  it('renders formatted totals for one transaction', async () => {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue([
+      {
+        id: 'tx-single',
+        type: 'create',
+        hash: '0x11111111111111111111111111111111',
+        timestamp: '2026-01-01T10:00:00.000Z',
+        amount: 4.25,
+        fee: 0.05,
+      },
+    ]);
+
+    renderVaultTransactions('1');
+
+    expect(await screen.findByText('1 transaction')).toBeInTheDocument();
+    const summary = screen.getByLabelText('Transaction totals');
+    expect(within(summary).getByText('4.25 USDC')).toBeInTheDocument();
+    expect(within(summary).getByText('0.05 USDC')).toBeInTheDocument();
+  });
+
+  it('renders formatted totals for transactions and keeps them unchanged when sorting', async () => {
+    const transactions: VaultTransaction[] = [
+      {
+        id: 'tx-amount-1',
+        type: 'create',
+        hash: '0x11111111111111111111111111111111',
+        timestamp: '2026-01-01T10:00:00.000Z',
+        amount: 10,
+        fee: 0.1,
+      },
+      {
+        id: 'tx-amount-2',
+        type: 'release',
+        hash: '0x22222222222222222222222222222222',
+        timestamp: '2026-02-01T10:00:00.000Z',
+        amount: 5.5,
+        fee: 0.2,
+      },
+    ];
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(transactions);
+
+    renderVaultTransactions('1');
+
+    expect(await screen.findByText('2 transactions')).toBeInTheDocument();
+    expect(screen.getByText('15.50 USDC')).toBeInTheDocument();
+    expect(screen.getByText('0.30 USDC')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Toggle sort order/i }));
+
+    expect(screen.getByText('2 transactions')).toBeInTheDocument();
+    expect(screen.getByText('15.50 USDC')).toBeInTheDocument();
+    expect(screen.getByText('0.30 USDC')).toBeInTheDocument();
   });
 
   it('renders "Unknown Transaction" label for a transaction with type "unknown"', async () => {
@@ -172,5 +241,92 @@ describe('VaultTransactions Page', () => {
     fireEvent.click(sortButton);
     const reSortedTxElements = screen.getAllByTestId(/^vault-tx-/);
     expect(reSortedTxElements[0]).toHaveAttribute('data-testid', 'vault-tx-tx-3');
+  });
+});
+
+describe('VaultTransactions pagination', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Force the default page size so page maths are deterministic.
+    window.localStorage.clear();
+  });
+
+  async function renderWithTransactions(count: number, path?: string) {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(makeTransactions(count));
+
+    renderVaultTransactions('1', path);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Alpha Vault Transactions'
+      );
+    });
+  }
+
+  it('renders only the first page of rows and announces the page indicator', async () => {
+    await renderWithTransactions(25);
+
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+    // Newest-first: tx-25 down to tx-16 on page 1.
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-25');
+    expect(rows[rows.length - 1]).toHaveAttribute('data-testid', 'vault-tx-tx-16');
+
+    const indicator = screen.getByText('Page 1 of 3');
+    expect(indicator).toBeInTheDocument();
+    expect(indicator).toHaveAttribute('aria-live', 'polite');
+
+    expect(screen.getByLabelText('Vault transaction pagination')).toBeInTheDocument();
+  });
+
+  it('shows the remaining rows on the last page', async () => {
+    await renderWithTransactions(25);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to page 3' }));
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-5');
+    expect(rows[4]).toHaveAttribute('data-testid', 'vault-tx-tx-1');
+  });
+
+  it('clamps an out-of-range page param to the last page', async () => {
+    await renderWithTransactions(25, '/vaults/1/transactions?page=9');
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^vault-tx-/)).toHaveLength(5);
+  });
+
+  it('hides pagination when the list fits on a single page', async () => {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(mockTransactions);
+
+    renderVaultTransactions('1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Alpha Vault Transactions'
+      );
+    });
+
+    expect(screen.getAllByTestId(/^vault-tx-/)).toHaveLength(3);
+    expect(screen.queryByLabelText('Vault transaction pagination')).not.toBeInTheDocument();
+  });
+
+  it('returns to the first page when the sort order is toggled', async () => {
+    await renderWithTransactions(25, '/vaults/1/transactions?page=3');
+
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Toggle sort order/i }));
+
+    expect(screen.getByText(/Sort: Oldest first/i)).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    const rows = screen.getAllByTestId(/^vault-tx-/);
+    expect(rows).toHaveLength(DEFAULT_VALIDATION_HISTORY_PAGE_SIZE);
+    // Oldest-first after the toggle: tx-1 is now the first row.
+    expect(rows[0]).toHaveAttribute('data-testid', 'vault-tx-tx-1');
   });
 });

@@ -9,10 +9,11 @@ import { useT, type MessageKey } from '../i18n'
 /**
  * Home page invariants:
  * - The page is a pure presentational component: it must never throw during render,
- *   regardless of auth / wallet state. All navigation links are static and
- *   deterministic.
- * - The hero must always expose exactly one H1 and one primary CTA targeting
- *   /vaults/create so the entry point is discoverable and accessible.
+ *   regardless of auth / wallet state. All navigation links are deterministic.
+ * - The hero must always expose exactly one H1 and one primary CTA:
+ *   - When connected (including demo mode), the primary CTA links to /vaults/create.
+ *   - When disconnected, the primary CTA triggers the connect flow (and no link to
+ *     /vaults/create is shown as the primary CTA).
  * - Wallet connection failures are isolated to the WalletConnectButton and
  *   must not cascade into the rest of the page.
  */
@@ -55,7 +56,7 @@ const TRUST_SIGNALS: ReadonlyArray<{
 ]
 
 export default function Home() {
-  const { connectDemo } = useWallet()
+  const { address, status, isDemo, connectDemo } = useWallet()
   const navigate = useNavigate()
   const t = useT()
 
