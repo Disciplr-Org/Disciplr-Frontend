@@ -87,10 +87,24 @@ export function createDefaultSeedVault(): ApiVault {
   };
 }
 
+export interface FailNextOptions {
+  /** Optional path substring or RegExp (matched against the path without `/api`). */
+  path?: string | RegExp;
+  /** Number of matching requests to fail. Defaults to 1. */
+  count?: number;
+}
+
+interface QueuedFailure {
+  status: number;
+  path?: string | RegExp;
+}
+
 export class FakeApi {
   private vaults: Map<string, ApiVault> = new Map();
   private transactions: ApiActivity[] = [];
   private nextVaultIndex = 1;
+  private failureQueue: QueuedFailure[] = [];
+  private responseDelayMs = 0;
 
   constructor(initialVaults: ApiVault[] = [createDefaultSeedVault()]) {
     this.reset(initialVaults);
@@ -100,10 +114,30 @@ export class FakeApi {
     this.vaults.clear();
     this.transactions = [];
     this.nextVaultIndex = 1;
+    this.failureQueue = [];
+    this.responseDelayMs = 0;
 
     for (const v of initialVaults) {
       this.seedVault(v);
     }
+  }
+
+  /**
+   * Queue one or more synthetic HTTP error responses for subsequent matching requests.
+   */
+  public failNext(status = 500, options: FailNextOptions = {}) {
+    const count = options.count ?? 1;
+    for (let i = 0; i < count; i++) {
+      this.failureQueue.push({ status, path: options.path });
+    }
+  }
+
+  /**
+   * Set an artificial response delay (in ms) for all subsequent requests.
+   * Pass 0 to disable.
+   */
+  public delay(ms: number) {
+    this.responseDelayMs = Math.max(0, ms);
   }
 
   public seedVault(vault: ApiVault) {
@@ -126,6 +160,33 @@ export class FakeApi {
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api/, '');
     const method = request.method();
+
+    if (this.responseDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.responseDelayMs));
+    }
+
+    const failureIdx = this.failureQueue.findIndex((entry) => {
+      if (!entry.path) return true;
+      if (typeof entry.path === 'string') return path.includes(entry.path);
+      return entry.path.test(path);
+    });
+    if (failureIdx !== -1) {
+      const [failure] = this.failureQueue.splice(failureIdx, 1);
+      return route.fulfill({
+        status: failure.status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: `Simulated ${failure.status} error` }),
+      });
+    }
+
+    // 0. GET /health (used by ConnectivityBanner / connectivity store)
+    if (method === 'GET' && (path === '/health' || path === '/health/')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok' }),
+      });
+    }
 
     // 1. GET /vaults
     if (method === 'GET' && (path === '/vaults' || path === '/vaults/')) {
