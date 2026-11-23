@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { BatchActionBar } from '../components/BatchActionBar';
 import { CountdownDeadline } from '../components/CountdownDeadline';
-import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
 import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
@@ -17,6 +17,7 @@ import {
 import { daysRemaining } from '../utils/dashboard';
 import { downloadCsv, toCsv } from '../utils/csv';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { MAX_BATCH_NOTES_LENGTH } from '../utils/batchNotes';
 
 /**
  * Invariants enforced by this page:
@@ -27,7 +28,7 @@ import { useCurrentTime } from '../hooks/useCurrentTime';
  * - The confirm handler is the single authorization gate for batch decisions; it
  *   validates the decision, the notes payload, and the current selection snapshot.
  */
-const MAX_NOTES_LENGTH = 2000;
+const MAX_NOTES_LENGTH = MAX_BATCH_NOTES_LENGTH;
 
 type BatchDecision = 'approve' | 'reject';
 
@@ -61,8 +62,6 @@ export default function PendingValidations() {
 
   // Multi-select state for batch actions.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [pendingDecision, setPendingDecision] = useState<BatchDecision>('approve');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -139,36 +138,22 @@ export default function PendingValidations() {
     setSelectedIds(allSelected ? [] : allIds);
   };
 
-  const openBatch = (decision: BatchDecision) => {
-    if (isSubmitting) return;
-    if (validSelectedIds.length === 0) return;
-    setActionError(null);
-    setPendingDecision(decision);
-    setModalOpen(true);
-  };
-
-  const closeModal = useCallback(() => {
-    if (submitLockRef.current) return;
-    setModalOpen(false);
-    setActionError(null);
-  }, []);
-
   const handleConfirm = useCallback(
-    (decision: BatchDecision, notes: string) => {
+    (decision: BatchDecision, notes: string): boolean => {
       // Guard against duplicate/concurrent submissions from rapid clicks or
       // double-fired modal events. The ref is synchronous so it closes the
       // race window that state-based guards leave open.
-      if (submitLockRef.current) return;
+      if (submitLockRef.current) return false;
 
       if (decision !== 'approve' && decision !== 'reject') {
         setActionError('Unsupported decision.');
-        return;
+        return false;
       }
 
       const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
       if (trimmedNotes.length > MAX_NOTES_LENGTH) {
         setActionError(`Notes must be ${MAX_NOTES_LENGTH} characters or fewer.`);
-        return;
+        return false;
       }
 
       // Snapshot and re-validate against the live queue so ids removed by a
@@ -178,8 +163,7 @@ export default function PendingValidations() {
       if (targetIds.length === 0) {
         setActionError('No valid validations selected.');
         setSelectedIds([]);
-        setModalOpen(false);
-        return;
+        return false;
       }
 
       submitLockRef.current = true;
@@ -193,11 +177,12 @@ export default function PendingValidations() {
           batchReject(targetIds, trimmedNotes);
         }
         setSelectedIds([]);
-        setModalOpen(false);
+        return true;
       } catch (err) {
         // Surface a diagnosable, non-sensitive error and keep the modal open
         // so the user can retry without losing their selection.
         setActionError('Unable to complete the batch action. Please retry.');
+        return false;
       } finally {
         submitLockRef.current = false;
         setIsSubmitting(false);
@@ -206,7 +191,6 @@ export default function PendingValidations() {
     [batchApprove, batchReject, pendingValidations, validSelectedIds],
   );
 
-  const hasSelection = validSelectedIds.length > 0 && !isSubmitting;
   const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const handleHeaderSort = (key: PendingSortKey) => {
     if (sortKey === key) {
@@ -270,17 +254,6 @@ export default function PendingValidations() {
       </header>
 
       <VerifierMetricsBar metrics={metrics} />
-
-      {actionError && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="rounded border px-4 py-3 text-sm"
-          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'var(--danger-transparent)' }}
-        >
-          {actionError}
-        </div>
-      )}
 
       <section
         aria-label="Pending validation filters"
@@ -456,42 +429,12 @@ export default function PendingValidations() {
         )}
       </section>
 
-      {/* Sticky batch action bar */}
-      <div
-        role="region"
-        aria-label="Batch actions"
-        className="sticky bottom-4 mx-auto w-full max-w-2xl rounded-lg border px-4 py-3 shadow-lg flex items-center justify-between gap-4"
-        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-      >
-        <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
-          {validSelectedIds.length} selected
-        </Text>
-        <div className="flex gap-3">
-          <button
-            onClick={() => openBatch('reject')}
-            disabled={!hasSelection}
-            className="px-4 py-2 text-sm font-medium rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--danger-transparent)', color: 'var(--danger)' }}
-          >
-            Reject Selected
-          </button>
-          <button
-            onClick={() => openBatch('approve')}
-            disabled={!hasSelection}
-            className="px-4 py-2 text-sm font-bold rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--success)', color: 'white' }}
-          >
-            {isSubmitting ? 'Processing…' : 'Approve Selected'}
-          </button>
-        </div>
-      </div>
-
-      <ConfirmationModal
-        isOpen={modalOpen}
-        onClose={closeModal}
-        onConfirm={handleConfirm}
-        initialDecision={pendingDecision}
-        affectedCount={validSelectedIds.length}
+      <BatchActionBar
+        selectedCount={validSelectedIds.length}
+        onApprove={(notes) => handleConfirm('approve', notes)}
+        onReject={(notes) => handleConfirm('reject', notes)}
+        isSubmitting={isSubmitting}
+        error={actionError}
       />
     </div>
   );
