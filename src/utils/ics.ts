@@ -20,6 +20,11 @@ export interface IcsCalendarOptions {
   origin?: string;
 }
 
+export interface AllDeadlinesCalendarOptions extends IcsCalendarOptions {
+  /** Optional map of UID (`<vaultId>-<milestoneId>@disciplr` or `<vaultId>-<milestoneId>`) to stored SEQUENCE number. */
+  sequences?: Record<string, number>;
+}
+
 export interface MilestoneLike {
   id: string;
   title: string;
@@ -32,6 +37,7 @@ export interface MilestoneLike {
 export interface VaultLike {
   id: string;
   name: string;
+  status?: string;
   amount?: number;
   currency?: string;
   deadline: string;
@@ -197,6 +203,67 @@ export function vaultToIcsEvents(vault: VaultLike, alarms?: AlarmPreference): Ic
   }
 
   return events;
+}
+
+export function milestoneDeadlineUid(vaultId: string, milestoneId: string): string {
+  return `${vaultId}-${milestoneId}@disciplr`;
+}
+
+export function getUpcomingMilestoneEvents(
+  vaults: VaultLike[],
+  options: AllDeadlinesCalendarOptions = {}
+): IcsEventInput[] {
+  const now = options.now ?? new Date();
+  const nowMs = now.getTime();
+  const seenUids = new Set<string>();
+  const events: IcsEventInput[] = [];
+
+  for (const vault of vaults) {
+    if (!Array.isArray(vault.milestones)) continue;
+
+    for (const m of vault.milestones) {
+      if (m.status !== 'pending') continue;
+
+      const milestoneDeadline = m.dueDate || m.deadline;
+      if (!milestoneDeadline || !isValidIcsDeadline(milestoneDeadline)) continue;
+
+      const deadlineMs = new Date(milestoneDeadline).getTime();
+      if (deadlineMs <= nowMs) continue;
+
+      const uid = milestoneDeadlineUid(vault.id, m.id);
+      if (seenUids.has(uid)) continue;
+      seenUids.add(uid);
+
+      const sequenceKey = `${vault.id}-${m.id}`;
+      const sequence = options.sequences?.[uid] ?? options.sequences?.[sequenceKey];
+
+      events.push({
+        title: `${vault.name} - ${m.title}`,
+        deadline: milestoneDeadline,
+        description: m.description || `Milestone for ${vault.name}`,
+        uid,
+        vaultId: vault.id,
+        sequence,
+        alarms: options.alarms,
+      });
+    }
+  }
+
+  return events;
+}
+
+export function buildAllDeadlinesCalendar(
+  vaults: VaultLike[],
+  options: AllDeadlinesCalendarOptions = {}
+): string {
+  const now = options.now ?? new Date();
+  const events = getUpcomingMilestoneEvents(vaults, { ...options, now });
+
+  return buildCalendar(events, {
+    ...options,
+    now,
+    calendarName: options.calendarName ?? 'Disciplr milestones',
+  });
 }
 
 export function buildCalendar(events: IcsEventInput[], opts: IcsCalendarOptions = {}): string {
