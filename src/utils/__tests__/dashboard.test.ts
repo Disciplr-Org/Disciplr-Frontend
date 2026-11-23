@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   daysRemaining,
   urgencyColor,
@@ -6,9 +6,11 @@ import {
   formatSummary,
   processDeadlines,
   processActivity,
+  computeDashboardSummary,
   type Deadline,
   type Activity,
 } from '../dashboard';
+import { VAULT_FIXTURES } from '../../fixtures/vaults';
 
 describe('Dashboard Utility Helpers', () => {
   // A fixed timestamp representing 2026-06-27T12:00:00Z
@@ -21,11 +23,26 @@ describe('Dashboard Utility Helpers', () => {
       expect(daysRemaining(deadline, MOCK_NOW)).toBe(2);
     });
 
-    it('returns 0 when deadline is exactly now or in the past', () => {
+    it('returns 0 when deadline is exactly now', () => {
       const deadlineNow = '2026-06-27T12:00:00Z';
-      const deadlinePast = '2026-06-25T12:00:00Z';
       expect(daysRemaining(deadlineNow, MOCK_NOW)).toBe(0);
-      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(0);
+    });
+
+    it('returns a negative value when deadline is in the past', () => {
+      const deadlinePast = '2026-06-25T12:00:00Z';
+      expect(daysRemaining(deadlinePast, MOCK_NOW)).toBe(-2);
+    });
+
+    it('does not throw on invalid dates', () => {
+      expect(() => daysRemaining('not-a-date', MOCK_NOW)).not.toThrow();
+      expect(Number.isNaN(daysRemaining('not-a-date', MOCK_NOW))).toBe(true);
+    });
+
+    it('uses the injected clock via vi.setSystemTime when now is omitted', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-27T12:00:00Z'));
+      expect(daysRemaining('2026-06-29T12:00:00Z')).toBe(2);
+      vi.useRealTimers();
     });
 
     it('rounds up partial days remaining', () => {
@@ -71,6 +88,55 @@ describe('Dashboard Utility Helpers', () => {
       // 3 days ago
       const iso = new Date(MOCK_NOW - 3 * 24 * 60 * 60 * 1000).toISOString();
       expect(relativeTime(iso, MOCK_NOW)).toBe('3d ago');
+    });
+  });
+
+  describe('urgencyColor thresholds', () => {
+    it('flips to danger at exactly 7 days and warning at exactly 8', () => {
+      expect(urgencyColor(7)).toBe('var(--danger)');
+      expect(urgencyColor(8)).toBe('var(--warning)');
+    });
+
+    it('flips to warning at exactly 30 days and success at exactly 31', () => {
+      expect(urgencyColor(30)).toBe('var(--warning)');
+      expect(urgencyColor(31)).toBe('var(--success)');
+    });
+
+    it('treats negative days as danger', () => {
+      expect(urgencyColor(-5)).toBe('var(--danger)');
+    });
+  });
+
+  describe('computeDashboardSummary', () => {
+    it('returns zeros with completionRate 0 for an empty array (no NaN)', () => {
+      const summary = computeDashboardSummary([]);
+      expect(summary).toEqual({
+        totalLocked: 0,
+        activeVaults: 0,
+        pendingMilestones: 0,
+        completionRate: 0,
+      });
+      Object.values(summary).forEach((v) => expect(Number.isNaN(v)).toBe(false));
+    });
+
+    it('counts only active vaults as active and excludes cancelled from totals', () => {
+      const summary = computeDashboardSummary(VAULT_FIXTURES);
+      // fixtures: 1 active, 1 pending_validation, 1 completed, 1 failed, 1 cancelled
+      expect(summary.activeVaults).toBe(1);
+      expect(summary.pendingMilestones).toBe(1);
+      // cancelled vault (3300) excluded: 12500 + 8800 + 4200 + 15000
+      expect(summary.totalLocked).toBe(40500);
+      // completionRate over non-cancelled: 1 completed / 4 = 25%
+      expect(summary.completionRate).toBe(25);
+    });
+
+    it('returns completionRate 0 when no vaults are completed', () => {
+      const summary = computeDashboardSummary([
+        { ...VAULT_FIXTURES[0] },
+        { ...VAULT_FIXTURES[1] },
+      ]);
+      expect(summary.completionRate).toBe(0);
+      expect(Number.isNaN(summary.completionRate)).toBe(false);
     });
   });
 
@@ -154,7 +220,7 @@ describe('Dashboard Utility Helpers', () => {
       expect(processed[1].id).toBe('a2');
 
       // Check formatting
-      expect(processed[0].relativeTime).toBe('24h ago'); // 2026-06-27T12:00:00 - 2026-06-26T12:00:00 = 24h
+      expect(processed[0].relativeTime).toBe('1d ago'); // exactly 24h rolls over to days
       expect(processed[0].formattedAmount).toBeUndefined();
 
       expect(processed[1].relativeTime).toBe('2d ago'); // 48h

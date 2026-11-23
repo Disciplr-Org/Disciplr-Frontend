@@ -1,4 +1,9 @@
-export type VaultStatus = "active" | "pending_validation" | "completed" | "failed";
+export type VaultStatus =
+  | "active"
+  | "pending_validation"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface VaultPreview {
   id: string;
@@ -46,10 +51,19 @@ export interface FormattedActivity extends Activity {
 }
 
 export function daysRemaining(deadline: string, now: number = Date.now()): number {
-  return Math.max(
-    0,
-    Math.ceil((new Date(deadline).getTime() - now) / 86400000)
-  );
+  return Math.ceil((new Date(deadline).getTime() - now) / 86400000);
+}
+
+export function computeDashboardSummary(vaults: VaultPreview[]): DashboardSummary {
+  const counted = vaults.filter((v) => v.status !== "cancelled");
+  const completed = counted.filter((v) => v.status === "completed").length;
+  return {
+    totalLocked: counted.reduce((sum, v) => sum + v.amount, 0),
+    activeVaults: vaults.filter((v) => v.status === "active").length,
+    pendingMilestones: vaults.filter((v) => v.status === "pending_validation").length,
+    completionRate:
+      counted.length === 0 ? 0 : Math.round((completed / counted.length) * 100),
+  };
 }
 
 export function urgencyColor(days: number): string {
