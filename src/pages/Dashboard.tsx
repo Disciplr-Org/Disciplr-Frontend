@@ -34,7 +34,6 @@ import {
   listTransactionsForVaults,
 } from "../services/vaultService";
 import { isApiEnabled, type ApiStats } from "../services/api";
-import { useWallet } from "../context/WalletContext";
 import {
   mergeUserVaults,
   deriveActivity,
@@ -87,35 +86,7 @@ const ACTIVITY_CFG: Record<
     icon: "✓",
     color: "var(--success)",
   },
-  {
-    to: "/vaults",
-    label: "View All Vaults",
-    style: {
-      background: "var(--surface)",
-      color: "var(--text)",
-      border: "1px solid var(--border)",
-      padding: "0.6rem 1.25rem",
-      borderRadius: "var(--radius)",
-      fontWeight: 500,
-      fontSize: 14,
-      textDecoration: "none",
-    },
-  },
-  {
-    to: "/verifier/queue",
-    label: "Verify Milestone",
-    style: {
-      background: "var(--surface)",
-      color: "var(--warning)",
-      border: "1px solid var(--warning)",
-      padding: "0.6rem 1.25rem",
-      borderRadius: "var(--radius)",
-      fontWeight: 500,
-      fontSize: 14,
-      textDecoration: "none",
-    },
-  },
-] as const;
+};
 
 function SectionHeader({
   title,

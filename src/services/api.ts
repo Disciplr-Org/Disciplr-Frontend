@@ -9,7 +9,6 @@ import type { VaultActivityRecord } from "./vaultService";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
 import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
-import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
 import { logger } from "../utils/logger";
 import { useConnectivityStore } from "./connectivity";
 
@@ -150,7 +149,7 @@ export function isApiMilestone(raw: unknown): raw is ApiMilestone {
   return parseApiMilestone(raw).ok;
 }
 
-export interface ApiActivity { id: string; type: string; vaultId: string; amount: string; status: string; hash: string; memo: string; createdAt: string }
+export interface ApiActivity { id: string; type: string; vaultId: string; amount: string; fee?: string | number; status: string; hash: string; memo: string; createdAt: string }
 
 export function parseApiActivity(raw: unknown): ParseResult<ApiActivity> {
   if (!isRecord(raw)) {
@@ -195,7 +194,37 @@ export interface ApiVault {
   milestones: ApiMilestone[]; activity?: ApiActivity[];
 }
 
-export interface ApiActivity { id: string; type: string; vaultId: string; amount: string; fee?: string | number; status: string; hash: string; memo: string; createdAt: string }
+export function parseApiVault(raw: unknown): ParseResult<ApiVault> {
+  if (!isRecord(raw)) {
+    return { ok: false, issues: ["Vault must be an object."] };
+  }
+  const issues: string[] = [];
+  if (!isNonEmptyString(raw.id)) issues.push("Vault id must be a non-empty string.");
+  if (raw.name !== undefined && typeof raw.name !== "string") {
+    issues.push("Vault name must be a string when present.");
+  }
+  if (!isNonEmptyString(raw.creator)) issues.push("Vault creator must be a non-empty string.");
+  if (!isFiniteNumericValue(raw.amount)) issues.push("Vault amount must be a finite numeric value.");
+  if (typeof raw.status !== "string" || !VALID_VAULT_STATUSES.has(raw.status)) {
+    issues.push("Vault status must be a known vault status.");
+  }
+  if (raw.startDate !== undefined && typeof raw.startDate !== "string") {
+    issues.push("Vault startDate must be a string when present.");
+  }
+  if (!isNonEmptyString(raw.endDate)) issues.push("Vault endDate must be a non-empty string.");
+  if (raw.verifier !== undefined && typeof raw.verifier !== "string") {
+    issues.push("Vault verifier must be a string when present.");
+  }
+  if (typeof raw.successDestination !== "string") {
+    issues.push("Vault successDestination must be a string.");
+  }
+  if (typeof raw.failureDestination !== "string") {
+    issues.push("Vault failureDestination must be a string.");
+  }
+  if (!isNonEmptyString(raw.createdAt)) issues.push("Vault createdAt must be a non-empty string.");
+  if (raw.updatedAt !== undefined && typeof raw.updatedAt !== "string") {
+    issues.push("Vault updatedAt must be a string when present.");
+  }
 
   const milestones: ApiMilestone[] = [];
   if (raw.milestones !== undefined && raw.milestones !== null) {
