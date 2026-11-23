@@ -91,6 +91,9 @@ npm test                 # vitest
 | `VITE_API` | Base URL of the Disciplr API including `/api`. Unset = offline fixtures |
 | `VITE_API_TARGET` | Dev-server proxy target for `/api` (default `http://localhost:3000`) |
 | `VITE_DEV_PORT` | Dev server port (default 5173) |
+| `VITE_ERROR_ENDPOINT` | Opt-in error-report collection endpoint. Unset = no network calls |
+| `VITE_ERROR_SAMPLE_RATE` | Error-report sampling rate from `0` to `1` (default `0.1`) |
+| `VITE_APP_VERSION` | Optional app version override included in error payloads |
 
 ## Deployment
 
