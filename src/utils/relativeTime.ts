@@ -13,6 +13,18 @@
  * formatRelativeTime(new Date(Date.now() + 86400000)) // "in 1 day"
  * formatRelativeTime("2024-04-28T14:30:00Z", new Date("2024-04-28T16:30:00Z").getTime()) // "2 hours ago"
  */
+
+/** Locale used by formatRelativeTime. Override in tests via setTestLocale. */
+let _locale = "en";
+
+/**
+ * Pin the locale for deterministic test output.
+ * Call inside beforeEach / afterEach to reset back to "en".
+ */
+export function setTestLocale(locale: string): void {
+  _locale = locale;
+}
+
 export function formatRelativeTime(
   date: Date | string | number,
   now: number = Date.now(),
@@ -29,7 +41,7 @@ export function formatRelativeTime(
   const absDiff = Math.abs(diffInSeconds);
 
   // Use Intl.RelativeTimeFormat for localized formatting
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "always" });
+  const rtf = new Intl.RelativeTimeFormat(_locale, { numeric: "always" });
 
   // Less than 1 minute
   if (absDiff < 60) {
@@ -65,7 +77,7 @@ export function formatRelativeTime(
 
   // For dates beyond a month, fall back to absolute date formatting
   const dateObj = new Date(timestamp);
-  return dateObj.toLocaleDateString("en-US", {
+  return dateObj.toLocaleDateString(_locale, {
     month: "short",
     day: "numeric",
     year:
