@@ -12,6 +12,11 @@ import { Pagination } from "@/components/Pagination";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { paginate } from "@/utils/paginate";
 import type { NotificationItem } from "@/Zustand/Store";
+import {
+  NOTIFICATION_PAGE_SIZE_OPTIONS,
+  persistNotificationPageSize,
+  readNotificationPageSize,
+} from "../utils/pageSizePref";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
@@ -24,8 +29,17 @@ export default function Notification() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
-  const itemsPerPage = 5;
+  const [pageSize, setPageSize] = useState<number>(() => readNotificationPageSize());
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const handlePageSizeChange = (newSize: number) => {
+    const nextSize = persistNotificationPageSize(newSize);
+    setPageSize(nextSize);
+    const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / nextSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  };
 
   const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
 
@@ -54,7 +68,7 @@ export default function Notification() {
     return filtered;
   }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
 
-  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
+  const pagination = paginate(filteredNotifications, currentPage, pageSize);
   const currentData = pagination.items;
 
   // Invariant: currentPage must always be within [1, pagination.totalPages].
@@ -275,6 +289,28 @@ export default function Notification() {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="flex justify-end items-center mt-4">
+        <label
+          htmlFor="notification-page-size"
+          className="text-sm font-medium flex items-center gap-2"
+        >
+          <span>Page size:</span>
+          <select
+            id="notification-page-size"
+            aria-label="Notification page size"
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white text-black"
+          >
+            {NOTIFICATION_PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex w-full flex-col gap-5 mt-5">
