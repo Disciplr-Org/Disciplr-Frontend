@@ -1,21 +1,95 @@
-import { vi, describe, test, expect, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { vi, describe, test, it, expect, afterEach, beforeEach } from 'vitest';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { DEMO_ADDRESS } from '../../context/WalletContext';
 
-// Mock WalletContext to avoid real Freighter dependencies in tests
-vi.mock('../../context/WalletContext', () => ({
-  WalletProvider: ({ children }: any) => <>{children}</>,
-  useWallet: () => ({
-    address: null,
-    network: null,
-    balance: null,
-    isConnecting: false,
-    error: null,
-    connect: async () => {},
-    disconnect: () => {},
-    checkConnection: async () => {},
-  }),
-}));
+type MockWalletState = {
+  status: 'disconnected' | 'restoring' | 'connecting' | 'connected' | 'error';
+  sessionStatus: 'resolving' | 'authenticated' | 'anonymous';
+  address: string | null;
+  network: 'TESTNET' | 'PUBLIC' | null;
+  balance: string | null;
+  balanceStatus: 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
+  balanceError: string | null;
+  isConnecting: boolean;
+  error: string | null;
+  isDemo: boolean;
+  connect: () => Promise<boolean>;
+  cancelConnect: () => void;
+  disconnect: () => void;
+  checkConnection: () => Promise<void>;
+  connectDemo: () => void;
+  resetDemo: () => void;
+};
+
+const connectDemoMock = vi.fn();
+
+const createWalletState = (overrides: Partial<MockWalletState> = {}): MockWalletState => ({
+  status: 'disconnected',
+  sessionStatus: 'anonymous',
+  address: null,
+  network: null,
+  balance: null,
+  balanceStatus: 'idle',
+  balanceError: null,
+  isConnecting: false,
+  error: null,
+  isDemo: false,
+  connect: async () => false,
+  cancelConnect: () => {},
+  disconnect: () => {},
+  checkConnection: async () => {},
+  connectDemo: connectDemoMock,
+  resetDemo: () => {},
+  ...overrides,
+});
+
+const DISCONNECTED_WALLET_STATE = createWalletState();
+const CONNECTED_WALLET_STATE = createWalletState({
+  status: 'connected',
+  sessionStatus: 'authenticated',
+  address: 'GBVZ3KQKM4XNQPBEZMXPOLKQKM4XNQPBEZMXPOLKQK7L',
+  network: 'TESTNET',
+  balance: '250.0000000',
+  balanceStatus: 'success',
+  isDemo: false,
+});
+const DEMO_WALLET_STATE = createWalletState({
+  status: 'connected',
+  sessionStatus: 'authenticated',
+  address: DEMO_ADDRESS,
+  network: 'TESTNET',
+  balance: '10000.0000000',
+  balanceStatus: 'success',
+  isDemo: true,
+});
+
+let currentWalletState: MockWalletState = DISCONNECTED_WALLET_STATE;
+
+// Mock WalletContext to avoid real Freighter dependencies in tests while
+// allowing tests to provide wallet state through WalletProvider or overrides.
+vi.mock('../../context/WalletContext', async () => {
+  const actual = await vi.importActual<typeof import('../../context/WalletContext')>(
+    '../../context/WalletContext'
+  );
+  return {
+    ...actual,
+    WalletProvider: ({
+      children,
+      value,
+    }: {
+      children: ReactNode;
+      value?: Partial<MockWalletState>;
+    }) => {
+      if (value) {
+        currentWalletState = createWalletState(value);
+      }
+      return <>{children}</>;
+    },
+    useWallet: () => currentWalletState,
+  };
+});
 
 // Mock the wallet button so we can drive its failure paths deterministically
 // without touching the real Freighter bridge.
@@ -40,16 +114,25 @@ vi.mock('../../components/Wallet/WalletConnectButton', () => {
 });
 
 import Home from '../../pages/Home';
+import { WalletProvider } from '../../context/WalletContext';
 
-const renderHome = () =>
-  render(
+const renderHome = (walletOverrides?: Partial<MockWalletState>) => {
+  if (walletOverrides) {
+    currentWalletState = createWalletState(walletOverrides);
+  }
+  return render(
     <MemoryRouter>
-      <Home />
+      <WalletProvider value={walletOverrides}>
+        <Home />
+      </WalletProvider>
     </MemoryRouter>
   );
+};
 
 beforeEach(() => {
   connectMock.mockClear();
+  connectDemoMock.mockClear();
+  currentWalletState = DISCONNECTED_WALLET_STATE;
 });
 
 afterEach(() => {
@@ -65,12 +148,58 @@ describe('Home page hero', () => {
     expect(subheadline).toBeInTheDocument();
   });
 
-  test('has primary CTA linking to /vaults/create', () => {
-    renderHome();
+  test('has primary CTA linking to /vaults/create when wallet is connected', () => {
+    renderHome(CONNECTED_WALLET_STATE);
     const cta = screen.getByRole('link', { name: /Create Your First Vault/i });
     expect(cta).toBeInTheDocument();
     expect(cta).toHaveAttribute('href', '/vaults/create');
   });
+
+  it.each([
+    [
+      'disconnected',
+      DISCONNECTED_WALLET_STATE,
+      {
+        expectsCreateLink: false,
+      },
+    ],
+    [
+      'connected',
+      CONNECTED_WALLET_STATE,
+      {
+        expectsCreateLink: true,
+      },
+    ],
+    [
+      'demo mode',
+      DEMO_WALLET_STATE,
+      {
+        expectsCreateLink: true,
+      },
+    ],
+  ] as const)(
+    'renders the appropriate primary CTA when wallet state is %s',
+    (_stateName, walletState, { expectsCreateLink }) => {
+      renderHome(walletState);
+
+      if (expectsCreateLink) {
+        const createLink = screen.getByRole('link', { name: /create/i });
+        expect(createLink).toBeInTheDocument();
+        expect(createLink).toHaveAttribute('href', '/vaults/create');
+      } else {
+        expect(screen.queryByRole('link', { name: /create/i })).not.toBeInTheDocument();
+        const connectButtons = screen.getAllByRole('button', { name: /Connect Wallet/i });
+        expect(connectButtons.length).toBeGreaterThanOrEqual(1);
+        fireEvent.click(connectButtons[0]);
+        expect(connectMock).toHaveBeenCalledTimes(1);
+
+        const demoButton = screen.getByRole('button', { name: /Try the demo account/i });
+        expect(demoButton).toBeInTheDocument();
+        fireEvent.click(demoButton);
+        expect(connectDemoMock).toHaveBeenCalledTimes(1);
+      }
+    }
+  );
 
   test('has secondary links to dashboard and vaults', () => {
     renderHome();
@@ -89,8 +218,8 @@ describe('Home page hero', () => {
     expect(h1.tagName).toBe('H1');
   });
 
-  test('primary CTA has accessible link text and is not a button', () => {
-    renderHome();
+  test('primary CTA has accessible link text and is not a button when connected', () => {
+    renderHome(CONNECTED_WALLET_STATE);
     const cta = screen.getByRole('link', { name: /Create Your First Vault/i });
     expect(cta.tagName).toBe('A');
     // The accessible name must be non-empty so screen readers announce it correctly
@@ -115,14 +244,15 @@ describe('Home page hero', () => {
 });
 
 describe('Home page boundary and failure paths', () => {
-  test('renders exactly one H1 and one primary CTA even when wallet is disconnected', () => {
-    renderHome();
+  test('renders exactly one H1 and replaces the create vault link with connect CTA when wallet is disconnected', () => {
+    renderHome(DISCONNECTED_WALLET_STATE);
     expect(screen.getAllByRole('heading', { level: 1 }).length).toBe(1);
-    expect(screen.getAllByRole('link', { name: /Create Your First Vault/i }).length).toBe(1);
+    expect(screen.queryByRole('link', { name: /Create Your First Vault/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Connect Wallet/i }).length).toBeGreaterThanOrEqual(1);
   });
 
-  test('renders all expected navigation targets without duplicates', () => {
-    renderHome();
+  test('renders all expected navigation targets without duplicates when connected', () => {
+    renderHome(CONNECTED_WALLET_STATE);
     const hrefs = screen
       .getAllByRole('link')
       .map((link: HTMLAnchorElement) => link.getAttribute('href'));
@@ -130,7 +260,7 @@ describe('Home page boundary and failure paths', () => {
   });
 
   test('renders the connect wallet action in the final CTA', () => {
-    renderHome();
+    renderHome(CONNECTED_WALLET_STATE);
     expect(screen.getByRole('button', { name: /Connect Wallet/i })).toBeInTheDocument();
   });
 
@@ -139,7 +269,7 @@ describe('Home page boundary and failure paths', () => {
       throw new Error('Freighter unavailable');
     });
     renderHome();
-    const button = screen.getByRole('button', { name: /Connect Wallet/i });
+    const [button] = screen.getAllByRole('button', { name: /Connect Wallet/i });
     // The button is owned by WalletConnectButton; the page must stay mounted.
     expect(() => button.click()).not.toThrow();
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
@@ -147,7 +277,7 @@ describe('Home page boundary and failure paths', () => {
 
   test('connect wallet is invoked at most once per click (concurrency guard)', () => {
     renderHome();
-    const button = screen.getByRole('button', { name: /Connect Wallet/i });
+    const [button] = screen.getAllByRole('button', { name: /Connect Wallet/i });
     button.click();
     expect(connectMock).toHaveBeenCalledTimes(1);
   });

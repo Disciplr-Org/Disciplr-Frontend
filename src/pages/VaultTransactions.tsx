@@ -9,10 +9,12 @@ import { getVault, getTransactions } from "../services/vaultService";
 import { isValidVaultRouteId } from "../utils/vaultState";
 import { getExplorerTxUrl } from "../utils/explorer";
 import { truncateMiddle } from "../utils/truncate";
+import { formatUsdc } from "../utils/format";
+import { computeTxTotals } from "../utils/txTotals";
 import { paginate } from "../utils/paginate";
 import { readValidationHistoryPageSize } from "../utils/pageSizePref";
 import type { Vault, VaultTransaction } from "../types/vault";
-import { InvalidIdView, NotFoundView } from "./VaultDetail";
+import { InvalidIdView, NotFoundView } from "../components/vault/VaultStateViews";
 
 const TX_LABELS: Record<string, string> = {
   create: "Vault Created",
@@ -101,6 +103,8 @@ export default function VaultTransactions() {
       return sortOrder === "desc" ? diff : -diff;
     });
   }, [transactions, sortOrder]);
+
+  const totals = useMemo(() => computeTxTotals(transactions), [transactions]);
 
   const pagination = useMemo(
     () => paginate(sortedTransactions, page, pageSize),
@@ -225,6 +229,37 @@ export default function VaultTransactions() {
         </div>
       )}
 
+      {totals.count > 0 && (
+        <dl
+          aria-label="Transaction totals"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "1.5rem",
+            margin: "0 0 1rem",
+            padding: "1rem 1.25rem",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          <div>
+            <dt style={{ color: "var(--muted)", fontSize: 12 }}>Transactions</dt>
+            <dd style={{ margin: 0, fontWeight: 600 }}>
+              {totals.count} {totals.count === 1 ? "transaction" : "transactions"}
+            </dd>
+          </div>
+          <div>
+            <dt style={{ color: "var(--muted)", fontSize: 12 }}>Total amount</dt>
+            <dd style={{ margin: 0, fontWeight: 600 }}>{formatUsdc(totals.totalAmount)} USDC</dd>
+          </div>
+          <div>
+            <dt style={{ color: "var(--muted)", fontSize: 12 }}>Total fees</dt>
+            <dd style={{ margin: 0, fontWeight: 600 }}>{formatUsdc(totals.totalFees)} USDC</dd>
+          </div>
+        </dl>
+      )}
+
       {sortedTransactions.length === 0 ? (
         <div
           style={{
@@ -292,7 +327,7 @@ export default function VaultTransactions() {
                       as="span"
                       style={{ color: "var(--text)", fontWeight: 600 }}
                     >
-                      {tx.amount.toLocaleString()} {vault.currency}
+                      {formatUsdc(tx.rawAmount ?? tx.amount)} {vault.currency}
                     </Text>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -321,14 +356,19 @@ export default function VaultTransactions() {
                     >
                       ⎘
                     </button>
-                    <a
-                      href={getExplorerTxUrl(tx.hash, network)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "var(--accent)", fontSize: 11 }}
-                    >
-                      ↗
-                    </a>
+                    {(() => {
+                      const txUrl = getExplorerTxUrl(tx.hash, network);
+                      return txUrl ? (
+                        <a
+                          href={txUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "var(--accent)", fontSize: 11 }}
+                        >
+                          ↗
+                        </a>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>

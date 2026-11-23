@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import VaultTransactions from '../VaultTransactions';
 import * as vaultService from '../../services/vaultService';
@@ -118,12 +118,69 @@ describe('VaultTransactions Page', () => {
     });
 
     expect(screen.getByText(/No transactions found for this vault/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Transaction totals')).not.toBeInTheDocument();
     expect(document.title).toBe('Alpha Vault · Disciplr');
 
     // Back link is present
     const backLink = screen.getByRole('link', { name: /Back to Vault/i });
     expect(backLink).toBeInTheDocument();
     expect(backLink).toHaveAttribute('href', '/vaults/1');
+  });
+
+  it('renders formatted totals for one transaction', async () => {
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue([
+      {
+        id: 'tx-single',
+        type: 'create',
+        hash: '0x11111111111111111111111111111111',
+        timestamp: '2026-01-01T10:00:00.000Z',
+        amount: 4.25,
+        fee: 0.05,
+      },
+    ]);
+
+    renderVaultTransactions('1');
+
+    expect(await screen.findByText('1 transaction')).toBeInTheDocument();
+    const summary = screen.getByLabelText('Transaction totals');
+    expect(within(summary).getByText('4.25 USDC')).toBeInTheDocument();
+    expect(within(summary).getByText('0.05 USDC')).toBeInTheDocument();
+  });
+
+  it('renders formatted totals for transactions and keeps them unchanged when sorting', async () => {
+    const transactions: VaultTransaction[] = [
+      {
+        id: 'tx-amount-1',
+        type: 'create',
+        hash: '0x11111111111111111111111111111111',
+        timestamp: '2026-01-01T10:00:00.000Z',
+        amount: 10,
+        fee: 0.1,
+      },
+      {
+        id: 'tx-amount-2',
+        type: 'release',
+        hash: '0x22222222222222222222222222222222',
+        timestamp: '2026-02-01T10:00:00.000Z',
+        amount: 5.5,
+        fee: 0.2,
+      },
+    ];
+    vi.spyOn(vaultService, 'getVault').mockResolvedValue(mockVault);
+    vi.spyOn(vaultService, 'getTransactions').mockResolvedValue(transactions);
+
+    renderVaultTransactions('1');
+
+    expect(await screen.findByText('2 transactions')).toBeInTheDocument();
+    expect(screen.getByText('15.50 USDC')).toBeInTheDocument();
+    expect(screen.getByText('0.30 USDC')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Toggle sort order/i }));
+
+    expect(screen.getByText('2 transactions')).toBeInTheDocument();
+    expect(screen.getByText('15.50 USDC')).toBeInTheDocument();
+    expect(screen.getByText('0.30 USDC')).toBeInTheDocument();
   });
 
   it('renders transaction list sorted newest first by default and allows toggling sort order', async () => {

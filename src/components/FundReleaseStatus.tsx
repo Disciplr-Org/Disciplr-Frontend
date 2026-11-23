@@ -122,6 +122,7 @@ export function FundReleaseStatus({
   const hash = transaction?.hash;
   const validHash = isValidTxHash(hash);
   const explorerNetwork = network ?? walletNetwork;
+  const txExplorerUrl = hash ? explorerUrl(hash, explorerNetwork) : '';
   const walletNetworkMismatch =
     network !== undefined &&
     walletNetwork !== null &&
@@ -221,10 +222,10 @@ export function FundReleaseStatus({
               <Text role="caption" as="span" className="fund-release-status__label">
                 Transaction
               </Text>
-              {validHash && hash ? (
+              {validHash && hash && txExplorerUrl ? (
                 <SafeLink
                   className="fund-release-status__link"
-                  href={explorerUrl(hash, explorerNetwork)}
+                  href={txExplorerUrl}
                   title={hash}
                   aria-label={`View transaction ${hash} on Stellar ${explorerNetwork === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
                 >

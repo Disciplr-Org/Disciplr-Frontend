@@ -454,5 +454,19 @@ describe('ValidationHistory', () => {
       expect(csv).toContain('v-004');
       expect(csv).not.toContain('v-001');
     });
+
+    it('disables the export button when no validations match the active filters', () => {
+      const { container } = renderHistory();
+
+      expect(container.querySelector('.history-table')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Search validation history by vault or owner'), {
+        target: { value: 'nothing-matches-this-query' },
+      });
+
+      const btn = screen.getByRole('button', { name: /export.*csv/i });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveClass('history-export-btn');
+    });
   });
 });

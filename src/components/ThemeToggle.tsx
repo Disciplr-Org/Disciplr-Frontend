@@ -9,13 +9,15 @@ import './Layout.css';
  */
 const VALID_PREFERENCES = Object.freeze(['light', 'dark', 'system'] as const);
 
+type ThemePreference = typeof VALID_PREFERENCES[number];
+
 /**
  * Validates that a preference value is safe and expected
  * Prevents injection of malicious values that could affect UI behavior
  */
-function isValidPreference(preference: unknown): preference is string {
-  return typeof preference === 'string' && 
-         VALID_PREFERENCES.includes(preference as any);
+function isThemePreference(value: unknown): value is ThemePreference {
+  return typeof value === 'string' &&
+         VALID_PREFERENCES.some((preference) => preference === value);
 }
 
 /**
@@ -23,7 +25,7 @@ function isValidPreference(preference: unknown): preference is string {
  * Returns fallback for invalid/malicious inputs
  */
 function sanitizePreference(preference: unknown): string {
-  if (isValidPreference(preference)) {
+  if (isThemePreference(preference)) {
     return preference;
   }
   // Secure fallback to prevent UI corruption
@@ -37,7 +39,7 @@ function isValidClickEvent(event: unknown): event is MouseEvent | KeyboardEvent 
   return event != null && 
          typeof event === 'object' && 
          'type' in event &&
-         typeof (event as any).type === 'string';
+         typeof (event as Record<string, unknown>).type === 'string';
 }
 
 function SunIcon() {
