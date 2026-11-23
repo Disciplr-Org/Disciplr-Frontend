@@ -28,6 +28,7 @@ import { useBreakpoint } from "../utils/useBreakpoint";
 import RouteAnnouncer from "./RouteAnnouncer";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { usePushDelivery } from "../notifications/usePushDelivery";
+import { useNotificationSync } from "../hooks/useNotificationSync";
 import { hasActiveNavigationGuard } from "../utils/navigationGuard";
 import { ConfirmationModal } from "./ConfirmationModal";
 import "./Layout.css";
@@ -126,6 +127,7 @@ export default function Layout({ children }: LayoutProps) {
 
   // Push delivery is mounted exactly once, here: a single subscriber owns the
   // notification store diff and the OS notification queue for the whole app.
+  useNotificationSync();
   usePushDelivery();
 
   // Deep-link / navigation recovery: close the drawer whenever the route
