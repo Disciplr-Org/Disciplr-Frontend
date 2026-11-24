@@ -445,17 +445,28 @@ describe('typography utility integration', () => {
       );
     });
 
-    it.skip('validation function consistency (flaky on inherited keys like valueOf)', () => {
+    it.each(['valueOf', 'constructor', '__proto__', 'toString'])(
+      'rejects inherited prototype key "%s"',
+      (key) => {
+        expect(isValidTypographyRole(key)).toBe(false);
+        // @ts-expect-error Testing with invalid role
+        expect(getTypographyClass(key as never)).toBe('text-body');
+      }
+    );
+
+    it('validation function consistency (flaky on inherited keys like valueOf)', () => {
       fc.assert(
         fc.property(fc.anything(), (input) => {
           const isValid = isValidTypographyRole(input);
           // @ts-expect-error Testing with arbitrary inputs
           const className = getTypographyClass(input);
           
-          if (isValid) {
+          if (input === 'body') {
+            // Exception: 'body' is valid and returns 'text-body'
+            expect(className).toBe('text-body');
+          } else if (isValid) {
             // Valid inputs should not return the fallback class
             expect(className).not.toBe('text-body');
-          } else if (typeof input === 'string' && input === 'body') {
             // Exception: 'body' is valid and returns 'text-body'
             expect(className).toBe('text-body');
           } else {
