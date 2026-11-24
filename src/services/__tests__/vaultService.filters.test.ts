@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildVaultQuery } from "../api";
 import { filterVaults, listVaults, MASTER_VAULTS } from "../vaultService";
+import { clearCache } from "../queryCache";
 
 describe("buildVaultQuery", () => {
   it("is empty without a filter", () => {
@@ -49,5 +50,52 @@ describe("offline filter", () => {
   it("listVaults applies the creator filter offline", async () => {
     const out = await listVaults({ creator }, { force: true });
     expect(out.every((v) => v.creatorAddress === creator)).toBe(true);
+  });
+});
+
+describe("offline multi-status filter", () => {
+  const all = Object.values(MASTER_VAULTS);
+
+  it("treats a status array as OR (matches any listed status)", () => {
+    const out = filterVaults(all, { status: ["active", "completed"] });
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.every((v) => v.status === "active" || v.status === "completed")).toBe(true);
+    expect(out.some((v) => v.status === "active")).toBe(true);
+    expect(out.some((v) => v.status === "completed")).toBe(true);
+  });
+
+  it("returns everything for an empty status array", () => {
+    expect(filterVaults(all, { status: [] })).toEqual(all);
+  });
+
+  it("listVaults filters by multiple statuses offline", async () => {
+    const out = await listVaults(
+      { status: ["active", "pending_validation"] },
+      { force: true },
+    );
+    expect(
+      out.every((v) => v.status === "active" || v.status === "pending_validation"),
+    ).toBe(true);
+  });
+});
+
+describe("vaultService cache key", () => {
+  let reads: ReturnType<typeof vi.spyOn>;
+
+  const countVaultFetches = () =>
+    reads.mock.calls.filter((c) => c[0] === MASTER_VAULTS).length;
+
+  beforeEach(() => {
+    clearCache();
+    reads = vi.spyOn(Object, "values");
+  });
+  afterEach(() => {
+    reads.mockRestore();
+  });
+
+  it("shares one cache entry for reordered status arrays", async () => {
+    await listVaults({ status: ["active", "pending_validation"] });
+    await listVaults({ status: ["pending_validation", "active"] });
+    expect(countVaultFetches()).toBe(1);
   });
 });

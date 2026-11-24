@@ -89,7 +89,7 @@ export default function VerifierDashboard() {
         <button
           onClick={() => navigate('/verifier/queue')}
           className="px-6 py-3 font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-          style={{ background: 'var(--accent)', color: 'white' }}
+          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
         >
           View Pending Queue
         </button>
@@ -141,9 +141,9 @@ export default function VerifierDashboard() {
                     </Text>
                     <button
                       onClick={() => navigate(`/verifier/queue/${task.id}`)}
-                      aria-label={`Review ${task.vaultName}`}
+                      aria-label={`Review Now: ${task.vaultName}`}
                       className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-                      style={{ color: 'var(--accent)' }}
+                      style={{ color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       Review Now &rarr;
                     </button>
@@ -184,7 +184,7 @@ export default function VerifierDashboard() {
                   </Text>
                   <button
                     onClick={() => navigate('/verifier/history')}
-                    aria-label={`View ${task.vaultName} in History`}
+                    aria-label={`View in History: ${task.vaultName}`}
                     className="font-medium text-sm mt-2 transition text-left md:text-right focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                     style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >

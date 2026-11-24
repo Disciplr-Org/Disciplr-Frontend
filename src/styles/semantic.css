@@ -23,16 +23,20 @@
 
   /* Status */
   --danger: var(--color-error);
+  --danger-text: #b91c1c;
   --danger-transparent: rgba(220, 38, 38, 0.1);
   --success: var(--color-success);
+  --success-text: #065f46;
   --success-transparent: rgba(5, 153, 103, 0.1);
   --warning: var(--color-warning);
+  --warning-text: #92400e;
   --warning-transparent: rgba(217, 119, 6, 0.1);
   --info: var(--color-info);
 
   /* Accent: deliberate override, see header */
   --accent: #00c389;
   --accent-dim: #00996e;
+  --accent-fg: #ffffff;
   --accent-transparent: rgba(0, 195, 137, 0.1);
 
   /* Semantic borders (light) */
@@ -98,11 +102,15 @@
     /* #D1D5DB on #111827 ≈ 12:1 — AA for normal text at caption sizes (12–14px) */
     --muted: var(--color-neutral-300);
     --hover: var(--color-neutral-700);
+    --danger-text: #f87171;
     --danger-transparent: rgba(239, 68, 68, 0.1);
+    --success-text: var(--color-success);
     --success-transparent: rgba(16, 185, 129, 0.1);
+    --warning-text: var(--color-warning);
     --warning-transparent: rgba(245, 158, 11, 0.1);
     --accent: #14b8a6;
     --accent-dim: #0d9488;
+    --accent-fg: #042f2e;
     --accent-transparent: rgba(20, 184, 166, 0.1);
     --border-default: var(--border-color-dark-default);
     --border-subtle: var(--border-color-dark-subtle);
@@ -122,11 +130,15 @@
   --text: var(--color-neutral-50);
   --muted: var(--color-neutral-300);
   --hover: var(--color-neutral-700);
+  --danger-text: #f87171;
   --danger-transparent: rgba(239, 68, 68, 0.1);
+  --success-text: var(--color-success);
   --success-transparent: rgba(16, 185, 129, 0.1);
+  --warning-text: var(--color-warning);
   --warning-transparent: rgba(245, 158, 11, 0.1);
   --accent: #14b8a6;
   --accent-dim: #0d9488;
+  --accent-fg: #042f2e;
   --accent-transparent: rgba(20, 184, 166, 0.1);
   --border-default: var(--border-color-dark-default);
   --border-subtle: var(--border-color-dark-subtle);

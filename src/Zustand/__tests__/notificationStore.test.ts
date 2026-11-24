@@ -21,7 +21,7 @@ describe("useNotification store", () => {
     resetStore();
   });
 
-  it("has correct initial state from example data", () => {
+  it("accepts the demo fixture when explicitly loaded", () => {
     const state = useNotification.getState();
     expect(state.notification).toEqual(initialNotifications);
     expect(state.notification.length).toBe(20);

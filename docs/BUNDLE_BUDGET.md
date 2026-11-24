@@ -1,17 +1,20 @@
 # Bundle Size Budget
 
 Chunks are split via `build.rollupOptions.output.manualChunks` in `vite.config.ts`.
-Sizes are gzip-compressed targets. Regressions should be visible in `npm run build` output.
+The gzip limits are maintained in [`bundle-budget.json`](../bundle-budget.json)
+and enforced against `dist/assets` by `pnpm run check:bundle`. Sizes use decimal
+kB (1 kB = 1,000 bytes); the check reports gzip size, budget, and remaining
+headroom after a build.
 
-| Chunk                   | Target (gzip) |
-| ----------------------- | ------------- |
-| `index` (initial)       | < 200 kB      |
-| `vendor-recharts`       | < 150 kB      |
-| `vendor-jspdf`          | < 120 kB      |
-| `vendor-framer-motion`  | < 30 kB       |
-| `Analytics` (lazy)      | < 50 kB       |
-| `AnalyticsCharts` (lazy)| < 15 kB       |
-| `Notification` (lazy)   | < 20 kB       |
+| Chunk | Role | Budget key in [`bundle-budget.json`](../bundle-budget.json) |
+| ----- | ---- | ---------------------------------------------------------- |
+| `index` | Initial | `index` |
+| `vendor-recharts` | Vendor | `vendor-recharts` |
+| `vendor-jspdf` | Vendor | `vendor-jspdf` |
+| `vendor-framer-motion` | Vendor | `vendor-framer-motion` |
+| `Analytics` | Lazy | `Analytics` |
+| `AnalyticsCharts` | Lazy | `AnalyticsCharts` |
+| `Notification` | Lazy | `Notification` |
 
 ## Lazy-loading strategy
 

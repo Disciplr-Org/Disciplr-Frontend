@@ -37,7 +37,7 @@
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-full);
   background: var(--accent-transparent);
-  color: var(--accent);
+  color: var(--text);
   margin-left: 0.5rem;
 }
 

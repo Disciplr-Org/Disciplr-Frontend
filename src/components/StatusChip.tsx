@@ -32,7 +32,7 @@ const STATUS_CONFIG: Record<
   },
   completed: {
     defaultLabel: "Completed",
-    color: "var(--success)",
+    color: "var(--success-text)",
     bg: "color-mix(in srgb, var(--success) 10%, transparent)",
     description: "All milestones have been completed.",
   },
@@ -50,13 +50,13 @@ const STATUS_CONFIG: Record<
   },
   pending_validation: {
     defaultLabel: "Pending Validation",
-    color: "var(--warning)",
+    color: "var(--warning-text)",
     bg: "color-mix(in srgb, var(--warning) 10%, transparent)",
     description: "Awaiting verifier validation.",
   },
   approved: {
     defaultLabel: "Approved",
-    color: "var(--success)",
+    color: "var(--success-text)",
     bg: "color-mix(in srgb, var(--success) 10%, transparent)",
     description: "This milestone has been approved.",
   },

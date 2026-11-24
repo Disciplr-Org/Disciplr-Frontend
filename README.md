@@ -33,14 +33,55 @@ React 18 + Vite + Tailwind 4 + Zustand
 
 `vaultService` calls the API when `VITE_API` is set and otherwise serves bundled fixtures.
 
+### Routes and request flow
+
+The route definitions below reflect [`src/App.tsx`](src/App.tsx). Public routes
+can be opened without a connected wallet; wallet routes are guarded by
+`ProtectedRoute` and require a connected wallet. Lazy routes load their page
+component on demand.
+
+| Path | Page component | Auth | Lazy |
+| --- | --- | --- | --- |
+| `/` | `Home` | public | no |
+| `/dashboard` | `Dashboard` | public | no |
+| `/vaults` | `Vaults` | public | no |
+| `/transactions` | `Transactions` | public | no |
+| `/docs` | `Docs` | public | no |
+| `/vaults/create` | `CreateVault` | wallet | no |
+| `/vaults/:id/transactions` | `VaultTransactions` | public | yes |
+| `/vaults/:id` | `VaultDetail` | public | no |
+| `/verifier` | `VerifierDashboard` | public | no |
+| `/verifier/queue` | `PendingValidations` | wallet | no |
+| `/verifier/queue/:vaultId` | `ValidationDetail` | wallet | no |
+| `/verifier/history` | `ValidationHistory` | public | no |
+| `/help` | `HelpCenter` | public | no |
+| `/help/search` | `HelpCenter` | public | no |
+| `/help/articles/:slug` | `HelpArticle` | public | yes |
+| `/analytics` | `Analytics` | public | yes |
+| `/notifications` | `Notification` | public | yes |
+| `/notifications/settings` | `NotificationSettings` | public | yes |
+| `/__visual__/crash` | `VisualCrash` (visual mode only) | public | no |
+| `*` | `NotFound` | public | no |
+
+Unknown paths render `NotFound`. Each route's `RouteErrorBoundary` scopes a
+page crash to its slot inside `<main>`, leaving the shared layout available.
+Requests flow through providers in this order:
+`ThemeProvider > WalletProvider > AppConfigProvider > BrowserRouter > Layout`.
+`Layout` wraps the matched route in its `<main>` content. See the fuller
+[architecture overview](docs/ARCHITECTURE.md) and
+[wallet integration guide](docs/WALLET_INTEGRATION.md) for details.
+
+Update this reference when routes change; changing route behavior is outside
+this documentation update.
+
 ## Setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env     # VITE_API=https://disciplr-api.vercel.app/api
-npm run dev              # http://localhost:5173
-npm run build            # production build in dist/
-npm test                 # vitest
+pnpm run dev             # http://localhost:5173
+pnpm run build           # production build in dist/
+pnpm test                # vitest
 ```
 
 ## Environment variables
@@ -50,6 +91,9 @@ npm test                 # vitest
 | `VITE_API` | Base URL of the Disciplr API including `/api`. Unset = offline fixtures |
 | `VITE_API_TARGET` | Dev-server proxy target for `/api` (default `http://localhost:3000`) |
 | `VITE_DEV_PORT` | Dev server port (default 5173) |
+| `VITE_ERROR_ENDPOINT` | Opt-in error-report collection endpoint. Unset = no network calls |
+| `VITE_ERROR_SAMPLE_RATE` | Error-report sampling rate from `0` to `1` (default `0.1`) |
+| `VITE_APP_VERSION` | Optional app version override included in error payloads |
 
 ## Deployment
 

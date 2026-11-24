@@ -12,7 +12,7 @@ import { logger as appLogger, configureLogger } from './utils/logger'
 configureLogger({
   level: import.meta.env.PROD ? 'error' : 'debug',
 })
-import { installGlobalErrorHandlers } from './utils/errorReporter'
+import { installGlobalErrorHandlers, installErrorReportingSink } from './utils/errorReporter'
 
 /**
  * Entry point invariants:
@@ -119,6 +119,13 @@ export function bootstrap(options: BootstrapOptions = {}): Root {
   } catch (error) {
     // Global capture is best-effort; it must never prevent the app from mounting.
     logger.error('[Bootstrap] failed to install global error handlers', error)
+  }
+
+  try {
+    installErrorReportingSink()
+  } catch (error) {
+    // Remote reporting is opt-in and best-effort.
+    logger.error('[Bootstrap] failed to install error reporting sink', error)
   }
 
   safeReportWebVitals(onWebVital, logger)

@@ -1,8 +1,14 @@
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Text } from '../components/Text'
 import { AlertCircle, Home, ArrowLeft } from 'lucide-react'
+import { ROUTE_TITLES } from '../routes/titles'
+import { suggestRoutes } from '../utils/suggestRoutes'
 
 export default function NotFound() {
+  const { pathname } = useLocation()
+  const suggestions = useMemo(() => suggestRoutes(pathname, ROUTE_TITLES), [pathname])
+
   return (
     <div
       style={{
@@ -67,6 +73,62 @@ export default function NotFound() {
       >
         The page you're looking for doesn't exist or has been moved. Let's get you back on track.
       </Text>
+
+      {/* Closest known routes, derived from the requested path */}
+      {suggestions.length > 0 && (
+        <div style={{ marginBottom: 'var(--spacing-8)' }}>
+          <Text
+            role="caption"
+            as="p"
+            style={{
+              marginBottom: 'var(--spacing-3)',
+              color: 'var(--muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              fontWeight: 600,
+            }}
+          >
+            Did you mean
+          </Text>
+          <ul
+            aria-label="Suggested pages"
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--spacing-2)',
+            }}
+          >
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.path}>
+                <Link
+                  to={suggestion.path}
+                  style={{
+                    color: 'var(--accent)',
+                    textDecoration: 'none',
+                    fontSize: 'var(--font-size-body)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {suggestion.title}
+                </Link>
+                <Text
+                  role="caption"
+                  as="span"
+                  style={{
+                    marginLeft: 'var(--spacing-2)',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  {suggestion.path}
+                </Text>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div

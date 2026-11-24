@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildAllDeadlinesCalendar,
   buildCalendar,
   buildIcsEvent,
   downloadIcs,
@@ -11,6 +12,7 @@ import {
   getDeadlineSequence,
   icsFilename,
   isValidIcsDeadline,
+  milestoneDeadlineUid,
   vaultDeadlineUid,
   vaultToIcsEvents,
   type AlarmPreference,
@@ -472,6 +474,99 @@ describe('ics utilities', () => {
       ]);
       expect(res).toBe(false);
       expect(mockClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('buildAllDeadlinesCalendar', () => {
+    it('exports 3 pending future milestones across two vaults with distinct <vaultId>-<milestoneId>@disciplr UIDs, skipping validated and past milestones', () => {
+      const vaults: VaultLike[] = [
+        {
+          id: 'vault-a',
+          name: 'Alpha Vault',
+          deadline: '2026-12-31T00:00:00Z',
+          milestones: [
+            {
+              id: 'm1',
+              title: 'Architecture Spec',
+              description: 'Finalize spec document with a very long description to ensure 75-octet line folding is exercised cleanly across lines',
+              status: 'pending',
+              dueDate: '2026-07-01T12:00:00Z',
+            },
+            {
+              id: 'm2',
+              title: 'Already Validated',
+              status: 'validated',
+              dueDate: '2026-07-10T12:00:00Z',
+            },
+            {
+              id: 'm3',
+              title: 'Past Milestone',
+              status: 'pending',
+              dueDate: '2026-05-01T12:00:00Z', // before fixedNow (2026-06-01)
+            },
+            {
+              id: 'm4',
+              title: 'Beta Launch',
+              status: 'pending',
+              dueDate: '2026-08-01T12:00:00Z',
+            },
+          ],
+        },
+        {
+          id: 'vault-b',
+          name: 'Beta Vault',
+          deadline: '2026-12-31T00:00:00Z',
+          milestones: [
+            {
+              id: 'm1',
+              title: 'Security Review',
+              status: 'pending',
+              dueDate: '2026-09-15T12:00:00Z',
+            },
+            // Duplicate vault/milestone id should be ignored
+            {
+              id: 'm1',
+              title: 'Security Review Duplicate',
+              status: 'pending',
+              dueDate: '2026-09-16T12:00:00Z',
+            },
+          ],
+        },
+      ];
+
+      const calendar = buildAllDeadlinesCalendar(vaults, {
+        now: fixedNow,
+        alarms: '1day',
+        sequences: {
+          [milestoneDeadlineUid('vault-a', 'm1')]: 3,
+        },
+      });
+
+      const veventMatches = calendar.match(/BEGIN:VEVENT\r\n/g) ?? [];
+      expect(veventMatches).toHaveLength(3);
+
+      expect(calendar).toContain('UID:vault-a-m1@disciplr\r\n');
+      expect(calendar).toContain('UID:vault-a-m4@disciplr\r\n');
+      expect(calendar).toContain('UID:vault-b-m1@disciplr\r\n');
+
+      // Stored sequence is respected
+      expect(calendar).toContain('SEQUENCE:3\r\n');
+
+      // Validated and past milestones are excluded
+      expect(calendar).not.toContain('Already Validated');
+      expect(calendar).not.toContain('Past Milestone');
+      expect(calendar).not.toContain('Security Review Duplicate');
+
+      // Alarm preference respected
+      expect(calendar).toContain('TRIGGER:-P1D\r\n');
+      expect(calendar).not.toContain('TRIGGER:-PT1H\r\n');
+
+      // CRLF line endings and every line <= 75 octets
+      expect(calendar.endsWith('END:VCALENDAR\r\n')).toBe(true);
+      const lines = calendar.split('\r\n');
+      for (const line of lines.slice(0, -1)) {
+        expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
+      }
     });
   });
 });
