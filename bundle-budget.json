@@ -1,0 +1,12 @@
+{
+  "unit": "gzip-bytes",
+  "budgets": {
+    "index": 200000,
+    "vendor-recharts": 150000,
+    "vendor-jspdf": 120000,
+    "vendor-framer-motion": 30000,
+    "Analytics": 50000,
+    "AnalyticsCharts": 15000,
+    "Notification": 20000
+  }
+}

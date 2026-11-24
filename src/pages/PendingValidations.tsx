@@ -5,7 +5,8 @@ import { CountdownDeadline } from '../components/CountdownDeadline';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
 import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
-import { useVerifierStore } from '../Zustand/Store';
+import { useVerifierStore, type ValidationDecisionOutcome } from '../Zustand/Store';
+import { useOnRecovered } from '../hooks/useOnRecovered';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
 import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
@@ -38,7 +39,16 @@ export default function PendingValidations() {
   const validationHistory = useVerifierStore((state) => state.validationHistory);
   const batchApprove = useVerifierStore((state) => state.batchApprove);
   const batchReject = useVerifierStore((state) => state.batchReject);
+  const loadQueue = useVerifierStore((state) => state.loadQueue);
   const now = useCurrentTime();
+
+  useEffect(() => {
+    void loadQueue();
+  }, [loadQueue]);
+
+  useOnRecovered(() => {
+    void loadQueue({ force: true });
+  });
 
   // Queue-at-a-glance metrics for the strip above the table.
   const metrics = useMemo(
@@ -139,7 +149,7 @@ export default function PendingValidations() {
   };
 
   const handleConfirm = useCallback(
-    (decision: BatchDecision, notes: string): boolean => {
+    (decision: BatchDecision, notes: string): boolean | Promise<boolean> => {
       // Guard against duplicate/concurrent submissions from rapid clicks or
       // double-fired modal events. The ref is synchronous so it closes the
       // race window that state-based guards leave open.
@@ -170,22 +180,56 @@ export default function PendingValidations() {
       setIsSubmitting(true);
       setActionError(null);
 
-      try {
-        if (decision === 'approve') {
-          batchApprove(targetIds, trimmedNotes);
-        } else {
-          batchReject(targetIds, trimmedNotes);
-        }
-        setSelectedIds([]);
-        return true;
-      } catch (err) {
-        // Surface a diagnosable, non-sensitive error and keep the modal open
-        // so the user can retry without losing their selection.
-        setActionError('Unable to complete the batch action. Please retry.');
-        return false;
-      } finally {
+      const finish = () => {
         submitLockRef.current = false;
         setIsSubmitting(false);
+      };
+      const reportError = (err: unknown) => {
+        const message =
+          err instanceof Error && err.message.trim()
+            ? err.message
+            : 'Unable to complete the batch action. Please retry.';
+        setActionError(message);
+      };
+
+      try {
+        const result =
+          decision === 'approve'
+            ? batchApprove(targetIds, trimmedNotes)
+            : batchReject(targetIds, trimmedNotes);
+
+        if (result && typeof (result as Promise<ValidationDecisionOutcome[]>).then === 'function') {
+          return (result as Promise<ValidationDecisionOutcome[]>)
+            .then((outcomes) => {
+              const failures = outcomes.filter((outcome) => !outcome.ok);
+              if (failures.length === 0) {
+                setSelectedIds([]);
+                return true;
+              }
+              setActionError(
+                failures
+                  .map((outcome) => `Failed to ${decision} ${outcome.id}: ${outcome.error ?? 'unknown error'}`)
+                  .join('; '),
+              );
+              setSelectedIds((prev) => [
+                ...new Set([...prev, ...failures.map((outcome) => outcome.id)]),
+              ]);
+              return false;
+            })
+            .catch((err) => {
+              reportError(err);
+              return false;
+            })
+            .finally(finish);
+        }
+
+        setSelectedIds([]);
+        finish();
+        return true;
+      } catch (err) {
+        reportError(err);
+        finish();
+        return false;
       }
     },
     [batchApprove, batchReject, pendingValidations, validSelectedIds],
@@ -207,7 +251,7 @@ export default function PendingValidations() {
           <button
             onClick={() => navigate('/verifier')}
             className="mb-2 text-sm font-medium transition"
-            style={{ color: 'var(--muted)' }}
+            style={{ color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             &larr; Back to Dashboard
           </button>
@@ -403,7 +447,7 @@ export default function PendingValidations() {
                     <td className="p-4">
                       <div className="flex flex-col">
                         <Text role="body" as="p" className="text-sm">{task.deadline}</Text>
-                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger)' : 'var(--success)' }}>
+                        <span className="text-sm font-medium" style={{ color: remaining <= CRITICAL_DAYS_THRESHOLD ? 'var(--danger-text)' : 'var(--success-text)' }}>
                           {remaining} days left
                         </span>
                         {remaining <= CRITICAL_DAYS_THRESHOLD && (

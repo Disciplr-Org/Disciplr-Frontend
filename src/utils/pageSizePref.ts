@@ -113,3 +113,54 @@ export function persistNotificationPageSize(size: number): NotificationPageSize 
 
   return nextSize;
 }
+
+export const TRANSACTIONS_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+
+export type TransactionsPageSize = (typeof TRANSACTIONS_PAGE_SIZE_OPTIONS)[number];
+
+export const DEFAULT_TRANSACTIONS_PAGE_SIZE: TransactionsPageSize =
+  TRANSACTIONS_PAGE_SIZE_OPTIONS[0];
+
+export const TRANSACTIONS_PAGE_SIZE_STORAGE_KEY = 'transactions-page-size';
+
+export function isTransactionsPageSize(value: number): value is TransactionsPageSize {
+  return TRANSACTIONS_PAGE_SIZE_OPTIONS.includes(value as TransactionsPageSize);
+}
+
+export function readTransactionsPageSize(): TransactionsPageSize {
+  const storage = getLocalStorage();
+
+  if (!storage) {
+    return DEFAULT_TRANSACTIONS_PAGE_SIZE;
+  }
+
+  try {
+    const stored = storage.getItem(TRANSACTIONS_PAGE_SIZE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : DEFAULT_TRANSACTIONS_PAGE_SIZE;
+
+    return isTransactionsPageSize(parsed)
+      ? parsed
+      : DEFAULT_TRANSACTIONS_PAGE_SIZE;
+  } catch {
+    return DEFAULT_TRANSACTIONS_PAGE_SIZE;
+  }
+}
+
+export function persistTransactionsPageSize(size: number): TransactionsPageSize {
+  const nextSize = isTransactionsPageSize(size)
+    ? size
+    : DEFAULT_TRANSACTIONS_PAGE_SIZE;
+  const storage = getLocalStorage();
+
+  if (!storage) {
+    return nextSize;
+  }
+
+  try {
+    storage.setItem(TRANSACTIONS_PAGE_SIZE_STORAGE_KEY, String(nextSize));
+  } catch {
+    // A blocked storage write should not break pagination.
+  }
+
+  return nextSize;
+}

@@ -78,7 +78,7 @@ export default function Home() {
             to={PRIMARY_CTA_PATH}
             style={{
               backgroundColor: 'var(--accent)',
-              color: 'white',
+              color: 'var(--accent-fg)',
               padding: 'var(--spacing-2) var(--spacing-4)',
               borderRadius: 'var(--radius)',
               textDecoration: 'none',
@@ -211,12 +211,12 @@ export default function Home() {
       </section>
 
       {/* Final CTA */}
-      <section style={{ textAlign: 'center', padding: 'var(--spacing-8)', background: 'var(--accent)', color: 'white', borderRadius: 'var(--radius)' }}>
-        <Text role="title" as="h2" style={{ marginBottom: 'var(--spacing-4)', color: 'white' }}>
           {t('home.finalCta.title')}
+      <section style={{ textAlign: 'center', padding: 'var(--spacing-8)', background: 'var(--accent)', color: 'var(--accent-fg)', borderRadius: 'var(--radius)' }}>
+        <Text role="title" as="h2" style={{ marginBottom: 'var(--spacing-4)', color: 'var(--accent-fg)' }}>
         </Text>
-        <Text role="body" as="p" style={{ marginBottom: 'var(--spacing-6)', opacity: 0.9 }}>
           {t('home.finalCta.subtitle')}
+        <Text role="body" as="p" style={{ marginBottom: 'var(--spacing-6)' }}>
         </Text>
         <WalletConnectButton />
       </section>

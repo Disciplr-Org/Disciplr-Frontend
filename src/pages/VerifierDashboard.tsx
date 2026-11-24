@@ -137,9 +137,9 @@ export default function VerifierDashboard() {
                         <span className="sr-only"> (urgent)</span>
                       )}
                     </Text>
+                      aria-label={`Review Now: ${task.vaultName}`}
                     <Link
                       to={`/verifier/queue/${task.id}`}
-                      aria-label={`Review ${task.vaultName}`}
                       className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                       style={{ color: 'var(--accent)', textDecoration: 'none', display: 'inline-block' }}
                     >
@@ -180,9 +180,9 @@ export default function VerifierDashboard() {
                   <Text role="body" as="p" className="text-sm font-medium" style={{ color: 'var(--muted)' }}>
                     {task.decidedAt || task.deadline}
                   </Text>
+                    aria-label={`View in History: ${task.vaultName}`}
                   <Link
                     to="/verifier/history"
-                    aria-label={`View ${task.vaultName} in History`}
                     className="font-medium text-sm mt-2 transition text-left md:text-right focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
                     style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'none' }}
                   >

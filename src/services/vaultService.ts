@@ -11,8 +11,11 @@
  */
 
 import type { Vault, VaultTransaction, Milestone } from "../types/vault";
+import type { ValidationTask } from "../Zustand/Store";
+import type { SubmitValidationInput } from "./api";
 import { MASTER_VAULTS } from "../fixtures/vaults";
 import { MASTER_ACTIVITY } from "../fixtures/transactions";
+import { initialPending } from "../fixtures/validations";
 import { cached, invalidate, type CacheOptions } from "./queryCache";
 import {
   isValidVaultRouteId,
@@ -30,6 +33,8 @@ import {
   apiCreateVault,
   apiValidateNextMilestone,
   apiFailVault,
+  apiListPendingValidations,
+  apiSubmitValidation,
   apiListActivity,
   apiListTransactions,
   apiStats,
@@ -59,6 +64,23 @@ export function invalidateVaultCaches(id?: string): void {
   invalidate(id === undefined ? "vault:" : `vault:${id}`);
 }
 
+export const PENDING_VALIDATIONS_CACHE_KEY = "validations:pending";
+
+export function invalidatePendingValidationsCache(): void {
+  invalidate(PENDING_VALIDATIONS_CACHE_KEY);
+}
+
+export function listPendingValidations(options?: CacheOptions): Promise<ValidationTask[]> {
+  if (!isApiEnabled()) return Promise.resolve([...initialPending]);
+  return cached(PENDING_VALIDATIONS_CACHE_KEY, apiListPendingValidations, options);
+}
+
+export async function submitValidation(input: SubmitValidationInput): Promise<void> {
+  if (!isApiEnabled()) return;
+  await apiSubmitValidation(input);
+  invalidatePendingValidationsCache();
+}
+
 export { MASTER_VAULTS } from "../fixtures/vaults";
 export { CreateIntegrityError, type IntegrityMismatches, type IntegrityDiff } from "./createIntegrity";
 
@@ -72,6 +94,7 @@ export type { Vault, VaultTransaction };
 export interface VaultActivityRecord {
   id: string;
   type: "create" | "validate" | "release" | "redirect";
+  vaultId?: string;
   vault: string;
   amount: number;
   fee: number;

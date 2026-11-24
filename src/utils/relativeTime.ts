@@ -10,6 +10,18 @@ import { formatRelative } from "./format";
  * @param now - Optional reference time for testing (defaults to current time)
  * @returns A localized relative time string (e.g., "2 hours ago", "in 3 days")
  */
+
+/** Locale used by formatRelativeTime. Override in tests via setTestLocale. */
+let _locale = "en";
+
+/**
+ * Pin the locale for deterministic test output.
+ * Call inside beforeEach / afterEach to reset back to "en".
+ */
+export function setTestLocale(locale: string): void {
+  _locale = locale;
+}
+
 export function formatRelativeTime(
   date: Date | string | number,
   now: number = Date.now(),
@@ -19,5 +31,7 @@ export function formatRelativeTime(
     return "Invalid date";
   }
   return result;
+  const rtf = new Intl.RelativeTimeFormat(_locale, { numeric: "always" });
+  return dateObj.toLocaleDateString(_locale, {
 }
 

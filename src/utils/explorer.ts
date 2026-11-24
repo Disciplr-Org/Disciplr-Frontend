@@ -1,5 +1,6 @@
 import type { WalletNetwork } from '../context/WalletContext';
 import { isValidStellarAddress } from './stellarAddress';
+export { isValidTxHash } from './vaultState';
 import { isValidTxHash } from './vaultState';
 
 export const EXPLORER_BASE_URLS: Record<WalletNetwork, string> = {

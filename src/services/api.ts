@@ -5,7 +5,9 @@
  * bundled fixtures (see vaultService.ts).
  */
 import type { Vault, VaultTransaction, Milestone, VaultStatus } from "../types/vault";
+import type { ValidationTask } from "../Zustand/Store";
 import type { VaultActivityRecord } from "./vaultService";
+import { mapApiVaultsToValidationTasks } from "./validationAdapter";
 import { verifyCreateIntegrity } from "./createIntegrity";
 import { formatDate, formatUsdc } from "../utils/format";
 import { withTimeout, ConnectTimeoutError } from "../utils/withTimeout";
@@ -695,6 +697,59 @@ export async function apiFailVault(vault: Vault, actor: string): Promise<void> {
   await request(`/vaults/${encodeURIComponent(vault.id)}/fail`, {
     method: "POST",
     body: JSON.stringify({ verifier: actor }),
+  });
+}
+
+export async function apiListPendingValidations(): Promise<ValidationTask[]> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+  const endpoint = "/vaults";
+  const raw = await request<unknown>(endpoint);
+  if (!Array.isArray(raw)) {
+    throw invalidResponseError(endpoint, ["Expected an array of vaults."]);
+  }
+  const vaults: ApiVault[] = [];
+  raw.forEach((item, index) => {
+    const parsed = parseApiVault(item);
+    if (!parsed.ok) {
+      logger.warn("Dropping invalid vault from verifier queue response", {
+        endpoint,
+        index,
+        issues: parsed.issues,
+      });
+      return;
+    }
+    vaults.push(parsed.value);
+  });
+  return mapApiVaultsToValidationTasks(vaults);
+}
+
+export type ValidationDecision = "approve" | "reject";
+
+export interface SubmitValidationInput {
+  id: string;
+  vaultId: string;
+  milestoneId: string;
+  decision: ValidationDecision;
+  notes?: string;
+  verifier?: string;
+}
+
+export async function apiSubmitValidation(input: SubmitValidationInput): Promise<void> {
+  if (!isApiEnabled()) throw new ApiError("API not configured", 0);
+  if (!input.vaultId || !input.milestoneId) {
+    throw new ApiError("Validation is missing API identifiers.", 0);
+  }
+  const endpoint =
+    input.decision === "approve"
+      ? `/vaults/${encodeURIComponent(input.vaultId)}/milestones/${encodeURIComponent(input.milestoneId)}/validate`
+      : `/vaults/${encodeURIComponent(input.vaultId)}/fail`;
+  await request(endpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      verifier: input.verifier ?? "",
+      ...(input.notes ? { notes: input.notes } : {}),
+      ...(input.decision === "reject" ? { reason: input.notes ?? "" } : {}),
+    }),
   });
 }
 

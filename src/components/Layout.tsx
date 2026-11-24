@@ -51,7 +51,8 @@ interface LayoutProps {
  *    technology and inert, so focus can never escape into background content.
  */
 
-function isValidPathname(value: unknown): value is string {
+// eslint-disable-next-line react-refresh/only-export-components
+export function isValidPathname(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.startsWith("/");
 }
 
@@ -450,7 +451,6 @@ export default function Layout({ children }: LayoutProps) {
           padding: "var(--spacing-4, 1rem) var(--spacing-8, 2rem)",
           textAlign: "center",
           fontSize: "0.875rem",
-          opacity: 0.85,
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",

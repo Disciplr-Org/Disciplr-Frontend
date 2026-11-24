@@ -77,11 +77,11 @@ this documentation update.
 ## Setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env     # VITE_API=https://disciplr-api.vercel.app/api
-npm run dev              # http://localhost:5173
-npm run build            # production build in dist/
-npm test                 # vitest
+pnpm run dev             # http://localhost:5173
+pnpm run build           # production build in dist/
+pnpm test                # vitest
 ```
 
 ## Environment variables
