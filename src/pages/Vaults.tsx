@@ -23,32 +23,34 @@ import {
 } from "../utils/vaultsQuery";
 import type { Vault } from "../types/vault";
 import { useOnRecovered } from "../hooks/useOnRecovered";
+import { useT, type MessageKey } from "../i18n";
 
-const SCOPE_LABELS: Record<VaultScope, string> = {
-  all: "All Vaults",
-  mine: "Created by me",
-  verifying: "Verifying",
+const SCOPE_LABEL_KEYS: Record<VaultScope, MessageKey> = {
+  all: "vaults.scope.all",
+  mine: "vaults.scope.mine",
+  verifying: "vaults.scope.verifying",
 };
 
-const SORT_LABELS: Record<VaultSort, string> = {
-  "-created": "Newest first",
-  created: "Oldest first",
-  deadline: "Deadline (soonest)",
-  "-deadline": "Deadline (latest)",
-  "-amount": "Amount (high to low)",
-  amount: "Amount (low to high)",
+const SORT_LABEL_KEYS: Record<VaultSort, MessageKey> = {
+  "-created": "vaults.sort.newest",
+  created: "vaults.sort.oldest",
+  deadline: "vaults.sort.deadlineSoonest",
+  "-deadline": "vaults.sort.deadlineLatest",
+  "-amount": "vaults.sort.amountHighToLow",
+  amount: "vaults.sort.amountLowToHigh",
 };
 
-const STATUS_LABELS: Record<VaultStatusFilter, string> = {
-  all: "All",
-  active: "Active",
-  pending_validation: "Pending Validation",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
+const STATUS_LABEL_KEYS: Record<VaultStatusFilter, MessageKey> = {
+  all: "vaults.status.all",
+  active: "vaults.status.active",
+  pending_validation: "vaults.status.pending_validation",
+  completed: "vaults.status.completed",
+  failed: "vaults.status.failed",
+  cancelled: "vaults.status.cancelled",
 };
 
 export default function Vaults() {
+  const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const { address, sessionStatus, connectDemo, isConnecting } = useWallet();
 
@@ -194,12 +196,12 @@ export default function Vaults() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <div>
-          <Text role="title" as="h1">Vaults</Text>
+          <Text role="title" as="h1">{t("vaults.title")}</Text>
           <Text role="body" as="p" style={{ color: "var(--muted)", margin: "4px 0 0" }}>
-            Explore, track, and manage capital lockup vaults.
+            {t("vaults.subtitle")}
           </Text>
         </div>
-        <Link to="/vaults/create" className="header-link header-cta">Create Vault</Link>
+        <Link to="/vaults/create" className="header-link header-cta">{t("vaults.createCta")}</Link>
       </div>
 
       {/* Scope Selector */}
@@ -224,7 +226,7 @@ export default function Vaults() {
                 boxShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
               }}
             >
-              {SCOPE_LABELS[s]}
+              {t(SCOPE_LABEL_KEYS[s])}
             </button>
           );
         })}
@@ -233,14 +235,14 @@ export default function Vaults() {
       {/* Search & Sort Bar */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
         <div style={{ flex: "1 1 260px" }}>
-          <label htmlFor="vault-search-input" className="sr-only">Search vaults</label>
+          <label htmlFor="vault-search-input" className="sr-only">{t("vaults.search.label")}</label>
           <input
             id="vault-search-input"
             type="search"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by name or id…"
-            aria-label="Search vaults by name or id"
+            placeholder={t("vaults.search.placeholder")}
+            aria-label={t("vaults.search.ariaLabel")}
             style={{
               width: "100%",
               padding: "8px 12px",
@@ -255,13 +257,13 @@ export default function Vaults() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <label htmlFor="vault-sort-select" style={{ fontSize: 14, color: "var(--muted)" }}>
-            Sort:
+            {t("vaults.sort.label")}
           </label>
           <select
             id="vault-sort-select"
             value={sort}
             onChange={(e) => updateQueryParams({ sort: e.target.value as VaultSort, page: 1 })}
-            aria-label="Sort vaults"
+            aria-label={t("vaults.sort.ariaLabel")}
             style={{
               padding: "8px 12px",
               borderRadius: "var(--radius)",
@@ -274,7 +276,7 @@ export default function Vaults() {
           >
             {VALID_SORTS.map((s) => (
               <option key={s} value={s}>
-                {SORT_LABELS[s]}
+                {t(SORT_LABEL_KEYS[s])}
               </option>
             ))}
           </select>
@@ -284,7 +286,7 @@ export default function Vaults() {
       {/* Status Filter Tabs */}
       <div
         role="tablist"
-        aria-label="Filter vaults by status"
+        aria-label={t("vaults.status.tablistAria")}
         style={{ display: "flex", gap: 8, margin: "16px 0", flexWrap: "wrap" }}
       >
         {VALID_STATUSES.map((st, idx) => {
@@ -313,7 +315,7 @@ export default function Vaults() {
                 color: isSelected ? "var(--accent-fg)" : "inherit",
               }}
             >
-              {STATUS_LABELS[st]}
+              {t(STATUS_LABEL_KEYS[st])}
             </button>
           );
         })}
@@ -353,7 +355,7 @@ export default function Vaults() {
                 font: "inherit",
               }}
             >
-              Retry
+              {t("vaults.retry")}
             </button>
           </div>
         )}
@@ -361,7 +363,7 @@ export default function Vaults() {
         {/* Loading State */}
         {loading && !error && (
           <p aria-live="polite" style={{ color: "var(--muted)", margin: "24px 0" }}>
-            Loading vaults...
+            {t("vaults.loading")}
           </p>
         )}
 
@@ -412,10 +414,10 @@ export default function Vaults() {
         {/* Empty State */}
         {!loading && !error && (!requiresWallet || isWalletConnected) && filteredVaults.length === 0 && (
           <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--muted)" }}>
-            <p style={{ margin: "0 0 8px" }}>No vaults found matching your filters.</p>
+            <p style={{ margin: "0 0 8px" }}>{t("vaults.empty.message")}</p>
             <p>
               <Link to="/vaults/create" style={{ color: "var(--accent)" }}>
-                Create a new vault
+                {t("vaults.empty.cta")}
               </Link>
             </p>
           </div>
@@ -452,7 +454,7 @@ export default function Vaults() {
                 <Pagination
                   pagination={paginationResult}
                   onPageChange={(newPage) => updateQueryParams({ page: newPage })}
-                  ariaLabel="Vaults pagination"
+                  ariaLabel={t("vaults.paginationAria")}
                 />
               </div>
             )}

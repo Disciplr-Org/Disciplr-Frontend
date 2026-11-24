@@ -1,11 +1,9 @@
-import { getNotifications } from "@/components/Notification/exampleNotification/example";
 import { create } from "zustand";
+import type { Notification } from "@/components/Notification/exampleNotification/example";
 import { initialPending, initialHistory } from "../fixtures/validations";
 
 // --- Existing Notification Store ---
-const n = getNotifications();
-
-export type NotificationItem = (typeof n)[number];
+export type NotificationItem = Notification;
 
 type notificationsType = {
   notification: NotificationItem[];
@@ -30,7 +28,7 @@ const isList = (value: unknown): value is NotificationItem[] =>
   Array.isArray(value);
 
 export const useNotification = create<notificationsType>((set) => ({
-  notification: n,
+  notification: [],
   setNotification: (value: NotificationItem[]) =>
     set((state) => {
       // Validation boundary: only arrays are accepted, and non-object entries

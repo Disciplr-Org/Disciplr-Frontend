@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { useConnectivityStore } from '../services/connectivity';
 import { isApiEnabled } from '../services/api';
+import { useCurrentTime } from '../hooks/useCurrentTime';
+import { formatRelativeTime } from '../utils/relativeTime';
 
 export function ConnectivityBanner() {
   const status = useConnectivityStore((state) => state.status);
   const retryNow = useConnectivityStore((state) => state.retryNow);
+  const degradedSince = useConnectivityStore((state) => state.degradedSince);
   const [retrying, setRetrying] = useState(false);
+
+  // Refresh every 30 s so the relative timestamp stays current.
+  const now = useCurrentTime(30_000);
 
   // Skip completely in offline-fixture mode (when VITE_API is unset)
   if (!isApiEnabled() || status === 'online') {
@@ -16,6 +22,11 @@ export function ConnectivityBanner() {
   const message = isOffline
     ? "You're offline. Check your internet connection."
     : 'Disciplr service is unavailable, retrying…';
+
+  const sinceText =
+    !isOffline && degradedSince != null
+      ? ` · since ${formatRelativeTime(degradedSince, now)}`
+      : '';
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -45,8 +56,11 @@ export function ConnectivityBanner() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span aria-hidden="true">{isOffline ? '⚡' : '⚠️'}</span>
-        <span>{message}</span>
+        <span aria-hidden="true">{isOffline ? '📡' : '⚠️'}</span>
+        <span>
+          {message}
+          {sinceText}
+        </span>
       </div>
       <button
         type="button"

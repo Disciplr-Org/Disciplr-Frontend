@@ -63,6 +63,9 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText('500 error')).toBeInTheDocument()
     expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/We couldn't complete that request/),
+    ).toBeInTheDocument()
 
     const referenceIdNode = screen.getByText(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
@@ -93,6 +96,11 @@ describe('ErrorBoundary', () => {
     expect(onError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ componentStack: expect.any(String) }),
+    )
+    expect(consoleSpy).not.toHaveBeenCalledWith(
+      '[ErrorBoundary]',
+      expect.anything(),
+      expect.anything(),
     )
   })
 

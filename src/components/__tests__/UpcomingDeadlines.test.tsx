@@ -274,5 +274,82 @@ describe("UpcomingDeadlines", () => {
         })
       );
     });
+
+    it("disables export milestones button when there are no upcoming pending milestones", () => {
+      render(<UpcomingDeadlines deadlines={deadlines} vaults={[]} />);
+
+      const exportMilestonesBtn = screen.getByRole("button", {
+        name: /Export upcoming milestones \(\.ics\)/i,
+      });
+      expect(exportMilestonesBtn).toBeDisabled();
+    });
+
+    it("creates a text/calendar Blob when exporting upcoming milestones", () => {
+      const originalCreateObjectURL = URL.createObjectURL;
+      const originalRevokeObjectURL = URL.revokeObjectURL;
+      const createObjectURLSpy = vi.fn(() => "blob:milestones-calendar");
+      const revokeObjectURLSpy = vi.fn();
+      URL.createObjectURL = createObjectURLSpy;
+      URL.revokeObjectURL = revokeObjectURLSpy;
+      const clickSpy = vi
+        .spyOn(HTMLAnchorElement.prototype, "click")
+        .mockImplementation(() => {});
+
+      const mockVaults: Vault[] = [
+        {
+          id: "v-1",
+          name: "Vault One",
+          status: "active",
+          amount: 5000,
+          currency: "USDC",
+          createdAt: "2026-01-01T00:00:00Z",
+          deadline: "2026-09-01T00:00:00Z",
+          creatorAddress: "G1",
+          successAddress: "G2",
+          failureAddress: "G3",
+          contractAddress: "C1",
+          milestones: [
+            {
+              id: "m-1",
+              title: "Ship MVP",
+              description: "Deploy MVP",
+              criteria: "Live URL",
+              status: "pending",
+              dueDate: "2026-07-15T12:00:00Z",
+            },
+            {
+              id: "m-2",
+              title: "Done Milestone",
+              description: "Already done",
+              criteria: "Verified",
+              status: "validated",
+              dueDate: "2026-07-20T12:00:00Z",
+            },
+          ],
+          transactions: [],
+        },
+      ];
+
+      try {
+        render(<UpcomingDeadlines deadlines={deadlines} vaults={mockVaults} />);
+
+        const exportMilestonesBtn = screen.getByRole("button", {
+          name: /Export upcoming milestones \(\.ics\)/i,
+        });
+        expect(exportMilestonesBtn).not.toBeDisabled();
+
+        fireEvent.click(exportMilestonesBtn);
+
+        expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
+        const blobArg = createObjectURLSpy.mock.calls[0][0] as Blob;
+        expect(blobArg).toBeInstanceOf(Blob);
+        expect(blobArg.type).toContain("text/calendar");
+        expect(clickSpy).toHaveBeenCalledTimes(1);
+        expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:milestones-calendar");
+      } finally {
+        URL.createObjectURL = originalCreateObjectURL;
+        URL.revokeObjectURL = originalRevokeObjectURL;
+      }
+    });
   });
 });

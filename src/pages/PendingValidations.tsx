@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { BatchActionBar } from '../components/BatchActionBar';
 import { CountdownDeadline } from '../components/CountdownDeadline';
-import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Text } from '../components/Text';
 import { VerifierMetricsBar } from '../components/VerifierMetricsBar';
 import { computeVerifierMetrics, CRITICAL_DAYS_THRESHOLD } from '../utils/verifierMetrics';
@@ -9,8 +9,15 @@ import { useVerifierStore } from '../Zustand/Store';
 import { StatusChip } from '../components/StatusChip';
 import { filterPending } from '../utils/filterPending';
 import { sortPending, type PendingSortKey, type SortDirection } from '../utils/sortPending';
+import {
+  parsePendingQuery,
+  serializePendingQuery,
+  type PendingQueryState,
+} from '../utils/pendingQuery';
 import { daysRemaining } from '../utils/dashboard';
+import { downloadCsv, toCsv } from '../utils/csv';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { MAX_BATCH_NOTES_LENGTH } from '../utils/batchNotes';
 
 /**
  * Invariants enforced by this page:
@@ -21,7 +28,7 @@ import { useCurrentTime } from '../hooks/useCurrentTime';
  * - The confirm handler is the single authorization gate for batch decisions; it
  *   validates the decision, the notes payload, and the current selection snapshot.
  */
-const MAX_NOTES_LENGTH = 2000;
+const MAX_NOTES_LENGTH = MAX_BATCH_NOTES_LENGTH;
 
 type BatchDecision = 'approve' | 'reject';
 
@@ -39,16 +46,22 @@ export default function PendingValidations() {
     [pendingValidations, validationHistory, now],
   );
 
-  // Filter and sort state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [sortKey, setSortKey] = useState<PendingSortKey>('deadline');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  // Filter and sort state synced with URL search params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryState = useMemo(() => parsePendingQuery(searchParams), [searchParams]);
+  const { q: searchQuery, milestone: selectedMilestone, sort: sortKey, dir: sortDir } = queryState;
+
+  const updateQueryParams = useCallback(
+    (updates: Partial<PendingQueryState>, replace = false) => {
+      const nextState = { ...queryState, ...updates };
+      const nextParams = serializePendingQuery(nextState);
+      setSearchParams(nextParams, { replace });
+    },
+    [queryState, setSearchParams],
+  );
 
   // Multi-select state for batch actions.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [pendingDecision, setPendingDecision] = useState<BatchDecision>('approve');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -74,14 +87,21 @@ export default function PendingValidations() {
   );
 
   // Keep selection in sync with the queue and reset it when the active filters change.
+  const prevFiltersRef = useRef({ searchQuery, selectedMilestone });
   useEffect(() => {
-    setSelectedIds((prev) => {
-      if (searchQuery || selectedMilestone) {
-        return prev.length === 0 ? prev : [];
-      }
+    const filtersChanged =
+      prevFiltersRef.current.searchQuery !== searchQuery ||
+      prevFiltersRef.current.selectedMilestone !== selectedMilestone;
+    prevFiltersRef.current = { searchQuery, selectedMilestone };
 
-      // Drop ids that no longer exist in the queue (stale selection after
-      // concurrent updates, batch completion, or external store mutations).
+    if (filtersChanged) {
+      setSelectedIds([]);
+      return;
+    }
+
+    // Drop ids that no longer exist in the queue (stale selection after
+    // concurrent updates, batch completion, or external store mutations).
+    setSelectedIds((prev) => {
       const next = prev.filter((id) => pendingValidations.some((t) => t.id === id));
       return next.length === prev.length ? prev : next;
     });
@@ -118,36 +138,22 @@ export default function PendingValidations() {
     setSelectedIds(allSelected ? [] : allIds);
   };
 
-  const openBatch = (decision: BatchDecision) => {
-    if (isSubmitting) return;
-    if (validSelectedIds.length === 0) return;
-    setActionError(null);
-    setPendingDecision(decision);
-    setModalOpen(true);
-  };
-
-  const closeModal = useCallback(() => {
-    if (submitLockRef.current) return;
-    setModalOpen(false);
-    setActionError(null);
-  }, []);
-
   const handleConfirm = useCallback(
-    (decision: BatchDecision, notes: string) => {
+    (decision: BatchDecision, notes: string): boolean => {
       // Guard against duplicate/concurrent submissions from rapid clicks or
       // double-fired modal events. The ref is synchronous so it closes the
       // race window that state-based guards leave open.
-      if (submitLockRef.current) return;
+      if (submitLockRef.current) return false;
 
       if (decision !== 'approve' && decision !== 'reject') {
         setActionError('Unsupported decision.');
-        return;
+        return false;
       }
 
       const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
       if (trimmedNotes.length > MAX_NOTES_LENGTH) {
         setActionError(`Notes must be ${MAX_NOTES_LENGTH} characters or fewer.`);
-        return;
+        return false;
       }
 
       // Snapshot and re-validate against the live queue so ids removed by a
@@ -157,8 +163,7 @@ export default function PendingValidations() {
       if (targetIds.length === 0) {
         setActionError('No valid validations selected.');
         setSelectedIds([]);
-        setModalOpen(false);
-        return;
+        return false;
       }
 
       submitLockRef.current = true;
@@ -172,11 +177,12 @@ export default function PendingValidations() {
           batchReject(targetIds, trimmedNotes);
         }
         setSelectedIds([]);
-        setModalOpen(false);
+        return true;
       } catch (err) {
         // Surface a diagnosable, non-sensitive error and keep the modal open
         // so the user can retry without losing their selection.
         setActionError('Unable to complete the batch action. Please retry.');
+        return false;
       } finally {
         submitLockRef.current = false;
         setIsSubmitting(false);
@@ -185,14 +191,12 @@ export default function PendingValidations() {
     [batchApprove, batchReject, pendingValidations, validSelectedIds],
   );
 
-  const hasSelection = validSelectedIds.length > 0 && !isSubmitting;
   const sortLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
   const handleHeaderSort = (key: PendingSortKey) => {
     if (sortKey === key) {
-      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      updateQueryParams({ dir: sortDir === 'asc' ? 'desc' : 'asc' }, false);
     } else {
-      setSortKey(key);
-      setSortDir('asc');
+      updateQueryParams({ sort: key, dir: 'asc' }, false);
     }
   };
 
@@ -224,8 +228,11 @@ export default function PendingValidations() {
           <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
             Sort by
             <select
+              aria-label="Sort by"
               value={sortKey}
-              onChange={(event) => setSortKey(event.target.value as PendingSortKey)}
+              onChange={(event) =>
+                updateQueryParams({ sort: event.target.value as PendingSortKey }, false)
+              }
               className="px-3 py-2 border rounded text-sm"
               style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
             >
@@ -235,7 +242,9 @@ export default function PendingValidations() {
             </select>
           </label>
           <button
-            onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            onClick={() =>
+              updateQueryParams({ dir: sortDir === 'asc' ? 'desc' : 'asc' }, false)
+            }
             className="self-end px-4 py-2 border rounded text-sm font-medium transition"
             style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
           >
@@ -246,20 +255,9 @@ export default function PendingValidations() {
 
       <VerifierMetricsBar metrics={metrics} />
 
-      {actionError && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="rounded border px-4 py-3 text-sm"
-          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'var(--danger-transparent)' }}
-        >
-          {actionError}
-        </div>
-      )}
-
       <section
         aria-label="Pending validation filters"
-        className="grid gap-4 md:grid-cols-2"
+        className="grid gap-4 md:grid-cols-[1fr_1fr_auto] items-end"
       >
         <label className="flex flex-col gap-1 text-sm font-medium" style={{ color: 'var(--text)' }}>
           Search by Vault Name or Owner
@@ -267,7 +265,7 @@ export default function PendingValidations() {
             type="search"
             aria-label="Search by Vault Name or Owner"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => updateQueryParams({ q: event.target.value }, true)}
             className="px-3 py-2 border rounded"
             placeholder="Search vaults or owners"
             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
@@ -278,7 +276,7 @@ export default function PendingValidations() {
           <select
             aria-label="Filter by Milestone"
             value={selectedMilestone}
-            onChange={(event) => setSelectedMilestone(event.target.value)}
+            onChange={(event) => updateQueryParams({ milestone: event.target.value }, true)}
             className="px-3 py-2 border rounded"
             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
           >
@@ -290,6 +288,26 @@ export default function PendingValidations() {
             ))}
           </select>
         </label>
+        <div className="flex flex-col gap-1 self-end">
+          <button
+            type="button"
+            aria-label="Export filtered pending validations as CSV"
+            disabled={sortedValidations.length === 0}
+            onClick={() => downloadCsv(toCsv(sortedValidations), 'pending-validations.csv')}
+            className="disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '0.65rem 0.75rem',
+              cursor: sortedValidations.length === 0 ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Export CSV
+          </button>
+        </div>
       </section>
 
       <section className="border rounded-lg shadow-sm overflow-x-auto max-w-full relative" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
@@ -411,42 +429,12 @@ export default function PendingValidations() {
         )}
       </section>
 
-      {/* Sticky batch action bar */}
-      <div
-        role="region"
-        aria-label="Batch actions"
-        className="sticky bottom-4 mx-auto w-full max-w-2xl rounded-lg border px-4 py-3 shadow-lg flex items-center justify-between gap-4"
-        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-      >
-        <Text role="body" as="span" className="text-sm" style={{ color: 'var(--muted)' }}>
-          {validSelectedIds.length} selected
-        </Text>
-        <div className="flex gap-3">
-          <button
-            onClick={() => openBatch('reject')}
-            disabled={!hasSelection}
-            className="px-4 py-2 text-sm font-medium rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--danger-transparent)', color: 'var(--danger)' }}
-          >
-            Reject Selected
-          </button>
-          <button
-            onClick={() => openBatch('approve')}
-            disabled={!hasSelection}
-            className="px-4 py-2 text-sm font-bold rounded transition disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--success)', color: 'white' }}
-          >
-            {isSubmitting ? 'Processing…' : 'Approve Selected'}
-          </button>
-        </div>
-      </div>
-
-      <ConfirmationModal
-        isOpen={modalOpen}
-        onClose={closeModal}
-        onConfirm={handleConfirm}
-        initialDecision={pendingDecision}
-        affectedCount={validSelectedIds.length}
+      <BatchActionBar
+        selectedCount={validSelectedIds.length}
+        onApprove={(notes) => handleConfirm('approve', notes)}
+        onReject={(notes) => handleConfirm('reject', notes)}
+        isSubmitting={isSubmitting}
+        error={actionError}
       />
     </div>
   );

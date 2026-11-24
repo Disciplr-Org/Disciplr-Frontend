@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { WalletProvider } from './context/WalletContext'
 import { AppConfigProvider } from './context/AppConfigContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { LocaleProvider } from './i18n'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import RequireWallet from './components/RequireWallet'
@@ -104,7 +105,8 @@ export function RouteErrorBoundary({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
+    <LocaleProvider>
+      <ThemeProvider>
       <WalletProvider>
         <AppConfigProvider>
           <BrowserRouter>
@@ -183,6 +185,7 @@ export default function App() {
         </AppConfigProvider>
       </WalletProvider>
     </ThemeProvider>
+    </LocaleProvider>
   )
 }
 

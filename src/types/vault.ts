@@ -19,8 +19,12 @@ export type VaultStatus =
 /** State of an individual milestone within a vault. */
 export type MilestoneStatus = 'pending' | 'validated' | 'failed';
 
-/** On-chain transaction category. */
-export type TxType = 'create' | 'validate' | 'release' | 'redirect';
+/**
+ * On-chain transaction category.
+ * `'unknown'` is the safe fallback for any type string the backend sends that
+ * this client does not recognise; consumers must handle it gracefully.
+ */
+export type TxType = 'create' | 'validate' | 'release' | 'redirect' | 'unknown';
 
 /** Confirmation state of an on-chain transaction. */
 export type TxStatus = 'confirmed' | 'pending' | 'failed';
@@ -57,6 +61,9 @@ export interface VaultTransaction {
   hash: string;
   timestamp: string;
   amount?: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
+  fee?: number;
 }
 
 /** Full vault record — canonical shape used across all pages. */
@@ -65,6 +72,8 @@ export interface Vault {
   name: string;
   status: VaultStatus;
   amount: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
   currency: string;
   createdAt: string;
   deadline: string;

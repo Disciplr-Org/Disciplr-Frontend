@@ -1,114 +1,17 @@
-import { useMemo, useState, type ReactNode, type CSSProperties } from "react";
-import { useParams, Link } from "react-router-dom";
-import { MilestoneTracker } from "../components/MilestoneTracker";
-import { VaultProgressBar } from "../components/VaultProgressBar";
-import { VaultLifecycle } from "../components/VaultLifecycle";
-import { CountdownDeadline } from "../components/CountdownDeadline";
-import Breadcrumb from "../components/Breadcrumb";
-import { ConfirmationModal } from "../components/ConfirmationModal";
-import { FundReleaseStatus } from "../components/FundReleaseStatus";
-import { VaultMetaPanel } from "../components/VaultMetaPanel";
-import { StatusChip } from "../components/StatusChip";
-import { Text } from "../components/Text";
+import { useParams } from "react-router-dom";
 import { useWallet } from "../context/WalletContext";
-import type { WalletNetwork } from "../context/WalletContext";
-import { WalletConnectButton } from "../components/Wallet/WalletConnectButton";
-import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useOnRecovered } from "../hooks/useOnRecovered";
-import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
-import { ApiError } from "../services/api";
-import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
 import {
-  isValidIcsDeadline,
-  vaultDeadlineUid,
-  vaultToIcsEvents,
-  downloadIcsCalendar,
-  icsFilename,
-  type AlarmPreference,
-} from "../utils/ics";
-import { truncateMiddle } from "../utils/truncate";
-import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
-import { timelineProgress } from "../utils/vaultLifecycle";
-import {
-  VAULT_ACTIONS,
-  buildFundReleaseView,
-  detectSettlementAnomalies,
-  evalVaultActionAuth,
-  isApiMode,
-  type VaultAction,
-  type VaultActionAuth,
-} from "../utils/vaultState";
-import type { Vault } from "../types/vault";
+  ErrorView,
+  InvalidIdView,
+  LoadingView,
+  MalformedView,
+  NotFoundView,
+} from "../components/vault/VaultStateViews";
+import { VaultDetailContent } from "../components/vault/VaultDetailContent";
 
-import { formatDate, formatDateTime, formatUsdc } from "../utils/format";
-
-const TX_LABELS: Record<string, string> = {
-  create: "Vault Created",
-  validate: "Milestone Validated",
-  release: "Funds Released",
-  redirect: "Funds Redirected",
-};
-
-function fmtDate(iso: string): string {
-  return formatDate(iso);
-}
-
-function fmtDateTime(iso: string): string {
-  return formatDateTime(iso);
-}
-
-
-// ── Section Card ─────────────────────────────────────────────────────────────
-function Card({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        padding: "1.25rem",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ── Vault action config ───────────────────────────────────────────────────────
-const VAULT_ACTION_CONFIG: Record<
-  VaultAction,
-  { title: string; message: string; confirmLabel: string }
-> = {
-  validate_milestone: {
-    title: "Validate Milestone",
-    message:
-      "Are you sure you want to validate the current milestone? This will trigger an on-chain transaction to advance the vault. This action cannot be undone.",
-    confirmLabel: "Validate",
-  },
-  extend_deadline: {
-    title: "Extend Deadline",
-    message:
-      "Are you sure you want to extend the vault deadline? The new deadline must be confirmed by all relevant parties before taking effect.",
-    confirmLabel: "Extend",
-  },
-  cancel_vault: {
-    title: "Cancel Vault",
-    message:
-      "Are you sure you want to cancel this vault? Funds will be redirected to the failure destination address. This action cannot be undone.",
-    confirmLabel: "Cancel Vault",
-  },
-};
-
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const { view, retry } = useVaultDetail(id);
@@ -824,14 +727,19 @@ function VaultDetailContent({
                   >
                     ⎘
                   </button>
-                  <a
-                    href={getExplorerTxUrl(tx.hash, network)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "var(--accent)", fontSize: 11 }}
-                  >
-                    ↗
-                  </a>
+                  {(() => {
+                    const txUrl = getExplorerTxUrl(tx.hash, network);
+                    return txUrl ? (
+                      <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--accent)", fontSize: 11 }}
+                      >
+                        ↗
+                      </a>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             </div>

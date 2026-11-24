@@ -14,6 +14,10 @@ interface ConfirmationModalProps {
   /** When set, the modal confirms a batch action affecting this many tasks. */
   affectedCount?: number;
 
+  /** Optional error to surface while the modal is open (e.g. validation or
+   *  submission failures). */
+  error?: string | null;
+
   /** Simple confirmation mode — shows a generic title/message with Confirm/Cancel. */
   simpleConfirm?: {
     title: string;
@@ -46,6 +50,7 @@ export function ConfirmationModal({
   initialNotes = '',
   evidenceUrl,
   affectedCount,
+  error,
   simpleConfirm,
   isSubmitting = false,
 }: ConfirmationModalProps) {
@@ -90,6 +95,16 @@ export function ConfirmationModal({
         </div>
 
         <div className="px-6 py-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
+          {error && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded border px-4 py-3 text-sm"
+              style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'var(--danger-transparent)' }}
+            >
+              {error}
+            </div>
+          )}
           {simpleConfirm ? (
             <Text role="body" as="p" className="text-gray-700 dark:text-gray-300">
               {simpleConfirm.message}

@@ -106,6 +106,12 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
  * - Negative or non-finite amounts are ignored so corrupt data cannot inflate totals.
  * - Milestones are only counted when the vault is in an active state.
  * - Output is deterministic and independent of input ordering.
+ *
+ * Precision limit:
+ * - `totalLocked` is aggregated with JS `number` (IEEE-754 double-precision float) over `v.amount`.
+ *   Totals or individual amounts exceeding `Number.MAX_SAFE_INTEGER` (2^53 - 1 ≈ 9.007e15), or
+ *   summing many 7-decimal stroop values, may incur floating-point rounding. Full BigInt / exact
+ *   decimal aggregation is intentionally out of scope for this summary helper.
  */
 export function computeDashboardSummary(vaults: Vault[]): DashboardSummary {
   const ACTIVE_STATUSES: Vault["status"][] = ["active", "pending_validation"];

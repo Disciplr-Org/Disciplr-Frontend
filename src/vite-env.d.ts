@@ -22,11 +22,19 @@ interface ImportMetaEnv {
   readonly VITE_VITALS_ENDPOINT: string | undefined;
   /** Web-vitals sampling rate (0..1); defaults to 0.1 when unset/invalid. */
   readonly VITE_VITALS_SAMPLE_RATE: string | undefined;
+  /** Opt-in error-reporting endpoint; unset disables sending. */
+  readonly VITE_ERROR_ENDPOINT: string | undefined;
+  /** Error-report sampling rate (0..1); defaults to 0.1 when unset/invalid. */
+  readonly VITE_ERROR_SAMPLE_RATE: string | undefined;
+  /** Public app version included with opt-in error reports. */
+  readonly VITE_APP_VERSION: string | undefined;
 }
 
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare const __DISCIPLR_APP_VERSION__: string | undefined;
 
 // --------------------------------------------------------------------------
 // Runtime validation helpers.
