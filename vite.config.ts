@@ -39,11 +39,11 @@ const DEFAULT_API_TARGET = "http://localhost:3000";
  * Resolve a vendor chunk name for a given module id. Returns `undefined`
  * when no matcher applies, preserving Rollup's default chunking.
  */
-function resolveVendorChunk(id: string): string | undefined {
+export function resolveVendorChunk(id: string): string | undefined {
   if (typeof id !== "string" || id.length === 0) {
     return undefined;
   }
-  const normalized = id.replace(/\\\\/g, "/");
+  const normalized = id.replace(/\\/g, "/");
   for (const { pattern, chunk } of VENDOR_CHUNK_MATCHERS) {
     if (pattern.test(normalized)) {
       return chunk;

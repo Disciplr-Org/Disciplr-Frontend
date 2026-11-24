@@ -1,11 +1,12 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PendingValidations from '../PendingValidations';
 import ValidationDetail from '../ValidationDetail';
 import ValidationHistory from '../ValidationHistory';
 import VerifierDashboard from '../VerifierDashboard';
 import { useVerifierStore } from '../../Zustand/Store';
+import { clearCache } from '../../services/queryCache';
 
 // The pending queue is sorted by deadline (ascending) by default, so the
 // on-screen row order does not match insertion order in the store. Look the
@@ -67,6 +68,41 @@ function resetStore() {
     ],
   });
 }
+
+const apiResponse = (data: unknown, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => ({ data }),
+});
+
+const apiVault = (id: string, name: string, milestoneId: string) => ({
+  id,
+  name,
+  creator: 'GOWNER',
+  amount: '5000',
+  status: 'active',
+  startDate: '2026-01-01T00:00:00.000Z',
+  endDate: '2026-12-31T00:00:00.000Z',
+  verifier: 'GVERIFIER',
+  successDestination: 'GSUCCESS',
+  failureDestination: 'GFAILURE',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-02T00:00:00.000Z',
+  milestones: [
+    {
+      id: milestoneId,
+      title: `${name} milestone`,
+      amount: '2500',
+      dueDate: '2026-06-01',
+      status: 'pending',
+    },
+  ],
+});
+
+const apiQueue = () => [apiVault('vault-1', 'API Vault One', 'm-1'), apiVault('vault-2', 'API Vault Two', 'm-2')];
+
+const postCalls = (fetchMock: ReturnType<typeof vi.fn>) =>
+  fetchMock.mock.calls.filter((call) => ((call[1] as RequestInit | undefined)?.method ?? 'GET') === 'POST');
 
 describe('Verifier Flow Integration Tests', () => {
   beforeEach(() => {
@@ -307,5 +343,138 @@ describe('Verifier Flow Integration Tests', () => {
       const rejectBtn = screen.getByRole('button', { name: /Reject Milestone/i });
       expect(rejectBtn).toBeEnabled();
     });
+  });
+});
+
+describe('Verifier Flow — API-backed queue', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    resetStore();
+    useVerifierStore.setState({ validationHistory: [] });
+    vi.stubEnv('VITE_API', 'https://api.test/api');
+    clearCache();
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (method === 'GET' && url.endsWith('/vaults')) return apiResponse(apiQueue());
+      if (method === 'POST') return apiResponse({});
+      return apiResponse({}, 404);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    clearCache();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('loads pending tasks from the API instead of fixtures', async () => {
+    render(
+      <MemoryRouter initialEntries={['/verifier/queue']}>
+        <Routes>
+          <Route path="/verifier/queue" element={<PendingValidations />} />
+          <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('API Vault One')).toBeInTheDocument();
+    expect(screen.getByText('API Vault Two')).toBeInTheDocument();
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.test/api/vaults');
+    expect(useVerifierStore.getState().pendingValidations.map((task) => task.id)).toEqual([
+      'vault-1:m-1',
+      'vault-2:m-2',
+    ]);
+  });
+
+  it('approves both selected tasks, reports the failed one, and keeps it selected', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (method === 'GET' && url.endsWith('/vaults')) return apiResponse(apiQueue());
+      if (method === 'POST' && url.includes('/vaults/vault-2/')) {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'Conflict on second task' }),
+        };
+      }
+      if (method === 'POST') return apiResponse({});
+      return apiResponse({}, 404);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/queue']}>
+        <Routes>
+          <Route path="/verifier/queue" element={<PendingValidations />} />
+          <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('API Vault One')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Select API Vault One'));
+    fireEvent.click(screen.getByLabelText('Select API Vault Two'));
+    fireEvent.click(screen.getByRole('button', { name: /Approve Selected/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Approve/i }));
+
+    await waitFor(() => expect(postCalls(fetchMock)).toHaveLength(2));
+    expect(useVerifierStore.getState().validationHistory.map((task) => task.id)).toEqual([
+      'vault-1:m-1',
+    ]);
+    expect(useVerifierStore.getState().pendingValidations.map((task) => task.id)).toEqual([
+      'vault-2:m-2',
+    ]);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('vault-2:m-2');
+    expect(alert).toHaveTextContent('Conflict on second task');
+    expect(screen.getByLabelText('Select API Vault Two')).toBeChecked();
+  });
+
+  it('sends a single POST for rapid confirm clicks on one task', async () => {
+    render(
+      <MemoryRouter initialEntries={[`/verifier/queue/${encodeURIComponent('vault-1:m-1')}`]}>
+        <Routes>
+          <Route path="/verifier/queue" element={<PendingValidations />} />
+          <Route path="/verifier/queue/:vaultId" element={<ValidationDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Review Milestone')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Approve Milestone/i }));
+    const confirm = screen.getByRole('button', { name: /Confirm Approve/i });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(postCalls(fetchMock)).toHaveLength(1));
+    expect(String(postCalls(fetchMock)[0][0])).toBe(
+      'https://api.test/api/vaults/vault-1/milestones/m-1/validate',
+    );
+    await waitFor(() => {
+      expect(useVerifierStore.getState().validationHistory.map((task) => task.id)).toEqual([
+        'vault-1:m-1',
+      ]);
+    });
+  });
+
+  it('does not call the API when VITE_API is unset', async () => {
+    vi.stubEnv('VITE_API', '');
+    const offlineFetch = vi.fn();
+    vi.stubGlobal('fetch', offlineFetch);
+
+    render(
+      <MemoryRouter initialEntries={['/verifier/queue']}>
+        <Routes>
+          <Route path="/verifier/queue" element={<PendingValidations />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Q3 Development Fund')).toBeInTheDocument();
+    expect(offlineFetch).not.toHaveBeenCalled();
   });
 });
