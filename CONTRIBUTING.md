@@ -14,13 +14,13 @@ Covers all files under `src/` (`*.test.ts` and `*.test.tsx`).
 
 ```bash
 # Run once with coverage (CI mode)
-npm test
+pnpm test
 
 # Interactive watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Run a single file
-npx vitest run src/components/__tests__/NavLink.test.tsx
+pnpm exec vitest run src/components/__tests__/NavLink.test.tsx
 ```
 
 Coverage is written to `coverage/`. Open `coverage/index.html` for the HTML report.
@@ -43,20 +43,20 @@ Covers files under `design-system/src/`.
 cd design-system
 
 # Run once
-npm test
+pnpm test
 
 # Interactive watch mode
-npm run test:watch
+pnpm run test:watch
 ```
 
 ## Linting
 
 ```bash
 # App
-npm run lint
+pnpm run lint
 
 # Design-system
-cd design-system && npm run lint
+cd design-system && pnpm run lint
 ```
 
 ## Branch Naming

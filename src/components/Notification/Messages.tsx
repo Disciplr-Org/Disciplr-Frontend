@@ -77,13 +77,13 @@ export default function Message({
                 <h2
                   className={`${
                     safeRead
-                      ? "text-[#667589]"
-                      : "text-black"
+                      ? "text-[var(--muted)]"
+                      : "text-[var(--text)]"
                   } font-bold`}
                 >
                   {safeTitle}
                 </h2>
-                <p className="text-sm text-[#667589]">
+                <p className="text-sm text-[var(--muted)]">
                   {previewMessage}
                 </p>
               </div>
@@ -92,7 +92,7 @@ export default function Message({
                 <button
                   type="button"
                   onClick={() => onDismiss(id)}
-                  className="bg-[#00c389] px-2 py-1 rounded-md"
+                  className="bg-[var(--accent)] text-[var(--accent-fg)] px-2 py-1 rounded-md"
                 >
                   Delete
                 </button>
@@ -102,14 +102,14 @@ export default function Message({
             <div className="flex justify-between w-full">
               <div
                 className={`${
-                  !safeRead ? "bg-[#00c389]" : ""
+                  !safeRead ? "bg-[var(--accent)] text-[var(--accent-fg)]" : ""
                 } rounded-md mb-1 px-2`}
               >
                 <p className="font-bold">{safeRead ? "" : "New"}</p>
               </div>
 
               <p
-                className="text-sm text-[#667589]"
+                className="text-sm text-[var(--muted)]"
                 data-testid="message-time-ago"
               >
                 {timeAgo}

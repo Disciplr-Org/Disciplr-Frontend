@@ -1,17 +1,14 @@
 import { Suspense } from 'react'
 import { Clock, DollarSign } from 'lucide-react'
 import Skeleton from '../../components/Skeleton'
-import type { AnalyticsSeriesColors } from '../analyticsTheme'
 import { milestoneTypes } from '../analyticsData'
 import { Card, ChartSummary, ChartTitle, SectionTitle } from './AnalyticsPrimitives'
 import { AnalyticsCharts, type AnalyticsChartProps } from './chartsIsland'
 
 export function VaultAnalyticsSection({
   chartProps,
-  seriesColors,
 }: {
   chartProps: AnalyticsChartProps
-  seriesColors: AnalyticsSeriesColors
 }) {
   const vaultStats = [
     { icon: <Clock size={15} color="var(--muted)" />, label: 'Average Vault Duration', value: '18 days' },
@@ -26,7 +23,7 @@ export function VaultAnalyticsSection({
         <Card>
           <ChartTitle>Vaults by Status</ChartTitle>
           <ChartSummary>
-            Donut chart summarizing vault status counts: 14 completed, 3 active, and 4 failed.
+            Donut chart summarizing the current vault status distribution.
           </ChartSummary>
           <Suspense fallback={<Skeleton height={180} data-testid="chart-skeleton" />}>
             <AnalyticsCharts section="donut" {...chartProps} />

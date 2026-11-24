@@ -4,15 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_NOTIFICATION_PAGE_SIZE,
   DEFAULT_VALIDATION_HISTORY_PAGE_SIZE,
+  DEFAULT_TRANSACTIONS_PAGE_SIZE,
   NOTIFICATION_PAGE_SIZE_OPTIONS,
   NOTIFICATION_PAGE_SIZE_STORAGE_KEY,
+  TRANSACTIONS_PAGE_SIZE_OPTIONS,
+  TRANSACTIONS_PAGE_SIZE_STORAGE_KEY,
   VALIDATION_HISTORY_PAGE_SIZE_OPTIONS,
   VALIDATION_HISTORY_PAGE_SIZE_STORAGE_KEY,
   isNotificationPageSize,
   isValidationHistoryPageSize,
   persistNotificationPageSize,
+  persistTransactionsPageSize,
   persistValidationHistoryPageSize,
   readNotificationPageSize,
+  readTransactionsPageSize,
   readValidationHistoryPageSize,
 } from '../pageSizePref';
 
@@ -121,6 +126,23 @@ describe('pageSizePref', () => {
       });
 
       expect(persistNotificationPageSize(10)).toBe(10);
+    });
+
+    describe('transactions page size', () => {
+      it('persists and restores a supported page size', () => {
+        expect(TRANSACTIONS_PAGE_SIZE_OPTIONS).toEqual([10, 25, 50]);
+        expect(readTransactionsPageSize()).toBe(DEFAULT_TRANSACTIONS_PAGE_SIZE);
+
+        expect(persistTransactionsPageSize(25)).toBe(25);
+        expect(window.localStorage.getItem(TRANSACTIONS_PAGE_SIZE_STORAGE_KEY)).toBe('25');
+        expect(readTransactionsPageSize()).toBe(25);
+      });
+
+      it('falls back to the default for unsupported values', () => {
+        window.localStorage.setItem(TRANSACTIONS_PAGE_SIZE_STORAGE_KEY, '15');
+        expect(readTransactionsPageSize()).toBe(DEFAULT_TRANSACTIONS_PAGE_SIZE);
+        expect(persistTransactionsPageSize(15)).toBe(DEFAULT_TRANSACTIONS_PAGE_SIZE);
+      });
     });
   });
 });

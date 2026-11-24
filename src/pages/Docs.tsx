@@ -18,20 +18,20 @@ export default function Docs() {
       <h2>How it works</h2>
       <ol>
         <li><b>Connect</b> a Freighter wallet on Stellar testnet, or choose the built-in <i>Demo account</i> (no wallet needed).</li>
-        <li><b>Create a vault</b> at <Link to="/vaults/create">Create Vault</Link>: amount, deadline, milestones, and the success and failure destination addresses.</li>
+        <li><b>Create a vault</b> at <Link to="/vaults/create" style={{ textDecoration: "underline" }}>Create Vault</Link>: amount, deadline, milestones, and the success and failure destination addresses.</li>
         <li><b>Validate milestones</b> from the vault page. When every milestone is validated the vault completes and funds release to the success address.</li>
         <li><b>Cancel or miss</b> the commitment and funds redirect to the failure address.</li>
       </ol>
 
       <h2>Pages</h2>
-      <div style={card}><Link to="/dashboard">Dashboard</Link>: totals, upcoming deadlines, at-risk vaults, recent activity.</div>
-      <div style={card}><Link to="/vaults">Vaults</Link>: every vault with status filters. Open one for milestones, timeline and actions.</div>
-      <div style={card}><Link to="/transactions">Transactions</Link>: create, validate, release and redirect events.</div>
-      <div style={card}><Link to="/verifier">Verifier</Link>: queue and history for people validating other people's milestones.</div>
-      <div style={card}><Link to="/analytics">Analytics</Link>: charts across vaults. <Link to="/help">Help</Link>: FAQs and search.</div>
+      <div style={card}><Link to="/dashboard" style={{ textDecoration: "underline" }}>Dashboard</Link>: totals, upcoming deadlines, at-risk vaults, recent activity.</div>
+      <div style={card}><Link to="/vaults" style={{ textDecoration: "underline" }}>Vaults</Link>: every vault with status filters. Open one for milestones, timeline and actions.</div>
+      <div style={card}><Link to="/transactions" style={{ textDecoration: "underline" }}>Transactions</Link>: create, validate, release and redirect events.</div>
+      <div style={card}><Link to="/verifier" style={{ textDecoration: "underline" }}>Verifier</Link>: queue and history for people validating other people's milestones.</div>
+      <div style={card}><Link to="/analytics" style={{ textDecoration: "underline" }}>Analytics</Link>: charts across vaults. <Link to="/help" style={{ textDecoration: "underline" }}>Help</Link>: FAQs and search.</div>
 
       <h2>API</h2>
-      <p>The app talks to the public Disciplr API (<code>VITE_API</code>). Browse it at <a href={API} target="_blank" rel="noopener noreferrer">{API}</a>, or fetch the <a href={`${API}/api/openapi.json`} target="_blank" rel="noopener noreferrer">OpenAPI spec</a>.</p>
+      <p>The app talks to the public Disciplr API (<code>VITE_API</code>). Browse it at <a href={API} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{API}</a>, or fetch the <a href={`${API}/api/openapi.json`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>OpenAPI spec</a>.</p>
       <pre style={{ overflow: "auto", padding: 12, borderRadius: 8, background: "#00000020" }}>{`curl ${API}/api/vaults\ncurl ${API}/api/stats`}</pre>
 
       <h2>Run locally</h2>

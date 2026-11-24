@@ -11,6 +11,7 @@ import { clearNotesDraft, readNotesDraft, writeNotesDraft } from '../utils/notes
 import { daysRemaining } from '../utils/dashboard';
 import { useCurrentTime } from '../hooks/useCurrentTime';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useOnRecovered } from '../hooks/useOnRecovered';
 import { logger } from '../utils/logger';
 
 const NOTES_DRAFT_WRITE_DELAY_MS = 300;
@@ -78,6 +79,15 @@ export default function ValidationDetail() {
   const pendingValidations = useVerifierStore((state) => state.pendingValidations);
   const approveValidation = useVerifierStore((state) => state.approveValidation);
   const rejectValidation = useVerifierStore((state) => state.rejectValidation);
+  const loadQueue = useVerifierStore((state) => state.loadQueue);
+
+  useEffect(() => {
+    if (typeof loadQueue === 'function') void loadQueue();
+  }, [loadQueue]);
+
+  useOnRecovered(() => {
+    if (typeof loadQueue === 'function') void loadQueue({ force: true });
+  });
 
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -117,7 +127,7 @@ export default function ValidationDetail() {
         <button
           onClick={() => navigate('/verifier/queue')}
           className="px-6 py-2 rounded transition font-medium"
-          style={{ background: 'var(--accent)', color: 'white' }}
+          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
         >
           Return to Queue
         </button>

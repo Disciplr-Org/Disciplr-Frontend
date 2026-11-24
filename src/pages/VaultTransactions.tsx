@@ -13,6 +13,7 @@ import { formatUsdc } from "../utils/format";
 import { computeTxTotals } from "../utils/txTotals";
 import { paginate } from "../utils/paginate";
 import { readValidationHistoryPageSize } from "../utils/pageSizePref";
+import { sortTransactions } from "../utils/sortTransactions";
 import type { Vault, VaultTransaction } from "../types/vault";
 import { InvalidIdView, NotFoundView } from "../components/vault/VaultStateViews";
 
@@ -98,12 +99,10 @@ export default function VaultTransactions() {
     }
   }, [vault?.name]);
 
-  const sortedTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) => {
-      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-      return sortOrder === "desc" ? diff : -diff;
-    });
-  }, [transactions, sortOrder]);
+  const sortedTransactions = useMemo(
+    () => sortTransactions(transactions, "timestamp", sortOrder),
+    [transactions, sortOrder],
+  );
 
   const totals = useMemo(() => computeTxTotals(transactions), [transactions]);
 

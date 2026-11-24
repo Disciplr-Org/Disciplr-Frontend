@@ -27,7 +27,7 @@ The flow spans five main pages/components:
 4. **ValidationHistory** (`/verifier/history`) - Historical log of all past decisions
 5. **ConfirmationModal** - Reusable modal for final approve/reject confirmation
 
-All state is managed by the `useVerifierStore` Zustand store defined in `src/Zustand/Store.ts`.
+All state is managed by the `useVerifierStore` Zustand store defined in `src/Zustand/Store.ts`. When `VITE_API` is configured, the store loads pending tasks through `vaultService`/`validationAdapter` and submits decisions to the API; when it is unset, the store keeps the bundled fixture behaviour.
 
 ---
 
@@ -44,12 +44,15 @@ export type ValidationTask = {
   owner: string;
   amount: string;
   deadline: string;
-  daysRemaining: number;
   status: 'pending' | 'approved' | 'rejected';
   milestone: string;
   evidenceUrl?: string;
   notes?: string;
   criteria?: string[];
+  decidedAt?: string;
+  vaultId?: string;
+  milestoneId?: string;
+  assignedVerifier?: string;
 };
 ```
 
@@ -62,12 +65,15 @@ export type ValidationTask = {
 | `owner` | `string` | Wallet address or identity of the vault owner | `'0x1234...abcd'` |
 | `amount` | `string` | Formatted amount locked or requested | `'50,000 USDC'` |
 | `deadline` | `string` | ISO date string representing the task deadline | `'2026-05-15'` |
-| `daysRemaining` | `number` | Computed days remaining until the deadline | `16` |
 | `status` | `'pending' \| 'approved' \| 'rejected'` | Current verification status | `'pending'` |
 | `milestone` | `string` | Name or description of the milestone | `'Beta Release Deployment'` |
 | `evidenceUrl` | `string` (optional) | URL pointing to validation evidence | `'https://github.com/example/release-v1'` |
 | `notes` | `string` (optional) | Explanatory notes provided by the verifier during decision | `'Audit looks solid, all critical issues addressed.'` |
 | `criteria` | `string[]` (optional) | Array of specific requirements that must be verified | `['Deployment URL is live', 'All critical bugs resolved']` |
+| `decidedAt` | `string` (optional) | ISO timestamp set when the decision is applied | `'2026-05-01T12:00:00.000Z'` |
+| `vaultId` | `string` (optional) | API vault id used for decision POSTs | `'vault-1'` |
+| `milestoneId` | `string` (optional) | API milestone id used for approval POSTs | `'m-1'` |
+| `assignedVerifier` | `string` (optional) | Verifier identity sent with API submissions | `'GVERIFIER'` |
 
 ### Example ValidationTask
 
@@ -78,7 +84,6 @@ export type ValidationTask = {
   owner: '0x1234...abcd',
   amount: '50,000 USDC',
   deadline: '2026-05-15',
-  daysRemaining: 16,
   status: 'pending',
   milestone: 'Beta Release Deployment',
   evidenceUrl: 'https://github.com/example/release-v1',
@@ -180,7 +185,7 @@ const totalAssigned = totalPending + totalCompleted;
 
 **Store Consumption:**
 ```typescript
-const { pendingValidations, validationHistory, batchApprove, batchReject } = useVerifierStore();
+const { pendingValidations, validationHistory, batchApprove, batchReject, loadQueue } = useVerifierStore();
 ```
 
 **Key Features:**
@@ -193,6 +198,7 @@ const { pendingValidations, validationHistory, batchApprove, batchReject } = use
 - VerifierMetricsBar for queue statistics
 - Empty states for "all caught up" and "no results found"
 - CountdownDeadline component for each task
+- Calls `loadQueue()` on mount and `loadQueue({ force: true })` after connectivity recovery when `VITE_API` is set
 
 **Batch Action Flow:**
 1. User selects one or more tasks via checkboxes
@@ -200,7 +206,8 @@ const { pendingValidations, validationHistory, batchApprove, batchReject } = use
 3. ConfirmationModal opens with `affectedCount` set
 4. User confirms decision and adds notes
 5. `batchApprove()` or `batchReject()` is called with selected IDs
-6. Tasks transition from pending to history
+6. Tasks transition optimistically from pending to history; in API mode the store returns per-item outcomes and rolls back only failed IDs
+7. Failed IDs are reselected and the modal stays open with an aggregated error
 
 ### 3. ValidationDetail (`src/pages/ValidationDetail.tsx`)
 
@@ -210,7 +217,7 @@ const { pendingValidations, validationHistory, batchApprove, batchReject } = use
 
 **Store Consumption:**
 ```typescript
-const { pendingValidations, approveValidation, rejectValidation } = useVerifierStore();
+const { pendingValidations, approveValidation, rejectValidation, loadQueue } = useVerifierStore();
 ```
 
 **Key Features:**
@@ -221,6 +228,7 @@ const { pendingValidations, approveValidation, rejectValidation } = useVerifierS
 - Approve/Reject buttons that open ConfirmationModal
 - Navigation back to queue
 - "Validation Not Found" state if task ID doesn't exist in pending queue
+- Calls `loadQueue()` on mount and `loadQueue({ force: true })` after connectivity recovery when `VITE_API` is set
 
 **Criteria Gate:**
 The approve button is disabled unless all criteria checkboxes are checked:
@@ -237,8 +245,8 @@ const gateOpen = isCriteriaGateOpen(task.criteria, checkedCriteria);
 5. ConfirmationModal opens with task details
 6. User confirms decision
 7. `approveValidation()` or `rejectValidation()` is called
-8. Task transitions from pending to history
-9. User is redirected back to queue
+8. Task transitions from pending to history (API submissions are single-flight; failures roll back to pending with an error)
+9. User is redirected back to queue on success
 
 ### 4. ValidationHistory (`src/pages/ValidationHistory.tsx`)
 
@@ -384,6 +392,8 @@ sequenceDiagram
     participant ValidationDetail
     participant ConfirmationModal
     participant useVerifierStore
+    participant vaultService
+    participant API as Validation API
     participant ValidationHistory
 
     User->>VerifierDashboard: Navigate to /verifier
@@ -392,45 +402,57 @@ sequenceDiagram
     VerifierDashboard-->>User: Display metrics and urgent tasks
 
     User->>PendingValidations: Navigate to /verifier/queue
-    PendingValidations->>useVerifierStore: pendingValidations, batchApprove, batchReject
-    useVerifierStore-->>PendingValidations: Return state and actions
+    PendingValidations->>useVerifierStore: loadQueue()
+    alt VITE_API configured
+        useVerifierStore->>vaultService: listPendingValidations()
+        vaultService->>API: GET /vaults
+        API-->>vaultService: Vaults with pending milestones
+        vaultService->>vaultService: Map milestones to ValidationTask
+        vaultService-->>useVerifierStore: Pending queue
+    else Offline fixtures
+        useVerifierStore->>useVerifierStore: Keep bundled fixtures
+    end
     PendingValidations-->>User: Display queue table
 
     User->>ValidationDetail: Click "Review" on task v-101
-    ValidationDetail->>useVerifierStore: pendingValidations
-    useVerifierStore-->>ValidationDetail: Return state
-    ValidationDetail->>ValidationDetail: Find task by id v-101
+    ValidationDetail->>useVerifierStore: loadQueue() then find v-101
+    useVerifierStore-->>ValidationDetail: Return task
     ValidationDetail-->>User: Display task details and criteria
 
-    User->>ValidationDetail: Check criteria checkboxes
-    User->>ValidationDetail: Add optional notes
+    User->>ValidationDetail: Check criteria / add notes
     User->>ValidationDetail: Click "Approve Milestone"
-    ValidationDetail->>ConfirmationModal: Open with initialDecision='approve', initialNotes
+    ValidationDetail->>ConfirmationModal: Open with decision and notes
 
-    ConfirmationModal-->>User: Display modal with decision and evidence link
-    User->>ConfirmationModal: Verify decision, add/edit notes
     User->>ConfirmationModal: Click "Confirm Approve"
-    ConfirmationModal->>ConfirmationModal: Validate (decision selected)
     ConfirmationModal->>ValidationDetail: onConfirm('approve', notes)
-
     ValidationDetail->>useVerifierStore: approveValidation('v-101', notes)
-    
-    useVerifierStore->>useVerifierStore: Find task in pendingValidations
-    useVerifierStore->>useVerifierStore: Update status to 'approved'
-    useVerifierStore->>useVerifierStore: Remove from pendingValidations
-    useVerifierStore->>useVerifierStore: Prepend to validationHistory
-    useVerifierStore-->>ValidationDetail: State updated
 
-    ValidationDetail->>PendingValidations: Navigate to /verifier/queue
-    PendingValidations->>useVerifierStore: pendingValidations (refreshed)
-    useVerifierStore-->>PendingValidations: Return updated state (task removed)
-    PendingValidations-->>User: Display queue without v-101
+    alt VITE_API configured
+        useVerifierStore->>useVerifierStore: Optimistically move task to history
+        useVerifierStore->>vaultService: submitValidation(input)
+        vaultService->>API: POST validate endpoint
+        alt Submission succeeds
+            API-->>vaultService: 2xx
+        else Submission fails
+            API-->>vaultService: Error
+            vaultService-->>useVerifierStore: Reject
+            useVerifierStore->>useVerifierStore: Roll back task to pending with error
+        end
+        useVerifierStore-->>ValidationDetail: Resolved or rejected
+    else Offline fixtures
+        useVerifierStore->>useVerifierStore: Move task to history synchronously
+        useVerifierStore-->>ValidationDetail: Resolved
+    end
 
+    ValidationDetail->>PendingValidations: Navigate to /verifier/queue on success
+    PendingValidations->>useVerifierStore: loadQueue({ force: true }) on recovery
     User->>ValidationHistory: Navigate to /verifier/history
     ValidationHistory->>useVerifierStore: validationHistory
     useVerifierStore-->>ValidationHistory: Return state
     ValidationHistory-->>User: Display history with v-101 at top (approved)
 ```
+
+Batch decisions follow the same API branch but return `ValidationDecisionOutcome[]`; failed IDs are rolled back to pending and surfaced in the confirmation modal.
 
 ---
 
@@ -556,6 +578,8 @@ When a task ID is not found in `pendingValidations`:
 - **Empty selection**: Batch action buttons are disabled when `selectedIds` is empty
 - **Empty IDs array**: `batchApprove([])` and `batchReject([])` are safe no-ops
 - **Mixed valid/invalid IDs**: Valid IDs are processed, invalid IDs are ignored
+- **API batch failure**: Failed IDs are rolled back to `pendingValidations`, reselected, and reported per item in the modal
+- **API single-task failure**: The decision is rolled back and the error is shown on the detail page for retry
 
 ---
 
@@ -572,6 +596,7 @@ When a task ID is not found in `pendingValidations`:
 All verifier-related code is located in:
 
 - **Store**: `src/Zustand/Store.ts` - `useVerifierStore` and `ValidationTask` type
+- **API layer**: `src/services/api.ts`, `src/services/vaultService.ts`, `src/services/validationAdapter.ts`
 - **Pages**: `src/pages/VerifierDashboard.tsx`, `src/pages/PendingValidations.tsx`, `src/pages/ValidationDetail.tsx`, `src/pages/ValidationHistory.tsx`
 - **Components**: `src/components/ConfirmationModal.tsx`
 - **Tests**: `src/pages/__tests__/VerifierDashboard.test.tsx`, `src/pages/__tests__/PendingValidations.test.tsx`, `src/pages/__tests__/ValidationDetail.test.tsx`, `src/pages/__tests__/ValidationHistory.test.tsx`, `src/components/__tests__/ConfirmationModal.test.tsx`

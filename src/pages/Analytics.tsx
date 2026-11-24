@@ -1,21 +1,18 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom' // Ensure search params are available
 import { useTheme } from '../context/ThemeContext'
+import { useOptionalWallet } from '../context/WalletContext'
 import { usePrefersReducedMotion } from '../utils/usePrefersReducedMotion'
-import { computeAnalyticsKpis, type AnalyticsDataPoint } from '../utils/analyticsKpis'
+import { computeAnalyticsKpis } from '../utils/analyticsKpis'
 import { type Period, parsePeriod, serializePeriod } from '../utils/periodParam'
 import { dedupeByName } from '../utils/analyticsRange'
 import { useAnalyticsExport } from '../hooks/useAnalyticsExport'
+import { useAnalyticsData } from '../hooks/useAnalyticsData'
 
 import { buildAnalyticsSeriesColors, getAnalyticsChartTokens } from './analyticsTheme'
 import type { ChartLegendEntry } from '../components/ChartLegend'
-import {
-  analyticsPeriodData,
-  prevPeriodData,
-  vaultStatusData,
-  TEAM_CHART_DATA,
-} from './analyticsData'
-import { filterMonthlySeries, alignPreviousByName, validateDateRange } from './analyticsValidation'
+import { TEAM_CHART_DATA } from './analyticsData'
+import { validateDateRange } from './analyticsValidation'
 
 import { RangePicker } from './analytics/RangePicker'
 import { ExportMenu } from './analytics/ExportMenu'
@@ -63,7 +60,7 @@ export default function Analytics() {
   const [customTo, setCustomTo] = useState('')
   const [goalRate, setGoalRate] = useState('90')
   const [goalCapital, setGoalCapital] = useState('5000')
-  const [isLoading] = useState(false)
+  const isDemo = useOptionalWallet()?.isDemo ?? false
 
   const setPeriod = useCallback((p: Period) => {
     setPeriodInternal(p)
@@ -90,24 +87,14 @@ export default function Analytics() {
   const customRangeActive = dateRange.status === 'valid'
 
   // ─── Memoized data selections ──────────────────────────────────────────────
-  // A custom range filters the '1y' monthly series to the months inside the range.
-  const chartData = useMemo(() => {
-    if (dateRange.status === 'valid') {
-      return filterMonthlySeries(dedupeByName(analyticsPeriodData['1y']), dateRange.from, dateRange.to)
-    }
-    return dedupeByName(analyticsPeriodData[period])
-  }, [dateRange, period])
-
-  // Invariant: row i of prevChartData describes the same bucket as row i of
-  // chartData. Presets are paired with their own previous period; a custom
-  // range is compared month-for-month against the previous year, never against
-  // the unrelated previous series of whichever preset is hidden behind it.
-  const prevChartData = useMemo(
-    () => (dateRange.status === 'valid'
-      ? alignPreviousByName(chartData, prevPeriodData['1y'])
-      : prevPeriodData[period]),
-    [dateRange, chartData, period]
-  )
+  const {
+    chartData,
+    prevChartData,
+    vaultStatusData,
+    isLoading,
+    error: analyticsError,
+    retry: retryAnalytics,
+  } = useAnalyticsData(period, dateRange, isDemo)
 
   const comparisonData = useMemo(
     () => dedupeByName(chartData).map((d, i) => ({
@@ -125,7 +112,7 @@ export default function Analytics() {
 
   // ─── Memoized KPI computation ──────────────────────────────────────────────
   const kpis = useMemo(
-    () => computeAnalyticsKpis(chartData as AnalyticsDataPoint[], prevChartData as AnalyticsDataPoint[]),
+    () => computeAnalyticsKpis(chartData, prevChartData),
     [chartData, prevChartData]
   )
 
@@ -194,6 +181,7 @@ export default function Analytics() {
     displayData,
     chartData,
     period,
+    vaultStatusData,
     showComparison,
     chartAnimationEnabled,
     tooltipStyle,
@@ -223,6 +211,20 @@ export default function Analytics() {
           Track your vault performance and accountability patterns.
         </p>
       </div>
+                <div style={{ fontSize: '0.75rem', color: stat.up ? 'var(--accent)' : 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                    <span style={{ color: item.you >= item.platform ? 'var(--accent)' : 'var(--danger-text)', fontWeight: 700 }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--accent)', marginBottom: '0.15rem' }}>You</div>
+                    <span style={{ color: rateGoalMet ? 'var(--accent)' : 'var(--warning-text)' }}>
+                  <div style={{ fontSize: '0.75rem', color: kpis.averageSuccessRate >= Number(goalRate) ? 'var(--accent)' : 'var(--muted)', marginTop: '0.3rem' }}>
+                    <span style={{ color: capitalGoalMet ? 'var(--accent)' : 'var(--warning-text)' }}>
+                  <div style={{ fontSize: '0.75rem', color: kpis.totalCapital >= Number(goalCapital) ? 'var(--accent)' : 'var(--muted)', marginTop: '0.3rem' }}>
+
+      {analyticsError && (
+        <div role="alert" style={{ color: 'var(--danger)', marginBottom: '1rem' }}>
+          {analyticsError}{' '}
+          <button type="button" onClick={retryAnalytics}>Retry</button>
+        </div>
+      )}
 
       {/* ── Controls Bar ── */}
       <div className="analytics-controls">
@@ -255,18 +257,21 @@ export default function Analytics() {
           exportError={exportError}
         />
       </div>
+              color: '#111827',
 
       {/* ── SECTION 1: Key Metrics Cards ── */}
       <KpiGrid kpis={kpis} seriesColors={seriesColors} />
+              color: '#111827',
 
       {/* ── SECTION 2: Performance Charts ── */}
       <PerformanceSection chartProps={analyticsChartProps} showComparison={showComparison} />
 
       {/* ── SECTION 3: Vault Analytics ── */}
-      <VaultAnalyticsSection chartProps={analyticsChartProps} seriesColors={seriesColors} />
+      <VaultAnalyticsSection chartProps={analyticsChartProps} />
 
       {/* ── SECTION 4: Behavioral Insights ── */}
       <BehavioralInsightsSection chartData={chartData} seriesColors={seriesColors} />
+                    <div style={{ fontWeight: 700, color: 'var(--accent)' }}>{member.score}%</div>
 
       {/* ── SECTION 5: Capital Flow ── */}
       <CapitalFlowSection seriesColors={seriesColors} />

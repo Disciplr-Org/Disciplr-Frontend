@@ -64,7 +64,7 @@ export function Pagination({
       aria-label={ariaLabel}
       className={`flex flex-col items-center justify-center gap-3 ${className}`}
     >
-      <p className="text-sm text-gray-600" aria-live="polite">
+      <p className="text-sm text-[var(--muted)]" aria-live="polite">
         Page {currentPage} of {pageCount}
       </p>
 
@@ -132,7 +132,7 @@ export function Pagination({
           noValidate
           onSubmit={handleJumpSubmit}
         >
-          <label className="text-sm text-gray-600" htmlFor={jumpInputId}>
+          <label className="text-sm text-[var(--muted)]" htmlFor={jumpInputId}>
             Jump to page
           </label>
           <input

@@ -302,7 +302,7 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--text);
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.2;
@@ -315,7 +315,7 @@
 .demo-mode-reset-btn {
   background: transparent;
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--text);
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
   font-size: 0.7rem;
