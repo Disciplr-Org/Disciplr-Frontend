@@ -1,7 +1,7 @@
 # `src/utils/__tests__`
 
-Unit tests for the pure utility functions in `src/utils/`.  
-All tests run with **Vitest** (`npm run test`).
+This directory is the single canonical location for all unit tests covering the pure utility functions in `src/utils/`. The legacy duplicate directory `src/utils/tests/` has been consolidated and removed.  
+All tests run with **Vitest** (`npm run test` or `pnpm exec vitest run src/utils/__tests__`).
 
 ## Coverage targets
 

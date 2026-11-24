@@ -8,7 +8,7 @@ import { useOnRecovered } from "../hooks/useOnRecovered";
 import { toCsv, downloadCsv } from "../utils/csv";
 import { getExplorerTxUrl, isValidTxHash } from "../utils/explorer";
 import { truncateMiddle } from "../utils/truncate";
-import { useWallet } from "../hooks/useWallet";
+import { useWallet } from "../context/WalletContext";
 
 type NetworkName = Parameters<typeof getExplorerTxUrl>[1] | string;
 

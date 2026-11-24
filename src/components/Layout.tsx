@@ -51,7 +51,8 @@ interface LayoutProps {
  *    technology and inert, so focus can never escape into background content.
  */
 
-function isValidPathname(value: unknown): value is string {
+// eslint-disable-next-line react-refresh/only-export-components
+export function isValidPathname(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.startsWith("/");
 }
 
