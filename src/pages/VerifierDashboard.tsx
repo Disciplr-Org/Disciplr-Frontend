@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { Text } from '../components/Text';
 import { useVerifierStore, type ValidationTask } from '../Zustand/Store';
@@ -45,15 +45,13 @@ export default function VerifierDashboard() {
   // (undefined/null slices) must render empty states instead of crashing the
   // dashboard. This mirrors the null-tolerance already enforced by
   // `computeVerifierMetrics` in ../utils/verifierMetrics.ts.
-  const pendingValidations =
-    useVerifierStore((state) => state.pendingValidations) ?? [];
-  const validationHistory =
-    useVerifierStore((state) => state.validationHistory) ?? [];
+  const pendingValidations = useVerifierStore((state) => state.pendingValidations);
+  const validationHistory = useVerifierStore((state) => state.validationHistory);
 
-  const safeHistory = useMemo(() => sanitizeTasks(validationHistory), [validationHistory]);
+  const safeHistory = useMemo(() => sanitizeTasks(validationHistory ?? []), [validationHistory]);
   const safePending = useMemo(() => {
     const historyIds = new Set(safeHistory.map((task) => task.id));
-    return sanitizeTasks(pendingValidations).filter((task) => !historyIds.has(task.id));
+    return sanitizeTasks(pendingValidations ?? []).filter((task) => !historyIds.has(task.id));
   }, [pendingValidations, safeHistory]);
 
   const totalPending = safePending.length;
@@ -86,20 +84,20 @@ export default function VerifierDashboard() {
       </section>
 
       <section className="flex gap-4 mt-4">
-        <button
-          onClick={() => navigate('/verifier/queue')}
+        <Link
+          to="/verifier/queue"
           className="px-6 py-3 font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-          style={{ background: 'var(--accent)', color: 'white' }}
+          style={{ background: 'var(--accent)', color: 'white', textDecoration: 'none', display: 'inline-block' }}
         >
           View Pending Queue
-        </button>
-        <button
-          onClick={() => navigate('/verifier/history')}
+        </Link>
+        <Link
+          to="/verifier/history"
           className="px-6 py-3 border font-medium rounded transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'transparent' }}
+          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'transparent', textDecoration: 'none', display: 'inline-block' }}
         >
           View History
-        </button>
+        </Link>
       </section>
 
       <section className="mt-8">
@@ -139,14 +137,14 @@ export default function VerifierDashboard() {
                         <span className="sr-only"> (urgent)</span>
                       )}
                     </Text>
-                    <button
-                      onClick={() => navigate(`/verifier/queue/${task.id}`)}
+                    <Link
+                      to={`/verifier/queue/${task.id}`}
                       aria-label={`Review ${task.vaultName}`}
                       className="font-medium text-sm mt-2 transition focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-                      style={{ color: 'var(--accent)' }}
+                      style={{ color: 'var(--accent)', textDecoration: 'none', display: 'inline-block' }}
                     >
                       Review Now &rarr;
-                    </button>
+                    </Link>
                   </div>
                 </div>
               );
@@ -182,14 +180,14 @@ export default function VerifierDashboard() {
                   <Text role="body" as="p" className="text-sm font-medium" style={{ color: 'var(--muted)' }}>
                     {task.decidedAt || task.deadline}
                   </Text>
-                  <button
-                    onClick={() => navigate('/verifier/history')}
+                  <Link
+                    to="/verifier/history"
                     aria-label={`View ${task.vaultName} in History`}
                     className="font-medium text-sm mt-2 transition text-left md:text-right focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-offset-[var(--focus-ring-offset)] focus-visible:outline-[var(--focus-ring-color)]"
-                    style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'none' }}
                   >
                     View in History &rarr;
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))

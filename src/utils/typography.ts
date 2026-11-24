@@ -50,7 +50,7 @@ const DEFAULT_CLASS = 'text-body' as const;
  */
 export function getTypographyClass(role: TypographyRole): string {
   // Input validation: handle runtime type bypasses and ensure role is defined
-  if (typeof role !== 'string' || !role) {
+  if (typeof role !== 'string' || !role || !Object.hasOwn(CLASS_MAP, role)) {
     return DEFAULT_CLASS;
   }
 
@@ -73,7 +73,7 @@ export function getTypographyClass(role: TypographyRole): string {
  * @returns true if value is a valid TypographyRole
  */
 export function isValidTypographyRole(value: unknown): value is TypographyRole {
-  return typeof value === 'string' && value in CLASS_MAP;
+  return typeof value === 'string' && Object.hasOwn(CLASS_MAP, value);
 }
 
 /**
