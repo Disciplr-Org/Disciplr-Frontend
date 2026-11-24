@@ -11,20 +11,6 @@ import { getExplorerTxUrl } from "../utils/explorer";
 import { isValidTxHash } from "../utils/vaultState";
 import { truncateMiddle } from "../utils/truncate";
 import { useWallet } from "../context/WalletContext";
-import { paginate } from "../utils/paginate";
-import { computeTxTotals } from "../utils/txTotals";
-import { sortTransactions } from "../utils/sortTransactions";
-import {
-  TRANSACTIONS_PAGE_SIZE_OPTIONS,
-  persistTransactionsPageSize,
-  readTransactionsPageSize,
-} from "../utils/pageSizePref";
-import {
-  parseTransactionsQuery,
-  TRANSACTION_SORT_KEYS,
-  TRANSACTION_STATUSES,
-  TRANSACTION_TYPES,
-} from "../utils/transactionsQuery";
 
 type NetworkName = Parameters<typeof getExplorerTxUrl>[1] | string;
 
