@@ -17,7 +17,7 @@ export type NotificationTypeKey =
 
 export interface NotificationTypeMapping {
   icon: IconType;
-  /** CSS color value (hex, named, or var(--token)) */
+  /** CSS color value (hex, named, or a CSS variable reference) */
   color: string;
   /** Accessible screen-reader label for this notification category */
   label: string;

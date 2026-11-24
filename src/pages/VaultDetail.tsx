@@ -1,113 +1,25 @@
-import { useMemo, useState, type ReactNode, type CSSProperties } from "react";
-import { useParams, Link } from "react-router-dom";
-import { MilestoneTracker } from "../components/MilestoneTracker";
-import { VaultProgressBar } from "../components/VaultProgressBar";
-import { VaultLifecycle } from "../components/VaultLifecycle";
-import { CountdownDeadline } from "../components/CountdownDeadline";
-import Breadcrumb from "../components/Breadcrumb";
-import { ConfirmationModal } from "../components/ConfirmationModal";
-import { FundReleaseStatus } from "../components/FundReleaseStatus";
-import { VaultMetaPanel } from "../components/VaultMetaPanel";
-import { StatusChip } from "../components/StatusChip";
-import { Text } from "../components/Text";
+import { useParams } from "react-router-dom";
 import { useWallet } from "../context/WalletContext";
-import type { WalletNetwork } from "../context/WalletContext";
-import { submitVaultAction } from "../services/vaultService";
 import { useVaultDetail } from "../hooks/useVaultDetail";
-import { APP_EXPECTED_NETWORK } from "../utils/networkMismatch";
-import { contractExplorerUrl, getExplorerTxUrl, networkLabel } from "../utils/explorer";
-import { isValidIcsDeadline, downloadIcsEvent } from "../utils/ics";
-import { truncateMiddle } from "../utils/truncate";
-import { createVaultPrefillFromVault } from "../utils/vaultPrefill";
-import { timelineProgress } from "../utils/vaultLifecycle";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useOnRecovered } from "../hooks/useOnRecovered";
 import {
-  VAULT_ACTIONS,
-  buildFundReleaseView,
-  detectSettlementAnomalies,
-  evalVaultActionAuth,
-  type VaultAction,
-  type VaultActionAuth,
-} from "../utils/vaultState";
-import type { Vault } from "../types/vault";
+  ErrorView,
+  InvalidIdView,
+  LoadingView,
+  MalformedView,
+  NotFoundView,
+} from "../components/vault/VaultStateViews";
+import { VaultDetailContent } from "../components/vault/VaultDetailContent";
 
-const TX_LABELS: Record<string, string> = {
-  create: "Vault Created",
-  validate: "Milestone Validated",
-  release: "Funds Released",
-  redirect: "Funds Redirected",
-};
-
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// ── Section Card ─────────────────────────────────────────────────────────────
-function Card({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        padding: "1.25rem",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ── Vault action config ───────────────────────────────────────────────────────
-const VAULT_ACTION_CONFIG: Record<
-  VaultAction,
-  { title: string; message: string; confirmLabel: string }
-> = {
-  validate_milestone: {
-    title: "Validate Milestone",
-    message:
-      "Are you sure you want to validate the current milestone? This will trigger an on-chain transaction to advance the vault. This action cannot be undone.",
-    confirmLabel: "Validate",
-  },
-  extend_deadline: {
-    title: "Extend Deadline",
-    message:
-      "Are you sure you want to extend the vault deadline? The new deadline must be confirmed by all relevant parties before taking effect.",
-    confirmLabel: "Extend",
-  },
-  cancel_vault: {
-    title: "Cancel Vault",
-    message:
-      "Are you sure you want to cancel this vault? Funds will be redirected to the failure destination address. This action cannot be undone.",
-    confirmLabel: "Cancel Vault",
-  },
-};
-
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function VaultDetail() {
   const { id } = useParams<{ id: string }>();
   const { view, retry } = useVaultDetail(id);
   const { address, network } = useWallet();
+  // Page title is "<vault name> · Disciplr" (see useDocumentTitle).
+  useDocumentTitle(view.status === "ready" ? view.vault.name : "");
+
+  useOnRecovered(retry);
 
   switch (view.status) {
     case "loading":
@@ -126,6 +38,7 @@ export default function VaultDetail() {
           vault={view.vault}
           walletAddress={address}
           walletNetwork={network}
+          onChanged={retry}
         />
       );
   }
@@ -149,7 +62,7 @@ function LoadingView() {
   );
 }
 
-function EmptyState({
+export function EmptyState({
   title,
   children,
 }: {
@@ -180,7 +93,7 @@ function EmptyState({
   );
 }
 
-function InvalidIdView({ id }: { id: string }) {
+export function InvalidIdView({ id }: { id: string }) {
   return (
     <EmptyState title="Invalid vault identifier">
       <Text role="body" as="p" style={{ margin: 0 }}>
@@ -193,7 +106,7 @@ function InvalidIdView({ id }: { id: string }) {
   );
 }
 
-function NotFoundView({ id }: { id: string }) {
+export function NotFoundView({ id }: { id: string }) {
   return (
     <EmptyState title="Vault not found">
       <Text role="body" as="p" style={{ margin: 0 }}>
@@ -276,14 +189,16 @@ interface VaultDetailContentProps {
   vault: Vault;
   walletAddress: string | null;
   walletNetwork: WalletNetwork | null;
+  onChanged?: () => void;
 }
 
 function VaultDetailContent({
   vault,
   walletAddress,
   walletNetwork,
+  onChanged,
 }: VaultDetailContentProps) {
-  const { network } = useWallet();
+  const { network, connectDemo } = useWallet();
 
   const [activeAction, setActiveAction] = useState<VaultAction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -298,6 +213,7 @@ function VaultDetailContent({
         walletAddress,
         walletNetwork,
         expectedNetwork: APP_EXPECTED_NETWORK,
+        mode: isApiMode() ? "api" : "offline",
       });
     }
     return results;
@@ -315,19 +231,16 @@ function VaultDetailContent({
   };
 
   const handleActionConfirm = async () => {
-    if (!activeAction || isSubmitting) return;
+    if (!activeAction || !walletAddress || isSubmitting) return;
 
     setActionError(null);
     setIsSubmitting(true);
     try {
-      await submitVaultAction(activeAction, vault.id);
+      await submitVaultAction(activeAction, vault.id, walletAddress);
       setActiveAction(null);
+      onChanged?.();
     } catch (err) {
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : "The action could not be submitted. Please try again.",
-      );
+      setActionError(mapActionError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -339,13 +252,14 @@ function VaultDetailContent({
   const settlement = buildFundReleaseView(vault);
   const settlementAnomalies = detectSettlementAnomalies(vault);
   const canExportDeadline = isValidIcsDeadline(vault.deadline);
+  const [alarmPreference, setAlarmPreference] = useState<AlarmPreference>("both");
   const handleCalendarExport = () => {
-    downloadIcsEvent({
-      title: `${vault.name} deadline`,
-      deadline: vault.deadline,
-      description: `${vault.name} vault deadline for ${vault.amount.toLocaleString()} ${vault.currency}.`,
-      uid: `vault-${vault.id}-deadline`,
-    });
+    const events = vaultToIcsEvents(vault, alarmPreference);
+    downloadIcsCalendar(
+      events,
+      icsFilename(`${vault.name} deadline`, vaultDeadlineUid(vault.id)),
+      { alarms: alarmPreference }
+    );
   };
 
   return (
@@ -409,7 +323,7 @@ function VaultDetailContent({
               as="div"
               style={{ color: "var(--accent)", lineHeight: 1.1 }}
             >
-              {vault.amount.toLocaleString()}{" "}
+              {formatUsdc(vault.amount)}{" "}
               <span
                 style={{
                   fontSize: "0.45em",
@@ -422,48 +336,92 @@ function VaultDetailContent({
             </Text>
           </div>
 
-          {/* Quick Actions */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <Link
-              to="/vaults/create"
-              state={createVaultPrefillFromVault(vault)}
+          {/* Quick Actions / Connect CTA */}
+          {!walletAddress ? (
+            <div
+              data-testid="vault-connect-cta"
               style={{
-                ...actionBtn("var(--accent)"),
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: "0.5rem",
               }}
             >
-              Duplicate Vault
-            </Link>
-            {isActive && (
-              <>
-                {vault.status === "pending_validation" && (
+              <Text role="caption" as="div" style={{ color: "var(--muted)" }}>
+                Connect a wallet to take action
+              </Text>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <WalletConnectButton />
+                <button
+                  type="button"
+                  onClick={connectDemo}
+                  style={{
+                    background: "none",
+                    border: 0,
+                    color: "var(--accent)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    font: "inherit",
+                    fontSize: 13,
+                  }}
+                >
+                  Try the demo account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <Link
+                to="/vaults/create"
+                state={createVaultPrefillFromVault(vault)}
+                style={{
+                  ...actionBtn("var(--accent)"),
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                Duplicate Vault
+              </Link>
+              {isActive && (
+                <>
+                  {(vault.status === "pending_validation" || vault.status === "active") && (
+                    <ActionButton
+                      label="Validate Milestone"
+                      color="var(--accent)"
+                      auth={authResults.validate_milestone}
+                      onClick={() => handleActionClick("validate_milestone")}
+                    />
+                  )}
+                  {!isApiMode() && (
+                    <ActionButton
+                      label="Extend Deadline"
+                      color="var(--warning)"
+                      auth={authResults.extend_deadline}
+                      onClick={() => handleActionClick("extend_deadline")}
+                    />
+                  )}
                   <ActionButton
-                    label="Validate Milestone"
-                    color="var(--accent)"
-                    auth={authResults.validate_milestone}
-                    onClick={() => handleActionClick("validate_milestone")}
+                    label="Cancel Vault"
+                    color="var(--danger)"
+                    auth={authResults.cancel_vault}
+                    onClick={() => handleActionClick("cancel_vault")}
                   />
-                )}
-                <ActionButton
-                  label="Extend Deadline"
-                  color="var(--warning)"
-                  auth={authResults.extend_deadline}
-                  onClick={() => handleActionClick("extend_deadline")}
-                />
-                <ActionButton
-                  label="Cancel Vault"
-                  color="var(--danger)"
-                  auth={authResults.cancel_vault}
-                  onClick={() => handleActionClick("cancel_vault")}
-                />
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {isActive &&
+        {walletAddress &&
+          isActive &&
           !authResults.extend_deadline.allowed &&
           authResults.extend_deadline.reasons.length > 0 && (
             <Text
@@ -474,6 +432,15 @@ function VaultDetailContent({
               Actions are limited because: {authResults.extend_deadline.reasons[0]}
             </Text>
           )}
+        {walletAddress && isActive && isApiMode() && (
+          <Text
+            role="caption"
+            as="p"
+            style={{ color: "var(--muted)", marginTop: "0.5rem", marginBottom: 0 }}
+          >
+            Extending a deadline is not supported by the demo API.
+          </Text>
+        )}
       </Card>
 
       {/* ── Timeline ── */}
@@ -526,13 +493,34 @@ function VaultDetailContent({
               Deadline {fmtDate(vault.deadline)}
             </Text>
             {canExportDeadline ? (
-              <button
-                type="button"
-                onClick={handleCalendarExport}
-                style={actionBtn("var(--accent)")}
-              >
-                Add to calendar
-              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                <select
+                  aria-label="Alarm preference"
+                  value={alarmPreference}
+                  onChange={(e) => setAlarmPreference(e.target.value as AlarmPreference)}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.25rem 0.5rem",
+                    fontSize: 12,
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="both">Alarms: 1 day & 1 hour</option>
+                  <option value="1day">1 day before</option>
+                  <option value="1hour">1 hour before</option>
+                  <option value="none">No alarms</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleCalendarExport}
+                  style={actionBtn("var(--accent)")}
+                >
+                  Add to calendar
+                </button>
+              </div>
             ) : null}
           </div>
         </div>
@@ -571,7 +559,7 @@ function VaultDetailContent({
             />
             <InfoRow
               label="Amount"
-              value={`${vault.amount.toLocaleString()} ${vault.currency}`}
+              value={`${formatUsdc(vault.amount)} ${vault.currency}`}
             />
           </div>
         </Card>
@@ -633,18 +621,39 @@ function VaultDetailContent({
 
       {/* ── Transactions ── */}
       <Card>
-        <Text
-          role="caption"
-          as="div"
+        <div
           style={{
-            color: "var(--muted)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             marginBottom: "1rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
+            flexWrap: "wrap",
+            gap: "0.5rem",
           }}
         >
-          Transaction History
-        </Text>
+          <Text
+            role="caption"
+            as="div"
+            style={{
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Transaction History
+          </Text>
+          <Link
+            to={`/vaults/${vault.id}/transactions`}
+            style={{
+              color: "var(--accent)",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            View all
+          </Link>
+        </div>
         <div
           style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
         >
@@ -689,7 +698,7 @@ function VaultDetailContent({
                     as="span"
                     style={{ color: "var(--text)", fontWeight: 600 }}
                   >
-                    {tx.amount.toLocaleString()} {vault.currency}
+                    {formatUsdc(tx.amount)} {vault.currency}
                   </Text>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -718,14 +727,19 @@ function VaultDetailContent({
                   >
                     ⎘
                   </button>
-                  <a
-                    href={getExplorerTxUrl(tx.hash, network)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "var(--accent)", fontSize: 11 }}
-                  >
-                    ↗
-                  </a>
+                  {(() => {
+                    const txUrl = getExplorerTxUrl(tx.hash, network);
+                    return txUrl ? (
+                      <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--accent)", fontSize: 11 }}
+                      >
+                        ↗
+                      </a>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             </div>
@@ -879,7 +893,7 @@ function NetworkFooterBanner({ network, contractAddress }: NetworkFooterBannerPr
         <Text
           role="mono"
           as="span"
-          style={{ color: "var(--muted)", fontSize: 12, flex: 1, minWidth: 0 }}
+          style={{ color: "var(--muted)", fontSize: 12, flex: "1 1 100%", minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-all" }}
           aria-label={`Contract address: ${contractAddress}`}
         >
           {contractAddress}
@@ -954,4 +968,18 @@ function actionBtn(color: string): React.CSSProperties {
     fontWeight: 600,
     minHeight: 36,
   };
+}
+
+function mapActionError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return "Only the vault's verifier can do this.";
+    }
+    if (err.status === 409) {
+      return "This vault is already settled or inactive.";
+    }
+  }
+  return err instanceof Error
+    ? err.message
+    : "The action could not be submitted. Please try again.";
 }

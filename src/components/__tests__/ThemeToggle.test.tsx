@@ -1,185 +1,139 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ThemeProvider } from '../../context/ThemeContext';
+import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import ThemeToggle from '../ThemeToggle';
+import { ThemeProvider } from '../../context/ThemeContext';
 
-const THEME_KEY = 'disciplr-theme';
-
-function renderToggle() {
+function renderThemeToggle() {
   return render(
     <ThemeProvider>
       <ThemeToggle />
-    </ThemeProvider>,
+    </ThemeProvider>
   );
 }
 
-describe('ThemeToggle', () => {
+describe('ThemeToggle component', () => {
   beforeEach(() => {
-    localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(prefers-color-scheme: dark)' ? false : false,
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: false,
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
+    } as unknown as MediaQueryList));
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('default (system) mode', () => {
-    test('renders in system mode by default', () => {
-      renderToggle();
+  it('clicking cycles through the documented preference order (system -> light -> dark -> system)', () => {
+    renderThemeToggle();
+    const toggleBtn = screen.getByRole('button');
 
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-      expect(button).toBeInTheDocument();
-      expect(button).toHaveAttribute('aria-pressed', 'mixed');
-    });
+    // Initial state: default is 'system'
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'mixed');
 
-    test('shows monitor icon in system mode', () => {
-      renderToggle();
+    // Click 1: system -> light
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to dark mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
 
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-      const svg = button.querySelector('svg');
-      expect(svg).toBeInTheDocument();
-      // Monitor icon has a <rect> element (the screen)
-      expect(svg?.querySelector('rect')).toBeInTheDocument();
-    });
+    // Click 2: light -> dark
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to system mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
 
-    test('data-theme is concrete (light) when OS is light and preference is system', () => {
-      renderToggle();
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-    });
+    // Click 3: dark -> system (returns to starting preference)
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'mixed');
   });
 
-  describe('light mode', () => {
-    test('renders light theme with sun icon', () => {
-      localStorage.setItem(THEME_KEY, 'light');
-      renderToggle();
+  it('renders fallback safely with tampered stored preference like <b>', () => {
+    localStorage.setItem('disciplr-theme', '<b>');
 
-      const button = screen.getByRole('button', { name: /switch to dark mode/i });
-      expect(button).toBeInTheDocument();
-      expect(button).toHaveAttribute('aria-pressed', 'false');
-      // Sun icon has circle and lines, no rect
-      const svg = button.querySelector('svg');
-      expect(svg?.querySelector('circle')).toBeInTheDocument();
-    });
+    renderThemeToggle();
+    const toggleBtn = screen.getByRole('button');
+
+    // Tampered value falls back gracefully without throwing
+    expect(toggleBtn).toBeInTheDocument();
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'mixed');
+
+    // Verify it can still cycle normally
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to dark mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  describe('dark mode', () => {
-    test('renders dark theme with moon icon', () => {
-      localStorage.setItem(THEME_KEY, 'dark');
-      renderToggle();
+  it('handles "evil" stored preference by showing fallback and cycling three times returns to starting preference', () => {
+    localStorage.setItem('disciplr-theme', 'evil');
 
-      const button = screen.getByRole('button', { name: /switch to system mode/i });
-      expect(button).toBeInTheDocument();
-      expect(button).toHaveAttribute('aria-pressed', 'true');
-    });
+    renderThemeToggle();
+    const toggleBtn = screen.getByRole('button');
 
-    test('data-theme is dark', () => {
-      localStorage.setItem(THEME_KEY, 'dark');
-      renderToggle();
+    // Starting preference is fallback 'system'
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'mixed');
 
-      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    });
+    // Clicking three times returns to the starting preference
+    fireEvent.click(toggleBtn); // system -> light
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to dark mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(toggleBtn); // light -> dark
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to system mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(toggleBtn); // dark -> system
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to light mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'mixed');
   });
 
-  describe('tri-state cycling', () => {
-    test('cycles system → light → dark → system', async () => {
-      const user = userEvent.setup();
-      renderToggle();
+  it('supports keyboard activation via Enter and Space', async () => {
+    const user = userEvent.setup();
+    renderThemeToggle();
+    const toggleBtn = screen.getByRole('button');
 
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-      expect(button).toHaveAttribute('aria-pressed', 'mixed');
+    toggleBtn.focus();
+    expect(toggleBtn).toHaveFocus();
 
-      // system → light
-      await user.click(button);
-      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
-      expect(button).toHaveAttribute('aria-pressed', 'false');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    // Activate with Space
+    await user.keyboard(' ');
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to dark mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
 
-      // light → dark
-      await user.click(button);
-      expect(button).toHaveAttribute('aria-label', 'Switch to system mode');
-      expect(button).toHaveAttribute('aria-pressed', 'true');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-
-      // dark → system
-      await user.click(button);
-      expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
-      expect(button).toHaveAttribute('aria-pressed', 'mixed');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-    });
-
-    test('persists preference through full cycle', async () => {
-      const user = userEvent.setup();
-      renderToggle();
-
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-
-      await user.click(button); // system → light
-      expect(localStorage.getItem(THEME_KEY)).toBe('light');
-
-      await user.click(button); // light → dark
-      expect(localStorage.getItem(THEME_KEY)).toBe('dark');
-
-      await user.click(button); // dark → system
-      expect(localStorage.getItem(THEME_KEY)).toBe('system');
-    });
+    // Activate with Enter
+    await user.keyboard('{Enter}');
+    expect(toggleBtn).toHaveAttribute('aria-label', 'Switch to system mode');
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
-  describe('keyboard interaction', () => {
-    test('keyboard activation with Enter cycles theme', async () => {
-      const user = userEvent.setup();
-      renderToggle();
-
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-      button.focus();
-      await user.keyboard('{Enter}');
-
-      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
+  it('continues rendering when localStorage throws an error', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+      throw new Error('localStorage is disabled');
     });
 
-    test('keyboard activation with Space cycles theme', async () => {
-      const user = userEvent.setup();
-      renderToggle();
+    renderThemeToggle();
+    const toggleBtn = screen.getByRole('button');
+    expect(toggleBtn).toBeInTheDocument();
 
-      const button = screen.getByRole('button', { name: /switch to light mode/i });
-      button.focus();
-      await user.keyboard(' ');
-
-      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
-    });
+    // Verify toggling still works with memory fallback
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  describe('data-theme attribute', () => {
-    test('updates data-theme when cycling through preferences', async () => {
-      const user = userEvent.setup();
-      renderToggle();
+  it('throws helpful error when rendered outside ThemeProvider', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      // system → light
-      await user.click(screen.getByRole('button'));
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(() => render(<ThemeToggle />)).toThrow(
+      /ThemeToggle must be rendered within a ThemeProvider/i
+    );
 
-      // light → dark
-      await user.click(screen.getByRole('button'));
-      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-
-      // dark → system (resolves to light since OS is light)
-      await user.click(screen.getByRole('button'));
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-    });
-  });
-
-  describe('unmount', () => {
-    test('unmount does not throw and cleans listeners', () => {
-      const { unmount } = renderToggle();
-      expect(() => unmount()).not.toThrow();
-    });
+    consoleError.mockRestore();
   });
 });

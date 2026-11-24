@@ -1,11 +1,19 @@
 import { describe, test, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import NotFound from '../NotFound';
 
 function renderNotFound() {
   return render(
     <MemoryRouter>
+      <NotFound />
+    </MemoryRouter>
+  );
+}
+
+function renderNotFoundAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
       <NotFound />
     </MemoryRouter>
   );
@@ -48,5 +56,23 @@ describe('NotFound page', () => {
     expect(dashboardLink).toHaveAttribute('href', '/dashboard');
     expect(vaultsLink).toHaveAttribute('href', '/vaults');
     expect(verifierLink).toHaveAttribute('href', '/verifier');
+  });
+
+  test('suggests the closest known route as an accessible link', () => {
+    renderNotFoundAt('/vault');
+    const suggestions = screen.getByRole('list', { name: /suggested pages/i });
+    const link = within(suggestions).getByRole('link', { name: 'Vaults' });
+    expect(link).toHaveAttribute('href', '/vaults');
+  });
+
+  test('shows the suggested path as plain text', () => {
+    renderNotFoundAt('/vault');
+    const suggestions = screen.getByRole('list', { name: /suggested pages/i });
+    expect(within(suggestions).getByText('/vaults')).toBeInTheDocument();
+  });
+
+  test('renders no suggestions when nothing is close to the requested path', () => {
+    renderNotFoundAt('/zzzzzz');
+    expect(screen.queryByRole('list', { name: /suggested pages/i })).not.toBeInTheDocument();
   });
 });

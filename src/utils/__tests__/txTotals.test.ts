@@ -32,6 +32,14 @@ describe("computeTxTotals", () => {
     expect(result.totalFees).toBeCloseTo(0.00006, 10);
   });
 
+  it("normalizes floating-point artifacts to USDC precision", () => {
+    const result = computeTxTotals([
+      { amount: 10, fee: 0.1 },
+      { amount: 5.5, fee: 0.2 },
+    ]);
+    expect(result).toEqual({ count: 2, totalAmount: 15.5, totalFees: 0.3 });
+  });
+
   it("handles zero amounts correctly", () => {
     const result = computeTxTotals([
       { amount: 0, fee: 0.00008 },

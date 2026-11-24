@@ -1,70 +1,128 @@
-/**
- * singleFlight.test.ts
- *
- * Unit tests for the single-flight replay guard that protects sensitive
- * vault actions from double submission.
- */
+import { describe, expect, it, vi } from 'vitest';
+import { createSingleFlightRunner } from '../singleFlight';
 
-import { describe, expect, it, vi } from "vitest";
-import { createSingleFlightRunner } from "../singleFlight";
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+}
 
-describe("createSingleFlightRunner", () => {
-  it("coalesces overlapping calls into a single execution", async () => {
-    const runner = vi.fn(async (x: number) => x * 2);
-    const { run } = createSingleFlightRunner(runner);
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
-    const first = run(2);
-    const second = run(2);
-
-    expect(second).toBe(first);
-    await expect(first).resolves.toBe(4);
-    expect(runner).toHaveBeenCalledTimes(1);
+describe('createSingleFlightRunner', () => {
+  it('throws TypeError when runner is not a function', () => {
+    for (const invalid of [null, undefined, 42, 'fn', {}]) {
+      expect(() =>
+        createSingleFlightRunner(invalid as unknown as () => Promise<unknown>),
+      ).toThrow(TypeError);
+    }
   });
 
-  it("reports pending state while an invocation is in flight", async () => {
-    const deferred: { resolve: (value: unknown) => void } = { resolve: () => undefined };
-    const promise = new Promise<unknown>((res) => {
-      deferred.resolve = res;
-    });
-    const { run, isPending } = createSingleFlightRunner(() => promise);
+  it('coalesces concurrent run() calls into one execution, returns the same promise, and uses first caller arguments', async () => {
+    const deferred = createDeferred<string>();
+    const fn = vi.fn((id: number) => deferred.promise);
+    const runner = createSingleFlightRunner(fn);
 
-    expect(isPending()).toBe(false);
-    const pending = run();
-    expect(isPending()).toBe(true);
-    deferred.resolve(null);
-    await pending;
-    expect(isPending()).toBe(false);
+    expect(runner.isPending()).toBe(false);
+
+    const a = runner.run(1);
+    const b = runner.run(2);
+
+    expect(a).toBe(b);
+    expect(runner.isPending()).toBe(true);
+
+    deferred.resolve('ok');
+
+    await expect(a).resolves.toBe('ok');
+    await expect(b).resolves.toBe('ok');
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(1);
+    expect(runner.isPending()).toBe(false);
   });
 
-  it("starts a fresh execution after the previous one settles", async () => {
-    const runner = vi.fn(async () => undefined);
-    const { run } = createSingleFlightRunner(runner);
+  it('starts a new execution on a third call after resolution', async () => {
+    const first = createDeferred<string>();
+    const second = createDeferred<string>();
+    const fn = vi
+      .fn<(id: number) => Promise<string>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const runner = createSingleFlightRunner(fn);
 
-    await run();
-    await run();
-    expect(runner).toHaveBeenCalledTimes(2);
+    const a = runner.run(1);
+    const b = runner.run(2);
+    expect(a).toBe(b);
+
+    first.resolve('first-result');
+    await expect(a).resolves.toBe('first-result');
+    expect(runner.isPending()).toBe(false);
+
+    const c = runner.run(3);
+    expect(c).not.toBe(a);
+    expect(runner.isPending()).toBe(true);
+
+    second.resolve('second-result');
+    await expect(c).resolves.toBe('second-result');
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenNthCalledWith(1, 1);
+    expect(fn).toHaveBeenNthCalledWith(2, 3);
+    expect(runner.isPending()).toBe(false);
   });
 
-  it("releases the in-flight slot even when the run rejects", async () => {
-    const runner = vi.fn(async () => {
-      throw new Error("boom");
-    });
-    const { run, isPending } = createSingleFlightRunner(runner);
+  it('clears isPending() after rejection and allows subsequent calls to run normally', async () => {
+    const first = createDeferred<string>();
+    const second = createDeferred<string>();
+    const fn = vi
+      .fn<(id: number) => Promise<string>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const runner = createSingleFlightRunner(fn);
 
-    await expect(run()).rejects.toThrow("boom");
-    expect(isPending()).toBe(false);
+    const a = runner.run(1);
+    const b = runner.run(2);
+    expect(a).toBe(b);
+    expect(runner.isPending()).toBe(true);
 
-    // A later call is allowed and runs again.
-    await expect(run()).rejects.toThrow("boom");
-    expect(runner).toHaveBeenCalledTimes(2);
+    first.reject(new Error('network failure'));
+
+    await expect(a).rejects.toThrow('network failure');
+    await expect(b).rejects.toThrow('network failure');
+    expect(runner.isPending()).toBe(false);
+
+    const c = runner.run(3);
+    expect(c).not.toBe(a);
+    expect(runner.isPending()).toBe(true);
+
+    second.resolve('recovered');
+    await expect(c).resolves.toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenNthCalledWith(1, 1);
+    expect(fn).toHaveBeenNthCalledWith(2, 3);
+    expect(runner.isPending()).toBe(false);
   });
 
-  it("propagates the result of the coalesced run", async () => {
-    const { run } = createSingleFlightRunner(async (a: string, b: number) => `${a}-${b}`);
+  it('recovers when the underlying runner throws synchronously', async () => {
+    const fn = vi
+      .fn<(id: number) => Promise<string>>()
+      .mockImplementationOnce(() => {
+        throw new Error('sync failure');
+      })
+      .mockResolvedValueOnce('after-sync-throw');
+    const runner = createSingleFlightRunner(fn);
 
-    const first = run("vault", 7);
-    const second = run("vault", 7);
-    await expect(first).resolves.toBe("vault-7");
-    await expect(second).resolves.toBe("vault-7");
+    await expect(runner.run(1)).rejects.toThrow('sync failure');
+    expect(runner.isPending()).toBe(false);
+
+    await expect(runner.run(2)).resolves.toBe('after-sync-throw');
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(runner.isPending()).toBe(false);
   });
 });

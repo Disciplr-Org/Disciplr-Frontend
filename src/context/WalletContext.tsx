@@ -8,12 +8,17 @@ import {
   type ReactNode,
 } from 'react';
 import { fetchUsdcBalance } from '../utils/horizon';
+import { clearDraft as clearCreateVaultDraft } from '../utils/createVaultDraft';
 import { logger } from '../utils/logger';
 import {
+    classifyConnectError,
   recordWalletTelemetry,
   resolveConnectTimeoutMs,
   classifyConnectError,
 } from '../utils/walletTelemetry';
+import { setDemoMode } from '../services/vaultService';
+import { resetDemoStore } from '../services/demoStore';
+import { withTimeout, ConnectTimeoutError } from '../utils/withTimeout';
 import { defaultFreighterAdapter, type FreighterAdapter } from './freighterAdapter';
 
 // ---------------------------------------------------------------------------
@@ -23,8 +28,11 @@ import { defaultFreighterAdapter, type FreighterAdapter } from './freighterAdapt
 export type WalletNetwork = 'TESTNET' | 'PUBLIC';
 export type BalanceStatus = 'idle' | 'loading' | 'success' | 'no_trustline' | 'error';
 export type WalletStatus = 'disconnected' | 'restoring' | 'connecting' | 'connected' | 'error';
+export type SessionStatus = 'resolving' | 'authenticated' | 'anonymous';
 
 interface WalletState {
+    sessionStatus: SessionStatus;
+    isDemo: boolean;
   status: WalletStatus;
   address: string | null;
   network: WalletNetwork | null;
@@ -34,6 +42,48 @@ interface WalletState {
   error: string | null;
 }
 
+export const WALLET_DISCONNECTED_KEY = 'disciplr:wallet:userDisconnected';
+export const DEMO_MODE_KEY = 'disciplr:wallet:demo';
+
+/** Public, keyless demo account used by "Try demo mode". Not a real funded account. */
+export const DEMO_ADDRESS = 'GBVAQKGA5P4TIZSZJBS5AW3XNJOTYG6I3Y5CLIGCBBUZDHMVF7YE7XCQ';
+const DEMO_NETWORK: WalletNetwork = 'TESTNET';
+const DEMO_BALANCE = '10000.0000000';
+
+const readInitialDemoMode = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const fromSession = window.sessionStorage?.getItem(DEMO_MODE_KEY) === 'true';
+        const fromLocal = window.localStorage?.getItem(DEMO_MODE_KEY) === 'true';
+        return fromSession || fromLocal;
+    } catch {
+        return false;
+    }
+};
+
+const persistDemoSession = (active: boolean) => {
+    if (typeof window === 'undefined') return;
+    try {
+        if (active) {
+            window.sessionStorage?.setItem(DEMO_MODE_KEY, 'true');
+            window.localStorage?.setItem(DEMO_MODE_KEY, 'true');
+        } else {
+            window.sessionStorage?.removeItem(DEMO_MODE_KEY);
+            window.localStorage?.removeItem(DEMO_MODE_KEY);
+        }
+    } catch {
+        // Fall back gracefully if storage is restricted
+    }
+};
+
+const getInitialSessionStatus = (): { sessionStatus: SessionStatus; status: WalletStatus } => {
+    if (typeof window !== 'undefined' && localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true') {
+        return { sessionStatus: 'anonymous', status: 'disconnected' };
+    }
+    return { sessionStatus: 'resolving', status: 'restoring' };
+};
+
+const disconnectedState: WalletState = {
 // ---------------------------------------------------------------------------
 // Constants & storage keys (unchanged public API)
 // ---------------------------------------------------------------------------
@@ -49,7 +99,37 @@ export const CONNECT_TIMEOUT_MS = resolveConnectTimeoutMs(
 // Reducer (unchanged public API)
 // ---------------------------------------------------------------------------
 
-const initialState: WalletState = {
+    sessionStatus: 'anonymous',
+    isDemo: false,
+};
+
+/** Wallet state for an active demo session (shared by connectDemo and reload restore). */
+const demoState: WalletState = {
+    status: 'connected',
+    sessionStatus: 'authenticated',
+    address: DEMO_ADDRESS,
+    network: DEMO_NETWORK,
+    balance: DEMO_BALANCE,
+    balanceStatus: 'success',
+    balanceError: null,
+    error: null,
+    isDemo: true,
+};
+
+const getInitialState = (): WalletState => {
+    // A persisted demo session is restored synchronously so deep links and
+    // reloads render as connected without waiting on (or consulting) Freighter.
+    if (readInitialDemoMode()) {
+        setDemoMode(true);
+        return { ...demoState };
+    }
+    setDemoMode(false);
+    const initialSession = getInitialSessionStatus();
+    return {
+        ...disconnectedState,
+        status: initialSession.status,
+        sessionStatus: initialSession.sessionStatus,
+    };
   status: 'disconnected',
   address: null,
   network: null,
@@ -59,6 +139,7 @@ const initialState: WalletState = {
   error: null,
 };
 
+    | { type: 'DEMO_CONNECT' }
 export type Action =
   | { type: 'RESTORE_START' }
   | { type: 'RESTORE_ABORT' }
@@ -122,6 +203,9 @@ export function walletReducer(state: WalletState, action: Action): WalletState {
 // ---------------------------------------------------------------------------
 
 interface WalletContextType extends WalletState {
+    cancelConnect: () => void;
+    connectDemo: () => void;
+    resetDemo: () => void;
   isConnecting: boolean;
   connect: () => Promise<boolean>;
   disconnect: () => void;
@@ -140,12 +224,23 @@ interface WalletProviderProps {
   adapter?: FreighterAdapter;
 }
 
+    const isMountedRef = useRef(true);
+    // True when the provider mounted with a persisted demo session (state was
+    // initialised from demoState by getInitialState above).
+    const demoModeRef = useRef(state.isDemo);
+    const lastKnownAddressRef = useRef<string | null>(demoModeRef.current ? DEMO_ADDRESS : null);
+    const lastKnownNetworkRef = useRef<WalletNetwork | null>(demoModeRef.current ? DEMO_NETWORK : null);
 export function WalletProvider({
   children,
   adapter = defaultFreighterAdapter,
 }: WalletProviderProps) {
   const [state, dispatch] = useReducer(walletReducer, initialState);
 
+    // Keep vaultService demo routing synced with state.isDemo
+    useEffect(() => {
+        demoModeRef.current = state.isDemo;
+        setDemoMode(state.isDemo);
+    }, [state.isDemo]);
   // Monotonically-increasing sequence number. Any async operation captures
   // the value at start; before writing state it checks whether the captured
   // value is still current, discarding stale responses.
@@ -155,6 +250,13 @@ export function WalletProvider({
   const lastKnownNetworkRef = useRef<WalletNetwork | null>(null);
   const checkConnectionInProgress = useRef(false);
 
+    const fetchNetworkAndBalance = useCallback(
+        async (pubKey: string, providedSeq?: number, knownNetwork?: WalletNetwork) => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
   // In-flight connect promise for bounded concurrency.
   const connectInFlightRef = useRef<Promise<boolean> | null>(null);
   const connectAttemptRef = useRef(0);
@@ -230,7 +332,6 @@ export function WalletProvider({
             lastKnownAddressRef.current = pubKey;
             await fetchNetworkAndBalance(pubKey);
           }
-        }
       } else {
         dispatch({ type: 'RESTORE_ABORT' });
       }
@@ -262,6 +363,32 @@ export function WalletProvider({
   useEffect(() => {
     if (!state.address) return;
 
+        const seq = operationSeqRef.current;
+            // An active demo session is never overridden by Freighter restore.
+            if (demoModeRef.current) return;
+                dispatch({ type: 'RESTORE_ABORT' });
+                return;
+
+            const { address: pubKey, error: addrError } = await getAddress();
+            if (seq !== operationSeqRef.current || demoModeRef.current) return;
+            if (!pubKey || addrError) {
+                dispatch({ type: 'RESTORE_ABORT' });
+                return;
+            }
+
+            const netDetails = await getNetworkDetails();
+            if (seq !== operationSeqRef.current || demoModeRef.current) return;
+            if (netDetails.error || !netDetails.network) {
+                dispatch({ type: 'RESTORE_ABORT' });
+                return;
+            }
+            const activeNetwork = normalizeNetwork(netDetails.network);
+
+            lastKnownAddressRef.current = pubKey;
+            lastKnownNetworkRef.current = activeNetwork;
+            dispatch({ type: 'CONNECT_SUCCESS', payload: { address: pubKey, network: activeNetwork } });
+            await fetchNetworkAndBalance(pubKey, seq, activeNetwork);
+            dispatch({ type: 'RESTORE_ABORT' });
     const address = state.address;
     lastBalanceCheckRef.current = Date.now();
 
@@ -283,6 +410,10 @@ export function WalletProvider({
           return;
         }
 
+        isMountedRef.current = true;
+            isMountedRef.current = false;
+            connectInFlightRef.current = null;
+            connectStartTsRef.current = null;
         // 2. Check for network change.
         const { network } = await adapter.getNetworkDetails();
         if (seq !== operationSeqRef.current) return;
@@ -290,17 +421,43 @@ export function WalletProvider({
         const normalised = normalizeNetwork(network);
         const networkChanged = normalised !== lastKnownNetworkRef.current;
 
+        const startedAt = Date.now();
+        connectStartTsRef.current = startedAt;
+        const timeoutMs = resolveConnectTimeoutMs(import.meta.env.VITE_WALLET_CONNECT_TIMEOUT_MS);
+        let wasTimedOut = false;
+
+            if (seq !== operationSeqRef.current) return false;
         // 3. Refresh balance on schedule or when network changed.
         const now = Date.now();
         if (networkChanged || now - lastBalanceCheckRef.current >= BALANCE_REFRESH_INTERVAL) {
           lastBalanceCheckRef.current = now;
           await fetchNetworkAndBalance(currentAddr ?? address, seq);
         }
+    }, [fetchNetworkAndBalance]);
       } catch {
         // Non-fatal; next tick retries.
       }
-    };
 
+
+    }, [performConnect]);
+
+    const cancelConnect = useCallback(() => {
+        const attempt = connectAttemptRef.current;
+        const startedAt = connectStartTsRef.current ?? Date.now();
+        operationSeqRef.current += 1;
+        connectInFlightRef.current = null;
+        connectStartTsRef.current = null;
+
+        dispatch({ type: 'CONNECT_ERROR', payload: { error: 'Freighter connection cancelled. Close the popup and try again.' } });
+        recordWalletTelemetry({
+            event: 'wallet.connect.failure',
+            ts: Date.now(),
+            wallet: 'freighter',
+            durationMs: Date.now() - startedAt,
+            attempt,
+            errorCode: 'cancelled',
+        });
+    }, []);
     const id = setInterval(tick, ACCOUNT_POLL_INTERVAL);
 
     const onVisibilityChange = () => {
@@ -308,7 +465,6 @@ export function WalletProvider({
         lastBalanceCheckRef.current = Date.now();
         void fetchNetworkAndBalance(address);
       }
-    };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
@@ -341,6 +497,9 @@ export function WalletProvider({
         const access = await adapter.requestAccess();
         if (seq !== operationSeqRef.current) return false;
 
+        demoModeRef.current = false;
+        setDemoMode(false);
+        resetDemoStore();
         if (!access) {
           const errorMsg = 'Wallet access denied.';
           dispatch({ type: 'CONNECT_ERROR', payload: { error: errorMsg } });
@@ -354,10 +513,42 @@ export function WalletProvider({
           });
           return false;
         }
+        connectInFlightRef.current = null;
+        connectStartTsRef.current = null;
+        persistDemoSession(false);
+        // The disconnecting wallet's Create Vault draft must not outlive the
+        // session, and must never be offered to whichever wallet connects next.
+        clearCreateVaultDraft(lastKnownAddressRef.current);
+    }, []);
+
+    // Demo mode: lets visitors without Freighter explore the app on testnet with a built-in account.
+    const connectDemo = useCallback(() => {
+        operationSeqRef.current++;
+        demoModeRef.current = true;
+        setDemoMode(true);
+        localStorage.removeItem(WALLET_DISCONNECTED_KEY);
+        persistDemoSession(true);
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        lastKnownAddressRef.current = DEMO_ADDRESS;
+        lastKnownNetworkRef.current = DEMO_NETWORK;
+        dispatch({ type: 'DEMO_CONNECT' });
+    }, []);
+
+    const resetDemo = useCallback(() => {
+        resetDemoStore();
+        // Trigger re-render or notification if needed
+        if (demoModeRef.current) {
+            dispatch({ type: 'DEMO_CONNECT' });
+        }
 
         const { address: pubKey, error: addrError } = await adapter.getAddress();
         if (seq !== operationSeqRef.current) return false;
 
+                cancelConnect,
+                connectDemo,
+                resetDemo,
         if (!pubKey || addrError) {
           const errorMsg = addrError || 'Failed to get wallet address.';
           dispatch({ type: 'CONNECT_ERROR', payload: { error: errorMsg } });
@@ -467,6 +658,10 @@ export function WalletProvider({
   );
 }
 
+export function useOptionalWallet(): WalletContextType | undefined {
+    return useContext(WalletContext);
+}
+
 export function useWallet() {
   const context = useContext(WalletContext);
   if (context === undefined) {
@@ -474,3 +669,4 @@ export function useWallet() {
   }
   return context;
 }
+

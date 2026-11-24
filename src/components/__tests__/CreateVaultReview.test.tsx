@@ -1,3 +1,4 @@
+import { ACCOUNT_A, ACCOUNT_B, ACCOUNT_C } from '@/__tests__/fixtures/stellarAddresses';
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreateVaultReview } from "../CreateVaultReview";
@@ -5,12 +6,13 @@ import userEvent from "@testing-library/user-event";
 
 describe("CreateVaultReview", () => {
   it("renders the vault summary and token-styled address details", () => {
-    const successAddress = `G${"A".repeat(55)}`;
-    const failureAddress = `G${"B".repeat(55)}`;
-    const verifierAddress = `G${"C".repeat(55)}`;
+    const successAddress = ACCOUNT_A;
+    const failureAddress = ACCOUNT_B;
+    const verifierAddress = ACCOUNT_C;
 
     render(
       <CreateVaultReview
+        name="Review vault"
         amount="100.1234567"
         deadline="2030-01-01T00:00"
         successAddress={successAddress}
@@ -33,10 +35,17 @@ describe("CreateVaultReview", () => {
       screen.getByRole("heading", { name: /review vault details/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("100.1234567")).toBeInTheDocument();
-    expect(screen.getByText("2030-01-01T00:00")).toBeInTheDocument();
+    expect(screen.getByText(/UTC/)).toBeInTheDocument();
     expect(screen.getByTitle(successAddress)).toBeInTheDocument();
     expect(screen.getByTitle(failureAddress)).toBeInTheDocument();
+    expect(
+      screen.getByText(/If you succeed, funds go to …/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/If you fail, funds go to …/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Verifier address")).toBeInTheDocument();
+
     expect(screen.getByText("Milestones")).toBeInTheDocument();
     expect(screen.getByText("Design approved")).toBeInTheDocument();
     expect(
@@ -51,10 +60,12 @@ describe("CreateVaultReview", () => {
   it("keeps the legacy single milestone prop rendering", () => {
     render(
       <CreateVaultReview
+        name="Review vault"
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
+        verifierAddress={ACCOUNT_C}
         milestone="Deliverables approved"
       />,
     );
@@ -66,10 +77,12 @@ describe("CreateVaultReview", () => {
   it("disables buttons and sets aria-disabled and aria-busy when isSubmitting is true", () => {
     render(
       <CreateVaultReview
+        name="Review vault"
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
+        verifierAddress={ACCOUNT_C}
         isSubmitting={true}
       />,
     );
@@ -89,10 +102,12 @@ describe("CreateVaultReview", () => {
     const errorMsg = "Wrong network";
     render(
       <CreateVaultReview
+        name="Review vault"
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
+        verifierAddress={ACCOUNT_C}
         error={errorMsg}
       />,
     );
@@ -104,10 +119,12 @@ describe("CreateVaultReview", () => {
   it("renders invariant error when required data is missing", () => {
     render(
       <CreateVaultReview
+        name=""
         amount=""
         deadline=""
         successAddress=""
         failureAddress=""
+        verifierAddress=""
       />
     );
 
@@ -126,10 +143,12 @@ describe("CreateVaultReview", () => {
     
     render(
       <CreateVaultReview
+        name="Review vault"
         amount="100"
         deadline="2030-01-01T00:00"
-        successAddress={`G${"A".repeat(55)}`}
-        failureAddress={`G${"B".repeat(55)}`}
+        successAddress={ACCOUNT_A}
+        failureAddress={ACCOUNT_B}
+        verifierAddress={ACCOUNT_C}
         onConfirm={onConfirm}
         onBack={onBack}
       />
