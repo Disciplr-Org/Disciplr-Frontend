@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import { formatUsdcInput, parseUsdcInput } from "../usdcInput";
 
 /* ------------------------------------------------------------------ */
@@ -96,6 +97,14 @@ describe("parseUsdcInput", () => {
     expect(parseUsdcInput(".")).toBe("0.");
     expect(parseUsdcInput(".5")).toBe("0.5");
   });
+
+  it("normalises CreateVault-style noisy boundary values", () => {
+    expect(parseUsdcInput("000001234567890")).toBe("1234567890");
+    expect(parseUsdcInput("000001.2300000")).toBe("1.2300000");
+    expect(parseUsdcInput("1..234567890")).toBe("1.2345678");
+    expect(parseUsdcInput("USDC 9,876,543.21000009")).toBe("9876543.2100000");
+    expect(parseUsdcInput("..")).toBe("0.");
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -123,4 +132,70 @@ describe("round-trip parse(format(raw))", () => {
       expect(parsed).toBe(raw);
     });
   }
+
+  it("preserves the normalised numeric value for leading-zero and over-precision raw input", () => {
+    const boundaryCases = [
+      "0000000",
+      "000001234",
+      "000001234.5678901",
+      "000001234.56789019",
+      "999999999999999.99999999",
+      "123456789012345678.0000001",
+      "123456789012345678.",
+    ];
+
+    for (const raw of boundaryCases) {
+      expect(parseUsdcInput(formatUsdcInput(raw))).toBe(parseUsdcInput(raw));
+    }
+  });
+
+  it("keeps parsed display values stable after formatting", () => {
+    const displayCases = [
+      "",
+      ".",
+      "$0.",
+      "USDC 000001.2300000",
+      "1,234,567.123456789",
+      "12..34..56",
+      "abc 9,999,999.00000009 xyz",
+    ];
+
+    for (const displayValue of displayCases) {
+      const parsed = parseUsdcInput(displayValue);
+      expect(parseUsdcInput(formatUsdcInput(parsed))).toBe(parsed);
+    }
+  });
+
+  it("property: parse(format(raw)) preserves the parsed numeric value", () => {
+    const digits = fc.array(fc.integer({ min: 0, max: 9 }), {
+      minLength: 1,
+      maxLength: 18,
+    });
+    const decimalDigits = fc.array(fc.integer({ min: 0, max: 9 }), {
+      maxLength: 12,
+    });
+
+    fc.assert(
+      fc.property(digits, fc.option(decimalDigits), (integerDigits, maybeDecimals) => {
+        const integerPart = integerDigits.join("");
+        const raw =
+          maybeDecimals === null
+            ? integerPart
+            : `${integerPart}.${maybeDecimals.join("")}`;
+
+        expect(parseUsdcInput(formatUsdcInput(raw))).toBe(parseUsdcInput(raw));
+      }),
+      { numRuns: 200 }
+    );
+  });
+
+  it("property: parse(format(parse(display))) is idempotent for pasted text", () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 64 }), (displayValue) => {
+        const parsed = parseUsdcInput(displayValue);
+        expect(parseUsdcInput(formatUsdcInput(parsed))).toBe(parsed);
+      }),
+      { numRuns: 200 }
+    );
+  });
 });

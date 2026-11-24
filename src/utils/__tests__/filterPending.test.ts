@@ -1,252 +1,171 @@
-import { describe, it, expect } from 'vitest';
-import { filterPending, PendingTask } from '../filterPending';
+import { describe, expect, it } from 'vitest';
+import { initialHistory, initialPending } from '../../fixtures/validations';
+import { filterPending, type FilterOptions, type PendingTask } from '../filterPending';
 
-const createTask = (overrides: Partial<PendingTask> = {}): PendingTask => ({
-  id: 'v-1',
-  vaultName: 'Test Vault',
-  owner: '0xAAAA',
-  amount: '10,000 USDC',
-  deadline: '2026-07-01',
-  daysRemaining: 10,
-  status: 'pending' as const,
-  milestone: 'Phase 1',
-  ...overrides,
-});
-
-const mockTasks: PendingTask[] = [
-  createTask({
-    id: 'v-1',
-    vaultName: 'Alpha Vault',
-    owner: '0xAAAA',
-    milestone: 'Phase 1',
+const fixtures: readonly PendingTask[] = Object.freeze([
+  Object.freeze({
+    ...initialPending[0],
+    id: 'task-1',
+    vaultName: 'Alice Treasury Vault',
+    owner: 'GALICE_OWNER_ADDRESS',
+    milestone: 'Milestone 1',
   }),
-  createTask({
-    id: 'v-2',
-    vaultName: 'Beta Vault',
-    owner: '0xBBBB',
-    milestone: 'Phase 2',
+  Object.freeze({
+    ...initialPending[1],
+    id: 'task-2',
+    vaultName: 'Community Grant #42',
+    owner: 'GBOB_ALICE_PARTNER',
+    milestone: 'Milestone 2',
   }),
-  createTask({
-    id: 'v-3',
-    vaultName: 'Gamma Vault',
-    owner: '0xCCCC',
-    milestone: 'Phase 1',
+  Object.freeze({
+    ...initialHistory[0],
+    id: 'task-3',
+    status: 'pending' as const,
+    vaultName: 'Audit Bounty',
+    owner: 'GCHARLIE_OWNER_ADDRESS',
+    milestone: 'Milestone 1',
   }),
-  createTask({
-    id: 'v-4',
-    vaultName: 'Delta Vault',
-    owner: '0xDDDD',
-    milestone: 'Phase 3',
-  }),
-];
+]);
 
 describe('filterPending', () => {
-  it('returns all tasks when no filters are provided', () => {
-    const result = filterPending(mockTasks);
-    expect(result).toEqual(mockTasks);
-  });
+  describe('table-driven filtering invariants', () => {
+    const cases: Array<{
+      name: string;
+      options: FilterOptions | undefined;
+      expectedIds: string[];
+    }> = [
+      {
+        name: 'returns all tasks when options are omitted',
+        options: undefined,
+        expectedIds: ['task-1', 'task-2', 'task-3'],
+      },
+      {
+        name: 'returns all tasks when options are empty',
+        options: {},
+        expectedIds: ['task-1', 'task-2', 'task-3'],
+      },
+      {
+        name: 'treats whitespace-only query and milestone as no filter',
+        options: { query: '   ', milestone: '  \t  ' },
+        expectedIds: ['task-1', 'task-2', 'task-3'],
+      },
+      {
+        name: 'matches query against vaultName or owner, trimmed and case-insensitive',
+        options: { query: ' ALICE ' },
+        expectedIds: ['task-1', 'task-2'],
+      },
+      {
+        name: 'matches query against vaultName only',
+        options: { query: '  bounty  ' },
+        expectedIds: ['task-3'],
+      },
+      {
+        name: 'matches query against owner only',
+        options: { query: 'gcharlie' },
+        expectedIds: ['task-3'],
+      },
+      {
+        name: 'returns empty array when query matches no tasks',
+        options: { query: 'nonexistent-vault' },
+        expectedIds: [],
+      },
+      {
+        name: 'matches milestone exactly',
+        options: { milestone: 'Milestone 1' },
+        expectedIds: ['task-1', 'task-3'],
+      },
+      {
+        name: 'trims milestone option before exact comparison',
+        options: { milestone: '  Milestone 2  ' },
+        expectedIds: ['task-2'],
+      },
+      {
+        name: 'does not match milestone by substring',
+        options: { milestone: 'Mile' },
+        expectedIds: [],
+      },
+      {
+        name: 'matches milestone case-sensitively',
+        options: { milestone: 'milestone 1' },
+        expectedIds: [],
+      },
+      {
+        name: 'combines query and milestone with AND',
+        options: { query: ' ALICE ', milestone: 'Milestone 1' },
+        expectedIds: ['task-1'],
+      },
+      {
+        name: 'returns empty array when query matches but milestone does not',
+        options: { query: 'bounty', milestone: 'Milestone 2' },
+        expectedIds: [],
+      },
+      {
+        name: 'returns empty array when milestone matches but query does not',
+        options: { query: 'bob', milestone: 'Milestone 1' },
+        expectedIds: [],
+      },
+    ];
 
-  it('returns all tasks when empty filter options are provided', () => {
-    const result = filterPending(mockTasks, {});
-    expect(result).toEqual(mockTasks);
-  });
-
-  it('returns all tasks when empty query and empty milestone are provided', () => {
-    const result = filterPending(mockTasks, { query: '', milestone: '' });
-    expect(result).toEqual(mockTasks);
-  });
-
-  describe('search by vault name', () => {
-    it('filters by vault name (case-insensitive)', () => {
-      const result = filterPending(mockTasks, { query: 'alpha' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-1');
-      expect(result[0].vaultName).toBe('Alpha Vault');
-    });
-
-    it('filters by partial vault name', () => {
-      const result = filterPending(mockTasks, { query: 'vault' });
-      expect(result).toHaveLength(4);
-    });
-
-    it('filters by vault name with uppercase query', () => {
-      const result = filterPending(mockTasks, { query: 'BETA' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-2');
-    });
-
-    it('matches multiple vaults with same partial name', () => {
-      const result = filterPending(mockTasks, { query: 'a' });
-      expect(result.length).toBeGreaterThan(0);
-      expect(result.some((t) => t.id === 'v-1')).toBe(true); // Alpha
-      expect(result.some((t) => t.id === 'v-3')).toBe(true); // Gamma
-      expect(result.some((t) => t.id === 'v-4')).toBe(true); // Delta
-    });
-  });
-
-  describe('search by owner', () => {
-    it('filters by owner address (case-insensitive)', () => {
-      const result = filterPending(mockTasks, { query: '0xaaaa' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-1');
-      expect(result[0].owner).toBe('0xAAAA');
-    });
-
-    it('filters by partial owner address', () => {
-      const result = filterPending(mockTasks, { query: '0x' });
-      expect(result).toHaveLength(4);
-    });
-
-    it('filters by owner with uppercase query', () => {
-      const result = filterPending(mockTasks, { query: '0xBBBB' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-2');
-    });
-
-    it('matches partial owner address', () => {
-      const result = filterPending(mockTasks, { query: 'bbbb' });
-      expect(result).toHaveLength(1);
-      expect(result[0].owner).toBe('0xBBBB');
-    });
-  });
-
-  describe('search across vault and owner', () => {
-    it('matches query against vault name OR owner (union)', () => {
-      const tasksWithOwner = [
-        createTask({ id: 'v-1', vaultName: 'Test Vault', owner: '0xALICE' }),
-        createTask({ id: 'v-2', vaultName: 'Alice Vault', owner: '0xBOB' }),
-      ];
-      const result = filterPending(tasksWithOwner, { query: 'alice' });
-      expect(result).toHaveLength(2); // both match (vault name and owner)
-    });
-  });
-
-  describe('filter by milestone', () => {
-    it('filters by milestone', () => {
-      const result = filterPending(mockTasks, { milestone: 'Phase 1' });
-      expect(result).toHaveLength(2);
-      expect(result.map((t) => t.id)).toEqual(['v-1', 'v-3']);
-    });
-
-    it('filters by milestone Phase 2', () => {
-      const result = filterPending(mockTasks, { milestone: 'Phase 2' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-2');
-    });
-
-    it('filters by milestone Phase 3', () => {
-      const result = filterPending(mockTasks, { milestone: 'Phase 3' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-4');
-    });
-
-    it('returns empty array for non-existent milestone', () => {
-      const result = filterPending(mockTasks, { milestone: 'Non-existent' });
-      expect(result).toHaveLength(0);
-    });
-
-    it('is case-sensitive for milestone matching', () => {
-      const result = filterPending(mockTasks, { milestone: 'phase 1' });
-      expect(result).toHaveLength(0);
+    it.each(cases)('$name', ({ options, expectedIds }) => {
+      const result = filterPending(fixtures as PendingTask[], options);
+      expect(result.map((t) => t.id)).toEqual(expectedIds);
     });
   });
 
-  describe('combined query and milestone filters', () => {
-    it('filters by both query and milestone (AND logic)', () => {
-      const result = filterPending(mockTasks, {
-        query: 'alpha',
-        milestone: 'Phase 1',
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-1');
-    });
+  describe('purity, determinism, order preservation, and immutability', () => {
+    it('preserves input order, does not mutate frozen inputs, and is deterministic', () => {
+      const first = filterPending(fixtures as PendingTask[], { query: 'alice' });
+      const second = filterPending(fixtures as PendingTask[], { query: 'alice' });
 
-    it('returns empty when query matches but milestone does not', () => {
-      const result = filterPending(mockTasks, {
-        query: 'alpha',
-        milestone: 'Phase 2',
-      });
-      expect(result).toHaveLength(0);
-    });
-
-    it('returns empty when milestone matches but query does not', () => {
-      const result = filterPending(mockTasks, {
-        query: 'nonexistent',
-        milestone: 'Phase 1',
-      });
-      expect(result).toHaveLength(0);
-    });
-
-    it('filters by milestone and owner query', () => {
-      const result = filterPending(mockTasks, {
-        query: '0xBBBB',
-        milestone: 'Phase 2',
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-2');
-    });
-
-    it('filters by milestone and partial vault name', () => {
-      const result = filterPending(mockTasks, {
-        query: 'gamma',
-        milestone: 'Phase 1',
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-3');
+      expect(first).toEqual(second);
+      expect(first).not.toBe(fixtures);
+      expect(first.map((t) => t.id)).toEqual(['task-1', 'task-2']);
+      expect(fixtures.map((t) => t.id)).toEqual(['task-1', 'task-2', 'task-3']);
     });
   });
 
-  describe('edge cases', () => {
-    it('handles empty task array', () => {
-      const result = filterPending([], { query: 'test' });
-      expect(result).toEqual([]);
+  describe('resilience to adverse and malformed inputs', () => {
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['number', 42],
+      ['string', 'not-an-array'],
+      ['plain object', { id: 'task-1' }],
+    ])('returns [] without throwing when tasks is %s', (_label, invalidTasks) => {
+      expect(() => filterPending(invalidTasks as never)).not.toThrow();
+      expect(filterPending(invalidTasks as never)).toEqual([]);
     });
 
-    it('handles whitespace-only query', () => {
-      const result = filterPending(mockTasks, { query: '   ' });
-      expect(result).toEqual([]);
+    it.each([
+      ['null options', null],
+      ['undefined options', undefined],
+      ['number options', 123],
+      ['null query and milestone', { query: null, milestone: null }],
+      ['number query and milestone', { query: 123, milestone: 456 }],
+      ['boolean and object options', { query: true, milestone: {} }],
+    ])('treats %s as no filter without throwing', (_label, invalidOptions) => {
+      expect(() =>
+        filterPending(fixtures as PendingTask[], invalidOptions as never),
+      ).not.toThrow();
+      const result = filterPending(fixtures as PendingTask[], invalidOptions as never);
+      expect(result.map((t) => t.id)).toEqual(['task-1', 'task-2', 'task-3']);
     });
 
-    it('handles query with leading/trailing whitespace', () => {
-      const result = filterPending(mockTasks, { query: '  alpha  ' });
+    it('never throws on malformed task entries like [null, 5, {}]', () => {
+      const malformed = Object.freeze([null, 5, {}]) as never;
+
+      expect(() => filterPending(malformed)).not.toThrow();
+      expect(filterPending(malformed)).toEqual([{}]);
+      expect(filterPending(malformed, { query: 'a' })).toEqual([]);
+      expect(filterPending(malformed, { milestone: 'Milestone 1' })).toEqual([]);
+    });
+
+    it('filters valid partial tasks alongside malformed entries', () => {
+      const mixed = [null, { vaultName: 'a' }] as never;
+      const result = filterPending(mixed, { query: 'a' });
+
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('v-1');
-    });
-
-    it('does not mutate input array', () => {
-      const input = [...mockTasks];
-      const original = JSON.stringify(input);
-      filterPending(input, { query: 'test', milestone: 'Phase 1' });
-      expect(JSON.stringify(input)).toBe(original);
-    });
-
-    it('returns filtered array (not a reference to original)', () => {
-      const result = filterPending(mockTasks, { query: 'test' });
-      expect(result).not.toBe(mockTasks);
-    });
-  });
-
-  describe('special characters in search', () => {
-    it('matches owner with special hex characters', () => {
-      const tasksWithSpecial = [
-        createTask({
-          id: 'v-1',
-          owner: '0xaAbBcCdDeEfF',
-        }),
-      ];
-      const result = filterPending(tasksWithSpecial, { query: '0xaabbcc' });
-      expect(result).toHaveLength(1);
-    });
-
-    it('handles vault names with special characters', () => {
-      const tasksWithSpecial = [
-        createTask({
-          id: 'v-1',
-          vaultName: 'Vault-Name (Test)',
-        }),
-      ];
-      const result = filterPending(tasksWithSpecial, { query: 'vault-name' });
-      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ vaultName: 'a' });
     });
   });
 });

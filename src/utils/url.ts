@@ -10,9 +10,26 @@ export function normalizeEvidenceUrl(value: string): string | null {
     return null
   }
 
+  // Reject raw control characters (including newlines/tabs) that some
+  // renderers mishandle. Allow percent-encoded control bytes (e.g. %0A).
+  // Matching raw control bytes is intentional here, hence the rule override.
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(trimmed)) {
+    return null
+  }
+
   try {
     const parsed = new URL(trimmed)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : null
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    // Reject userinfo-bearing URLs (e.g. https://trusted.com@evil.com or
+    // https://user:pass@host). This includes credentials provided percent-
+    // encoded; the URL parser exposes them on `username`/`password`.
+    if (parsed.username || parsed.password) {
+      return null
+    }
+    return trimmed
   } catch {
     return null
   }

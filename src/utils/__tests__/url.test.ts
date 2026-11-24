@@ -47,4 +47,23 @@ describe('evidence URL validation', () => {
     expect(isSafeEvidenceUrl('example.com/evidence')).toBe(false)
     expect(isSafeEvidenceUrl('')).toBe(false)
   })
+
+  it('rejects URLs containing credentials (userinfo)', () => {
+    expect(isSafeEvidenceUrl('https://user:pass@evil.tld')).toBe(false)
+    expect(isSafeEvidenceUrl('https://a:b@host')).toBe(false)
+    // percent-encoded credentials should also be rejected
+    expect(isSafeEvidenceUrl('https://%61:%62@host')).toBe(false)
+  })
+
+  it('rejects raw control characters and embedded newlines/tabs', () => {
+    expect(isSafeEvidenceUrl('https://example.com/foo\nbar')).toBe(false)
+    expect(isSafeEvidenceUrl('https://example.com/foo\tbar')).toBe(false)
+    // surrounding whitespace is trimmed, but embedded ones are not allowed
+    expect(isSafeEvidenceUrl('  https://example.com/ok  ')).toBe(true)
+  })
+
+  it('allows query strings and fragments', () => {
+    expect(isSafeEvidenceUrl('https://example.com/search?q=test&page=1')).toBe(true)
+    expect(isSafeEvidenceUrl('https://example.com/#section')).toBe(true)
+  })
 })

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useVerifierStore } from '../../Zustand/Store';
 import VerifierMetrics from '../VerifierMetrics';
 import type { ValidationTask } from '../../Zustand/Store';
@@ -12,14 +12,13 @@ import type { ValidationTask } from '../../Zustand/Store';
 const makeTask = (
   id: string,
   status: ValidationTask['status'],
-  daysRemaining: number,
+  daysUntilDeadline: number,
 ): ValidationTask => ({
   id,
   vaultName: `Vault ${id}`,
   owner: '0xtest',
   amount: '1,000 USDC',
-  deadline: '2026-01-01',
-  daysRemaining,
+  deadline: new Date(Date.UTC(2026, 6, 1 + daysUntilDeadline)).toISOString(),
   status,
   milestone: `Milestone ${id}`,
 });
@@ -29,6 +28,15 @@ const makeTask = (
 // ---------------------------------------------------------------------------
 
 describe('VerifierMetrics component', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-01T00:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('with controlled store data', () => {
     beforeEach(() => {
       // 2 approved, 1 rejected history → approvalRate = 66.67% → rounds to 67%
@@ -70,6 +78,7 @@ describe('VerifierMetrics component', () => {
 
     it('displays the correct urgent count', () => {
       render(<VerifierMetrics />);
+      // p-2 has daysRemaining=2 → urgent=1 (p-1 overdue is mutually exclusive)
       const urgentCard = screen.getByLabelText('Urgent: 1');
       expect(urgentCard).toBeInTheDocument();
     });

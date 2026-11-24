@@ -55,6 +55,30 @@
         "$description": "Strong emphasis border width"
       }
     },
+    "focusRing": {
+      "width": {
+        "$type": "dimension",
+        "$value": "2px",
+        "$description": "Focus ring outline width"
+      },
+      "offset": {
+        "$type": "dimension",
+        "$value": "2px",
+        "$description": "Focus ring outline offset from element edge"
+      },
+      "color": {
+        "light": {
+          "$type": "color",
+          "$value": "#1E40AF",
+          "$description": "Focus ring color in light mode — references border.color.light.interactive"
+        },
+        "dark": {
+          "$type": "color",
+          "$value": "#3B82F6",
+          "$description": "Focus ring color in dark mode — references border.color.dark.interactive"
+        }
+      }
+    },
     "color": {
       "light": {
         "default": {
