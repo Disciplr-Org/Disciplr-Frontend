@@ -1,4 +1,6 @@
 import React from 'react'
+import { SafeLink } from '../../components/SafeLink'
+import { isSafeEvidenceUrl } from '../../utils/url'
 import { makeSlugContext } from '../utils/slugify'
 
 export interface HeadingEntry {
@@ -15,7 +17,7 @@ interface SafeMarkdownProps {
 
 /**
  * A lightweight, safe renderer for markdown articles without dangerouslySetInnerHTML.
- * Parses headings (###, ##, #), bullet lists (- or *), bold/inline code, and paragraphs.
+ * Parses headings (###, ##, #), bullet/ordered lists, safe links, bold/inline code, and paragraphs.
  *
  * When `onHeadings` is supplied the component reports all ## and ### headings
  * (with their generated slug ids) so the parent can render a table of contents.
@@ -27,52 +29,116 @@ export function SafeMarkdown({ content, onHeadings }: SafeMarkdownProps): React.
   const elements: React.JSX.Element[] = []
   const headings: HeadingEntry[] = []
 
-  let inList = false
+  let listType: 'ul' | 'ol' | null = null
   let currentListItems: React.JSX.Element[] = []
   let listKey = 0
 
   const slugContext = makeSlugContext()
 
   const flushList = () => {
-    if (inList && currentListItems.length > 0) {
+    if (listType && currentListItems.length > 0) {
+      const List = listType
       elements.push(
-        <ul key={`ul-${listKey++}`} style={{ paddingLeft: '1.5rem', margin: '0.75rem 0', display: 'grid', gap: '0.35rem' }}>
+        <List key={`${listType}-${listKey++}`} style={{ paddingLeft: '1.5rem', margin: '0.75rem 0', display: 'grid', gap: '0.35rem' }}>
           {currentListItems}
-        </ul>
+        </List>,
       )
       currentListItems = []
-      inList = false
+      listType = null
     }
   }
 
   const renderInline = (text: string): React.ReactNode[] => {
-    const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
-    return parts.map((part, i) => {
-      if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
-        return (
-          <code
-            key={i}
-            style={{
-              background: 'var(--surface-raised, #27272a)',
-              padding: '0.15rem 0.4rem',
-              borderRadius: 'var(--radius-sm, 4px)',
-              fontSize: '0.9em',
-              fontFamily: 'monospace',
-            }}
-          >
-            {part.slice(1, -1)}
-          </code>
-        )
+    const parts: React.ReactNode[] = []
+    let plainText = ''
+    let key = 0
+
+    const flushText = () => {
+      if (plainText) {
+        parts.push(plainText)
+        plainText = ''
       }
-      if (part.startsWith('**') && part.endsWith('**') && part.length > 3) {
-        return (
-          <strong key={i} style={{ fontWeight: 700 }}>
-            {part.slice(2, -2)}
-          </strong>
-        )
+    }
+
+    const pushCode = (value: string) => {
+      parts.push(
+        <code
+          key={`code-${key++}`}
+          style={{
+            background: 'var(--surface-raised, #27272a)',
+            padding: '0.15rem 0.4rem',
+            borderRadius: 'var(--radius-sm, 4px)',
+            fontSize: '0.9em',
+            fontFamily: 'monospace',
+          }}
+        >
+          {value}
+        </code>,
+      )
+    }
+
+    let index = 0
+    while (index < text.length) {
+      if (text[index] === '`') {
+        const end = text.indexOf('`', index + 1)
+        if (end > index + 1) {
+          flushText()
+          pushCode(text.slice(index + 1, end))
+          index = end + 1
+          continue
+        }
       }
-      return part
-    })
+
+      if (text.startsWith('**', index)) {
+        const end = text.indexOf('**', index + 2)
+        if (end > index + 2) {
+          flushText()
+          parts.push(
+            <strong key={`strong-${key++}`} style={{ fontWeight: 700 }}>
+              {text.slice(index + 2, end)}
+            </strong>,
+          )
+          index = end + 2
+          continue
+        }
+      }
+
+      if (text[index] === '[') {
+        const labelEnd = text.indexOf('](', index + 1)
+        if (labelEnd > index + 1) {
+          let depth = 1
+          let end = labelEnd + 2
+          while (end < text.length && depth > 0) {
+            if (text[end] === '(') depth += 1
+            if (text[end] === ')') depth -= 1
+            end += 1
+          }
+          if (depth === 0) {
+            const raw = text.slice(index, end)
+            const label = text.slice(index + 1, labelEnd)
+            const href = text.slice(labelEnd + 2, end - 1)
+            flushText()
+            if (isSafeEvidenceUrl(href)) {
+              parts.push(
+                <SafeLink key={`link-${key++}`} href={href}>
+                  {label}
+                </SafeLink>,
+              )
+            } else {
+              parts.push(raw)
+            }
+            index = end
+            continue
+          }
+        }
+      }
+
+      plainText += text[index]
+      index += 1
+    }
+
+    flushText()
+    return parts
   }
 
   lines.forEach((line, index) => {
@@ -129,11 +195,15 @@ export function SafeMarkdown({ content, onHeadings }: SafeMarkdownProps): React.
       return
     }
 
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      inList = true
+    const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ')
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/)
+    if (isBullet || orderedMatch) {
+      const nextListType = orderedMatch ? 'ol' : 'ul'
+      if (listType && listType !== nextListType) flushList()
+      listType = nextListType
       currentListItems.push(
         <li key={`li-${index}`} style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
-          {renderInline(trimmed.slice(2))}
+          {renderInline(orderedMatch ? orderedMatch[1] : trimmed.slice(2))}
         </li>
       )
       return

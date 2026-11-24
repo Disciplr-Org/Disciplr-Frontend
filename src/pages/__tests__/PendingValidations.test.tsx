@@ -5,6 +5,15 @@ import PendingValidations from '../PendingValidations';
 import { useVerifierStore, type ValidationTask } from '../../Zustand/Store';
 import { parsePendingQuery } from '../../utils/pendingQuery';
 
+const { mockDownloadCsv } = vi.hoisted(() => ({
+  mockDownloadCsv: vi.fn(),
+}));
+
+vi.mock('../../utils/csv', async () => {
+  const actual = await vi.importActual('../../utils/csv');
+  return { ...actual, downloadCsv: mockDownloadCsv };
+});
+
 function LocationDisplay() {
   const location = useLocation();
   return <div data-testid="location-display">{location.pathname + location.search}</div>;
@@ -287,8 +296,9 @@ describe('PendingValidations URL-synced view', () => {
       expect(filename).toBe('pending-validations.csv');
 
       const lines = csv.split('\r\n');
-      expect(lines).toHaveLength(2);
+      expect(lines).toHaveLength(3);
       expect(lines[1]).toContain('v-1');
+      expect(lines[2]).toContain('v-3');
     });
 
     it('disables Export CSV button when search matches nothing', () => {
@@ -306,7 +316,7 @@ describe('PendingValidations URL-synced view', () => {
     });
 
     it('disables Export CSV button when pending queue is empty', () => {
-      mockedUseVerifierStore.mockReturnValue({ pendingValidations: [] });
+      useVerifierStore.setState({ pendingValidations: [], validationHistory: [] });
       renderPage();
 
       const exportButton = screen.getByRole('button', {

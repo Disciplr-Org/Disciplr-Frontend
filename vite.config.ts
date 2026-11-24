@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs";
 import { ConfigError, parseIntEnv, validateProxyTarget } from "./scripts/viteEnv";
 
 /**
@@ -59,9 +60,15 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ROOT_DIR);
 
   const devPort = parseIntEnv(env.VITE_DEV_PORT, "VITE_DEV_PORT", DEFAULT_DEV_PORT, 1, 65535);
+  const packageVersion = JSON.parse(
+    fs.readFileSync(path.resolve(ROOT_DIR, "./package.json"), "utf8"),
+  ).version;
   const apiTarget = validateProxyTarget(env.VITE_API_TARGET, "VITE_API_TARGET", DEFAULT_API_TARGET);
 
   return {
+    define: {
+      __DISCIPLR_APP_VERSION__: JSON.stringify(packageVersion),
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: { "@": SRC_DIR },

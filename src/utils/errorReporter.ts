@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import { createReferenceId } from './referenceId';
+import { normalisePathname, resolveVitalsEndpoint } from './vitalsSink';
 import { useToastStore } from '../Zustand/toastStore';
 
 /**
@@ -51,6 +52,40 @@ export interface ErrorReport {
 
 type ErrorReportSink = (report: ErrorReport) => void;
 
+export const DEFAULT_ERROR_SAMPLE_RATE = 0.1;
+export const ERROR_REPORT_SEND_WINDOW_MS = 60_000;
+
+export interface ErrorReportingEnv {
+  readonly VITE_ERROR_ENDPOINT?: string;
+  readonly VITE_ERROR_SAMPLE_RATE?: string;
+  readonly VITE_APP_VERSION?: string;
+}
+
+export interface CreateErrorReportingSinkOptions {
+  env?: ErrorReportingEnv;
+  rng?: () => number;
+  sendBeacon?: (url: string, body: Blob) => boolean;
+  fetch?: (url: string, init: RequestInit) => Promise<unknown>;
+  logger?: Pick<typeof logger, 'info' | 'warn' | 'error'>;
+  pathname?: () => string;
+  now?: () => number;
+  appVersion?: string;
+}
+
+export interface ErrorReportingPayload {
+  referenceId: string;
+  name: string;
+  message: string;
+  route: string;
+  appVersion: string;
+  ts: number;
+}
+
+export interface ErrorReportingSink {
+  report(report: ErrorReport): void;
+  readonly active: boolean;
+}
+
 /** Hard cap on the in-memory diagnostics buffer. */
 export const ERROR_REPORT_BUFFER_LIMIT = 20;
 /** Identical failures inside this window collapse into one toast. */
@@ -68,7 +103,10 @@ export const ERROR_REPORT_MAX_TEXT_LENGTH = 500;
 const STELLAR_STRKEY_PATTERN = /\b[GC][A-Z2-7]{55}\b/g;
 
 export function redactErrorText(value: string): string {
-  return value.replace(STELLAR_STRKEY_PATTERN, '[redacted-address]');
+  return value
+    .replace(STELLAR_STRKEY_PATTERN, '[redacted-address]')
+    .replace(/(\bhttps?:\/\/[^\s?#]+)\?[^\s#]+/gi, '$1')
+    .replace(/([?&](?:wallet|address|token|secret|key|account|amount|q|query)=)[^\s&#]+/gi, '$1[redacted-query]');
 }
 
 function truncate(value: string): string {
@@ -117,6 +155,174 @@ function currentRoute(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+export function resolveErrorEndpoint(env?: ErrorReportingEnv): string | undefined {
+  return resolveVitalsEndpoint({
+    VITE_VITALS_ENDPOINT: env?.VITE_ERROR_ENDPOINT,
+  });
+}
+
+export function resolveErrorSampleRate(env?: ErrorReportingEnv): number {
+  const raw = env?.VITE_ERROR_SAMPLE_RATE?.trim();
+  if (!raw) return DEFAULT_ERROR_SAMPLE_RATE;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    return DEFAULT_ERROR_SAMPLE_RATE;
+  }
+  return parsed;
+}
+
+export function normaliseErrorRoute(pathname: string): string {
+  return normalisePathname(pathname);
+}
+
+function readImportMetaErrorEnv(): ErrorReportingEnv {
+  try {
+    return {
+      VITE_ERROR_ENDPOINT: import.meta.env.VITE_ERROR_ENDPOINT,
+      VITE_ERROR_SAMPLE_RATE: import.meta.env.VITE_ERROR_SAMPLE_RATE,
+      VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function defaultAppVersion(): string {
+  try {
+    if (typeof __DISCIPLR_APP_VERSION__ === 'string' && __DISCIPLR_APP_VERSION__.trim()) {
+      return __DISCIPLR_APP_VERSION__;
+    }
+  } catch {
+    // The build constant is optional in tests and alternate toolchains.
+  }
+  return 'unknown';
+}
+
+function defaultSendBeacon(url: string, body: Blob): boolean {
+  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
+    return false;
+  }
+  return navigator.sendBeacon(url, body);
+}
+
+function defaultFetch(url: string, init: RequestInit): Promise<unknown> {
+  if (typeof fetch !== 'function') {
+    return Promise.reject(new Error('fetch unavailable'));
+  }
+  return fetch(url, init);
+}
+
+/**
+ * Opt-in remote sink for boundary and global error reports.
+ *
+ * Disabled with no VITE_ERROR_ENDPOINT. Payloads contain only the support
+ * reference ID, normalised error metadata, sanitised route and app version.
+ */
+export function createErrorReportingSink(
+  options: CreateErrorReportingSinkOptions = {},
+): ErrorReportingSink {
+  try {
+    const env = options.env ?? readImportMetaErrorEnv();
+    const log = options.logger ?? logger;
+    const endpoint = resolveErrorEndpoint(env);
+    if (endpoint === undefined && env.VITE_ERROR_ENDPOINT?.trim()) {
+      log.warn('[Error Reporting] ignoring invalid VITE_ERROR_ENDPOINT');
+    }
+
+    const rng = options.rng ?? Math.random;
+    const sampleRate = resolveErrorSampleRate(env);
+    const sampled = endpoint !== undefined && rng() < sampleRate;
+    const pathname = options.pathname ?? currentRoute;
+    const now = options.now ?? Date.now;
+    const appVersion =
+      options.appVersion?.trim() ||
+      env.VITE_APP_VERSION?.trim() ||
+      defaultAppVersion();
+    const sendBeacon = options.sendBeacon ?? defaultSendBeacon;
+    const fetchTransport = options.fetch ?? defaultFetch;
+    const lastSent = new Map<string, number>();
+
+    const report = (reportInput: ErrorReport): void => {
+      if (!sampled || endpoint === undefined) return;
+
+      try {
+        const route = normaliseErrorRoute(
+          reportInput.route ?? pathname() ?? '/',
+        );
+        const message = truncate(redactErrorText(reportInput.message));
+        const throttleKey = `${message}|${route}`;
+        const timestamp = now();
+        const previous = lastSent.get(throttleKey);
+        if (previous !== undefined && timestamp - previous < ERROR_REPORT_SEND_WINDOW_MS) {
+          return;
+        }
+        lastSent.set(throttleKey, timestamp);
+        if (lastSent.size > ERROR_REPORT_THROTTLE_KEY_LIMIT) {
+          for (const [key, sentAt] of lastSent) {
+            if (timestamp - sentAt >= ERROR_REPORT_SEND_WINDOW_MS) {
+              lastSent.delete(key);
+            }
+          }
+        }
+
+        const payload: ErrorReportingPayload = {
+          referenceId: reportInput.referenceId,
+          name: truncate(redactErrorText(reportInput.name)),
+          message,
+          route,
+          appVersion,
+          ts: timestamp,
+        };
+        const payloadJson = JSON.stringify(payload);
+        const body = new Blob([payloadJson], {
+          type: 'application/json',
+        });
+
+        let beaconSent = false;
+        try {
+          beaconSent = sendBeacon(endpoint, body);
+        } catch (error) {
+          log.error('[Error Reporting] failed to send beacon', error);
+        }
+
+        if (beaconSent) return;
+
+        void Promise.resolve(
+          fetchTransport(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payloadJson,
+            keepalive: true,
+          }),
+        ).catch((error) => {
+          log.error('[Error Reporting] failed to send report', error);
+        });
+      } catch (error) {
+        log.error('[Error Reporting] sink failed to send report', error);
+      }
+    };
+
+    return { report, active: sampled };
+  } catch (error) {
+    try {
+      logger.error('[Error Reporting] sink failed to initialise', error);
+    } catch {
+      // Best-effort only.
+    }
+    return { report: () => {}, active: false };
+  }
+}
+
+export const createErrorReportSink = createErrorReportingSink;
+
+export function installErrorReportingSink(
+  options: CreateErrorReportingSinkOptions = {},
+): ErrorReportingSink {
+  const sink = createErrorReportingSink(options);
+  setErrorReportSink((report) => sink.report(report));
+  return sink;
 }
 
 function throttleKey(report: ErrorReport): string {

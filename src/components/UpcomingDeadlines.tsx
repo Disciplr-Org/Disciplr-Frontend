@@ -6,8 +6,11 @@ import type { Deadline } from '../utils/dashboard';
 import type { Vault } from '../types/vault';
 import { formatUsdc } from '../utils/format';
 import {
+  buildAllDeadlinesCalendar,
+  downloadIcs,
   downloadIcsEvent,
   downloadIcsCalendar,
+  getUpcomingMilestoneEvents,
   isValidIcsDeadline,
   vaultDeadlineUid,
   vaultToIcsEvents,
@@ -93,6 +96,9 @@ export default function UpcomingDeadlines({ deadlines, vaults }: UpcomingDeadlin
     ? !activeVaults || activeVaults.length === 0
     : deadlines.length === 0;
 
+  const upcomingMilestonesCount = vaults ? getUpcomingMilestoneEvents(vaults).length : 0;
+  const isExportMilestonesDisabled = upcomingMilestonesCount === 0;
+
   const handleExportAll = () => {
     let events: IcsEventInput[] = [];
 
@@ -117,6 +123,16 @@ export default function UpcomingDeadlines({ deadlines, vaults }: UpcomingDeadlin
         calendarName: 'Disciplr deadlines',
       });
     }
+  };
+
+  const handleExportMilestones = () => {
+    if (!vaults || isExportMilestonesDisabled) return;
+
+    const calendar = buildAllDeadlinesCalendar(vaults, {
+      alarms: alarmPreference,
+      calendarName: 'Disciplr milestones',
+    });
+    downloadIcs(calendar, 'disciplr-milestones.ics');
   };
 
   return (
@@ -199,6 +215,26 @@ export default function UpcomingDeadlines({ deadlines, vaults }: UpcomingDeadlin
             }}
           >
             Export all deadlines (.ics)
+          </button>
+          <button
+            type="button"
+            onClick={handleExportMilestones}
+            disabled={isExportMilestonesDisabled}
+            aria-label="Export upcoming milestones (.ics)"
+            style={{
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              cursor: isExportMilestonesDisabled ? 'not-allowed' : 'pointer',
+              opacity: isExportMilestonesDisabled ? 0.4 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Export milestones (.ics)
           </button>
         </div>
       </div>

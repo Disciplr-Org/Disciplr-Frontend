@@ -849,6 +849,384 @@ export default function CreateVault() {
             </div>
           )}
 
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              marginBottom: "1rem",
+              maxWidth: 400,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setTemplates(loadAllTemplates(address));
+                setTemplateError(null);
+                setRenamingTemplateId(null);
+                setShowTemplatesModal(true);
+              }}
+              style={{
+                padding: "0.5rem 0.875rem",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+            >
+              Templates
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTemplateNameInput("");
+                setTemplateError(null);
+                setShowSaveTemplateModal(true);
+              }}
+              style={{
+                padding: "0.5rem 0.875rem",
+                border: "1px solid var(--accent)",
+                borderRadius: "var(--radius)",
+                background: "transparent",
+                color: "var(--accent)",
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+            >
+              Save as template
+            </button>
+          </div>
+
+          <Modal
+            isOpen={showTemplatesModal}
+            onClose={() => {
+              setShowTemplatesModal(false);
+              setRenamingTemplateId(null);
+              setTemplateError(null);
+            }}
+            ariaLabelledBy="vault-templates-modal-title"
+          >
+            <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
+                <Text role="display" as="h2" id="vault-templates-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
+                  Vault Templates
+                </Text>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTemplatesModal(false);
+                    setRenamingTemplateId(null);
+                    setTemplateError(null);
+                  }}
+                  aria-label="Close templates"
+                  style={{
+                    padding: "0.25rem 0.6rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    background: "transparent",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              {templateError && (
+                <div
+                  role="alert"
+                  style={{
+                    border: "1px solid var(--danger)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.6rem 0.75rem",
+                    color: "var(--danger)",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {templateError}
+                </div>
+              )}
+
+              {(() => {
+                const userTemplates = templates.filter((t) => !t.builtIn);
+                const builtInTemplates = templates.filter((t) => t.builtIn);
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxHeight: "60vh", overflowY: "auto" }}>
+                    <section>
+                      <Text role="caption" as="h3" style={{ margin: "0 0 0.5rem", color: "var(--muted)" }}>
+                        Saved templates ({userTemplates.length} / {MAX_USER_TEMPLATES})
+                      </Text>
+                      {userTemplates.length === 0 ? (
+                        <Text role="caption" as="p" style={{ margin: 0, color: "var(--muted)" }}>
+                          No saved templates yet. Use &ldquo;Save as template&rdquo; to store your current configuration.
+                        </Text>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          {userTemplates.map((template) => (
+                            <div
+                              key={template.id}
+                              style={{
+                                border: "1px solid var(--border)",
+                                borderRadius: "var(--radius)",
+                                padding: "0.75rem",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.5rem",
+                              }}
+                            >
+                              {renamingTemplateId === template.id ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                  <Field
+                                    id={`rename-template-${template.id}`}
+                                    label="New template name"
+                                    type="text"
+                                    value={renameTemplateInput}
+                                    onChange={(e) => setRenameTemplateInput(e.target.value)}
+                                    maxLength={80}
+                                  />
+                                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRenameTemplate(template.id)}
+                                      style={{
+                                        padding: "0.35rem 0.75rem",
+                                        border: "none",
+                                        borderRadius: "var(--radius)",
+                                        background: "var(--accent)",
+                                        color: "var(--bg)",
+                                        cursor: "pointer",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Save name
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRenamingTemplateId(null);
+                                        setRenameTemplateInput("");
+                                      }}
+                                      style={{
+                                        padding: "0.35rem 0.75rem",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: "var(--radius)",
+                                        background: "transparent",
+                                        color: "var(--text)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div>
+                                    <Text role="body" as="p" style={{ margin: 0, fontWeight: 600 }}>
+                                      {template.name}
+                                    </Text>
+                                    <Text role="caption" as="p" style={{ margin: 0, color: "var(--muted)" }}>
+                                      {template.amount ? `${template.amount} USDC` : "No amount"}
+                                      {template.deadlinePreset ? ` · ${getPresetLabel(template.deadlinePreset)}` : ""}
+                                      {` · ${template.milestones.length} milestone${template.milestones.length === 1 ? "" : "s"}`}
+                                    </Text>
+                                  </div>
+                                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplyTemplate(template)}
+                                      style={{
+                                        padding: "0.35rem 0.75rem",
+                                        border: "none",
+                                        borderRadius: "var(--radius)",
+                                        background: "var(--accent)",
+                                        color: "var(--bg)",
+                                        cursor: "pointer",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Apply
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRenamingTemplateId(template.id);
+                                        setRenameTemplateInput(template.name);
+                                        setTemplateError(null);
+                                      }}
+                                      style={{
+                                        padding: "0.35rem 0.75rem",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: "var(--radius)",
+                                        background: "transparent",
+                                        color: "var(--text)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Rename
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTemplate(template.id)}
+                                      style={{
+                                        padding: "0.35rem 0.75rem",
+                                        border: "1px solid var(--danger)",
+                                        borderRadius: "var(--radius)",
+                                        background: "transparent",
+                                        color: "var(--danger)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    <section>
+                      <Text role="caption" as="h3" style={{ margin: "0 0 0.5rem", color: "var(--muted)" }}>
+                        Built-in starters (read-only)
+                      </Text>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        {builtInTemplates.map((template) => (
+                          <div
+                            key={template.id}
+                            style={{
+                              border: "1px solid var(--border)",
+                              borderRadius: "var(--radius)",
+                              padding: "0.75rem",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: "0.75rem",
+                            }}
+                          >
+                            <div>
+                              <Text role="body" as="p" style={{ margin: 0, fontWeight: 600 }}>
+                                {template.name}
+                              </Text>
+                              <Text role="caption" as="p" style={{ margin: 0, color: "var(--muted)" }}>
+                                {template.amount} USDC
+                                {template.deadlinePreset ? ` · ${getPresetLabel(template.deadlinePreset)}` : ""}
+                                {` · ${template.milestones.length} milestones`}
+                              </Text>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTemplate(template)}
+                              style={{
+                                padding: "0.35rem 0.75rem",
+                                border: "none",
+                                borderRadius: "var(--radius)",
+                                background: "var(--accent)",
+                                color: "var(--bg)",
+                                cursor: "pointer",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                );
+              })()}
+            </div>
+          </Modal>
+
+          <Modal
+            isOpen={showSaveTemplateModal}
+            onClose={() => {
+              setShowSaveTemplateModal(false);
+              setTemplateError(null);
+            }}
+            ariaLabelledBy="save-vault-template-modal-title"
+          >
+            <form
+              onSubmit={handleSaveTemplate}
+              style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              <Text role="display" as="h2" id="save-vault-template-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
+                Save as Template
+              </Text>
+              <Text role="caption" as="p" style={{ margin: 0, color: "var(--muted)" }}>
+                Saves amount, deadline preset, destination addresses, verifier, and milestones for reuse. Vault name and exact deadline are not saved.
+              </Text>
+
+              {templateError && (
+                <div
+                  role="alert"
+                  style={{
+                    border: "1px solid var(--danger)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.6rem 0.75rem",
+                    color: "var(--danger)",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {templateError}
+                </div>
+              )}
+
+              <Field
+                id="vault-template-name"
+                label="Template name"
+                type="text"
+                value={templateNameInput}
+                onChange={(e) => {
+                  setTemplateNameInput(e.target.value);
+                  setTemplateError(null);
+                }}
+                placeholder="Weekly dev retainer"
+                maxLength={80}
+                required
+              />
+
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSaveTemplateModal(false);
+                    setTemplateError(null);
+                  }}
+                  style={{
+                    padding: "0.5rem 0.875rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    background: "transparent",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "0.5rem 1rem",
+                    border: "none",
+                    borderRadius: "var(--radius)",
+                    background: "var(--accent)",
+                    color: "var(--bg)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Save template
+                </button>
+              </div>
+            </form>
+          </Modal>
+
           <form
             onSubmit={handleSubmit}
             noValidate
@@ -1110,7 +1488,7 @@ export default function CreateVault() {
                           type="button"
                           onClick={() => moveMilestone(milestone.id, "up")}
                           disabled={!canMoveUp}
-                          aria-label={`Move milestone ${index + 1} up`}
+                          aria-label={`Move up milestone ${index + 1}`}
                           style={{
                             padding: "0.4rem 0.75rem",
                             border: "1px solid var(--border)",
@@ -1127,7 +1505,7 @@ export default function CreateVault() {
                           type="button"
                           onClick={() => moveMilestone(milestone.id, "down")}
                           disabled={!canMoveDown}
-                          aria-label={`Move milestone ${index + 1} down`}
+                          aria-label={`Move down milestone ${index + 1}`}
                           style={{
                             padding: "0.4rem 0.75rem",
                             border: "1px solid var(--border)",

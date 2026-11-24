@@ -103,7 +103,7 @@ export default function HelpCenter() {
                 borderRadius: 'var(--radius)',
                 border: 'none',
                 background: 'var(--accent)',
-                color: 'white',
+                color: 'var(--accent-fg)',
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
@@ -267,7 +267,6 @@ export default function HelpCenter() {
                 background: 'var(--surface)',
                 display: 'grid',
                 gap: '0.3rem',
-                opacity: support.status === 'Unavailable' ? 0.75 : 1,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>

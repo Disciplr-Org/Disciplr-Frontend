@@ -16,6 +16,7 @@ import {
   ERROR_REPORT_BUFFER_LIMIT,
   ERROR_REPORT_MAX_TEXT_LENGTH,
   ERROR_REPORT_NOTIFY_WINDOW_MS,
+  createErrorReportingSink,
   getRecentErrorReports,
   installGlobalErrorHandlers,
   normalizeErrorReason,
@@ -261,6 +262,122 @@ describe('reportError', () => {
     expect(shouldNotifyError(report, 1_000 + ERROR_REPORT_NOTIFY_WINDOW_MS)).toBe(
       true,
     );
+  });
+});
+
+describe('createErrorReportingSink', () => {
+  const endpoint = 'https://collector.example/errors';
+
+  function makeReport(overrides: Partial<ErrorReport> = {}): ErrorReport {
+    return {
+      referenceId: 'ref-123',
+      source: 'boundary',
+      name: 'Error',
+      message: 'boom',
+      route: '/vaults/abc123?x=1#top',
+      ts: 1_000,
+      ...overrides,
+    };
+  }
+
+  it('makes no transport call without an endpoint', () => {
+    const sendBeacon = vi.fn(() => true);
+    const fetchTransport = vi.fn(() => Promise.resolve({ ok: true }));
+    const sink = createErrorReportingSink({
+      env: {},
+      rng: vi.fn(() => 0),
+      sendBeacon,
+      fetch: fetchTransport,
+      appVersion: '0.1.0',
+    });
+
+    sink.report(makeReport());
+
+    expect(sink.active).toBe(false);
+    expect(sendBeacon).not.toHaveBeenCalled();
+    expect(fetchTransport).not.toHaveBeenCalled();
+  });
+
+  it('scrubs addresses and sends a sanitized route and app version', () => {
+    const sendBeacon = vi.fn(() => true);
+    const sink = createErrorReportingSink({
+      env: {
+        VITE_ERROR_ENDPOINT: endpoint,
+        VITE_ERROR_SAMPLE_RATE: '1',
+      },
+      rng: () => 0,
+      sendBeacon,
+      fetch: vi.fn(() => Promise.resolve({ ok: true })),
+      appVersion: '0.1.0',
+      now: () => 1_000,
+    });
+
+    sink.report(makeReport({
+      message: `transfer to ${STELLAR_ADDRESS}?token=secret failed`,
+    }));
+
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    const [url, body] = sendBeacon.mock.calls[0];
+    expect(url).toBe(endpoint);
+    expect(body).toBeInstanceOf(Blob);
+  });
+
+  it('normalizes route parameters and strips query strings', async () => {
+    const sendBeacon = vi.fn(() => true);
+    const sink = createErrorReportingSink({
+      env: { VITE_ERROR_ENDPOINT: endpoint, VITE_ERROR_SAMPLE_RATE: '1' },
+      rng: () => 0,
+      sendBeacon,
+      appVersion: '0.1.0',
+    });
+
+    sink.report(makeReport());
+
+    const body = sendBeacon.mock.calls[0][1] as Blob;
+    const payload = JSON.parse(await body.text());
+    expect(payload.route).toBe('/vaults/:id');
+    expect(payload.referenceId).toBe('ref-123');
+    expect(payload.appVersion).toBe('0.1.0');
+    expect(JSON.stringify(payload)).not.toContain('x=1');
+  });
+
+  it('rate-limits identical message and route reports for one minute', () => {
+    const sendBeacon = vi.fn(() => true);
+    let now = 1_000;
+    const sink = createErrorReportingSink({
+      env: { VITE_ERROR_ENDPOINT: endpoint, VITE_ERROR_SAMPLE_RATE: '1' },
+      rng: () => 0,
+      sendBeacon,
+      now: () => now,
+      appVersion: '0.1.0',
+    });
+
+    sink.report(makeReport());
+    now += 59_999;
+    sink.report(makeReport());
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+
+    now += 1;
+    sink.report(makeReport());
+    expect(sendBeacon).toHaveBeenCalledTimes(2);
+  });
+
+  it('swallows a sendBeacon failure', () => {
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const sendBeacon = vi.fn(() => {
+      throw new Error('beacon failed');
+    });
+    const sink = createErrorReportingSink({
+      env: { VITE_ERROR_ENDPOINT: endpoint, VITE_ERROR_SAMPLE_RATE: '1' },
+      rng: () => 0,
+      sendBeacon,
+      fetch: vi.fn(() => Promise.resolve({ ok: true })),
+      logger: log,
+      appVersion: '0.1.0',
+    });
+
+    expect(() => sink.report(makeReport())).not.toThrow();
+    expect(log.error).toHaveBeenCalled();
   });
 });
 

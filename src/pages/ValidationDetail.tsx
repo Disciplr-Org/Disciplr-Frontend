@@ -117,7 +117,7 @@ export default function ValidationDetail() {
         <button
           onClick={() => navigate('/verifier/queue')}
           className="px-6 py-2 rounded transition font-medium"
-          style={{ background: 'var(--accent)', color: 'white' }}
+          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
         >
           Return to Queue
         </button>

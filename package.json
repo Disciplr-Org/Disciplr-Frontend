@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "tokens:build": "tsx scripts/build-tokens.ts",
     "tokens:check": "tsx scripts/check-css-vars.ts",
+    "check:bundle": "tsx scripts/check-bundle-budget.ts",
     "test:visual": "playwright test -c playwright.visual.config.ts",
     "test:visual:update": "playwright test -c playwright.visual.config.ts --update-snapshots"
   },
@@ -32,6 +33,7 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^9.13.0",
     "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^6.5.0",

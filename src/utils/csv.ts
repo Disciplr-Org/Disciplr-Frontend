@@ -8,6 +8,22 @@ export type AnalyticsRow = {
   milestones: number;
 };
 
+/** Transaction row shape consumed by the transactions CSV export. */
+export type Transaction = {
+  id: string;
+  type: string;
+  vault: string;
+  amount: number | string;
+  fee?: number | string | null;
+  status: string;
+  timestamp: Date | string;
+  hash: string;
+  block?: number | null;
+  from?: string | null;
+  to?: string | null;
+  memo?: string | null;
+};
+
 const TASK_HEADERS: string[] = ['ID', 'Status', 'Vault Name', 'Owner', 'Amount', 'Deadline', 'Milestone', 'Notes'];
 const TX_HEADERS: string[] = ['ID', 'Type', 'Vault', 'Amount (USDC)', 'Fee (USDC)', 'Status', 'Timestamp', 'Hash', 'Block', 'From', 'To', 'Memo'];
 const ANALYTICS_HEADERS: string[] = ['Period', 'Success %', 'Failed %', 'Capital (USDC)', 'Milestones'];
@@ -45,7 +61,7 @@ export function normalizeNumericCell(value: number | string): string {
   }).format(n);
 }
 
-function escapeCell(value: string): string {
+export function escapeCell(value: string): string {
   if (value.length > 0 && /^[=+\-@\t\r]/.test(value)) {
     value = `'${value}`;
   }
@@ -56,21 +72,21 @@ function escapeCell(value: string): string {
 }
 
 function taskToRow(task: ValidationTask): string {
-  const cells = [
-    task.id,
-    task.status,
-    task.vaultName,
-    task.owner,
-    task.amount,
-    task.deadline,
-    task.milestone,
-    task.notes ?? '',
+  const cells: string[] = [
+    String(task.id),
+    String(task.status),
+    String(task.vaultName),
+    String(task.owner),
+    String(task.amount),
+    String(task.deadline),
+    String(task.milestone),
+    task.notes == null ? '' : String(task.notes),
   ];
   return cells.map(escapeCell).join(',');
 }
 
 function analyticsRowToRow(row: AnalyticsRow): string {
-  const cells = [
+  const cells: string[] = [
     row.name,
     String(row.success),
     String(row.failed),
@@ -81,19 +97,22 @@ function analyticsRowToRow(row: AnalyticsRow): string {
 }
 
 function txToRow(tx: Transaction): string {
-  const cells = [
+  const feeCell: string = tx.fee == null ? MISSING_VALUE_PLACEHOLDER : normalizeNumericCell(tx.fee);
+  const blockCell: string = tx.block == null ? MISSING_VALUE_PLACEHOLDER : String(tx.block);
+  const timestampCell: string = tx.timestamp instanceof Date ? tx.timestamp.toISOString() : String(tx.timestamp);
+  const cells: string[] = [
     tx.id,
     tx.type,
     tx.vault,
     normalizeNumericCell(tx.amount),
-    tx.fee == null ? MISSING_VALUE_PLACEHOLDER : normalizeNumericCell(tx.fee),
+    feeCell,
     tx.status,
-    tx.timestamp instanceof Date ? tx.timestamp.toISOString() : String(tx.timestamp),
+    timestampCell,
     tx.hash,
-    tx.block == null ? MISSING_VALUE_PLACEHOLDER : String(tx.block),
-    tx.from,
-    tx.to,
-    tx.memo,
+    blockCell,
+    tx.from ?? '',
+    tx.to ?? '',
+    tx.memo ?? '',
   ];
   return cells.map(escapeCell).join(',');
 }
@@ -101,21 +120,27 @@ function txToRow(tx: Transaction): string {
 export function toCsv(tasks: ValidationTask[]): string;
 export function toCsv(txs: Transaction[], type: 'transactions'): string;
 export function toCsv(rows: AnalyticsRow[], type: 'analytics'): string;
-export function toCsv(data: Array<ValidationTask | Transaction | AnalyticsRow>, type?: 'transactions' | 'analytics'): string {
+export function toCsv(
+  data: ValidationTask[] | Transaction[] | AnalyticsRow[],
+  type?: 'transactions' | 'analytics',
+): string {
   if (type === 'analytics') {
     const headerRow = ANALYTICS_HEADERS.join(',');
-    if (data.length === 0) return headerRow;
-    const rows = (data as AnalyticsRow[]).map(analyticsRowToRow);
+    const rowsIn = data as AnalyticsRow[];
+    if (rowsIn.length === 0) return headerRow;
+    const rows = rowsIn.map((r) => analyticsRowToRow(r));
     return [headerRow, ...rows].join('\r\n');
   } else if (type === 'transactions') {
     const headerRow = TX_HEADERS.join(',');
-    if (data.length === 0) return headerRow;
-    const rows = (data as Transaction[]).map(txToRow);
+    const txs = data as Transaction[];
+    if (txs.length === 0) return headerRow;
+    const rows = txs.map((t) => txToRow(t));
     return [headerRow, ...rows].join('\r\n');
   } else {
     const headerRow = TASK_HEADERS.join(',');
-    if (data.length === 0) return headerRow;
-    const rows = (data as ValidationTask[]).map(taskToRow);
+    const tasks = data as ValidationTask[];
+    if (tasks.length === 0) return headerRow;
+    const rows = tasks.map((t) => taskToRow(t));
     return [headerRow, ...rows].join('\r\n');
   }
 }
@@ -133,4 +158,3 @@ export function downloadCsv(csv: string, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-

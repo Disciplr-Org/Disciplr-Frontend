@@ -74,3 +74,61 @@ describe('SafeMarkdown onHeadings callback', () => {
     expect(headings[0].level).toBe(2)
   })
 })
+
+describe('SafeMarkdown lists, links, and inline content', () => {
+  it('renders consecutive numbered lines as one ordered list', () => {
+    render(<SafeMarkdown content={'1. First\n2. Second'} />)
+
+    const list = screen.getByRole('list')
+    expect(list.tagName).toBe('OL')
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(list).toHaveTextContent('FirstSecond')
+  })
+
+  it('ends an ordered list at the next paragraph', () => {
+    render(<SafeMarkdown content={'1. First\n2. Second\nA paragraph'} />)
+
+    expect(screen.getByRole('list')).toHaveTextContent('FirstSecond')
+    expect(screen.getByText('A paragraph').tagName).toBe('P')
+  })
+
+  it('renders safe HTTPS Markdown links through SafeLink', () => {
+    render(<SafeMarkdown content={'Read [the docs](https://example.com/docs).'} />)
+
+    const link = screen.getByRole('link', { name: 'the docs' })
+    expect(link).toHaveAttribute('href', 'https://example.com/docs')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    '//host.example/path',
+    'not-a-url',
+  ])('renders unsafe Markdown destination %s as literal text', (href) => {
+    const markdown = `[a](${href})`
+    render(<SafeMarkdown content={markdown} />)
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText(markdown)).toBeInTheDocument()
+  })
+
+  it('preserves heading, bullet, bold, and inline-code rendering', () => {
+    render(<SafeMarkdown content={'## Heading\n- Bullet\n**bold** and ` [x](javascript:alert(1)) `'} />)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Heading' })).toBeInTheDocument()
+    expect(screen.getByRole('list')).toHaveTextContent('Bullet')
+    expect(screen.getByText('bold')).toBeInTheDocument()
+    expect(screen.getByText('[x](javascript:alert(1))').tagName).toBe('CODE')
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('leaves malformed Markdown links as plain text', () => {
+    const markdown = '[broken](https://example.com'
+    render(<SafeMarkdown content={markdown} />)
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText(markdown)).toBeInTheDocument()
+  })
+})
