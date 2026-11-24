@@ -4,6 +4,7 @@ import { Wallet, Loader2, AlertCircle } from 'lucide-react';
 import './wallet.css';
 import { WalletDropdown } from './WalletDropdown';
 import { networkLabel } from '../../utils/explorer';
+import { truncateMiddle } from '../../utils/truncate';
 import { WalletSelectionModal } from './WalletSelectionModal';
 import { logger } from '../../utils/logger';
 
@@ -36,10 +37,6 @@ export function WalletConnectButton() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const truncateAddress = (addr: string) => {
-        return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-    };
-
     if (error && !address) {
         return (
             <div className="wallet-dropdown-container">
@@ -60,10 +57,19 @@ export function WalletConnectButton() {
 
     if (isConnecting && !address) {
         return (
-            <button className="wallet-connect-btn connecting" disabled>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Connecting...</span>
-            </button>
+            <>
+                <button
+                    className="wallet-connect-btn connecting"
+                    onClick={() => setIsModalOpen(true)}
+                    title="Freighter is opening. Close any lingering popup before retrying."
+                >
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Connecting...</span>
+                </button>
+                {isModalOpen && (
+                    <WalletSelectionModal onClose={() => setIsModalOpen(false)} />
+                )}
+            </>
         );
     }
 
@@ -76,7 +82,7 @@ export function WalletConnectButton() {
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     >
                         <Wallet size={16} />
-                        <span>{truncateAddress(address)}</span>
+                        <span>{truncateMiddle(address, 4, 4)}</span>
                         {network && (
                             <span className="wallet-network-badge">
                                 {networkLabel(network)}

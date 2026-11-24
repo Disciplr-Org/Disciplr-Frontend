@@ -19,8 +19,12 @@ export type VaultStatus =
 /** State of an individual milestone within a vault. */
 export type MilestoneStatus = 'pending' | 'validated' | 'failed';
 
-/** On-chain transaction category. */
-export type TxType = 'create' | 'validate' | 'release' | 'redirect';
+/**
+ * On-chain transaction category.
+ * `'unknown'` is the safe fallback for any type string the backend sends that
+ * this client does not recognise; consumers must handle it gracefully.
+ */
+export type TxType = 'create' | 'validate' | 'release' | 'redirect' | 'unknown';
 
 /** Confirmation state of an on-chain transaction. */
 export type TxStatus = 'confirmed' | 'pending' | 'failed';
@@ -46,16 +50,20 @@ export interface Milestone {
   criteria: string;
   status: MilestoneStatus;
   validatedAt?: string;
+  dueDate?: string;
   evidenceUrl?: string;
 }
 
-/** A lightweight on-chain transaction record stored on the Vault itself. */
+/** A weightless on-chain transaction record stored on the Vault itself. */
 export interface VaultTransaction {
   id: string;
   type: TxType;
   hash: string;
   timestamp: string;
   amount?: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
+  fee?: number;
 }
 
 /** Full vault record — canonical shape used across all pages. */
@@ -64,6 +72,8 @@ export interface Vault {
   name: string;
   status: VaultStatus;
   amount: number;
+  /** Exact decimal string from the API, preserved so display avoids IEEE-754 float precision loss. */
+  rawAmount?: string;
   currency: string;
   createdAt: string;
   deadline: string;
@@ -75,3 +85,10 @@ export interface Vault {
   milestones: Milestone[];
   transactions: VaultTransaction[];
 }
+
+/**
+ * Actions a wallet can perform on a vault. Shared between the UI
+ * (`VaultDetail`), the service seam (`submitVaultAction`), and the
+ * permission evaluator (`evalVaultActionAuth`).
+ */
+export type VaultAction = 'validate_milestone' | 'extend_deadline' | 'cancel_vault';

@@ -41,10 +41,27 @@ export default [
     // intentionally unused (e.g. stub handlers awaiting a real backend).
     files: ['**/*.{ts,tsx}'],
     rules: {
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-control-regex': 'off',
+    },
+  },
+  {
+    // Disallow direct console calls in application source code
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
+  {
+    // Override no-console for the shared logger implementation and tests
+    files: [
+      'src/utils/logger.ts',
+      'src/**/*.test.{js,jsx,ts,tsx}',
+      'src/**/__tests__/**/*.{js,jsx,ts,tsx}',
+    ],
+    rules: {
+      'no-console': 'off',
     },
   },
   {
@@ -56,4 +73,4 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
-]
+];

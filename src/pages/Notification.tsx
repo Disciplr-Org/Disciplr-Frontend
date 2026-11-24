@@ -11,6 +11,12 @@ import { usePrefersReducedMotion } from "../utils/usePrefersReducedMotion";
 import { Pagination } from "@/components/Pagination";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { paginate } from "@/utils/paginate";
+import type { NotificationItem } from "@/Zustand/Store";
+import {
+  NOTIFICATION_PAGE_SIZE_OPTIONS,
+  persistNotificationPageSize,
+  readNotificationPageSize,
+} from "../utils/pageSizePref";
 
 export default function Notification() {
   const notifications = useNotification((state) => state.notification);
@@ -23,7 +29,17 @@ export default function Notification() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
-  const itemsPerPage = 5;
+  const [pageSize, setPageSize] = useState<number>(() => readNotificationPageSize());
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handlePageSizeChange = (newSize: number) => {
+    const nextSize = persistNotificationPageSize(newSize);
+    setPageSize(nextSize);
+    const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / nextSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  };
 
   const prefersReducedMotion = usePrefersReducedMotion(); // <-- Consume the preference status
 
@@ -35,6 +51,7 @@ export default function Notification() {
   const filteredNotifications = useMemo(() => {
     let filtered = notifications;
     if (!filtered) return [];
+    if (!Array.isArray(filtered)) return [];
 
     if (currentFilterReadSeletion !== "all") {
       filtered = filtered.filter(
@@ -51,8 +68,20 @@ export default function Notification() {
     return filtered;
   }, [notifications, currentFilterReadSeletion, currentFilterTypeSeletion]);
 
-  const pagination = paginate(filteredNotifications, currentPage, itemsPerPage);
+  const pagination = paginate(filteredNotifications, currentPage, pageSize);
   const currentData = pagination.items;
+
+  // Invariant: currentPage must always be within [1, pagination.totalPages].
+  // If filters or data shrink the result set, clamp the page to avoid
+  // rendering an empty page while valid items exist on earlier pages.
+  useEffect(() => {
+    const totalPages = Math.max(1, pagination.pageCount ?? 1);
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    } else if (currentPage < 1) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, pagination.pageCount]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -104,21 +133,49 @@ export default function Notification() {
     setCurrentPage(1);
   }, [currentFilterReadSeletion, currentFilterTypeSeletion, notifications]);
 
+  // Invariant: setRead must be idempotent and must not mutate unrelated
+  // notifications. It must also tolerate stale ids (already dismissed).
   const setRead = (id: string) => {
-    setNotifications(
-      notifications.map((n) =>
-        n.id === id ? { ...n, isRead: true } : n,
-      ),
-    );
+    if (typeof id !== "string" || id.length === 0) return;
+    const current = useNotification.getState().notification;
+    if (!Array.isArray(current)) return;
+    const target = current.find((n) => n.id === id);
+    if (!target || target.isRead) return;
+    try {
+      setNotifications(
+        current.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n,
+        ),
+      );
+      setActionError(null);
+    } catch (err) {
+      setActionError("Unable to mark notification as read. Please retry.");
+    }
   };
 
+  // Invariant: dismiss must be idempotent and tolerate unknown ids.
   const handleDismiss = (id: string) => {
-    dismiss(id);
+    if (typeof id !== "string" || id.length === 0) return;
+    const current = useNotification.getState().notification;
+    if (!Array.isArray(current)) return;
+    if (!current.some((n) => n.id === id)) return;
+    try {
+      dismiss(id);
+      setActionError(null);
+    } catch (err) {
+      setActionError("Unable to dismiss notification. Please retry.");
+    }
   };
 
   const handleClearAll = () => {
-    clearAll();
-    setShowClearModal(false);
+    try {
+      clearAll();
+      setActionError(null);
+    } catch (err) {
+      setActionError("Unable to clear notifications. Please retry.");
+    } finally {
+      setShowClearModal(false);
+    }
   };
 
   const statusLabel =
@@ -138,6 +195,11 @@ export default function Notification() {
 
   return (
     <>
+      {actionError && (
+        <div role="alert" className="text-sm text-red-600 mb-2">
+          {actionError}
+        </div>
+      )}
       <div ref={containerRef} className="flex justify-between items-center">
         <div className="text-xl font-bold">Notification Page </div>
         <div className="flex gap-5 items-center justify-center">
@@ -169,7 +231,7 @@ export default function Notification() {
                 }
                 setIsFilterOpen((prev) => !prev);
               }}
-              className="bg-[var(--accent)] px-3 py-2 rounded-md"
+              className="bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-2 rounded-md"
             >
               Filter
             </button>
@@ -221,7 +283,7 @@ export default function Notification() {
           {notifications.length > 0 && (
             <button
               onClick={() => setShowClearModal(true)}
-              className="bg-red-500 px-3 py-2 rounded-md text-white text-sm"
+              className="bg-red-700 px-3 py-2 rounded-md text-white text-sm"
             >
               Clear all
             </button>
@@ -229,18 +291,40 @@ export default function Notification() {
         </div>
       </div>
 
+      <div className="flex justify-end items-center mt-4">
+        <label
+          htmlFor="notification-page-size"
+          className="text-sm font-medium flex items-center gap-2"
+        >
+          <span>Page size:</span>
+          <select
+            id="notification-page-size"
+            aria-label="Notification page size"
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white text-black"
+          >
+            {NOTIFICATION_PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <div className="flex w-full flex-col gap-5 mt-5">
         {currentData.length > 0 ? (() => {
           const groups = groupNotificationsByDate(currentData);
-          return groups.map((group) => (
+          return groups.map((group: { bucket: string; items: NotificationItem[] }) => (
             <div key={group.bucket}>
               <div
-                className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2 mt-1"
+                className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)] mb-2 mt-1"
                 style={{ letterSpacing: '0.08em' }}
               >
                 {group.bucket}
               </div>
-              {group.items.map((items) => (
+              {group.items.map((items: NotificationItem) => (
                 <div
                   key={items.id}
                   className="w-full px-2 border-[var(--accent)] border-1 rounded-md mb-3"
@@ -256,6 +340,7 @@ export default function Notification() {
                         read={items.isRead}
                         isFullPage={true}
                         setRead={setRead}
+                        onDismiss={handleDismiss}
                       />
                     </div>
                     <button
@@ -280,6 +365,7 @@ export default function Notification() {
         onPageChange={setCurrentPage}
         ariaLabel="Notifications pagination"
         className="mt-8"
+        showJumpToPage
       />
 
       <ConfirmationModal

@@ -5,11 +5,13 @@ import { Text } from './Text';
 import { SafeLink } from './SafeLink';
 import { EmptyState } from './EmptyState';
 import { getExplorerTxUrl } from '../utils/explorer';
+import { truncateMiddle as truncateMiddleCanonical } from '../utils/truncate';
 import {
   isPlausibleStellarAddress,
   isValidCurrency,
   isValidTxHash,
 } from '../utils/vaultState';
+import { formatDateTime, formatUsdc } from '../utils/format';
 import './FundReleaseStatus.css';
 
 export type FundReleaseOutcome = 'released' | 'redirected' | 'pending';
@@ -45,15 +47,16 @@ export const MAX_CURRENCY_LENGTH = 16;
 export const MAX_ADDRESS_LENGTH = 128;
 export const MAX_HASH_LENGTH = 128;
 
+/**
+ * Display wrapper around the canonical `truncateMiddle` (utils/truncate) that
+ * keeps this component's public contract: missing or non-string values render
+ * as 'Unavailable' instead of an empty string.
+ */
 export function truncateMiddle(value: string, prefixLength = 6, suffixLength = 4): string {
   if (typeof value !== 'string' || value.length === 0) {
     return 'Unavailable';
   }
-  if (value.length <= prefixLength + suffixLength + 3) {
-    return value;
-  }
-
-  return `${value.slice(0, prefixLength)}...${value.slice(-suffixLength)}`;
+  return truncateMiddleCanonical(value, prefixLength, suffixLength);
 }
 
 function networkLabel(network: WalletNetwork | null | undefined): string {
@@ -70,22 +73,16 @@ function formatTimestamp(timestamp?: string): string {
     return 'Unknown';
   }
 
-  return parsed.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(parsed);
 }
 
 function checkInvariants(outcome: FundReleaseOutcome, transaction?: SettlementTransaction): Error | null {
   const hasTx = !!(transaction?.hash || transaction?.timestamp);
-  
+
   if ((outcome === 'released' || outcome === 'redirected') && !hasTx) {
     return new Error(`Settlement transaction details are required for ${outcome} funds.`);
   }
-  
+
   if (outcome === 'pending' && hasTx) {
     return new Error(`Pending settlement cannot have transaction details.`);
   }
@@ -125,6 +122,7 @@ export function FundReleaseStatus({
   const hash = transaction?.hash;
   const validHash = isValidTxHash(hash);
   const explorerNetwork = network ?? walletNetwork;
+  const txExplorerUrl = hash ? explorerUrl(hash, explorerNetwork) : '';
   const walletNetworkMismatch =
     network !== undefined &&
     walletNetwork !== null &&
@@ -132,7 +130,7 @@ export function FundReleaseStatus({
 
   const displayAmount =
     typeof amount === 'number' && Number.isFinite(amount) && amount >= 0
-      ? amount.toLocaleString()
+      ? formatUsdc(amount)
       : 'Unavailable';
   const displayCurrency = isValidCurrency(currency) ? currency : 'UNKNOWN';
   const safeDestination =
@@ -224,10 +222,10 @@ export function FundReleaseStatus({
               <Text role="caption" as="span" className="fund-release-status__label">
                 Transaction
               </Text>
-              {validHash && hash ? (
+              {validHash && hash && txExplorerUrl ? (
                 <SafeLink
                   className="fund-release-status__link"
-                  href={explorerUrl(hash, explorerNetwork)}
+                  href={txExplorerUrl}
                   title={hash}
                   aria-label={`View transaction ${hash} on Stellar ${explorerNetwork === 'PUBLIC' ? 'Public' : 'Testnet'} explorer`}
                 >

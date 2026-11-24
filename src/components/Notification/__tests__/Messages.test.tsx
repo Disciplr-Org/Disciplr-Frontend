@@ -1,161 +1,210 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Message from "../Messages";
 
-describe("Message Component", () => {
-  // A fixed ISO timestamp; the rendered timeAgo is computed by formatRelativeTime
-  // so we just verify it renders something (non-empty) rather than a hardcoded string.
-  const defaultProps = {
-    id: "msg-123",
-    type: "funds_released",
-    title: "Funds Released Successfully",
-    message: "Your funds have been released from the escrow vault.",
-    timestamp: "2025-01-01T00:00:00Z",
-    read: false,
-    isFullPage: false,
-    setRead: vi.fn(),
-  };
+const defaultProps = {
+  id: "n1",
+  type: "vault_created_successfully",
+  title: "Vault Created",
+  message: "Short message",
+  timestamp: new Date(Date.now() - 60_000).toISOString(),
+  read: false,
+  isFullPage: false,
+  setRead: vi.fn(),
+  onDismiss: vi.fn(),
+};
 
-  it("renders message details correctly when unread and not full page", () => {
-    render(<Message {...defaultProps} />);
+describe("Message", () => {
+  describe("message preview truncation", () => {
+    it("truncates messages longer than 30 characters with ellipsis", () => {
+      const longMessage = "a".repeat(31);
+      render(<Message {...defaultProps} message={longMessage} />);
 
-    // Assert title is rendered
-    expect(screen.getByText(defaultProps.title)).toBeInTheDocument();
+      expect(screen.getByText(`${"a".repeat(30)}...`)).toBeInTheDocument();
+    });
 
-    // Assert message is truncated to 30 characters + ellipsis in preview
-    expect(screen.getByText(/Your funds have been released.*.../)).toBeInTheDocument();
+    it("leaves messages of 30 characters or fewer untouched", () => {
+      const exactMessage = "a".repeat(30);
+      const { rerender } = render(
+        <Message {...defaultProps} message={exactMessage} />,
+      );
 
-    // Assert a relative time label is rendered (non-empty, computed from timestamp)
-    const timeLabel = screen.getByTestId("message-time-ago");
-    expect(timeLabel.textContent).toBeTruthy();
+      expect(screen.getByText(exactMessage)).toBeInTheDocument();
 
-    // Assert "New" badge is rendered because read is false
-    expect(screen.getByText("New")).toBeInTheDocument();
+      rerender(<Message {...defaultProps} message="Short message" />);
+      expect(screen.getByText("Short message")).toBeInTheDocument();
+    });
 
-    // Assert notification icon is rendered with the correct aria-label and role
-    const icon = screen.getByRole("img", { name: "Funds released" });
-    expect(icon).toBeInTheDocument();
+    it("handles non-string hostile message props safely", () => {
+      const { container } = render(
+        <Message {...defaultProps} message={null as never} />,
+      );
 
-    // Assert "Delete" button is not rendered when isFullPage is false
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      const preview = container.querySelector("p.text-sm.text-\\[\\#667589\\]");
+      expect(preview).toHaveTextContent("");
+    });
   });
 
-  it("renders message details correctly when read and isFullPage is true", () => {
-    const props = {
-      ...defaultProps,
-      read: true,
-      isFullPage: true,
-    };
-    render(<Message {...props} />);
+  describe("title fallback", () => {
+    it("shows Untitled notification for blank or whitespace-only titles", () => {
+      const { rerender } = render(<Message {...defaultProps} title=" " />);
+      expect(screen.getByText("Untitled notification")).toBeInTheDocument();
 
-    // Assert title is rendered
-    expect(screen.getByText(props.title)).toBeInTheDocument();
+      rerender(<Message {...defaultProps} title="" />);
+      expect(screen.getByText("Untitled notification")).toBeInTheDocument();
+    });
 
-    // Assert "New" badge is not rendered because read is true
-    expect(screen.queryByText("New")).not.toBeInTheDocument();
+    it("shows Untitled notification for non-string hostile title props", () => {
+      const { rerender } = render(
+        <Message {...defaultProps} title={undefined as never} />,
+      );
+      expect(screen.getByText("Untitled notification")).toBeInTheDocument();
 
-    // Assert "Delete" button is rendered when isFullPage is true
-    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+      rerender(<Message {...defaultProps} title={123 as never} />);
+      expect(screen.getByText("Untitled notification")).toBeInTheDocument();
+    });
+
+    it("renders a valid title as provided", () => {
+      render(<Message {...defaultProps} title="Milestone Validated" />);
+      expect(screen.getByText("Milestone Validated")).toBeInTheDocument();
+    });
   });
 
-  it("clicking the title opens the expanded view and calls setRead with the item's id", () => {
-    const setReadMock = vi.fn();
-    const props = {
-      ...defaultProps,
-      setRead: setReadMock,
-    };
-    render(<Message {...props} />);
+  describe("opening and marking as read", () => {
+    it("calls setRead(id) once and opens full message modal when clicked", () => {
+      const setRead = vi.fn();
+      const longMessage = "b".repeat(40);
+      render(
+        <Message
+          {...defaultProps}
+          id="n1"
+          message={longMessage}
+          setRead={setRead}
+        />,
+      );
 
-    // Prior to clicking, the full message should not be visible (only the truncated preview is)
-    expect(screen.queryByText(props.message)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText("Vault Created"));
 
-    // Click the title to open the overlay
-    const titleElement = screen.getByText(props.title);
-    fireEvent.click(titleElement);
+      expect(setRead).toHaveBeenCalledTimes(1);
+      expect(setRead).toHaveBeenCalledWith("n1");
+      expect(screen.getByText(longMessage)).toBeInTheDocument();
 
-    // Assert setRead mock was called with correct id
-    expect(setReadMock).toHaveBeenCalledTimes(1);
-    expect(setReadMock).toHaveBeenCalledWith(props.id);
+      fireEvent.click(screen.getByRole("button", { name: "Close message" }));
+      expect(screen.queryByText(longMessage)).not.toBeInTheDocument();
+    });
 
-    // Assert the expanded view / overlay is now open and contains the full message text
-    const fullMessageElement = screen.getByText(props.message);
-    expect(fullMessageElement).toBeInTheDocument();
+    it("does not call setRead or open modal when id is empty", () => {
+      const setRead = vi.fn();
+      render(<Message {...defaultProps} id="" setRead={setRead} />);
+
+      fireEvent.click(screen.getByText("Vault Created"));
+
+      expect(setRead).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: "Close message" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not call setRead or open modal when id is a non-string hostile value", () => {
+      const setRead = vi.fn();
+      render(<Message {...defaultProps} id={null as never} setRead={setRead} />);
+
+      fireEvent.click(screen.getByText("Vault Created"));
+
+      expect(setRead).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: "Close message" }),
+      ).not.toBeInTheDocument();
+    });
   });
 
-  it("the expanded overlay closes when its close control is activated", () => {
-    render(<Message {...defaultProps} />);
+  describe("notification type fallback", () => {
+    it("falls back to the Notification label for unknown types", () => {
+      render(<Message {...defaultProps} type="unknown_event_type" />);
 
-    // Open the overlay
-    const titleElement = screen.getByText(defaultProps.title);
-    fireEvent.click(titleElement);
+      expect(
+        screen.getByRole("img", { name: "Notification" }),
+      ).toBeInTheDocument();
+    });
 
-    // Verify overlay is open
-    expect(screen.getByText(defaultProps.message)).toBeInTheDocument();
+    it("falls back to the Notification label for hostile non-string types", () => {
+      render(<Message {...defaultProps} type={undefined as never} />);
 
-    // Click the close control "X"
-    const closeButton = screen.getByText("X");
-    fireEvent.click(closeButton);
+      expect(
+        screen.getByRole("img", { name: "Notification" }),
+      ).toBeInTheDocument();
+    });
 
-    // Verify overlay is closed (full message is removed)
-    expect(screen.queryByText(defaultProps.message)).not.toBeInTheDocument();
+    it("uses the mapped label for known notification types", () => {
+      render(<Message {...defaultProps} type="funds_released" />);
+
+      expect(
+        screen.getByRole("img", { name: "Funds released" }),
+      ).toBeInTheDocument();
+    });
   });
 
-  it("long messages are truncated as expected", () => {
-    const props = {
-      ...defaultProps,
-      message: "This is a super long message that contains more than thirty characters.",
-    };
-    render(<Message {...props} />);
+  describe("dismiss action", () => {
+    it("calls onDismiss(id) when Delete is clicked in full-page mode", () => {
+      const onDismiss = vi.fn();
+      render(
+        <Message
+          {...defaultProps}
+          id="n1"
+          isFullPage={true}
+          onDismiss={onDismiss}
+        />,
+      );
 
-    // Message length is 72, which is > 30.
-    // Truncated preview should be exactly 30 characters plus " ..."
-    expect(screen.getByText(/This is a super long message t.*.../)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+      expect(onDismiss).toHaveBeenCalledWith("n1");
+    });
+
+    it("does not render Delete button when isFullPage is false", () => {
+      render(<Message {...defaultProps} isFullPage={false} />);
+
+      expect(
+        screen.queryByRole("button", { name: "Delete" }),
+      ).not.toBeInTheDocument();
+    });
   });
 
-  it("applies correct container styling depending on the isFullPage prop when overlay is open", () => {
-    // Case 1: isFullPage is true
-    const { rerender } = render(<Message {...defaultProps} isFullPage={true} />);
+  describe("timestamp handling", () => {
+    it("renders no time text for blank or non-string timestamps", () => {
+      const { rerender } = render(<Message {...defaultProps} timestamp="" />);
+      expect(screen.getByTestId("message-time-ago")).toHaveTextContent("");
 
-    // Open overlay
-    fireEvent.click(screen.getByText(defaultProps.title));
+      rerender(<Message {...defaultProps} timestamp="   " />);
+      expect(screen.getByTestId("message-time-ago")).toHaveTextContent("");
 
-    // Get overlay container (grandparent of the full message element in the overlay)
-    const fullMsg1 = screen.getByText(defaultProps.message);
-    const container1 = fullMsg1.parentElement?.parentElement;
-    expect(container1).toBeInTheDocument();
-    
-    // Check that it contains full-page classes
-    expect(container1).toHaveClass("w-[90%]");
-    expect(container1).toHaveClass("lg:w-[40%]");
-    expect(container1).toHaveClass("h-auto");
-    expect(container1).toHaveClass("min-h-[40%]");
-    expect(container1).toHaveClass("bg-white");
-    expect(container1).toHaveClass("left-[50%]");
-    expect(container1).toHaveClass("translate-x-[-50%]");
-    expect(container1).toHaveClass("top-[5%]");
-    expect(container1).not.toHaveClass("w-full");
-    expect(container1).not.toHaveClass("h-full");
+      rerender(<Message {...defaultProps} timestamp={null as never} />);
+      expect(screen.getByTestId("message-time-ago")).toHaveTextContent("");
 
-    // Close the overlay
-    fireEvent.click(screen.getByText("X"));
+      rerender(<Message {...defaultProps} timestamp={12345 as never} />);
+      expect(screen.getByTestId("message-time-ago")).toHaveTextContent("");
+    });
 
-    // Case 2: isFullPage is false
-    rerender(<Message {...defaultProps} isFullPage={false} />);
+    it("renders relative time text for a valid timestamp", () => {
+      render(
+        <Message
+          {...defaultProps}
+          timestamp={new Date(Date.now() - 5 * 60_000).toISOString()}
+        />,
+      );
 
-    // Open overlay
-    fireEvent.click(screen.getByText(defaultProps.title));
+      expect(screen.getByTestId("message-time-ago").textContent).toBeTruthy();
+    });
+  });
 
-    const fullMsg2 = screen.getByText(defaultProps.message);
-    const container2 = fullMsg2.parentElement?.parentElement;
-    expect(container2).toBeInTheDocument();
+  describe("read state badge", () => {
+    it("shows New badge when unread and hides it when read", () => {
+      const { rerender } = render(<Message {...defaultProps} read={false} />);
+      expect(screen.getByText("New")).toBeInTheDocument();
 
-    // Check that it contains dropdown/non-full-page classes
-    expect(container2).toHaveClass("w-full");
-    expect(container2).toHaveClass("h-full");
-    expect(container2).toHaveClass("bg-white");
-    expect(container2).toHaveClass("left-0");
-    expect(container2).toHaveClass("top-0");
-    expect(container2).not.toHaveClass("w-[90%]");
-    expect(container2).not.toHaveClass("lg:w-[40%]");
+      rerender(<Message {...defaultProps} read={true} />);
+      expect(screen.queryByText("New")).not.toBeInTheDocument();
+    });
   });
 });
