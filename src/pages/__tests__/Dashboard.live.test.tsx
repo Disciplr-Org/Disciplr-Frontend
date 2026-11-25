@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, act, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Vault } from "../../types/vault";
 
@@ -102,5 +102,26 @@ describe("Dashboard (live)", () => {
     });
     expect(screen.queryByText("Alpha vault")).toBeNull();
     expect(screen.getAllByText("Beta vault").length).toBeGreaterThan(0);
+  });
+
+  it("surfaces a stats failure as an alert while still listing vaults", async () => {
+    mockAddress = "A";
+    getStats.mockRejectedValue(new Error("stats down"));
+    render(ui());
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toMatch(/stats/i);
+    expect(screen.getAllByText("Alpha vault").length).toBeGreaterThan(0);
+  });
+
+  it("retry refetches stats only", async () => {
+    mockAddress = "A";
+    getStats.mockRejectedValueOnce(new Error("stats down"));
+    render(ui());
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    const listCallsBefore = listVaults.mock.calls.length;
+    getStats.mockResolvedValueOnce({ totalLocked: 100, active: 1 });
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(getStats).toHaveBeenCalledTimes(2));
+    expect(listVaults.mock.calls.length).toBe(listCallsBefore);
   });
 });
