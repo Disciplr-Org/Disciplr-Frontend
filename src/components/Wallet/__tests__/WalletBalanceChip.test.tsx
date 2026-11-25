@@ -99,15 +99,55 @@ describe('WalletBalanceChip', () => {
 
     // ─── Error ───────────────────────────────────────────────────────────────
 
-    it('renders an error indicator when balanceStatus is error', () => {
+    it('shows the previous balance with a stale warning when a refresh fails', () => {
         walletState.balanceStatus = 'error';
         renderChip();
 
-        const chip = screen.getByRole('status');
-        expect(chip).toBeInTheDocument();
+        const chip = screen.getByTestId('wallet-balance-chip');
+        expect(chip).toHaveClass('wallet-balance-chip--stale');
+        expect(chip).toHaveAttribute('title', 'Balance may be out of date');
+        expect(chip).toHaveTextContent('12.0000000');
+        expect(screen.getByText(/out of date/i)).toBeInTheDocument();
+        expect(chip.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('keeps showing the last known balance when the context clears it on error', () => {
+        const { rerender } = renderChip();
+
+        walletState.balanceStatus = 'error';
+        walletState.balance = null;
+        rerender(<WalletBalanceChip />);
+
+        const chip = screen.getByTestId('wallet-balance-chip');
+        expect(chip).toHaveClass('wallet-balance-chip--stale');
+        expect(chip).toHaveTextContent('12.0000000');
+        expect(screen.getByText(/out of date/i)).toBeInTheDocument();
+    });
+
+    it('shows an unavailable message when a refresh fails without a previous balance', () => {
+        walletState.balanceStatus = 'error';
+        walletState.balance = null;
+        renderChip();
+
+        const chip = screen.getByRole('status', { name: 'Balance unavailable' });
         expect(chip).toHaveClass('wallet-balance-chip--error');
-        expect(chip).toHaveTextContent('!');
-        expect(chip).toHaveTextContent('USDC');
-        expect(chip).toHaveAttribute('aria-label', 'Balance unavailable');
+        expect(chip).not.toHaveClass('wallet-balance-chip--stale');
+        expect(screen.getByText(/balance unavailable/i)).toBeInTheDocument();
+        expect(chip).not.toHaveTextContent('12.0000000');
+    });
+
+    it('clears the stale warning after a successful refresh', () => {
+        walletState.balanceStatus = 'error';
+        const { rerender } = renderChip();
+        expect(screen.getByText(/out of date/i)).toBeInTheDocument();
+
+        walletState.balanceStatus = 'success';
+        walletState.balance = '12.5000000';
+        rerender(<WalletBalanceChip />);
+
+        const chip = screen.getByTestId('wallet-balance-chip');
+        expect(chip).toHaveTextContent('12.5000000');
+        expect(screen.queryByText(/out of date/i)).toBeNull();
+        expect(chip).not.toHaveAttribute('title', 'Balance may be out of date');
     });
 });

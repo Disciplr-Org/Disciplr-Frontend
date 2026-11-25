@@ -39,6 +39,11 @@
     font-weight: 700;
 }
 
+.wallet-balance-warning-icon {
+    color: var(--danger);
+    flex-shrink: 0;
+}
+
 /* ─── No trustline state ──────────────────────────────────────────────────── */
 .wallet-balance-chip--no-trustline .wallet-balance-value {
     color: var(--muted);
