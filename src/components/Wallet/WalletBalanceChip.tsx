@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../context/WalletContext';
 import { Skeleton } from '../Skeleton';
 import './wallet-balance-chip.css';
@@ -5,6 +7,20 @@ import './wallet-balance-chip.css';
 
 export function WalletBalanceChip() {
     const { address, balance, balanceStatus } = useWallet();
+    const lastBalanceRef = useRef<{ address: string; balance: string } | null>(null);
+
+    useEffect(() => {
+        if (address && balance && balanceStatus !== 'error') {
+            lastBalanceRef.current = { address, balance };
+        }
+    }, [address, balance, balanceStatus]);
+
+    const previousBalance =
+        balance && address
+            ? balance
+            : lastBalanceRef.current?.address === address
+              ? lastBalanceRef.current.balance
+              : null;
 
     if (!address || balanceStatus === 'idle') return null;
 
@@ -22,15 +38,32 @@ export function WalletBalanceChip() {
     }
 
     if (balanceStatus === 'error') {
+        if (previousBalance) {
+            return (
+                <div
+                    className="wallet-balance-chip wallet-balance-chip--error wallet-balance-chip--stale"
+                    data-testid="wallet-balance-chip"
+                    role="status"
+                    title="Balance may be out of date"
+                >
+                    <AlertTriangle className="wallet-balance-warning-icon" size={14} aria-hidden="true" />
+                    <span className="wallet-balance-value">{previousBalance}</span>
+                    <span className="wallet-balance-currency">USDC</span>
+                    <span className="visually-hidden">Balance may be out of date</span>
+                </div>
+            );
+        }
+
         return (
             <div
                 className="wallet-balance-chip wallet-balance-chip--error"
                 data-testid="wallet-balance-chip"
                 role="status"
                 aria-label="Balance unavailable"
+                title="Balance unavailable"
             >
-                <span className="wallet-balance-value">!</span>
-                <span className="wallet-balance-currency">USDC</span>
+                <AlertTriangle className="wallet-balance-warning-icon" size={14} aria-hidden="true" />
+                <span className="wallet-balance-value">Balance unavailable</span>
             </div>
         );
     }
